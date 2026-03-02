@@ -1,0 +1,24 @@
+running develop
+running egg_info
+creating orion_pybullet_sim.egg-info
+writing orion_pybullet_sim.egg-info/PKG-INFO
+writing dependency_links to orion_pybullet_sim.egg-info/dependency_links.txt
+writing entry points to orion_pybullet_sim.egg-info/entry_points.txt
+writing requirements to orion_pybullet_sim.egg-info/requires.txt
+writing top-level names to orion_pybullet_sim.egg-info/top_level.txt
+writing manifest file 'orion_pybullet_sim.egg-info/SOURCES.txt'
+reading manifest file 'orion_pybullet_sim.egg-info/SOURCES.txt'
+writing manifest file 'orion_pybullet_sim.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion-pybullet-sim.egg-link (link to .)
+Installing pybullet_controller script to /home/joey/My_orion/install/orion_pybullet_sim/lib/orion_pybullet_sim
+
+Installed /home/joey/My_orion/build/orion_pybullet_sim
+running symlink_data
+creating /home/joey/My_orion/install/orion_pybullet_sim/share/ament_index
+creating /home/joey/My_orion/install/orion_pybullet_sim/share/ament_index/resource_index
+creating /home/joey/My_orion/install/orion_pybullet_sim/share/ament_index/resource_index/packages
+symbolically linking /home/joey/My_orion/build/orion_pybullet_sim/resource/orion_pybullet_sim -> /home/joey/My_orion/install/orion_pybullet_sim/share/ament_index/resource_index/packages
+symbolically linking /home/joey/My_orion/build/orion_pybullet_sim/package.xml -> /home/joey/My_orion/install/orion_pybullet_sim/share/orion_pybullet_sim
+creating /home/joey/My_orion/install/orion_pybullet_sim/share/orion_pybullet_sim/launch
+symbolically linking /home/joey/My_orion/build/orion_pybullet_sim/launch/pybullet_sim.launch.py -> /home/joey/My_orion/install/orion_pybullet_sim/share/orion_pybullet_sim/launch

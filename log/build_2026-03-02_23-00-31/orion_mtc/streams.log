@@ -1,0 +1,54 @@
+[0.008s] Invoking command in '/home/joey/My_orion/build/orion_mtc': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake /home/joey/My_orion/src/orion_mtc -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/joey/My_orion/install/orion_mtc
+[0.014s] -- Found ament_cmake: 1.3.13 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.079s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.083s] -- Found rclcpp: 16.0.18 (/opt/ros/humble/share/rclcpp/cmake)
+[0.098s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.099s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.103s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.108s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.114s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.132s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[0.132s] -- Found rmw_fastrtps_cpp: 6.2.10 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[0.186s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[0.209s] -- Found moveit_task_constructor_core: 0.1.3 (/opt/ros/humble/share/moveit_task_constructor_core/cmake)
+[0.229s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: chrono date_time filesystem iostreams program_options regex serialization system thread 
+[0.246s] -- Found parameter_traits: 0.6.0 (/opt/ros/humble/share/parameter_traits/cmake)
+[0.249s] -- Found rclcpp_lifecycle: 16.0.18 (/opt/ros/humble/share/rclcpp_lifecycle/cmake)
+[0.261s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: filesystem 
+[0.276s] -- library: /usr/lib/x86_64-linux-gnu/libcurl.so
+[0.306s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[0.423s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: system filesystem date_time program_options thread chrono 
+[0.438s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: date_time filesystem program_options system thread 
+[0.446s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: thread system filesystem regex date_time program_options 
+[0.457s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: system filesystem date_time program_options thread 
+[0.530s] -- Configuring done
+[0.545s] -- Generating done
+[0.549s] -- Build files have been written to: /home/joey/My_orion/build/orion_mtc
+[0.556s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake /home/joey/My_orion/src/orion_mtc -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/joey/My_orion/install/orion_mtc
+[0.558s] Invoking command in '/home/joey/My_orion/build/orion_mtc': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[0.581s] [35m[1mConsolidate compiler generated dependencies of target mtc_node[0m
+[0.594s] [ 50%] [32m[1mLinking CXX executable mtc_node[0m
+[0.887s] [100%] Built target mtc_node
+[0.894s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[0.900s] Invoking command in '/home/joey/My_orion/build/orion_mtc': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc
+[0.904s] -- Install configuration: ""
+[0.904s] -- Execute custom install script
+[0.904s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+[0.908s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_demo.launch.py
+[0.912s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_pybullet.launch.py
+[0.916s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+[0.921s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+[0.925s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+[0.930s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+[0.936s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+[0.941s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+[0.946s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+[0.952s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+[0.957s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+[0.962s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+[0.966s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+[0.970s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+[0.974s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+[0.979s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+[0.983s] -- Symlinking: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.xml
+[0.989s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc:/home/joey/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc

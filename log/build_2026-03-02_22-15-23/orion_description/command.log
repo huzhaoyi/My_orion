@@ -1,0 +1,4 @@
+Invoking command in '/home/joey/My_orion/build/orion_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_description -- -j4 -l4
+Invoked command in '/home/joey/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_description -- -j4 -l4
+Invoking command in '/home/joey/My_orion/build/orion_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_description
+Invoked command in '/home/joey/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_description

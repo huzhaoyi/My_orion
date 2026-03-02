@@ -1,0 +1,17 @@
+[0.339s] Invoking command in '/home/joey/My_orion/build/orion_pybullet_sim': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc PYTHONPATH=/home/joey/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/joey/My_orion/build/orion_pybullet_sim/build --no-deps symlink_data
+[0.473s] running develop
+[0.547s] running egg_info
+[0.547s] writing orion_pybullet_sim.egg-info/PKG-INFO
+[0.547s] writing dependency_links to orion_pybullet_sim.egg-info/dependency_links.txt
+[0.547s] writing entry points to orion_pybullet_sim.egg-info/entry_points.txt
+[0.547s] writing requirements to orion_pybullet_sim.egg-info/requires.txt
+[0.547s] writing top-level names to orion_pybullet_sim.egg-info/top_level.txt
+[0.548s] reading manifest file 'orion_pybullet_sim.egg-info/SOURCES.txt'
+[0.549s] writing manifest file 'orion_pybullet_sim.egg-info/SOURCES.txt'
+[0.549s] running build_ext
+[0.549s] Creating /home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion-pybullet-sim.egg-link (link to .)
+[0.550s] Installing pybullet_controller script to /home/joey/My_orion/install/orion_pybullet_sim/lib/orion_pybullet_sim
+[0.550s] 
+[0.550s] Installed /home/joey/My_orion/build/orion_pybullet_sim
+[0.550s] running symlink_data
+[0.568s] Invoked command in '/home/joey/My_orion/build/orion_pybullet_sim' returned '0': CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/home/joey/My_orion/install/orion_mtc PYTHONPATH=/home/joey/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/joey/My_orion/build/orion_pybullet_sim/build --no-deps symlink_data

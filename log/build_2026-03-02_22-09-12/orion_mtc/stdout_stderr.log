@@ -1,0 +1,19 @@
+[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+/home/joey/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::setupPlanningScene()’:
+/home/joey/My_orion/src/orion_mtc/src/mtc_node.cpp:66:63: error: no matching function for call to ‘moveit::planning_interface::PlanningSceneInterface::PlanningSceneInterface(rclcpp::Node::SharedPtr&)’
+   66 |   moveit::planning_interface::PlanningSceneInterface psi(node_);
+      |                                                               ^
+In file included from /home/joey/My_orion/src/orion_mtc/src/mtc_node.cpp:4:
+/opt/ros/humble/include/moveit/planning_scene_interface/planning_scene_interface.h:60:12: note: candidate: ‘moveit::planning_interface::PlanningSceneInterface::PlanningSceneInterface(const string&, bool)’
+   60 |   explicit PlanningSceneInterface(const std::string& ns = "", bool wait = true);
+      |            ^~~~~~~~~~~~~~~~~~~~~~
+/opt/ros/humble/include/moveit/planning_scene_interface/planning_scene_interface.h:60:54: note:   no known conversion for argument 1 from ‘rclcpp::Node::SharedPtr’ {aka ‘std::shared_ptr<rclcpp::Node>’} to ‘const string&’ {aka ‘const std::__cxx11::basic_string<char>&’}
+   60 |   explicit PlanningSceneInterface(const std::string& ns = "", bool wait = true);
+      |                                   ~~~~~~~~~~~~~~~~~~~^~~~~~~
+/opt/ros/humble/include/moveit/planning_scene_interface/planning_scene_interface.h:52:7: note: candidate: ‘constexpr moveit::planning_interface::PlanningSceneInterface::PlanningSceneInterface(const moveit::planning_interface::PlanningSceneInterface&)’
+   52 | class PlanningSceneInterface
+      |       ^~~~~~~~~~~~~~~~~~~~~~
+/opt/ros/humble/include/moveit/planning_scene_interface/planning_scene_interface.h:52:7: note:   no known conversion for argument 1 from ‘rclcpp::Node::SharedPtr’ {aka ‘std::shared_ptr<rclcpp::Node>’} to ‘const moveit::planning_interface::PlanningSceneInterface&’
+gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+gmake: *** [Makefile:146：all] 错误 2

@@ -1,0 +1,24 @@
+Consolidate compiler generated dependencies of target mtc_node
+[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[100%] Linking CXX executable mtc_node
+[100%] Built target mtc_node
+-- Install configuration: ""
+-- Installing: /home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+-- Set runtime path of "/home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node" to ""
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_demo.launch.py
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.xml

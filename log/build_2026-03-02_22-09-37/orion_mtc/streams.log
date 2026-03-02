@@ -1,0 +1,28 @@
+[0.009s] Invoking command in '/home/joey/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[0.043s] Consolidate compiler generated dependencies of target mtc_node
+[0.056s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[6.435s] [100%] Linking CXX executable mtc_node
+[6.682s] [100%] Built target mtc_node
+[6.691s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[6.697s] Invoking command in '/home/joey/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc
+[6.701s] -- Install configuration: ""
+[6.701s] -- Installing: /home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+[6.702s] -- Set runtime path of "/home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node" to ""
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_demo.launch.py
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+[6.702s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+[6.703s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.xml
+[6.704s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc

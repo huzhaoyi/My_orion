@@ -1,0 +1,10 @@
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/uninstall.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/orion_mtc_uninstall.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/mtc_node.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/test.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/edit_cache.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/rebuild_cache.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/list_install_components.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/install.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/install/local.dir
+/home/joey/My_orion/build/orion_mtc/CMakeFiles/install/strip.dir

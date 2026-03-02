@@ -1,0 +1,20 @@
+[100%] Built target mtc_node
+-- Install configuration: ""
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch
+-- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_demo.launch.py
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+-- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.xml

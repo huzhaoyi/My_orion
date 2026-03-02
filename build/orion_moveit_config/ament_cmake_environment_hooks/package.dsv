@@ -1,0 +1,4 @@
+source;share/orion_moveit_config/local_setup.bash
+source;share/orion_moveit_config/local_setup.dsv
+source;share/orion_moveit_config/local_setup.sh
+source;share/orion_moveit_config/local_setup.zsh
