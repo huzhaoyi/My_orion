@@ -33,7 +33,7 @@ ament_target_dependencies(mtc_node
 
 install(TARGETS mtc_node
   DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch
+install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME})
 
 ament_package()

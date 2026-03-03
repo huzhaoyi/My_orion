@@ -1,0 +1,73 @@
+[0.005s] Invoking command in '/home/joey/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake /home/joey/My_orion/src/orion_mtc -DCMAKE_INSTALL_PREFIX=/home/joey/My_orion/install/orion_mtc
+[0.035s] -- The C compiler identification is GNU 11.4.0
+[0.066s] -- The CXX compiler identification is GNU 11.4.0
+[0.072s] -- Detecting C compiler ABI info
+[0.108s] -- Detecting C compiler ABI info - done
+[0.112s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.113s] -- Detecting C compile features
+[0.113s] -- Detecting C compile features - done
+[0.114s] -- Detecting CXX compiler ABI info
+[0.158s] -- Detecting CXX compiler ABI info - done
+[0.161s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.161s] -- Detecting CXX compile features
+[0.161s] -- Detecting CXX compile features - done
+[0.162s] -- Found ament_cmake: 1.3.13 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.242s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.301s] -- Found rclcpp: 16.0.18 (/opt/ros/humble/share/rclcpp/cmake)
+[0.459s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.474s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.507s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.553s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.601s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.738s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[0.751s] -- Found rmw_fastrtps_cpp: 6.2.10 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[0.925s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[0.946s] -- Found FastRTPS: /opt/ros/humble/include  
+[0.968s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[0.999s] -- Looking for pthread.h
+[1.115s] -- Looking for pthread.h - found
+[1.115s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[1.158s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[1.158s] -- Found Threads: TRUE  
+[1.221s] -- Found moveit_task_constructor_core: 0.1.3 (/opt/ros/humble/share/moveit_task_constructor_core/cmake)
+[1.301s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: chrono date_time filesystem iostreams program_options regex serialization system thread 
+[1.344s] -- Found parameter_traits: 0.6.0 (/opt/ros/humble/share/parameter_traits/cmake)
+[1.358s] -- Found rclcpp_lifecycle: 16.0.18 (/opt/ros/humble/share/rclcpp_lifecycle/cmake)
+[1.390s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: filesystem 
+[1.452s] -- library: /usr/lib/x86_64-linux-gnu/libcurl.so
+[1.537s] -- Found Eigen3: TRUE (found version "3.4.0") 
+[1.537s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[1.821s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: system filesystem date_time program_options thread chrono 
+[1.846s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: date_time filesystem program_options system thread 
+[1.858s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: thread system filesystem regex date_time program_options 
+[1.877s] -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found version "1.74.0") found components: system filesystem date_time program_options thread 
+[1.943s] -- Found control_msgs: 4.8.0 (/opt/ros/humble/share/control_msgs/cmake)
+[2.001s] -- Configuring done
+[2.059s] -- Generating done
+[2.064s] -- Build files have been written to: /home/joey/My_orion/build/orion_mtc
+[2.072s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake /home/joey/My_orion/src/orion_mtc -DCMAKE_INSTALL_PREFIX=/home/joey/My_orion/install/orion_mtc
+[2.072s] Invoking command in '/home/joey/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[2.098s] [ 50%] [32mBuilding CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o[0m
+[13.620s] [100%] [32m[1mLinking CXX executable mtc_node[0m
+[14.375s] [100%] Built target mtc_node
+[14.383s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake --build /home/joey/My_orion/build/orion_mtc -- -j4 -l4
+[14.384s] Invoking command in '/home/joey/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc
+[14.388s] -- Install configuration: ""
+[14.389s] -- Installing: /home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+[14.390s] -- Set runtime path of "/home/joey/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node" to ""
+[14.390s] -- Up-to-date: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_pybullet.launch.py
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+[14.390s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+[14.391s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+[14.391s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+[14.392s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+[14.392s] -- Installing: /home/joey/My_orion/install/orion_mtc/share/orion_mtc/package.xml
+[14.393s] Invoked command in '/home/joey/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/joey/My_orion/install/orion_pybullet_sim:/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/joey/My_orion/install/orion_moveit_config:/home/joey/My_orion/install/orion_description:/opt/ros/humble PYTHONPATH=/home/joey/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/cmake --install /home/joey/My_orion/build/orion_mtc

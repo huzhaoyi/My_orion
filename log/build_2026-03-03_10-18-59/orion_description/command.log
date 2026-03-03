@@ -1,6 +1,0 @@
-Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/huzy/My_orion/src/orion_description -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/huzy/My_orion/install/orion_description
-Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/huzy/My_orion/src/orion_description -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/huzy/My_orion/install/orion_description
-Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
-Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
-Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description
-Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description

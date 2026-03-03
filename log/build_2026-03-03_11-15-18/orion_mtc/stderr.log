@@ -1,7 +1,0 @@
-/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::applyAllowCollisionObjectHand()’:
-/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:103:81: error: ‘ALLOWED_COLLISION_MATRIX’ is not a member of ‘moveit_msgs::srv::GetPlanningScene::Request’ {aka ‘moveit_msgs::srv::GetPlanningScene_Request_<std::allocator<void> >’}
-  103 |   get_req->components.components = moveit_msgs::srv::GetPlanningScene::Request::ALLOWED_COLLISION_MATRIX;
-      |                                                                                 ^~~~~~~~~~~~~~~~~~~~~~~~
-gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
-gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
-gmake: *** [Makefile:146：all] 错误 2

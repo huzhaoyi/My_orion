@@ -16,6 +16,7 @@ def generate_launch_description():
     orion_desc_share = get_package_share_directory("orion_description")
     orion_moveit_share = get_package_share_directory("orion_moveit_config")
     orion_pybullet_share = get_package_share_directory("orion_pybullet_sim")
+    orion_mtc_share = get_package_share_directory("orion_mtc")
 
     urdf_path = os.path.join(orion_desc_share, "urdf", "orion.urdf")
     srdf_path = os.path.join(orion_moveit_share, "config", "orion.srdf")
@@ -60,6 +61,14 @@ def generate_launch_description():
         move_group_params.update(yaml.safe_load(f))
     with open(controllers_path, "r") as f:
         move_group_params.update(yaml.safe_load(f))
+
+    # 合并 MTC pick-place 参数（approach/lift/place/支撑面等，与官方 demo 对应）
+    pick_place_params_path = os.path.join(orion_mtc_share, "config", "pick_place_params.yaml")
+    if os.path.isfile(pick_place_params_path):
+        with open(pick_place_params_path, "r") as f:
+            pick_place_params = yaml.safe_load(f)
+        if pick_place_params:
+            move_group_params.update(pick_place_params)
 
     pybullet_launch = os.path.join(orion_pybullet_share, "launch", "pybullet_sim.launch.py")
 

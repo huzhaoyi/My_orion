@@ -1,0 +1,41 @@
+# orion_mtc pick-place 参数（与 MTC demo 对应，由 launch 合并进节点参数）
+# 参考: https://github.com/moveit/moveit_task_constructor (demo Params / pick_place_demo.yaml)
+
+# Approach: 沿末端 z 接近物体的距离范围 [m]
+approach_object_min_dist: 0.10
+approach_object_max_dist: 0.15
+
+# Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
+lift_object_min_dist: 0.05
+lift_object_max_dist: 0.25
+
+# 支撑面 link：非空时在 Lift 前加 allow collision (object,support)、Lift 后加 forbid
+# 无桌面时留空 ""；加桌面后填对应 collision object 的 id 或 link 名（如 "table"）
+support_surface_link: ""
+
+# 放置位姿（base_link 下）[m]
+place_pose_x: 0.35
+place_pose_y: 0.15
+place_pose_z: 0.4
+place_pose_qx: 0.0
+place_pose_qy: 0.0
+place_pose_qz: 0.0
+place_pose_qw: 1.0
+
+# Retreat 退离距离范围 [m]
+retreat_min_dist: 0.12
+retreat_max_dist: 0.25
+
+# 放置前下降距离范围 [m]
+lower_to_place_min_dist: 0.05
+lower_to_place_max_dist: 0.12
+
+# 物体初始位姿（add object 阶段，base_link 下）[m]
+object_position_x: 0.35
+object_position_y: -0.15
+object_position_z: 0.4
+
+# 预抓取位姿（pregrasp，base_link 下）[m]，夹爪朝下 (qx=1,qw=0)；z 略高可减少 Link8-Link2 自碰
+pregrasp_x: 0.40
+pregrasp_y: -0.15
+pregrasp_z: 0.65

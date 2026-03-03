@@ -1,1 +1,36 @@
-/home/huzy/My_orion/src/orion_moveit_config/config/ompl_planning.yaml
+planning_plugin: ompl_interface/OMPLPlanner
+
+# MoveIt2 期望为字符串；适配器须为 default_planner_request_adapters（非 default_planning_request_adapters）
+request_adapters: >-
+  default_planner_request_adapters/AddTimeOptimalParameterization
+  default_planner_request_adapters/ResolveConstraintFrames
+  default_planner_request_adapters/FixWorkspaceBounds
+  default_planner_request_adapters/FixStartStateBounds
+  default_planner_request_adapters/FixStartStateCollision
+  default_planner_request_adapters/FixStartStatePathConstraints
+
+start_state_max_bounds_error: 0.1
+
+# OMPL 需在 pipeline 下提供 planner_configs 定义，arm 中仅引用名称
+planner_configs:
+  RRTConnectkConfigDefault:
+    type: geometric::RRTConnect
+    range: 0.0
+  RRTkConfigDefault:
+    type: geometric::RRT
+    range: 0.0
+    goal_bias: 0.05
+  RRTstarkConfigDefault:
+    type: geometric::RRTstar
+    range: 0.0
+    goal_bias: 0.05
+    delay_collision_checking: 1
+
+arm:
+  planner_configs:
+    - RRTConnectkConfigDefault
+    - RRTkConfigDefault
+    - RRTstarkConfigDefault
+  projection_evaluator: joints(joint_base_link_Link1,joint_Link1_Link2,joint_Link2_Link3,joint_LinkVirtual_Link4,joint_Link4_Link5,joint_Link5_Link6)
+  default_planner_config: RRTConnectkConfigDefault
+  multi_dof_planning: false

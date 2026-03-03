@@ -84,6 +84,48 @@ OrionMTCTaskNode::OrionMTCTaskNode(const rclcpp::NodeOptions& options)
   : node_{ std::make_shared<rclcpp::Node>("orion_mtc_node", options) }
   , action_client_node_{ std::make_shared<rclcpp::Node>("orion_mtc_action_client", options) }
 {
+  /* 仅当 launch 未传入时声明 MTC pick-place 参数，避免与 params-file 重复声明导致 ParameterAlreadyDeclaredException */
+  auto declare_if_not_set = [this](const char* name, double val) {
+    try
+    {
+      node_->declare_parameter<double>(name, val);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+    {
+      /* 已由 launch 的 params 提供，跳过 */
+    }
+  };
+  auto declare_str_if_not_set = [this](const char* name, const std::string& val) {
+    try
+    {
+      node_->declare_parameter<std::string>(name, val);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+    {
+    }
+  };
+  declare_if_not_set("approach_object_min_dist", 0.10);
+  declare_if_not_set("approach_object_max_dist", 0.15);
+  declare_if_not_set("lift_object_min_dist", 0.05);
+  declare_if_not_set("lift_object_max_dist", 0.25);
+  declare_str_if_not_set("support_surface_link", "");
+  declare_if_not_set("place_pose_x", 0.35);
+  declare_if_not_set("place_pose_y", 0.15);
+  declare_if_not_set("place_pose_z", 0.4);
+  declare_if_not_set("place_pose_qx", 0.0);
+  declare_if_not_set("place_pose_qy", 0.0);
+  declare_if_not_set("place_pose_qz", 0.0);
+  declare_if_not_set("place_pose_qw", 1.0);
+  declare_if_not_set("retreat_min_dist", 0.12);
+  declare_if_not_set("retreat_max_dist", 0.25);
+  declare_if_not_set("lower_to_place_min_dist", 0.05);
+  declare_if_not_set("lower_to_place_max_dist", 0.12);
+  declare_if_not_set("object_position_x", 0.35);
+  declare_if_not_set("object_position_y", -0.15);
+  declare_if_not_set("object_position_z", 0.4);
+  declare_if_not_set("pregrasp_x", 0.40);
+  declare_if_not_set("pregrasp_y", -0.15);
+  declare_if_not_set("pregrasp_z", 0.62);
 }
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCTaskNode::getNodeBaseInterface()
@@ -140,8 +182,8 @@ bool OrionMTCTaskNode::sendJointTrajectory(const std::string& controller_name,
   goal_msg.trajectory.header.stamp.sec = 0;
   goal_msg.trajectory.header.stamp.nanosec = 0;  /* 置零最兼容，避免 VM/仿真下“已过期”误判 */
   auto goal_handle_future = client->async_send_goal(goal_msg);
-  /* 节点已在其他线程的 executor 中 spin，仅等待 future 完成 */
-  if (goal_handle_future.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  /* 等待 server 接受 goal；长轨迹或仿真延迟时需更长时间，取 15s */
+  if (goal_handle_future.wait_for(std::chrono::seconds(15)) != std::future_status::ready)
   {
     RCLCPP_ERROR(LOGGER, "sendJointTrajectory: send_goal timeout for %s", controller_name.c_str());
     return false;
@@ -473,6 +515,40 @@ void OrionMTCTaskNode::doTask()
 
 mtc::Task OrionMTCTaskNode::createTask()
 {
+  /* 从参数服务器读取 pick-place 参数（默认见 config/pick_place_params.yaml） */
+  double approach_min = 0.10, approach_max = 0.15;
+  double lift_min = 0.05, lift_max = 0.25;
+  std::string support_surface_link;
+  double place_x = 0.35, place_y = 0.15, place_z = 0.4;
+  double place_qx = 0.0, place_qy = 0.0, place_qz = 0.0, place_qw = 1.0;
+  double retreat_min = 0.12, retreat_max = 0.25;
+  double lower_min = 0.05, lower_max = 0.12;
+  double obj_x = 0.35, obj_y = -0.15, obj_z = 0.4;
+  double pregrasp_x = 0.40, pregrasp_y = -0.15, pregrasp_z = 0.62;
+
+  node_->get_parameter("approach_object_min_dist", approach_min);
+  node_->get_parameter("approach_object_max_dist", approach_max);
+  node_->get_parameter("lift_object_min_dist", lift_min);
+  node_->get_parameter("lift_object_max_dist", lift_max);
+  node_->get_parameter("support_surface_link", support_surface_link);
+  node_->get_parameter("place_pose_x", place_x);
+  node_->get_parameter("place_pose_y", place_y);
+  node_->get_parameter("place_pose_z", place_z);
+  node_->get_parameter("place_pose_qx", place_qx);
+  node_->get_parameter("place_pose_qy", place_qy);
+  node_->get_parameter("place_pose_qz", place_qz);
+  node_->get_parameter("place_pose_qw", place_qw);
+  node_->get_parameter("retreat_min_dist", retreat_min);
+  node_->get_parameter("retreat_max_dist", retreat_max);
+  node_->get_parameter("lower_to_place_min_dist", lower_min);
+  node_->get_parameter("lower_to_place_max_dist", lower_max);
+  node_->get_parameter("object_position_x", obj_x);
+  node_->get_parameter("object_position_y", obj_y);
+  node_->get_parameter("object_position_z", obj_z);
+  node_->get_parameter("pregrasp_x", pregrasp_x);
+  node_->get_parameter("pregrasp_y", pregrasp_y);
+  node_->get_parameter("pregrasp_z", pregrasp_z);
+
   mtc::Task task;
   task.stages()->setName("orion pick place");
   task.loadRobotModel(node_);
@@ -488,7 +564,7 @@ mtc::Task OrionMTCTaskNode::createTask()
   auto stage_state_current = std::make_unique<mtc::stages::CurrentState>("current");
   task.add(std::move(stage_state_current));
 
-  /* 在任务内将物体加入规划场景，确保 generate grasp pose 时 object 已在场景中（不依赖 /collision_object 同步） */
+  /* 在任务内将物体加入规划场景（位姿由参数 object_position_* 指定） */
   {
     moveit_msgs::msg::CollisionObject object;
     object.id = "object";
@@ -497,9 +573,9 @@ mtc::Task OrionMTCTaskNode::createTask()
     object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
     object.primitives[0].dimensions = { 0.1f, 0.02f };
     geometry_msgs::msg::Pose pose;
-    pose.position.x = 0.35f;
-    pose.position.y = -0.15f;
-    pose.position.z = 0.4f;
+    pose.position.x = static_cast<float>(obj_x);
+    pose.position.y = static_cast<float>(obj_y);
+    pose.position.z = static_cast<float>(obj_z);
     pose.orientation.w = 1.0f;
     object.pose = pose;
 
@@ -508,9 +584,11 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.add(std::move(stage_add_object));
   }
 
-  /* 远距离连接用 Pilz PTP，路径规矩、少绕圈；靠近物体用笛卡尔 */
+  /* 远距离连接用 Pilz PTP；pregrasp 用 OMPL 避免 PTP 路径导致 Link8-Link2 自碰 */
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
+  auto ompl_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "move_group");
+  ompl_planner->setPlannerId("RRTConnect");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
 
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
@@ -545,41 +623,39 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
     grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
-    /* 1) MoveTo(PTP) 到固定 pregrasp；IK frame=Link6 避免用错末端。若 setIKFrame 未生效可试：properties().set("ik_frame", hand_frame) */
+    /* 1) MoveTo 到 pregrasp（用 OMPL 避自碰），夹爪朝下 */
     {
       geometry_msgs::msg::PoseStamped pregrasp;
       pregrasp.header.frame_id = "base_link";
-      pregrasp.pose.position.x = 0.40;   /* 再略后移、抬高，PTP 路径更伸展，避免 Link2-Link8 自碰 */
-      pregrasp.pose.position.y = -0.15;
-      pregrasp.pose.position.z = 0.62;   /* 物体 z=0.4，上方约 22cm */
-      /* 夹爪朝下（绕 X 转 180°），与 approach base_link -Z 一致，PTP 不扭腕；也可从 RViz 拖到预抓姿后把四元数填进来 */
+      pregrasp.pose.position.x = pregrasp_x;
+      pregrasp.pose.position.y = pregrasp_y;
+      pregrasp.pose.position.z = pregrasp_z;
       pregrasp.pose.orientation.x = 1.0;
       pregrasp.pose.orientation.y = 0.0;
       pregrasp.pose.orientation.z = 0.0;
       pregrasp.pose.orientation.w = 0.0;
 
-      auto stage = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
+      auto stage = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
       stage->setGroup(arm_group_name);
       stage->setGoal(pregrasp);
       stage->setIKFrame(hand_frame);
       grasp->insert(std::move(stage));
     }
 
-    /* 2) 笛卡尔 approach：从上往下抓，夹爪沿 base_link -Z 向下贴近物体（pregrasp 已在物体上方） */
+    /* 2) 笛卡尔 approach：沿末端 Link6 的 z 轴接近物体（与 MTC demo 一致，frame=hand_frame） */
     {
       auto stage =
           std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
       stage->properties().set("marker_ns", "approach_object");
       stage->properties().set("link", hand_frame);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.10, 0.15);
+      stage->setMinMaxDistance(static_cast<float>(approach_min), static_cast<float>(approach_max));
 
       geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = "base_link";
-      /* 从上往下抓：夹爪沿 base_link Z 轴向下接近物体。若实际变成从下往上抓，把 1.0 改为 -1.0 */
+      vec.header.frame_id = hand_frame;
       vec.vector.x = 0.0;
       vec.vector.y = 0.0;
-      vec.vector.z = 1.0;   /* 当前设 +1：与夹爪朝下姿态配合，实现从上往下抓 */
+      vec.vector.z = 1.0;   /* 沿手爪坐标系 z 轴正向（夹爪朝下时即为向下接近，与 MTC demo 一致） */
       stage->setDirection(vec);
       grasp->insert(std::move(stage));
     }
@@ -610,18 +686,39 @@ mtc::Task OrionMTCTaskNode::createTask()
       grasp->insert(std::move(stage));
     }
 
+    /* 有支撑面时：Lift 前允许 object 与支撑面碰撞（与 MTC demo 一致） */
+    if (!support_surface_link.empty())
+    {
+      auto stage =
+          std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,support)");
+      stage->allowCollisions("object", std::vector<std::string>{ support_surface_link }, true);
+      grasp->insert(std::move(stage));
+    }
+
+    /* 抬升：沿 base_link +Z，距离由参数 lift_object_* 指定 */
     {
       auto stage =
           std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.1, 0.3);
+      stage->setMinMaxDistance(static_cast<float>(lift_min), static_cast<float>(lift_max));
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "lift_object");
 
       geometry_msgs::msg::Vector3Stamped vec;
       vec.header.frame_id = "base_link";
+      vec.vector.x = 0.0;
+      vec.vector.y = 0.0;
       vec.vector.z = 1.0;
       stage->setDirection(vec);
+      grasp->insert(std::move(stage));
+    }
+
+    /* 有支撑面时：Lift 后禁止 object 与支撑面碰撞 */
+    if (!support_surface_link.empty())
+    {
+      auto stage =
+          std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (object,surface)");
+      stage->allowCollisions("object", std::vector<std::string>{ support_surface_link }, false);
       grasp->insert(std::move(stage));
     }
 
@@ -645,6 +742,7 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
     place->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
+    /* 放置位姿：在 base_link 下指定（由参数 place_pose_*），避免 object 帧 TF 查不到 */
     {
       auto stage = std::make_unique<mtc::stages::GeneratePlacePose>("generate place pose");
       stage->properties().configureInitFrom(mtc::Stage::PARENT);
@@ -652,29 +750,34 @@ mtc::Task OrionMTCTaskNode::createTask()
       stage->setObject("object");
 
       geometry_msgs::msg::PoseStamped target_pose_msg;
-      target_pose_msg.header.frame_id = "object";
-      target_pose_msg.pose.position.y = 0.5;
-      target_pose_msg.pose.orientation.w = 1.0;
+      target_pose_msg.header.frame_id = "base_link";
+      target_pose_msg.pose.position.x = place_x;
+      target_pose_msg.pose.position.y = place_y;
+      target_pose_msg.pose.position.z = place_z;
+      target_pose_msg.pose.orientation.x = place_qx;
+      target_pose_msg.pose.orientation.y = place_qy;
+      target_pose_msg.pose.orientation.z = place_qz;
+      target_pose_msg.pose.orientation.w = place_qw;
       stage->setPose(target_pose_msg);
       stage->setMonitoredStage(attach_object_stage);
 
       auto wrapper =
           std::make_unique<mtc::stages::ComputeIK>("place pose IK", std::move(stage));
       wrapper->setMaxIKSolutions(2);
-      wrapper->setMinSolutionDistance(1.0);
+      wrapper->setMinSolutionDistance(1.0f);
       wrapper->setIgnoreCollisions(true);
-      wrapper->setIKFrame("object");
+      wrapper->setIKFrame(hand_frame);   /* 用 hand_frame 避免 object 帧 TF 报错 */
       wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
       wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
       place->insert(std::move(wrapper));
     }
 
-    /* 放置前笛卡尔下降，贴近放置面，轨迹更自然 */
+    /* 放置前笛卡尔下降，距离由参数 lower_to_place_* 指定 */
     {
       auto stage =
           std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.05, 0.12);
+      stage->setMinMaxDistance(static_cast<float>(lower_min), static_cast<float>(lower_max));
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "lower_place");
 
@@ -698,17 +801,19 @@ mtc::Task OrionMTCTaskNode::createTask()
       place->insert(std::move(stage));
     }
 
-    /* 沿 base_link +Z 退离，避免 forbid collision 时 Link6 仍与 object 接触 */
+    /* 沿手爪坐标系 -z 退离，距离由参数 retreat_* 指定 */
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.1, 0.25);
+      stage->setMinMaxDistance(static_cast<float>(retreat_min), static_cast<float>(retreat_max));
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "retreat");
 
       geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = "base_link";
-      vec.vector.z = 1.0;  /* 向上退离放置面，再 forbid collision */
+      vec.header.frame_id = hand_frame;
+      vec.vector.x = 0.0;
+      vec.vector.y = 0.0;
+      vec.vector.z = -1.0;
       stage->setDirection(vec);
       place->insert(std::move(stage));
     }

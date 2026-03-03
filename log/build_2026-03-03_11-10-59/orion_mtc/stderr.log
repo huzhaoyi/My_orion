@@ -1,4 +1,0 @@
-/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘moveit::task_constructor::Task OrionMTCTaskNode::createTask()’:
-/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:133:15: warning: variable ‘current_state_ptr’ set but not used [-Wunused-but-set-variable]
-  133 |   mtc::Stage* current_state_ptr = nullptr;
-      |               ^~~~~~~~~~~~~~~~~
