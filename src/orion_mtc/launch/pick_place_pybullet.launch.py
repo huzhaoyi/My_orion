@@ -21,6 +21,8 @@ def generate_launch_description():
     srdf_path = os.path.join(orion_moveit_share, "config", "orion.srdf")
     joint_limits_path = os.path.join(orion_moveit_share, "config", "joint_limits.yaml")
     ompl_path = os.path.join(orion_moveit_share, "config", "ompl_planning.yaml")
+    pilz_path = os.path.join(orion_moveit_share, "config", "pilz_industrial_motion_planner_planning.yaml")
+    pilz_cartesian_path = os.path.join(orion_moveit_share, "config", "pilz_cartesian_limits.yaml")
     kinematics_path = os.path.join(orion_moveit_share, "config", "kinematics.yaml")
     controllers_path = os.path.join(orion_moveit_share, "config", "moveit_controllers.yaml")
 
@@ -38,12 +40,22 @@ def generate_launch_description():
         "publish_robot_description_semantic": True,
     }
     with open(joint_limits_path, "r") as f:
-        move_group_params.update(yaml.safe_load(f))
+        joint_limits_cfg = yaml.safe_load(f)
+    move_group_params.update(joint_limits_cfg)
+    with open(pilz_cartesian_path, "r") as f:
+        pilz_cartesian_cfg = yaml.safe_load(f)
+    move_group_params["robot_description_planning"] = {
+        "joint_limits": joint_limits_cfg.get("joint_limits", joint_limits_cfg),
+        "cartesian_limits": pilz_cartesian_cfg["robot_description_planning"]["cartesian_limits"],
+    }
     with open(ompl_path, "r") as f:
         ompl_config = yaml.safe_load(f)
-    move_group_params["planning_pipelines"] = ["move_group"]
+    with open(pilz_path, "r") as f:
+        pilz_config = yaml.safe_load(f)
+    move_group_params["planning_pipelines"] = ["move_group", "pilz"]
     move_group_params["default_planning_pipeline"] = "move_group"
     move_group_params["move_group"] = ompl_config
+    move_group_params["pilz"] = pilz_config
     with open(kinematics_path, "r") as f:
         move_group_params.update(yaml.safe_load(f))
     with open(controllers_path, "r") as f:

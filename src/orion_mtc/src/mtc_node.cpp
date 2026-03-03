@@ -4,6 +4,7 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <moveit_msgs/msg/planning_scene.hpp>
+#include <shape_msgs/msg/solid_primitive.hpp>
 #include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <moveit_msgs/srv/apply_planning_scene.hpp>
 #include <moveit_msgs/srv/get_planning_scene.hpp>
@@ -29,6 +30,7 @@
 #include <algorithm>
 #include <chrono>
 #include <future>
+#include <mutex>
 #include <unordered_map>
 #include <iostream>
 #include <memory>
@@ -75,6 +77,7 @@ private:
   std::unordered_map<std::string,
                      rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr>
       follow_jt_clients_;
+  std::mutex follow_jt_mutex_;
 };
 
 OrionMTCTaskNode::OrionMTCTaskNode(const rclcpp::NodeOptions& options)
@@ -106,23 +109,36 @@ bool OrionMTCTaskNode::sendJointTrajectory(const std::string& controller_name,
   RCLCPP_DEBUG(LOGGER, "sendJointTrajectory: %s joints=%zu points=%zu",
                controller_name.c_str(), jt.joint_names.size(), jt.points.size());
 
-  auto it = follow_jt_clients_.find(controller_name);
-  if (it == follow_jt_clients_.end())
+  rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr client;
+  bool need_wait_server = false;
   {
-    std::string action_name = "/" + controller_name + "/follow_joint_trajectory";
-    auto client = rclcpp_action::create_client<control_msgs::action::FollowJointTrajectory>(
-        action_client_node_, action_name);
-    if (!client->wait_for_action_server(std::chrono::seconds(5)))
+    std::lock_guard<std::mutex> lk(follow_jt_mutex_);
+    auto it = follow_jt_clients_.find(controller_name);
+    if (it == follow_jt_clients_.end())
     {
-      RCLCPP_ERROR(LOGGER, "sendJointTrajectory: action %s not available", action_name.c_str());
-      return false;
+      std::string action_name = "/" + controller_name + "/follow_joint_trajectory";
+      auto c = rclcpp_action::create_client<control_msgs::action::FollowJointTrajectory>(
+          action_client_node_, action_name);
+      follow_jt_clients_.emplace(controller_name, c);
+      client = c;
+      need_wait_server = true;
     }
-    it = follow_jt_clients_.emplace(controller_name, std::move(client)).first;
+    else
+    {
+      client = it->second;
+    }
   }
-  auto& client = it->second;
+  if (need_wait_server && !client->wait_for_action_server(std::chrono::seconds(5)))
+  {
+    RCLCPP_ERROR(LOGGER, "sendJointTrajectory: action /%s/follow_joint_trajectory not available",
+                 controller_name.c_str());
+    return false;
+  }
+
   auto goal_msg = control_msgs::action::FollowJointTrajectory::Goal();
   goal_msg.trajectory = jt;
-  goal_msg.trajectory.header.stamp = action_client_node_->now();
+  goal_msg.trajectory.header.stamp.sec = 0;
+  goal_msg.trajectory.header.stamp.nanosec = 0;  /* 置零最兼容，避免 VM/仿真下“已过期”误判 */
   auto goal_handle_future = client->async_send_goal(goal_msg);
   /* 节点已在其他线程的 executor 中 spin，仅等待 future 完成 */
   if (goal_handle_future.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
@@ -174,8 +190,18 @@ bool OrionMTCTaskNode::executeSubTrajectory(
       auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
       req->scene = sub.scene_diff;
       auto fut = apply_planning_scene_client_->async_send_request(req);
-      if (fut.wait_for(std::chrono::seconds(5)) == std::future_status::ready && fut.get()->success)
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      if (fut.wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+      {
+        auto res = fut.get();
+        if (!res || !res->success)
+          RCLCPP_WARN(LOGGER, "executeSubTrajectory: apply_planning_scene returned false");
+        else
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      else
+      {
+        RCLCPP_WARN(LOGGER, "executeSubTrajectory: apply_planning_scene timed out");
+      }
     }
   }
 
@@ -342,6 +368,13 @@ bool OrionMTCTaskNode::executeSubTrajectory(
       to_send.emplace_back(ctrl, jt_to_send);
   }
 
+  if (!traj.points.empty() && to_send.empty())
+  {
+    RCLCPP_WARN(LOGGER,
+                "executeSubTrajectory: trajectory non-empty but no controller selected; joint_names=%zu",
+                traj.joint_names.size());
+  }
+
   /* 单控制器时同步发送；多控制器时先并发发送再统一等待（arm+hand 同步执行） */
   if (to_send.size() == 1u)
   {
@@ -452,9 +485,6 @@ mtc::Task OrionMTCTaskNode::createTask()
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
 
-  /* 指向“物体已加入场景”之后的阶段，供 GenerateGraspPose 的 setMonitoredStage 使用，否则会从 current 取场景导致 object 不在场景 */
-  mtc::Stage* stage_with_object_ptr = nullptr;
-
   auto stage_state_current = std::make_unique<mtc::stages::CurrentState>("current");
   task.add(std::move(stage_state_current));
 
@@ -475,11 +505,12 @@ mtc::Task OrionMTCTaskNode::createTask()
 
     auto stage_add_object = std::make_unique<mtc::stages::ModifyPlanningScene>("add object");
     stage_add_object->addObject(object);
-    stage_with_object_ptr = stage_add_object.get();
     task.add(std::move(stage_add_object));
   }
 
-  auto sampling_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_);
+  /* 远距离连接用 Pilz PTP，路径规矩、少绕圈；靠近物体用笛卡尔 */
+  auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  ptp_planner->setPlannerId("PTP");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
 
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
@@ -487,6 +518,7 @@ mtc::Task OrionMTCTaskNode::createTask()
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(0.01);
 
+  /* 官方骨架：CurrentState → OpenHand → Connect(pregrasp) → Pick → Connect(preplace) → Place → ReturnHome */
   auto stage_open_hand =
       std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
   stage_open_hand->setGroup(hand_group_name);
@@ -498,64 +530,58 @@ mtc::Task OrionMTCTaskNode::createTask()
         task.getRobotModel()
             ->getJointModelGroup(hand_group_name)
             ->getLinkModelNamesWithCollisionGeometry();
-    hand_and_wrist_links.push_back(hand_frame);  // Link6 手腕，抓取时也可能接触物体
+    hand_and_wrist_links.push_back(hand_frame);
     auto stage =
         std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
     stage->allowCollisions("object", hand_and_wrist_links, true);
     task.add(std::move(stage));
   }
 
-  auto stage_move_to_pick = std::make_unique<mtc::stages::Connect>(
-      "move to pick",
-      mtc::stages::Connect::GroupPlannerVector{ { arm_group_name, sampling_planner } });
-  stage_move_to_pick->setTimeout(5.0);
-  stage_move_to_pick->properties().configureInitFrom(mtc::Stage::PARENT);
-  task.add(std::move(stage_move_to_pick));
-
   mtc::Stage* attach_object_stage = nullptr;
 
+  /* Pick 容器：固定 pregrasp + MoveTo(PTP) + Approach(笛卡尔)。若仍偶发“肘下解”绕路，可在 joint_limits 或 MoveTo 的 path_constraints 里限制肘关节范围 */
   {
     auto grasp = std::make_unique<mtc::SerialContainer>("pick object");
     task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
     grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
+    /* 1) MoveTo(PTP) 到固定 pregrasp；IK frame=Link6 避免用错末端。若 setIKFrame 未生效可试：properties().set("ik_frame", hand_frame) */
+    {
+      geometry_msgs::msg::PoseStamped pregrasp;
+      pregrasp.header.frame_id = "base_link";
+      pregrasp.pose.position.x = 0.40;   /* 再略后移、抬高，PTP 路径更伸展，避免 Link2-Link8 自碰 */
+      pregrasp.pose.position.y = -0.15;
+      pregrasp.pose.position.z = 0.62;   /* 物体 z=0.4，上方约 22cm */
+      /* 夹爪朝下（绕 X 转 180°），与 approach base_link -Z 一致，PTP 不扭腕；也可从 RViz 拖到预抓姿后把四元数填进来 */
+      pregrasp.pose.orientation.x = 1.0;
+      pregrasp.pose.orientation.y = 0.0;
+      pregrasp.pose.orientation.z = 0.0;
+      pregrasp.pose.orientation.w = 0.0;
+
+      auto stage = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
+      stage->setGroup(arm_group_name);
+      stage->setGoal(pregrasp);
+      stage->setIKFrame(hand_frame);
+      grasp->insert(std::move(stage));
+    }
+
+    /* 2) 笛卡尔 approach：从上往下抓，夹爪沿 base_link -Z 向下贴近物体（pregrasp 已在物体上方） */
     {
       auto stage =
           std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
       stage->properties().set("marker_ns", "approach_object");
       stage->properties().set("link", hand_frame);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.0, 0.15);  // 最小 0 以通过；Achieved 0 时多为笛卡尔路径未生成
+      stage->setMinMaxDistance(0.10, 0.15);
 
       geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = hand_frame;
-      vec.vector.z = 1.0;
+      vec.header.frame_id = "base_link";
+      /* 从上往下抓：夹爪沿 base_link Z 轴向下接近物体。若实际变成从下往上抓，把 1.0 改为 -1.0 */
+      vec.vector.x = 0.0;
+      vec.vector.y = 0.0;
+      vec.vector.z = 1.0;   /* 当前设 +1：与夹爪朝下姿态配合，实现从上往下抓 */
       stage->setDirection(vec);
       grasp->insert(std::move(stage));
-    }
-
-    {
-      auto stage = std::make_unique<mtc::stages::GenerateGraspPose>("generate grasp pose");
-      stage->properties().configureInitFrom(mtc::Stage::PARENT);
-      stage->properties().set("marker_ns", "grasp_pose");
-      stage->setPreGraspPose("open");
-      stage->setObject("object");
-      stage->setAngleDelta(M_PI / 8.0);
-      stage->setMonitoredStage(stage_with_object_ptr);
-
-      // 抓取框：手系下 z 向上偏移 0.1，便于从上往下抓；单位旋转减少不可达姿态
-      Eigen::Isometry3d grasp_frame_transform = Eigen::Isometry3d::Identity();
-      grasp_frame_transform.translation().z() = 0.1;
-
-      auto wrapper =
-          std::make_unique<mtc::stages::ComputeIK>("grasp pose IK", std::move(stage));
-      wrapper->setMaxIKSolutions(16);
-      wrapper->setMinSolutionDistance(0.5);
-      wrapper->setIgnoreCollisions(true);  // 抓取时手与物体允许接触，避免 Link7-object 碰撞导致无解
-      wrapper->setIKFrame(grasp_frame_transform, hand_frame);
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
-      grasp->insert(std::move(wrapper));
     }
 
     {
@@ -602,16 +628,18 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.add(std::move(grasp));
   }
 
+  /* Connect 到预放置：PTP */
   {
     auto stage_move_to_place = std::make_unique<mtc::stages::Connect>(
-        "move to place",
-        mtc::stages::Connect::GroupPlannerVector{ { arm_group_name, sampling_planner },
+        "connect preplace",
+        mtc::stages::Connect::GroupPlannerVector{ { arm_group_name, ptp_planner },
                                                   { hand_group_name, interpolation_planner } });
     stage_move_to_place->setTimeout(5.0);
     stage_move_to_place->properties().configureInitFrom(mtc::Stage::PARENT);
     task.add(std::move(stage_move_to_place));
   }
 
+  /* Place 容器：PlaceIK → Lower(笛卡尔) → Open → Detach → Retreat(笛卡尔) */
   {
     auto place = std::make_unique<mtc::SerialContainer>("place object");
     task.properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
@@ -634,11 +662,27 @@ mtc::Task OrionMTCTaskNode::createTask()
           std::make_unique<mtc::stages::ComputeIK>("place pose IK", std::move(stage));
       wrapper->setMaxIKSolutions(2);
       wrapper->setMinSolutionDistance(1.0);
-      wrapper->setIgnoreCollisions(true);  // 放置时夹持物体与放置面可能接触
+      wrapper->setIgnoreCollisions(true);
       wrapper->setIKFrame("object");
       wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
       wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
       place->insert(std::move(wrapper));
+    }
+
+    /* 放置前笛卡尔下降，贴近放置面，轨迹更自然 */
+    {
+      auto stage =
+          std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+      stage->setMinMaxDistance(0.05, 0.12);
+      stage->setIKFrame(hand_frame);
+      stage->properties().set("marker_ns", "lower_place");
+
+      geometry_msgs::msg::Vector3Stamped vec;
+      vec.header.frame_id = "base_link";
+      vec.vector.z = -1.0;
+      stage->setDirection(vec);
+      place->insert(std::move(stage));
     }
 
     {
@@ -654,16 +698,17 @@ mtc::Task OrionMTCTaskNode::createTask()
       place->insert(std::move(stage));
     }
 
+    /* 沿 base_link +Z 退离，避免 forbid collision 时 Link6 仍与 object 接触 */
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(0.1, 0.3);
+      stage->setMinMaxDistance(0.1, 0.25);
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "retreat");
 
       geometry_msgs::msg::Vector3Stamped vec;
       vec.header.frame_id = "base_link";
-      vec.vector.x = -0.5;
+      vec.vector.z = 1.0;  /* 向上退离放置面，再 forbid collision */
       stage->setDirection(vec);
       place->insert(std::move(stage));
     }
@@ -683,8 +728,9 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.add(std::move(place));
   }
 
+  /* 回 home：PTP 规矩轨迹 */
   {
-    auto stage = std::make_unique<mtc::stages::MoveTo>("return home", interpolation_planner);
+    auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
     stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
     stage->setGoal("ready");
     task.add(std::move(stage));

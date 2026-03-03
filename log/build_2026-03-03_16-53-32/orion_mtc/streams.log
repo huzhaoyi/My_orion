@@ -1,0 +1,27 @@
+[0.031s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[0.176s] Consolidate compiler generated dependencies of target mtc_node
+[0.227s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[16.951s] [100%] Linking CXX executable mtc_node
+[17.378s] [100%] Built target mtc_node
+[17.400s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[17.422s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_mtc
+[17.440s] -- Install configuration: "Release"
+[17.440s] -- Execute custom install script
+[17.440s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+[17.440s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_pybullet.launch.py
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+[17.441s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+[17.441s] -- Symlinking: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+[17.462s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+[17.462s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+[17.462s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+[17.462s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.xml
+[17.464s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '0': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_mtc

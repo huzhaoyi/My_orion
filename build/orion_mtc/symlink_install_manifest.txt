@@ -1,5 +1,4 @@
 /home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
-/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_demo.launch.py
 /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_pybullet.launch.py
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc

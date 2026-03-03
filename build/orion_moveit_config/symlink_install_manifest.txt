@@ -4,6 +4,7 @@
 /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/moveit_controllers.yaml
 /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/ompl_planning.yaml
 /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/orion.srdf
+/home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/pilz_industrial_motion_planner_planning.yaml
 /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/launch/demo.launch.py
 /home/huzy/My_orion/install/orion_moveit_config/share/ament_index/resource_index/package_run_dependencies/orion_moveit_config
 /home/huzy/My_orion/install/orion_moveit_config/share/ament_index/resource_index/parent_prefix_path/orion_moveit_config

@@ -827,6 +827,10 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
   /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap_with_pose__traits.hpp \
   /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap__traits.hpp \
   /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__type_support.hpp \
+  /opt/ros/humble/include/shape_msgs/shape_msgs/msg/solid_primitive.hpp \
+  /opt/ros/humble/include/shape_msgs/shape_msgs/msg/detail/solid_primitive__builder.hpp \
+  /opt/ros/humble/include/shape_msgs/shape_msgs/msg/detail/solid_primitive__type_support.hpp \
+  /opt/ros/humble/include/shape_msgs/shape_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
   /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/planning_scene_components.hpp \
   /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__struct.hpp \
   /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__builder.hpp \
@@ -2013,6 +2017,12 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/multi_dof_joint_trajectory_point__traits.hpp:
 
+/opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_trajectory__traits.hpp:
+
+/opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_trajectory__traits.hpp:
+
+/opt/ros/humble/include/visualization_msgs/visualization_msgs/msg/detail/mesh_file__traits.hpp:
+
 /usr/include/c++/11/tr1/exp_integral.tcc:
 
 /usr/include/boost/type_index/stl_type_index.hpp:
@@ -2907,6 +2917,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /usr/include/x86_64-linux-gnu/bits/unistd_ext.h:
 
+/opt/ros/humble/include/shape_msgs/shape_msgs/msg/detail/solid_primitive__type_support.hpp:
+
 /usr/include/boost/preprocessor/control/iif.hpp:
 
 /opt/ros/humble/include/visualization_msgs/visualization_msgs/msg/detail/uv_coordinate__traits.hpp:
@@ -3705,8 +3717,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/header__traits.hpp:
 
-/opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_trajectory__traits.hpp:
-
 /opt/ros/humble/include/rclcpp/rclcpp/node_options.hpp:
 
 /opt/ros/humble/include/rclcpp/rclcpp/create_publisher.hpp:
@@ -3776,6 +3786,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /usr/include/x86_64-linux-gnu/bits/long-double.h:
 
 /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__traits.hpp:
+
+/opt/ros/humble/include/shape_msgs/shape_msgs/msg/solid_primitive.hpp:
 
 /opt/ros/humble/include/rcl_interfaces/rcl_interfaces/srv/detail/get_parameter_types__type_support.hpp:
 
@@ -3910,8 +3922,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /usr/include/locale.h:
 
 /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__struct.h:
-
-/opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_trajectory__traits.hpp:
 
 /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/quaternion_stamped__struct.hpp:
 
@@ -4139,6 +4149,14 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/apply_planning_scene__type_support.hpp:
 
+/opt/ros/humble/include/shape_msgs/shape_msgs/msg/detail/solid_primitive__builder.hpp:
+
+/opt/ros/humble/include/shape_msgs/shape_msgs/msg/rosidl_generator_cpp__visibility_control.hpp:
+
+/usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctionsFwd.h:
+
+/usr/include/boost/type_index/type_index_facade.hpp:
+
 /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__struct.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
@@ -4216,10 +4234,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/task_description__builder.hpp:
 
 /usr/include/eigen3/Eigen/src/Core/arch/Default/TypeCasting.h:
-
-/usr/include/eigen3/Eigen/src/Core/arch/Default/GenericPacketMathFunctionsFwd.h:
-
-/usr/include/boost/type_index/type_index_facade.hpp:
 
 /usr/include/eigen3/Eigen/src/Core/arch/SSE/PacketMath.h:
 
@@ -4558,5 +4572,3 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_trajectory__struct.hpp:
 
 /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/multi_dof_joint_trajectory__struct.hpp:
-
-/opt/ros/humble/include/visualization_msgs/visualization_msgs/msg/detail/mesh_file__traits.hpp:

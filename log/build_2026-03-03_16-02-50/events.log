@@ -1,0 +1,217 @@
+[0.000000] (-) TimerEvent: {}
+[0.000280] (-) JobUnselected: {'identifier': 'orion_description'}
+[0.000591] (-) JobUnselected: {'identifier': 'orion_moveit_config'}
+[0.000647] (-) JobUnselected: {'identifier': 'orion_pybullet_sim'}
+[0.000676] (orion_mtc) JobQueued: {'identifier': 'orion_mtc', 'dependencies': OrderedDict([('orion_description', '/home/huzy/My_orion/install/orion_description'), ('orion_moveit_config', '/home/huzy/My_orion/install/orion_moveit_config'), ('orion_pybullet_sim', '/home/huzy/My_orion/install/orion_pybullet_sim')])}
+[0.000719] (orion_mtc) JobStarted: {'identifier': 'orion_mtc'}
+[0.028731] (orion_mtc) JobProgress: {'identifier': 'orion_mtc', 'progress': 'cmake'}
+[0.029725] (orion_mtc) JobProgress: {'identifier': 'orion_mtc', 'progress': 'build'}
+[0.030578] (orion_mtc) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/huzy/My_orion/build/orion_mtc', '--', '-j8', '-l8'], 'cwd': '/home/huzy/My_orion/build/orion_mtc', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('VSCODE_CWD', '/home/huzy'), ('CURSOR_EXTENSION_HOST_ROLE', 'agent-exec'), ('VSCODE_ESM_ENTRYPOINT', 'vs/workbench/api/node/extensionHostProcess'), ('LANGUAGE', 'zh_CN:en_AU:en_US:en'), ('USER', 'huzy'), ('LC_TIME', 'zh_CN.UTF-8'), ('VSCODE_NLS_CONFIG', '{"userLocale":"zh-cn","osLocale":"zh-cn","resolvedLanguage":"zh-cn","defaultMessagesFile":"/tmp/.mount_CursorOWcrdm/usr/share/cursor/resources/app/out/nls.messages.json","languagePack":{"translationsConfigFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/tcf.json","messagesFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0/nls.messages.json","corruptMarkerFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/corrupted.info"},"locale":"zh-cn","availableLanguages":{"*":"zh-cn"},"_languagePackId":"3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn","_languagePackSupport":true,"_translationsConfigFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/tcf.json","_cacheRoot":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn","_resolvedLanguagePackCoreLocation":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0","_corruptedFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/corrupted.info"}'), ('CI', '1'), ('VSCODE_HANDLES_UNCAUGHT_ERRORS', 'true'), ('XDG_SESSION_TYPE', 'wayland'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib:/tmp/.mount_CursorOWcrdm/usr/lib/:/tmp/.mount_CursorOWcrdm/usr/lib32/:/tmp/.mount_CursorOWcrdm/usr/lib64/:/tmp/.mount_CursorOWcrdm/lib/:/tmp/.mount_CursorOWcrdm/lib/i386-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib/x86_64-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib/aarch64-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib32/:/tmp/.mount_CursorOWcrdm/lib64/:'), ('HOME', '/home/huzy'), ('CHROME_DESKTOP', 'cursor.desktop'), ('APPDIR', '/tmp/.mount_CursorOWcrdm'), ('OLDPWD', '/home/huzy/My_orion'), ('DESKTOP_SESSION', 'ubuntu'), ('PERLLIB', '/tmp/.mount_CursorOWcrdm/usr/share/perl5/:/tmp/.mount_CursorOWcrdm/usr/lib/perl5/:'), ('VSCODE_IPC_HOOK', '/run/user/1000/vscode-294d73a8-2.5.-main.sock'), ('GIO_LAUNCHED_DESKTOP_FILE', '/home/huzy/.local/share/applications/cursor-ime.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('SDL_IM_MODULE', 'fcitx'), ('LC_MONETARY', 'zh_CN.UTF-8'), ('MANAGERPID', '1607'), ('SYSTEMD_EXEC_PID', '1773'), ('IM_CONFIG_CHECK_ENV', '1'), ('NO_COLOR', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '3183'), ('VSCODE_CRASH_REPORTER_PROCESS_TYPE', 'extensionHost'), ('IM_CONFIG_PHASE', '1'), ('WAYLAND_DISPLAY', 'wayland-0'), ('COLCON_PREFIX_PATH', '/home/huzy/My_orion/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'huzy'), ('FORCE_COLOR', '0'), ('OWD', '/home/huzy'), ('JOURNAL_STREAM', '8:21163'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'huzy'), ('TERM', 'dumb'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('FC_FONTATIONS', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/home/huzy/.local/bin:/home/huzy/bin:/home/huzy/bin:/home/huzy/.local/bin:/home/huzy/bin:/home/huzy/bin:/opt/ros/humble/bin:/tmp/.mount_CursorOWcrdm/usr/bin/:/tmp/.mount_CursorOWcrdm/usr/sbin/:/tmp/.mount_CursorOWcrdm/usr/games/:/tmp/.mount_CursorOWcrdm/bin/:/tmp/.mount_CursorOWcrdm/sbin/:/home/huzy/.local/bin:/home/huzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/huzy-virtual-machine:@/tmp/.ICE-unix/1741,unix/huzy-virtual-machine:/tmp/.ICE-unix/1741'), ('INVOCATION_ID', '311833884cc9487d8e70d892421720e4'), ('PAPERSIZE', 'a4'), ('APPIMAGE', '/home/huzy/Downloads/Cursor-1.4.5-x86_64.AppImage'), ('XDG_MENU_PREFIX', 'gnome-'), ('LC_ADDRESS', 'zh_CN.UTF-8'), ('VSCODE_PROCESS_TITLE', 'extension-host (agent-exec) [1-3]'), ('GNOME_SETUP_DISPLAY', ':1'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('CURSOR_AGENT', '1'), ('DISPLAY', ':0'), ('LANG', 'zh_CN.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('LC_TELEPHONE', 'zh_CN.UTF-8'), ('XMODIFIERS', '@im=fcitx'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/.mutter-Xwaylandauth.OG0JL3'), ('LS_COLORS', ''), ('CURSOR_TRACE_ID', '3f47ee1ee88440998a165de685813638'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('GSETTINGS_SCHEMA_DIR', '/tmp/.mount_CursorOWcrdm/usr/share/glib-2.0/schemas/:'), ('AMENT_PREFIX_PATH', '/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble'), ('SHELL', '/bin/bash'), ('LC_NAME', 'zh_CN.UTF-8'), ('ARGV0', '/home/huzy/Downloads/Cursor-1.4.5-x86_64.AppImage'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('LC_MEASUREMENT', 'zh_CN.UTF-8'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('LC_IDENTIFICATION', 'zh_CN.UTF-8'), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/home/huzy/My_orion/build/orion_mtc'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('VSCODE_CODE_CACHE_PATH', '/home/huzy/.config/Cursor/CachedData/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0'), ('CLUTTER_IM_MODULE', 'fcitx'), ('XDG_DATA_DIRS', '/tmp/.mount_CursorOWcrdm/usr/share/:/usr/local/share:/usr/share:/usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('LC_NUMERIC', 'zh_CN.UTF-8'), ('LC_PAPER', 'zh_CN.UTF-8'), ('QT_PLUGIN_PATH', '/tmp/.mount_CursorOWcrdm/usr/lib/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/i386-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/x86_64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/aarch64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib32/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib64/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/i386-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/x86_64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/aarch64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib32/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib64/qt5/plugins/:'), ('COLCON', '1'), ('_ZO_DOCTOR', '0'), ('CMAKE_PREFIX_PATH', '/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble'), ('VSCODE_PID', '3183')]), 'shell': False}
+[0.099174] (-) TimerEvent: {}
+[0.173645] (orion_mtc) StdoutLine: {'line': b'Consolidate compiler generated dependencies of target mtc_node\n'}
+[0.199290] (-) TimerEvent: {}
+[0.219631] (orion_mtc) StdoutLine: {'line': b'[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o\n'}
+[0.299476] (-) TimerEvent: {}
+[0.399973] (-) TimerEvent: {}
+[0.500282] (-) TimerEvent: {}
+[0.600636] (-) TimerEvent: {}
+[0.700950] (-) TimerEvent: {}
+[0.801332] (-) TimerEvent: {}
+[0.901670] (-) TimerEvent: {}
+[1.001985] (-) TimerEvent: {}
+[1.102431] (-) TimerEvent: {}
+[1.202720] (-) TimerEvent: {}
+[1.303135] (-) TimerEvent: {}
+[1.403428] (-) TimerEvent: {}
+[1.503709] (-) TimerEvent: {}
+[1.604127] (-) TimerEvent: {}
+[1.704495] (-) TimerEvent: {}
+[1.804868] (-) TimerEvent: {}
+[1.905170] (-) TimerEvent: {}
+[2.005527] (-) TimerEvent: {}
+[2.105847] (-) TimerEvent: {}
+[2.206198] (-) TimerEvent: {}
+[2.306637] (-) TimerEvent: {}
+[2.406989] (-) TimerEvent: {}
+[2.507364] (-) TimerEvent: {}
+[2.607691] (-) TimerEvent: {}
+[2.708021] (-) TimerEvent: {}
+[2.808335] (-) TimerEvent: {}
+[2.908621] (-) TimerEvent: {}
+[3.008907] (-) TimerEvent: {}
+[3.109182] (-) TimerEvent: {}
+[3.209468] (-) TimerEvent: {}
+[3.309797] (-) TimerEvent: {}
+[3.410109] (-) TimerEvent: {}
+[3.510422] (-) TimerEvent: {}
+[3.610701] (-) TimerEvent: {}
+[3.710979] (-) TimerEvent: {}
+[3.811326] (-) TimerEvent: {}
+[3.911673] (-) TimerEvent: {}
+[4.012034] (-) TimerEvent: {}
+[4.112450] (-) TimerEvent: {}
+[4.212804] (-) TimerEvent: {}
+[4.313157] (-) TimerEvent: {}
+[4.413678] (-) TimerEvent: {}
+[4.514153] (-) TimerEvent: {}
+[4.614610] (-) TimerEvent: {}
+[4.715113] (-) TimerEvent: {}
+[4.815435] (-) TimerEvent: {}
+[4.915721] (-) TimerEvent: {}
+[5.016086] (-) TimerEvent: {}
+[5.116421] (-) TimerEvent: {}
+[5.216741] (-) TimerEvent: {}
+[5.317074] (-) TimerEvent: {}
+[5.417746] (-) TimerEvent: {}
+[5.518391] (-) TimerEvent: {}
+[5.618667] (-) TimerEvent: {}
+[5.719009] (-) TimerEvent: {}
+[5.819348] (-) TimerEvent: {}
+[5.919643] (-) TimerEvent: {}
+[6.019919] (-) TimerEvent: {}
+[6.120273] (-) TimerEvent: {}
+[6.220599] (-) TimerEvent: {}
+[6.320978] (-) TimerEvent: {}
+[6.421338] (-) TimerEvent: {}
+[6.521635] (-) TimerEvent: {}
+[6.621922] (-) TimerEvent: {}
+[6.722247] (-) TimerEvent: {}
+[6.822566] (-) TimerEvent: {}
+[6.922849] (-) TimerEvent: {}
+[7.023145] (-) TimerEvent: {}
+[7.123443] (-) TimerEvent: {}
+[7.223858] (-) TimerEvent: {}
+[7.324163] (-) TimerEvent: {}
+[7.424455] (-) TimerEvent: {}
+[7.524775] (-) TimerEvent: {}
+[7.625220] (-) TimerEvent: {}
+[7.725662] (-) TimerEvent: {}
+[7.825981] (-) TimerEvent: {}
+[7.926318] (-) TimerEvent: {}
+[8.026604] (-) TimerEvent: {}
+[8.126899] (-) TimerEvent: {}
+[8.227308] (-) TimerEvent: {}
+[8.327668] (-) TimerEvent: {}
+[8.427987] (-) TimerEvent: {}
+[8.528320] (-) TimerEvent: {}
+[8.628619] (-) TimerEvent: {}
+[8.728944] (-) TimerEvent: {}
+[8.829260] (-) TimerEvent: {}
+[8.929564] (-) TimerEvent: {}
+[9.029958] (-) TimerEvent: {}
+[9.130383] (-) TimerEvent: {}
+[9.230750] (-) TimerEvent: {}
+[9.331067] (-) TimerEvent: {}
+[9.431452] (-) TimerEvent: {}
+[9.531833] (-) TimerEvent: {}
+[9.632166] (-) TimerEvent: {}
+[9.732464] (-) TimerEvent: {}
+[9.832788] (-) TimerEvent: {}
+[9.933151] (-) TimerEvent: {}
+[10.033487] (-) TimerEvent: {}
+[10.133837] (-) TimerEvent: {}
+[10.234164] (-) TimerEvent: {}
+[10.334431] (-) TimerEvent: {}
+[10.434712] (-) TimerEvent: {}
+[10.535025] (-) TimerEvent: {}
+[10.635403] (-) TimerEvent: {}
+[10.735693] (-) TimerEvent: {}
+[10.836026] (-) TimerEvent: {}
+[10.936456] (-) TimerEvent: {}
+[11.036759] (-) TimerEvent: {}
+[11.137114] (-) TimerEvent: {}
+[11.237449] (-) TimerEvent: {}
+[11.337755] (-) TimerEvent: {}
+[11.438044] (-) TimerEvent: {}
+[11.538349] (-) TimerEvent: {}
+[11.638609] (-) TimerEvent: {}
+[11.738882] (-) TimerEvent: {}
+[11.839181] (-) TimerEvent: {}
+[11.939500] (-) TimerEvent: {}
+[12.039962] (-) TimerEvent: {}
+[12.140362] (-) TimerEvent: {}
+[12.240697] (-) TimerEvent: {}
+[12.341112] (-) TimerEvent: {}
+[12.441674] (-) TimerEvent: {}
+[12.542288] (-) TimerEvent: {}
+[12.644757] (-) TimerEvent: {}
+[12.745841] (-) TimerEvent: {}
+[12.849096] (-) TimerEvent: {}
+[12.950575] (-) TimerEvent: {}
+[13.051179] (-) TimerEvent: {}
+[13.151822] (-) TimerEvent: {}
+[13.252379] (-) TimerEvent: {}
+[13.353167] (-) TimerEvent: {}
+[13.453568] (-) TimerEvent: {}
+[13.553877] (-) TimerEvent: {}
+[13.654389] (-) TimerEvent: {}
+[13.757716] (-) TimerEvent: {}
+[13.858040] (-) TimerEvent: {}
+[13.958369] (-) TimerEvent: {}
+[14.058664] (-) TimerEvent: {}
+[14.158942] (-) TimerEvent: {}
+[14.259250] (-) TimerEvent: {}
+[14.359514] (-) TimerEvent: {}
+[14.459779] (-) TimerEvent: {}
+[14.560133] (-) TimerEvent: {}
+[14.660410] (-) TimerEvent: {}
+[14.760736] (-) TimerEvent: {}
+[14.861056] (-) TimerEvent: {}
+[14.961381] (-) TimerEvent: {}
+[15.061725] (-) TimerEvent: {}
+[15.162075] (-) TimerEvent: {}
+[15.262350] (-) TimerEvent: {}
+[15.362660] (-) TimerEvent: {}
+[15.463171] (-) TimerEvent: {}
+[15.563587] (-) TimerEvent: {}
+[15.663973] (-) TimerEvent: {}
+[15.764343] (-) TimerEvent: {}
+[15.864669] (-) TimerEvent: {}
+[15.964978] (-) TimerEvent: {}
+[16.065363] (-) TimerEvent: {}
+[16.165718] (-) TimerEvent: {}
+[16.266143] (-) TimerEvent: {}
+[16.366427] (-) TimerEvent: {}
+[16.466716] (-) TimerEvent: {}
+[16.567047] (-) TimerEvent: {}
+[16.667582] (-) TimerEvent: {}
+[16.767870] (-) TimerEvent: {}
+[16.868151] (-) TimerEvent: {}
+[16.968495] (-) TimerEvent: {}
+[17.068798] (-) TimerEvent: {}
+[17.169084] (-) TimerEvent: {}
+[17.269420] (-) TimerEvent: {}
+[17.369713] (-) TimerEvent: {}
+[17.470013] (-) TimerEvent: {}
+[17.474683] (orion_mtc) StdoutLine: {'line': b'[100%] Linking CXX executable mtc_node\n'}
+[17.570192] (-) TimerEvent: {}
+[17.670532] (-) TimerEvent: {}
+[17.770855] (-) TimerEvent: {}
+[17.871164] (-) TimerEvent: {}
+[17.903884] (orion_mtc) StdoutLine: {'line': b'[100%] Built target mtc_node\n'}
+[17.925775] (orion_mtc) CommandEnded: {'returncode': 0}
+[17.927401] (orion_mtc) JobProgress: {'identifier': 'orion_mtc', 'progress': 'install'}
+[17.946010] (orion_mtc) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/huzy/My_orion/build/orion_mtc'], 'cwd': '/home/huzy/My_orion/build/orion_mtc', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('VSCODE_CWD', '/home/huzy'), ('CURSOR_EXTENSION_HOST_ROLE', 'agent-exec'), ('VSCODE_ESM_ENTRYPOINT', 'vs/workbench/api/node/extensionHostProcess'), ('LANGUAGE', 'zh_CN:en_AU:en_US:en'), ('USER', 'huzy'), ('LC_TIME', 'zh_CN.UTF-8'), ('VSCODE_NLS_CONFIG', '{"userLocale":"zh-cn","osLocale":"zh-cn","resolvedLanguage":"zh-cn","defaultMessagesFile":"/tmp/.mount_CursorOWcrdm/usr/share/cursor/resources/app/out/nls.messages.json","languagePack":{"translationsConfigFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/tcf.json","messagesFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0/nls.messages.json","corruptMarkerFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/corrupted.info"},"locale":"zh-cn","availableLanguages":{"*":"zh-cn"},"_languagePackId":"3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn","_languagePackSupport":true,"_translationsConfigFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/tcf.json","_cacheRoot":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn","_resolvedLanguagePackCoreLocation":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0","_corruptedFile":"/home/huzy/.config/Cursor/clp/3bfb7f1471a52e527cfc1587dd57c7c1.zh-cn/corrupted.info"}'), ('CI', '1'), ('VSCODE_HANDLES_UNCAUGHT_ERRORS', 'true'), ('XDG_SESSION_TYPE', 'wayland'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib:/tmp/.mount_CursorOWcrdm/usr/lib/:/tmp/.mount_CursorOWcrdm/usr/lib32/:/tmp/.mount_CursorOWcrdm/usr/lib64/:/tmp/.mount_CursorOWcrdm/lib/:/tmp/.mount_CursorOWcrdm/lib/i386-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib/x86_64-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib/aarch64-linux-gnu/:/tmp/.mount_CursorOWcrdm/lib32/:/tmp/.mount_CursorOWcrdm/lib64/:'), ('HOME', '/home/huzy'), ('CHROME_DESKTOP', 'cursor.desktop'), ('APPDIR', '/tmp/.mount_CursorOWcrdm'), ('OLDPWD', '/home/huzy/My_orion'), ('DESKTOP_SESSION', 'ubuntu'), ('PERLLIB', '/tmp/.mount_CursorOWcrdm/usr/share/perl5/:/tmp/.mount_CursorOWcrdm/usr/lib/perl5/:'), ('VSCODE_IPC_HOOK', '/run/user/1000/vscode-294d73a8-2.5.-main.sock'), ('GIO_LAUNCHED_DESKTOP_FILE', '/home/huzy/.local/share/applications/cursor-ime.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('SDL_IM_MODULE', 'fcitx'), ('LC_MONETARY', 'zh_CN.UTF-8'), ('MANAGERPID', '1607'), ('SYSTEMD_EXEC_PID', '1773'), ('IM_CONFIG_CHECK_ENV', '1'), ('NO_COLOR', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '3183'), ('VSCODE_CRASH_REPORTER_PROCESS_TYPE', 'extensionHost'), ('IM_CONFIG_PHASE', '1'), ('WAYLAND_DISPLAY', 'wayland-0'), ('COLCON_PREFIX_PATH', '/home/huzy/My_orion/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'huzy'), ('FORCE_COLOR', '0'), ('OWD', '/home/huzy'), ('JOURNAL_STREAM', '8:21163'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'huzy'), ('TERM', 'dumb'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('FC_FONTATIONS', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/home/huzy/.local/bin:/home/huzy/bin:/home/huzy/bin:/home/huzy/.local/bin:/home/huzy/bin:/home/huzy/bin:/opt/ros/humble/bin:/tmp/.mount_CursorOWcrdm/usr/bin/:/tmp/.mount_CursorOWcrdm/usr/sbin/:/tmp/.mount_CursorOWcrdm/usr/games/:/tmp/.mount_CursorOWcrdm/bin/:/tmp/.mount_CursorOWcrdm/sbin/:/home/huzy/.local/bin:/home/huzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/huzy-virtual-machine:@/tmp/.ICE-unix/1741,unix/huzy-virtual-machine:/tmp/.ICE-unix/1741'), ('INVOCATION_ID', '311833884cc9487d8e70d892421720e4'), ('PAPERSIZE', 'a4'), ('APPIMAGE', '/home/huzy/Downloads/Cursor-1.4.5-x86_64.AppImage'), ('XDG_MENU_PREFIX', 'gnome-'), ('LC_ADDRESS', 'zh_CN.UTF-8'), ('VSCODE_PROCESS_TITLE', 'extension-host (agent-exec) [1-3]'), ('GNOME_SETUP_DISPLAY', ':1'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('CURSOR_AGENT', '1'), ('DISPLAY', ':0'), ('LANG', 'zh_CN.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('LC_TELEPHONE', 'zh_CN.UTF-8'), ('XMODIFIERS', '@im=fcitx'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/.mutter-Xwaylandauth.OG0JL3'), ('LS_COLORS', ''), ('CURSOR_TRACE_ID', '3f47ee1ee88440998a165de685813638'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('GSETTINGS_SCHEMA_DIR', '/tmp/.mount_CursorOWcrdm/usr/share/glib-2.0/schemas/:'), ('AMENT_PREFIX_PATH', '/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble'), ('SHELL', '/bin/bash'), ('LC_NAME', 'zh_CN.UTF-8'), ('ARGV0', '/home/huzy/Downloads/Cursor-1.4.5-x86_64.AppImage'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('LC_MEASUREMENT', 'zh_CN.UTF-8'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('LC_IDENTIFICATION', 'zh_CN.UTF-8'), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/home/huzy/My_orion/build/orion_mtc'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('VSCODE_CODE_CACHE_PATH', '/home/huzy/.config/Cursor/CachedData/7d96c2a03bb088ad367615e9da1a3fe20fbbc6a0'), ('CLUTTER_IM_MODULE', 'fcitx'), ('XDG_DATA_DIRS', '/tmp/.mount_CursorOWcrdm/usr/share/:/usr/local/share:/usr/share:/usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('LC_NUMERIC', 'zh_CN.UTF-8'), ('LC_PAPER', 'zh_CN.UTF-8'), ('QT_PLUGIN_PATH', '/tmp/.mount_CursorOWcrdm/usr/lib/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/i386-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/x86_64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/aarch64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib32/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib64/qt4/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/i386-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/x86_64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib/aarch64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib32/qt5/plugins/:/tmp/.mount_CursorOWcrdm/usr/lib64/qt5/plugins/:'), ('COLCON', '1'), ('_ZO_DOCTOR', '0'), ('CMAKE_PREFIX_PATH', '/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble'), ('VSCODE_PID', '3183')]), 'shell': False}
+[17.966443] (orion_mtc) StdoutLine: {'line': b'-- Install configuration: "Release"\n'}
+[17.967303] (orion_mtc) StdoutLine: {'line': b'-- Execute custom install script\n'}
+[17.967808] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node\n'}
+[17.968167] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_pybullet.launch.py\n'}
+[17.968271] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc\n'}
+[17.968363] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc\n'}
+[17.968450] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh\n'}
+[17.968537] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv\n'}
+[17.968623] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh\n'}
+[17.968802] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv\n'}
+[17.968897] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash\n'}
+[17.968983] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh\n'}
+[17.969083] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh\n'}
+[17.969160] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv\n'}
+[17.969333] (orion_mtc) StdoutLine: {'line': b'-- Symlinking: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.dsv\n'}
+[17.971185] (-) TimerEvent: {}
+[17.987258] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc\n'}
+[17.987484] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake\n'}
+[17.987529] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake\n'}
+[17.987565] (orion_mtc) StdoutLine: {'line': b'-- Up-to-date symlink: /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.xml\n'}
+[17.989000] (orion_mtc) CommandEnded: {'returncode': 0}
+[18.006687] (orion_mtc) JobEnded: {'identifier': 'orion_mtc', 'rc': 0}
+[18.007563] (-) EventReactorShutdown: {}
