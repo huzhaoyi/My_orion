@@ -1,0 +1,11 @@
+[0.046s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[0.172s] Consolidate compiler generated dependencies of target mtc_node
+[0.229s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[4.588s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::applyAllowCollisionObjectHand()’:
+[4.588s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:103:81: error: ‘ALLOWED_COLLISION_MATRIX’ is not a member of ‘moveit_msgs::srv::GetPlanningScene::Request’ {aka ‘moveit_msgs::srv::GetPlanningScene_Request_<std::allocator<void> >’}
+[4.588s]   103 |   get_req->components.components = moveit_msgs::srv::GetPlanningScene::Request::ALLOWED_COLLISION_MATRIX;
+[4.588s]       |                                                                                 ^~~~~~~~~~~~~~~~~~~~~~~~
+[8.767s] gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+[8.767s] gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+[8.767s] gmake: *** [Makefile:146：all] 错误 2
+[8.769s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '2': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8

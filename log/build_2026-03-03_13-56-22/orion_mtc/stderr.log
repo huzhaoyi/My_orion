@@ -1,0 +1,12 @@
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘bool OrionMTCTaskNode::executeSolutionLocally(const moveit::task_constructor::SolutionBase&)’:
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:427:37: error: ‘void moveit::task_constructor::Introspection::fillSolution(moveit_task_constructor_msgs::msg::Solution&, const moveit::task_constructor::SolutionBase&)’ is private within this context
+  427 |   task_.introspection().fillSolution(solution_msg, solution);
+      |   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /opt/ros/humble/include/moveit/task_constructor/task.h:44,
+                 from /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:10:
+/opt/ros/humble/include/moveit/task_constructor/introspection.h:110:14: note: declared private here
+  110 |         void fillSolution(moveit_task_constructor_msgs::msg::Solution& msg, const SolutionBase& s);
+      |              ^~~~~~~~~~~~
+gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+gmake: *** [Makefile:146：all] 错误 2

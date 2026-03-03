@@ -1,0 +1,37 @@
+[0.448s] Invoking command in '/home/huzy/My_orion/build/orion_pybullet_sim': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc PYTHONPATH=/home/huzy/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/huzy/My_orion/build/orion_pybullet_sim/build
+[0.632s] running develop
+[0.756s] Removing /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion-pybullet-sim.egg-link (link to .)
+[0.779s] Invoked command in '/home/huzy/My_orion/build/orion_pybullet_sim' returned '0': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc PYTHONPATH=/home/huzy/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/huzy/My_orion/build/orion_pybullet_sim/build
+[0.780s] Invoking command in '/home/huzy/My_orion/src/orion_pybullet_sim': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc PYTHONPATH=/home/huzy/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/orion_pybullet_sim build --build-base /home/huzy/My_orion/build/orion_pybullet_sim/build install --record /home/huzy/My_orion/build/orion_pybullet_sim/install.log --single-version-externally-managed install_data --force
+[0.942s] running egg_info
+[0.943s] writing ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/PKG-INFO
+[0.943s] writing dependency_links to ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/dependency_links.txt
+[0.943s] writing entry points to ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/entry_points.txt
+[0.943s] writing requirements to ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/requires.txt
+[0.944s] writing top-level names to ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/top_level.txt
+[0.945s] reading manifest file '../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/SOURCES.txt'
+[0.945s] writing manifest file '../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info/SOURCES.txt'
+[0.946s] running build
+[0.946s] running build_py
+[0.946s] creating /home/huzy/My_orion/build/orion_pybullet_sim/build
+[0.946s] creating /home/huzy/My_orion/build/orion_pybullet_sim/build/lib
+[0.946s] creating /home/huzy/My_orion/build/orion_pybullet_sim/build/lib/orion_pybullet_sim
+[0.946s] copying orion_pybullet_sim/pybullet_controller_node.py -> /home/huzy/My_orion/build/orion_pybullet_sim/build/lib/orion_pybullet_sim
+[0.946s] copying orion_pybullet_sim/__init__.py -> /home/huzy/My_orion/build/orion_pybullet_sim/build/lib/orion_pybullet_sim
+[0.946s] running install
+[0.946s] running install_lib
+[0.947s] creating /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim
+[0.947s] copying /home/huzy/My_orion/build/orion_pybullet_sim/build/lib/orion_pybullet_sim/pybullet_controller_node.py -> /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim
+[0.947s] copying /home/huzy/My_orion/build/orion_pybullet_sim/build/lib/orion_pybullet_sim/__init__.py -> /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim
+[0.947s] byte-compiling /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim/pybullet_controller_node.py to pybullet_controller_node.cpython-310.pyc
+[0.948s] byte-compiling /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim/__init__.py to __init__.cpython-310.pyc
+[0.949s] running install_data
+[0.949s] copying resource/orion_pybullet_sim -> /home/huzy/My_orion/install/orion_pybullet_sim/share/ament_index/resource_index/packages
+[0.949s] copying package.xml -> /home/huzy/My_orion/install/orion_pybullet_sim/share/orion_pybullet_sim
+[0.949s] copying launch/pybullet_sim.launch.py -> /home/huzy/My_orion/install/orion_pybullet_sim/share/orion_pybullet_sim/launch
+[0.949s] running install_egg_info
+[0.950s] Copying ../../build/orion_pybullet_sim/orion_pybullet_sim.egg-info to /home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages/orion_pybullet_sim-0.0.1-py3.10.egg-info
+[0.950s] running install_scripts
+[0.965s] Installing pybullet_controller script to /home/huzy/My_orion/install/orion_pybullet_sim/lib/orion_pybullet_sim
+[0.965s] writing list of installed files to '/home/huzy/My_orion/build/orion_pybullet_sim/install.log'
+[0.984s] Invoked command in '/home/huzy/My_orion/src/orion_pybullet_sim' returned '0': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc PYTHONPATH=/home/huzy/My_orion/build/orion_pybullet_sim/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/orion_pybullet_sim build --build-base /home/huzy/My_orion/build/orion_pybullet_sim/build install --record /home/huzy/My_orion/build/orion_pybullet_sim/install.log --single-version-externally-managed install_data --force

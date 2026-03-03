@@ -1,0 +1,13 @@
+[0.079s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[0.349s] Consolidate compiler generated dependencies of target mtc_node
+[0.464s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[8.007s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::doTask()’:
+[8.007s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:137:28: error: cannot convert ‘moveit::core::MoveItErrorCode’ to ‘bool’ in initialization
+[8.007s]   137 |   bool plan_ok = task_.plan(10);
+[8.008s]       |                  ~~~~~~~~~~^~~~
+[8.008s]       |                            |
+[8.008s]       |                            moveit::core::MoveItErrorCode
+[13.892s] gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+[13.892s] gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+[13.892s] gmake: *** [Makefile:146：all] 错误 2
+[13.896s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '2': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8

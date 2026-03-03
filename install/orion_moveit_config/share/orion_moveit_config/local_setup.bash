@@ -1,1 +1,1 @@
-/home/joey/My_orion/build/orion_moveit_config/ament_cmake_environment_hooks/local_setup.bash
+/home/huzy/My_orion/build/orion_moveit_config/ament_cmake_environment_hooks/local_setup.bash

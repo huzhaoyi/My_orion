@@ -1,0 +1,28 @@
+[0.011s] Invoking command in '/home/huzy/My_orion/build/orion_moveit_config': CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_moveit_config -- -j8 -l8
+[0.055s] Invoked command in '/home/huzy/My_orion/build/orion_moveit_config' returned '0': CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_moveit_config -- -j8 -l8
+[0.055s] Invoking command in '/home/huzy/My_orion/build/orion_moveit_config': CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_moveit_config
+[0.063s] -- Install configuration: ""
+[0.065s] -- Execute custom install script
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/joint_limits.yaml
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/kinematics.yaml
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/moveit.rviz
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/moveit_controllers.yaml
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/ompl_planning.yaml
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/config/orion.srdf
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/launch/demo.launch.py
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/ament_index/resource_index/package_run_dependencies/orion_moveit_config
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/ament_index/resource_index/parent_prefix_path/orion_moveit_config
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/environment/ament_prefix_path.sh
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/environment/ament_prefix_path.dsv
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/environment/path.sh
+[0.065s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/environment/path.dsv
+[0.066s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/local_setup.bash
+[0.066s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/local_setup.sh
+[0.066s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/local_setup.zsh
+[0.066s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/local_setup.dsv
+[0.066s] -- Symlinking: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/package.dsv
+[0.076s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/ament_index/resource_index/packages/orion_moveit_config
+[0.076s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/cmake/orion_moveit_configConfig.cmake
+[0.076s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/cmake/orion_moveit_configConfig-version.cmake
+[0.076s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_moveit_config/share/orion_moveit_config/package.xml
+[0.083s] Invoked command in '/home/huzy/My_orion/build/orion_moveit_config' returned '0': CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_moveit_config

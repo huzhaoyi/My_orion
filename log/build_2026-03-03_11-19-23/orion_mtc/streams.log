@@ -1,0 +1,14 @@
+[0.035s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[0.362s] Consolidate compiler generated dependencies of target mtc_node
+[0.404s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[5.632s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::applyAllowCollisionObjectHand()’:
+[5.632s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:192:14: error: ‘using PlanningScene = struct moveit_msgs::msg::PlanningScene_<std::allocator<void> >’ {aka ‘struct moveit_msgs::msg::PlanningScene_<std::allocator<void> >’} has no member named ‘header’
+[5.632s]   192 |   scene_diff.header.stamp = node_->now();
+[5.632s]       |              ^~~~~~
+[5.632s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:193:14: error: ‘using PlanningScene = struct moveit_msgs::msg::PlanningScene_<std::allocator<void> >’ {aka ‘struct moveit_msgs::msg::PlanningScene_<std::allocator<void> >’} has no member named ‘header’
+[5.632s]   193 |   scene_diff.header.frame_id = "base_link";
+[5.632s]       |              ^~~~~~
+[10.781s] gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+[10.781s] gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+[10.782s] gmake: *** [Makefile:146：all] 错误 2
+[10.784s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '2': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8

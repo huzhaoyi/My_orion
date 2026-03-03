@@ -1,0 +1,32 @@
+[0.012s] Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
+[0.060s] Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
+[0.070s] Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description
+[0.078s] -- Install configuration: ""
+[0.078s] -- Execute custom install script
+[0.079s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/urdf/orion.urdf
+[0.079s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link1.stl
+[0.079s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link2.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link3.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link4.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link5.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link6.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link7.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link8.stl
+[0.080s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/base_link.stl
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/launch/display.launch.py
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/package_run_dependencies/orion_description
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/parent_prefix_path/orion_description
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/ament_prefix_path.sh
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/ament_prefix_path.dsv
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/path.sh
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/path.dsv
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.bash
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.sh
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.zsh
+[0.081s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.dsv
+[0.081s] -- Symlinking: /home/huzy/My_orion/install/orion_description/share/orion_description/package.dsv
+[0.090s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/packages/orion_description
+[0.091s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/cmake/orion_descriptionConfig.cmake
+[0.091s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/cmake/orion_descriptionConfig-version.cmake
+[0.091s] -- Up-to-date symlink: /home/huzy/My_orion/install/orion_description/share/orion_description/package.xml
+[0.096s] Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description

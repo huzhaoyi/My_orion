@@ -1,5 +1,5 @@
 CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
- /home/joey/My_orion/src/orion_mtc/src/mtc_node.cpp \
+ /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp \
  /usr/include/stdc-predef.h \
  /opt/ros/humble/include/rclcpp/rclcpp/rclcpp.hpp \
  /usr/include/c++/11/csignal \
@@ -46,6 +46,7 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd.h \
  /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
  /usr/include/linux/close_range.h \
  /usr/include/x86_64-linux-gnu/bits/ss_flags.h \
@@ -113,6 +114,7 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar2.h \
  /usr/include/c++/11/bits/shared_ptr_base.h /usr/include/c++/11/typeinfo \
  /usr/include/c++/11/bits/allocated_ptr.h \
  /usr/include/c++/11/bits/refwrap.h \
@@ -176,14 +178,19 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/byteswap.h \
  /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
  /usr/include/x86_64-linux-gnu/sys/select.h \
- /usr/include/x86_64-linux-gnu/bits/select.h /usr/include/alloca.h \
+ /usr/include/x86_64-linux-gnu/bits/select.h \
+ /usr/include/x86_64-linux-gnu/bits/select2.h /usr/include/alloca.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib.h \
  /usr/include/c++/11/bits/std_abs.h /usr/include/c++/11/cstdio \
  /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio2.h \
  /usr/include/c++/11/bits/charconv.h \
  /usr/include/c++/11/bits/basic_string.tcc \
  /usr/include/c++/11/bits/std_mutex.h \
@@ -259,6 +266,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/rcutils/rcutils/error_handling.h \
  /usr/include/c++/11/stdlib.h /usr/include/string.h \
  /usr/include/strings.h \
+ /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
+ /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
  /opt/ros/humble/include/rcutils/rcutils/snprintf.h \
  /opt/ros/humble/include/rcutils/rcutils/time.h \
  /opt/ros/humble/include/rcutils/rcutils/types.h \
@@ -346,7 +355,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/rmw/rmw/topic_endpoint_info_array.h \
  /opt/ros/humble/include/rmw/rmw/topic_endpoint_info.h \
  /opt/ros/humble/include/rclcpp/rclcpp/event.hpp \
- /opt/ros/humble/include/rclcpp/rclcpp/node_interfaces/detail/node_interfaces_helpers.hpp \
  /opt/ros/humble/include/rclcpp/rclcpp/qos.hpp \
  /opt/ros/humble/include/rclcpp/rclcpp/duration.hpp \
  /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/duration.hpp \
@@ -619,6 +627,66 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/rclcpp/rclcpp/wait_set_policies/thread_safe_synchronization.hpp \
  /opt/ros/humble/include/rclcpp/rclcpp/wait_set_policies/detail/write_preferring_read_write_lock.hpp \
  /opt/ros/humble/include/rclcpp/rclcpp/wait_set_template.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/rclcpp_action.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/client.hpp \
+ /opt/ros/humble/include/rosidl_runtime_c/rosidl_runtime_c/action_type_support_struct.h \
+ /opt/ros/humble/include/rosidl_runtime_cpp/rosidl_typesupport_cpp/action_type_support.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/client_goal_handle.hpp \
+ /opt/ros/humble/include/rcl_action/rcl_action/action_client.h \
+ /opt/ros/humble/include/rcl_action/rcl_action/types.h \
+ /opt/ros/humble/include/rcl_action/rcl_action/visibility_control.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_info.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__struct.h \
+ /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__struct.h \
+ /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__struct.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__functions.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/rosidl_generator_c__visibility_control.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__type_support.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__struct.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__functions.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__type_support.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status_array.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__struct.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__functions.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__type_support.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/srv/cancel_goal.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__struct.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__functions.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__type_support.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__struct.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__struct.hpp \
+ /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__struct.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__builder.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__traits.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__traits.hpp \
+ /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__traits.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__type_support.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/exceptions.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/types.hpp \
+ /usr/include/c++/11/climits \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/syslimits.h \
+ /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_info.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__builder.hpp \
+ /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__type_support.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/visibility_control.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/client_goal_handle_impl.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/create_client.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/create_server.hpp \
+ /opt/ros/humble/include/rcl_action/rcl_action/action_server.h \
+ /opt/ros/humble/include/rcl_action/rcl_action/goal_handle.h \
+ /opt/ros/humble/include/rcl_action/rcl_action/goal_state_machine.h \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/server.hpp \
+ /opt/ros/humble/include/rclcpp_action/rclcpp_action/server_goal_handle.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/collision_object.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/collision_object__struct.hpp \
  /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/header__struct.hpp \
@@ -647,6 +715,66 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/shape_msgs/shape_msgs/msg/detail/plane__traits.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/collision_object__type_support.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/planning_scene.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_state__struct.hpp \
+ /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/joint_state__struct.hpp \
+ /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/multi_dof_joint_state__struct.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform__struct.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__struct.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/twist__struct.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/wrench__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/attached_collision_object__struct.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__struct.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory_point__struct.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform_stamped__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_matrix__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_entry__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_padding__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_scale__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/object_color__struct.hpp \
+ /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/color_rgba__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_world__struct.hpp \
+ /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap_with_pose__struct.hpp \
+ /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__builder.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_state__traits.hpp \
+ /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/joint_state__traits.hpp \
+ /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/multi_dof_joint_state__traits.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform__traits.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__traits.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/twist__traits.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/wrench__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/attached_collision_object__traits.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__traits.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory_point__traits.hpp \
+ /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform_stamped__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_matrix__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_entry__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_padding__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_scale__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/object_color__traits.hpp \
+ /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/color_rgba__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_world__traits.hpp \
+ /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap_with_pose__traits.hpp \
+ /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__type_support.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/planning_scene_components.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__builder.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_components__type_support.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/apply_planning_scene.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/apply_planning_scene__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/apply_planning_scene__builder.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/apply_planning_scene__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/apply_planning_scene__type_support.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/get_planning_scene.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/get_planning_scene__struct.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/get_planning_scene__builder.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/get_planning_scene__traits.hpp \
+ /opt/ros/humble/include/moveit_msgs/moveit_msgs/srv/detail/get_planning_scene__type_support.hpp \
  /opt/ros/humble/include/moveit/task_constructor/task.h \
  /opt/ros/humble/include/moveit/task_constructor/container.h \
  /opt/ros/humble/include/moveit/task_constructor/stage.h \
@@ -668,15 +796,7 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/mm_malloc.h \
  /usr/include/c++/11/complex \
  /usr/include/eigen3/Eigen/src/Core/util/MKL_support.h \
- /usr/include/c++/11/cstddef /usr/include/c++/11/climits \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/limits.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/syslimits.h \
- /usr/include/limits.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
- /usr/include/x86_64-linux-gnu/bits/local_lim.h \
- /usr/include/linux/limits.h \
- /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
- /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
- /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/c++/11/cstddef \
  /usr/include/eigen3/Eigen/src/Core/util/Constants.h \
  /usr/include/eigen3/Eigen/src/Core/util/Meta.h \
  /usr/include/eigen3/Eigen/src/Core/util/ForwardDeclarations.h \
@@ -898,27 +1018,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /usr/include/c++/11/bits/stl_queue.h \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/solution.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/solution__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_state__struct.hpp \
- /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/joint_state__struct.hpp \
- /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/multi_dof_joint_state__struct.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform__struct.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__struct.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/twist__struct.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/wrench__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/attached_collision_object__struct.hpp \
- /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__struct.hpp \
- /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory_point__struct.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform_stamped__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_matrix__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_entry__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_padding__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_scale__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/object_color__struct.hpp \
- /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/color_rgba__struct.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_world__struct.hpp \
- /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap_with_pose__struct.hpp \
- /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap__struct.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_solution__struct.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/solution_info__struct.hpp \
  /opt/ros/humble/include/visualization_msgs/visualization_msgs/msg/detail/marker__struct.hpp \
@@ -931,27 +1030,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/multi_dof_joint_trajectory_point__struct.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/solution__builder.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/solution__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/robot_state__traits.hpp \
- /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/joint_state__traits.hpp \
- /opt/ros/humble/include/sensor_msgs/sensor_msgs/msg/detail/multi_dof_joint_state__traits.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform__traits.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__traits.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/twist__traits.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/wrench__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/attached_collision_object__traits.hpp \
- /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__traits.hpp \
- /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory_point__traits.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/transform_stamped__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_matrix__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/allowed_collision_entry__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_padding__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/link_scale__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/object_color__traits.hpp \
- /opt/ros/humble/include/std_msgs/std_msgs/msg/detail/color_rgba__traits.hpp \
- /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/planning_scene_world__traits.hpp \
- /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap_with_pose__traits.hpp \
- /opt/ros/humble/include/octomap_msgs/octomap_msgs/msg/detail/octomap__traits.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_solution__traits.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/solution_info__traits.hpp \
  /opt/ros/humble/include/visualization_msgs/visualization_msgs/msg/detail/marker__traits.hpp \
@@ -994,75 +1072,24 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/action/execute_task_solution.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/action/detail/execute_task_solution__struct.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/move_it_error_codes__struct.hpp \
- /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__struct.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/srv/cancel_goal.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__struct.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__struct.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__builder.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__traits.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__traits.hpp \
- /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__traits.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__type_support.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_info.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__builder.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__type_support.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status_array.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__struct.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__struct.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__builder.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__traits.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__traits.hpp \
  /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__type_support.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/action/detail/execute_task_solution__builder.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/action/detail/execute_task_solution__traits.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/move_it_error_codes__traits.hpp \
  /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/action/detail/execute_task_solution__type_support.hpp \
- /opt/ros/humble/include/rosidl_runtime_cpp/rosidl_typesupport_cpp/action_type_support.hpp \
- /opt/ros/humble/include/rosidl_runtime_c/rosidl_runtime_c/action_type_support_struct.h \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/move_it_error_codes.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/move_it_error_codes__builder.hpp \
  /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/move_it_error_codes__type_support.hpp \
  /opt/ros/humble/include/moveit/utils/moveit_error_code.h \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/rclcpp_action.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/client.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/client_goal_handle.hpp \
- /opt/ros/humble/include/rcl_action/rcl_action/action_client.h \
- /opt/ros/humble/include/rcl_action/rcl_action/types.h \
- /opt/ros/humble/include/rcl_action/rcl_action/visibility_control.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_info.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__struct.h \
- /opt/ros/humble/include/unique_identifier_msgs/unique_identifier_msgs/msg/detail/uuid__struct.h \
- /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__struct.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__functions.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/rosidl_generator_c__visibility_control.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_info__type_support.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__struct.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__functions.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__type_support.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status_array.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__struct.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__functions.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status_array__type_support.h \
- /opt/ros/humble/include/action_msgs/action_msgs/srv/cancel_goal.h \
- /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__struct.h \
- /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__functions.h \
- /opt/ros/humble/include/action_msgs/action_msgs/srv/detail/cancel_goal__type_support.h \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/goal_status.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__builder.hpp \
- /opt/ros/humble/include/action_msgs/action_msgs/msg/detail/goal_status__type_support.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/exceptions.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/types.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/visibility_control.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/client_goal_handle_impl.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/create_client.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/create_server.hpp \
- /opt/ros/humble/include/rcl_action/rcl_action/action_server.h \
- /opt/ros/humble/include/rcl_action/rcl_action/goal_handle.h \
- /opt/ros/humble/include/rcl_action/rcl_action/goal_state_machine.h \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/server.hpp \
- /opt/ros/humble/include/rclcpp_action/rclcpp_action/server_goal_handle.hpp \
  /opt/ros/humble/include/moveit/task_constructor/solvers.h \
  /opt/ros/humble/include/moveit/task_constructor/solvers/cartesian_path.h \
  /opt/ros/humble/include/moveit/task_constructor/solvers/planner_interface.h \
@@ -1310,6 +1337,23 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/point_stamped__traits.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/point_stamped__type_support.hpp \
  /opt/ros/humble/include/moveit/task_constructor/stages/predicate_filter.h \
+ /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/sub_trajectory.hpp \
+ /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_trajectory__builder.hpp \
+ /opt/ros/humble/include/moveit_task_constructor_msgs/moveit_task_constructor_msgs/msg/detail/sub_trajectory__type_support.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/action/follow_joint_trajectory.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/action/detail/follow_joint_trajectory__struct.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/msg/detail/joint_tolerance__struct.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/msg/detail/joint_component_tolerance__struct.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/action/detail/follow_joint_trajectory__builder.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/action/detail/follow_joint_trajectory__traits.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/msg/detail/joint_tolerance__traits.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/msg/detail/joint_component_tolerance__traits.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/action/detail/follow_joint_trajectory__type_support.hpp \
+ /opt/ros/humble/include/control_msgs/control_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/joint_trajectory.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__builder.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/detail/joint_trajectory__type_support.hpp \
+ /opt/ros/humble/include/trajectory_msgs/trajectory_msgs/msg/rosidl_generator_cpp__visibility_control.hpp \
  /opt/ros/humble/include/tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/quaternion_stamped.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/quaternion_stamped__struct.hpp \
@@ -1379,9 +1423,6 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /opt/ros/humble/include/tf2_ros/tf2_ros/buffer_interface.hpp \
  /opt/ros/humble/include/tf2_ros/tf2_ros/visibility_control.hpp \
  /opt/ros/humble/include/tf2_eigen/tf2_eigen/tf2_eigen.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/accel.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/accel__builder.hpp \
- /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/accel__type_support.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/quaternion.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/quaternion__builder.hpp \
  /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/quaternion__type_support.hpp \

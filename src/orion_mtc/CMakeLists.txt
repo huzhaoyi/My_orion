@@ -12,6 +12,10 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(shape_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(moveit_task_constructor_msgs REQUIRED)
+find_package(control_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 
 add_executable(mtc_node src/mtc_node.cpp)
 ament_target_dependencies(mtc_node
@@ -21,6 +25,10 @@ ament_target_dependencies(mtc_node
   geometry_msgs
   shape_msgs
   moveit_msgs
+  moveit_task_constructor_msgs
+  control_msgs
+  rclcpp_action
+  trajectory_msgs
 )
 
 install(TARGETS mtc_node

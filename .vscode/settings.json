@@ -1,3 +1,10 @@
 {
-    "cmake.sourceDirectory": "/home/joey/My_orion/src/orion_description"
+    "cmake.sourceDirectory": "/home/joey/My_orion/src/orion_description",
+    "ROS2.distro": "humble",
+    "python.autoComplete.extraPaths": [
+        "/home/joey/My_orion/build/orion_pybullet_sim",
+        "/home/huzy/My_orion/install/orion_pybullet_sim/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
 }

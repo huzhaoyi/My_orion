@@ -1,0 +1,11 @@
+Consolidate compiler generated dependencies of target mtc_node
+[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘void OrionMTCTaskNode::doTask()’:
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:137:28: error: cannot convert ‘moveit::core::MoveItErrorCode’ to ‘bool’ in initialization
+  137 |   bool plan_ok = task_.plan(10);
+      |                  ~~~~~~~~~~^~~~
+      |                            |
+      |                            moveit::core::MoveItErrorCode
+gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+gmake: *** [Makefile:146：all] 错误 2
