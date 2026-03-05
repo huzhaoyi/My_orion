@@ -36,16 +36,16 @@
     <joint name="joint_Link5_Link6" value="0" />
   </group_state>
 
-  <!-- gripper open: fingers open -->
+  <!-- gripper open: Link7 正值打开，Link8 负值打开；用 0.4 避免打开过大时 move to pregrasp 导致 Link8-Link2 自碰 -->
   <group_state name="open" group="hand">
-    <joint name="joint_Link6_Link7" value="0" />
-    <joint name="joint_Link6_Link8" value="0" />
+    <joint name="joint_Link6_Link7" value="0.4" />
+    <joint name="joint_Link6_Link8" value="-0.4" />
   </group_state>
 
-  <!-- gripper close: fingers closed (adjust values for your gripper) -->
+  <!-- gripper close: 完全闭合时两关节均为 0 -->
   <group_state name="close" group="hand">
-    <joint name="joint_Link6_Link7" value="0.5" />
-    <joint name="joint_Link6_Link8" value="0.5" />
+    <joint name="joint_Link6_Link7" value="0" />
+    <joint name="joint_Link6_Link8" value="0" />
   </group_state>
 
   <!-- disable self-collision: adjacent + non-adjacent pairs that cause false positives -->

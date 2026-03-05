@@ -1,5 +1,7 @@
-# orion_mtc pick-place 参数（与 MTC demo 对应，由 launch 合并进节点参数）
-# 参考: https://github.com/moveit/moveit_task_constructor (demo Params / pick_place_demo.yaml)
+# 若机械臂姿态“扭曲”、不像真实机械臂：
+# 1) 核对 orion.urdf 各关节 origin/axis/limit 与实机一致，零位与 SRDF ready 一致；
+# 2) 在 orion_moveit_config/config/joint_limits.yaml 为各关节加 has_position_limits/min_position/max_position（实机限位），避免规划到不可达姿态；
+# 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
 
 # Approach: 沿末端 z 接近物体的距离范围 [m]
 approach_object_min_dist: 0.10
@@ -13,7 +15,8 @@ lift_object_max_dist: 0.25
 # 无桌面时留空 ""；加桌面后填对应 collision object 的 id 或 link 名（如 "table"）
 support_surface_link: ""
 
-# 放置位姿（base_link 下）[m]
+# 放置目标（base_link 下）：xy 为放置点，z 为最终放置高度（建议 桌面高+半物体高，如 0.4）
+# 内部会使用 preplace_z = place_pose_z + lower_to_place_max_dist，再 LIN 沿手爪 -Z 下降，末端姿态固定朝下
 place_pose_x: 0.35
 place_pose_y: 0.15
 place_pose_z: 0.4
@@ -30,12 +33,5 @@ retreat_max_dist: 0.25
 lower_to_place_min_dist: 0.05
 lower_to_place_max_dist: 0.12
 
-# 物体初始位姿（add object 阶段，base_link 下）[m]
-object_position_x: 0.35
-object_position_y: -0.15
-object_position_z: 0.4
-
-# 预抓取位姿（pregrasp，base_link 下）[m]，夹爪朝下 (qx=1,qw=0)；z 略高可减少 Link8-Link2 自碰
-pregrasp_x: 0.40
-pregrasp_y: -0.15
-pregrasp_z: 0.65
+# 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），不在此配置
+# 预抓取位姿由物体位置计算：pregrasp = (obj_x, obj_y, obj_z + approach_object_max_dist)，夹爪朝下

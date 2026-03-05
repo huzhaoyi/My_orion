@@ -29,6 +29,7 @@ ament_target_dependencies(mtc_node
   control_msgs
   rclcpp_action
   trajectory_msgs
+  std_msgs
 )
 
 install(TARGETS mtc_node

@@ -1,0 +1,22 @@
+[0.034s] Invoking command in '/home/huzy/My_orion/build/orion_mtc': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8
+[0.208s] [ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+[5.389s] In file included from /opt/ros/humble/include/rclcpp/rclcpp/logging.hpp:24,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/client.hpp:40,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/callback_group.hpp:24,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/any_executable.hpp:20,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/memory_strategy.hpp:25,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/memory_strategies.hpp:18,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/executor_options.hpp:20,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/executor.hpp:37,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/executors/multi_threaded_executor.hpp:25,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/executors.hpp:21,
+[5.389s]                  from /opt/ros/humble/include/rclcpp/rclcpp/rclcpp.hpp:155,
+[5.389s]                  from /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:3:
+[5.389s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘moveit::task_constructor::Task OrionMTCTaskNode::createTask()’:
+[5.389s] /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:673:95: error: request for member ‘c_str’ in ‘hand_group_name’, which is of non-class type ‘const char [5]’
+[5.389s]   673 |         RCLCPP_ERROR(LOGGER, "No JointModelGroup '%s', skip grasp generator", hand_group_name.c_str());
+[5.389s]       |                                                                                               ^~~~~
+[10.608s] gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+[10.609s] gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+[10.609s] gmake: *** [Makefile:146：all] 错误 2
+[10.612s] Invoked command in '/home/huzy/My_orion/build/orion_mtc' returned '2': AMENT_PREFIX_PATH=/home/huzy/My_orion/install/orion_pybullet_sim:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/opt/ros/humble CMAKE_PREFIX_PATH=/home/huzy/My_orion/install/orion_moveit_config:/home/huzy/My_orion/install/orion_description:/home/huzy/My_orion/install/orion_mtc:/home/huzy/My_orion/install/orion_pybullet_sim:/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_mtc -- -j8 -l8

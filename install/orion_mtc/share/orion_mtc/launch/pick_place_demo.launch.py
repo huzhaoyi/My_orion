@@ -1,1 +1,0 @@
-/home/huzy/My_orion/src/orion_mtc/launch/pick_place_demo.launch.py

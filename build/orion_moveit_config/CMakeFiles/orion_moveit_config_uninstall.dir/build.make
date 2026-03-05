@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/joey/My_orion/src/orion_moveit_config
+CMAKE_SOURCE_DIR = /home/huzy/My_orion/src/orion_moveit_config
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/joey/My_orion/build/orion_moveit_config
+CMAKE_BINARY_DIR = /home/huzy/My_orion/build/orion_moveit_config
 
 # Utility rule file for orion_moveit_config_uninstall.
 
@@ -67,7 +67,7 @@ include CMakeFiles/orion_moveit_config_uninstall.dir/compiler_depend.make
 include CMakeFiles/orion_moveit_config_uninstall.dir/progress.make
 
 CMakeFiles/orion_moveit_config_uninstall:
-	/usr/bin/cmake -P /home/joey/My_orion/build/orion_moveit_config/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
+	/usr/bin/cmake -P /home/huzy/My_orion/build/orion_moveit_config/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
 
 orion_moveit_config_uninstall: CMakeFiles/orion_moveit_config_uninstall
 orion_moveit_config_uninstall: CMakeFiles/orion_moveit_config_uninstall.dir/build.make
@@ -82,6 +82,6 @@ CMakeFiles/orion_moveit_config_uninstall.dir/clean:
 .PHONY : CMakeFiles/orion_moveit_config_uninstall.dir/clean
 
 CMakeFiles/orion_moveit_config_uninstall.dir/depend:
-	cd /home/joey/My_orion/build/orion_moveit_config && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/joey/My_orion/src/orion_moveit_config /home/joey/My_orion/src/orion_moveit_config /home/joey/My_orion/build/orion_moveit_config /home/joey/My_orion/build/orion_moveit_config /home/joey/My_orion/build/orion_moveit_config/CMakeFiles/orion_moveit_config_uninstall.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/huzy/My_orion/build/orion_moveit_config && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/huzy/My_orion/src/orion_moveit_config /home/huzy/My_orion/src/orion_moveit_config /home/huzy/My_orion/build/orion_moveit_config /home/huzy/My_orion/build/orion_moveit_config /home/huzy/My_orion/build/orion_moveit_config/CMakeFiles/orion_moveit_config_uninstall.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/orion_moveit_config_uninstall.dir/depend
 

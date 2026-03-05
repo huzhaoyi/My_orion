@@ -1,0 +1,54 @@
+[0.032s] Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/huzy/My_orion/src/orion_description -DCMAKE_INSTALL_PREFIX=/home/huzy/My_orion/install/orion_description
+[0.386s] -- The C compiler identification is GNU 11.4.0
+[0.612s] -- The CXX compiler identification is GNU 11.4.0
+[0.642s] -- Detecting C compiler ABI info
+[0.911s] -- Detecting C compiler ABI info - done
+[0.920s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.921s] -- Detecting C compile features
+[0.924s] -- Detecting C compile features - done
+[0.931s] -- Detecting CXX compiler ABI info
+[1.201s] -- Detecting CXX compiler ABI info - done
+[1.207s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[1.207s] -- Detecting CXX compile features
+[1.208s] -- Detecting CXX compile features - done
+[1.226s] -- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+[1.482s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[1.718s] -- Configuring done
+[1.720s] -- Generating done
+[1.724s] -- Build files have been written to: /home/huzy/My_orion/build/orion_description
+[1.729s] Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/huzy/My_orion/src/orion_description -DCMAKE_INSTALL_PREFIX=/home/huzy/My_orion/install/orion_description
+[1.730s] Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
+[1.854s] Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/huzy/My_orion/build/orion_description -- -j8 -l8
+[1.880s] Invoking command in '/home/huzy/My_orion/build/orion_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description
+[1.900s] -- Install configuration: ""
+[1.900s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/urdf
+[1.901s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/urdf/orion.urdf
+[1.901s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes
+[1.901s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl
+[1.901s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/base_link.stl
+[1.901s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link7.stl
+[1.902s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link1.stl
+[1.902s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link5.stl
+[1.903s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link3.stl
+[1.904s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link2.stl
+[1.906s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link6.stl
+[1.907s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link4.stl
+[1.917s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link8.stl
+[1.918s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/launch
+[1.918s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/launch/display.launch.py
+[1.918s] -- Installing: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/package_run_dependencies/orion_description
+[1.918s] -- Installing: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/parent_prefix_path/orion_description
+[1.918s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/ament_prefix_path.sh
+[1.919s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/ament_prefix_path.dsv
+[1.919s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/path.sh
+[1.919s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/environment/path.dsv
+[1.919s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.bash
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.sh
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.zsh
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/local_setup.dsv
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/package.dsv
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/ament_index/resource_index/packages/orion_description
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/cmake/orion_descriptionConfig.cmake
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/cmake/orion_descriptionConfig-version.cmake
+[1.920s] -- Installing: /home/huzy/My_orion/install/orion_description/share/orion_description/package.xml
+[1.922s] Invoked command in '/home/huzy/My_orion/build/orion_description' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/huzy/My_orion/build/orion_description

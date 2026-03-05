@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/joey/My_orion/src/orion_description
+CMAKE_SOURCE_DIR = /home/huzy/My_orion/src/orion_description
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/joey/My_orion/build/orion_description
+CMAKE_BINARY_DIR = /home/huzy/My_orion/build/orion_description
 
 # Utility rule file for orion_description_uninstall.
 
@@ -67,7 +67,7 @@ include CMakeFiles/orion_description_uninstall.dir/compiler_depend.make
 include CMakeFiles/orion_description_uninstall.dir/progress.make
 
 CMakeFiles/orion_description_uninstall:
-	/usr/bin/cmake -P /home/joey/My_orion/build/orion_description/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
+	/usr/bin/cmake -P /home/huzy/My_orion/build/orion_description/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
 
 orion_description_uninstall: CMakeFiles/orion_description_uninstall
 orion_description_uninstall: CMakeFiles/orion_description_uninstall.dir/build.make
@@ -82,6 +82,6 @@ CMakeFiles/orion_description_uninstall.dir/clean:
 .PHONY : CMakeFiles/orion_description_uninstall.dir/clean
 
 CMakeFiles/orion_description_uninstall.dir/depend:
-	cd /home/joey/My_orion/build/orion_description && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/joey/My_orion/src/orion_description /home/joey/My_orion/src/orion_description /home/joey/My_orion/build/orion_description /home/joey/My_orion/build/orion_description /home/joey/My_orion/build/orion_description/CMakeFiles/orion_description_uninstall.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/huzy/My_orion/build/orion_description && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/huzy/My_orion/src/orion_description /home/huzy/My_orion/src/orion_description /home/huzy/My_orion/build/orion_description /home/huzy/My_orion/build/orion_description /home/huzy/My_orion/build/orion_description/CMakeFiles/orion_description_uninstall.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/orion_description_uninstall.dir/depend
 

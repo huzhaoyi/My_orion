@@ -1,0 +1,20 @@
+[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
+In file included from /opt/ros/humble/include/rclcpp/rclcpp/logging.hpp:24,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/client.hpp:40,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/callback_group.hpp:24,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/any_executable.hpp:20,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/memory_strategy.hpp:25,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/memory_strategies.hpp:18,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/executor_options.hpp:20,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/executor.hpp:37,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/executors/multi_threaded_executor.hpp:25,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/executors.hpp:21,
+                 from /opt/ros/humble/include/rclcpp/rclcpp/rclcpp.hpp:155,
+                 from /home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:3:
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp: In member function ‘moveit::task_constructor::Task OrionMTCTaskNode::createTask()’:
+/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:673:95: error: request for member ‘c_str’ in ‘hand_group_name’, which is of non-class type ‘const char [5]’
+  673 |         RCLCPP_ERROR(LOGGER, "No JointModelGroup '%s', skip grasp generator", hand_group_name.c_str());
+      |                                                                                               ^~~~~
+gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
+gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
+gmake: *** [Makefile:146：all] 错误 2
