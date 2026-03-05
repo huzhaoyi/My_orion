@@ -1,0 +1,26 @@
+# Colcon 构建产物
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+*.egg
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 本地安装包（可选，若需提交请删除此行）
+*.deb
+
+# 系统与临时
+.DS_Store
+*.log

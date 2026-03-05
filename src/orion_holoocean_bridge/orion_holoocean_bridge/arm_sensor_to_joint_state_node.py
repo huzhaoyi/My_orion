@@ -2,13 +2,12 @@
 """
 将 HoloOcean /holoocean/rov0/ArmSensor 的 right_arm 数据转为 Orion 的 joint_states，
 供 MoveIt/MTC 使用。单臂：6DOF + 夹爪（2 个手部关节映射为同一夹爪值）。
-right_arm_gripped 可作为夹爪/碰撞状态参考（当前仅用于日志，后续可扩展发布碰撞话题）。
+right_arm_gripped 可作为夹爪/碰撞状态参考（当前仅用于日志）。
 
-对应关系说明：
-- WorkingClassROVArmSensor 定义：right_arm_joints[0]=Joint1, [1]=Joint2, ..., [5]=Joint6, [6]=Gripper（度）。
-- RViz/Orion 关节名（URDF）：joint_base_link_Link1(joint1), joint_Link1_Link2(joint2), ..., joint_Link5_Link6(joint6), joint_Link6_Link7/Link8(夹爪)。
-- 实测 WorkingClassROV 与 Orion 顺序不一致，需用 HOLOOCEAN_TO_ORION_ARM 映射后，ros2 topic echo 的数值才与 RViz 当前关节角一致：
-  right_arm[5]->joint1, [0]->joint2, [1]->joint3, [4]->joint4, [2]->joint5, [3]->joint6, [6]->夹爪。
+对应关系（以 WorkingClassROVArmSensor 消息定义为准）：
+- right_arm_joints[0..5] = Joint1..Joint6，right_arm_joints[6] = Gripper，单位度。
+- Orion 臂关节顺序：joint_base_link_Link1..joint_Link5_Link6 即 Joint1..Joint6，夹爪为 Link7/Link8。
+- 1:1 映射：right_arm_joints[i] -> Orion 第 i 个臂关节，right_arm_joints[6] -> 夹爪。
 """
 
 import math
@@ -21,6 +20,7 @@ from holoocean_interfaces.msg import WorkingClassROVArmSensor
 
 
 # 与 orion_moveit_config / orion_mtc 一致的关节名
+# 臂关节：joint_base_link_Link1..joint_Link5_Link6，command[17..22]
 ARM_JOINT_NAMES = [
     "joint_base_link_Link1",
     "joint_Link1_Link2",
@@ -29,6 +29,7 @@ ARM_JOINT_NAMES = [
     "joint_Link4_Link5",
     "joint_Link5_Link6",
 ]
+# 夹爪：joint_Link6_Link7/Link8，command[23]
 HAND_JOINT_NAMES = [
     "joint_Link6_Link7",
     "joint_Link6_Link8",
@@ -36,9 +37,8 @@ HAND_JOINT_NAMES = [
 ALL_JOINT_NAMES = ARM_JOINT_NAMES + HAND_JOINT_NAMES
 
 DEG_TO_RAD = math.pi / 180.0
-# 实测映射：right_arm[5,0,1,4,2,3] -> Orion joint1~6（与 test_arm_mapping 及 RViz 数据一致）
+# WorkingClassROVArmSensor: right_arm_joints[0]=Joint1 .. [5]=Joint6, [6]=Gripper，与 Orion 臂关节顺序 1:1
 HOLOOCEAN_TO_ORION_ARM = (0, 1, 2, 3, 4, 5)
-# 各 Orion 关节从 HoloOcean 读入时的符号（需要取反时改为 -1.0）
 RIGHT_ARM_SIGN = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 
 
@@ -101,7 +101,7 @@ class ArmSensorToJointStateNode(Node):
         js.velocity = [0.0] * len(ALL_JOINT_NAMES)
         js.effort = []
         self._pub.publish(js)
-        # 节流打印：当前状态（角度），映射见 HOLOOCEAN_TO_ORION_ARM
+        # 节流打印：当前状态（度），顺序与 right_arm_joints[0..5]=Joint1..6 一致
         arm_deg = [arm_positions[i] * (1.0 / DEG_TO_RAD) for i in range(6)]
         self.get_logger().info(
             "arm_sensor 当前状态 joint1~6(度): %s"

@@ -1,7 +1,0 @@
-/home/huzy/My_orion/src/orion_mtc/src/mtc_node.cpp:15:10: fatal error: moveit/robot_state/conversions.hpp: 没有那个文件或目录
-   15 | #include <moveit/robot_state/conversions.hpp>
-      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-compilation terminated.
-gmake[2]: *** [CMakeFiles/mtc_node.dir/build.make:76：CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o] 错误 1
-gmake[1]: *** [CMakeFiles/Makefile2:137：CMakeFiles/mtc_node.dir/all] 错误 2
-gmake: *** [Makefile:146：all] 错误 2

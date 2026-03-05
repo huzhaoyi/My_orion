@@ -1,2 +1,0 @@
-Consolidate compiler generated dependencies of target mtc_node
-[ 50%] Building CXX object CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o

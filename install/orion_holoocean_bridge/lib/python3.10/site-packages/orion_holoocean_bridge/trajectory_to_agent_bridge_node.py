@@ -19,14 +19,27 @@ from std_msgs.msg import Header
 
 
 RAD_TO_DEG = 180.0 / math.pi
-# AgentCommand.command: 22 维 [0:8] 推进器, [8:15] 左臂, [15:22] 右臂(6关节+1夹爪)，单位度
-RIGHT_ARM_START = 15
+# AgentCommand.command: [0:8] 推进器, [9:16] 左臂(7), [17:24] 右臂 Joint1..Joint6+Gripper(7)，单位度，与 WorkingClassROVArmSensor.right_arm_joints 顺序一致
+RIGHT_ARM_START = 17
 RIGHT_ARM_LEN = 7
 PUBLISH_RATE_HZ = 50.0
-# 实测映射：Orion joint1~6 -> command[15+5,15+0,15+1,15+4,15+2,15+3]（与 test_arm_mapping 一致，能控到具体关节）
+# 1:1：Orion joint1..6 -> command[17..22]，夹爪 -> command[23]（与 right_arm_joints[0..6] 定义一致）
 ORION_TO_HOLOOCEAN_RIGHT_ARM = (0, 1, 2, 3, 4, 5)
-# 发送到 HoloOcean 时各关节的符号（需要取反时改为 -1.0）
 ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+
+# 与 orion_moveit_config / arm_sensor 一致的关节名，用于按名从 trajectory 中取位置（RViz 下发顺序可能不同）
+ARM_JOINT_NAMES = [
+    "joint_base_link_Link1",
+    "joint_Link1_Link2",
+    "joint_Link2_Link3",
+    "joint_LinkVirtual_Link4",
+    "joint_Link4_Link5",
+    "joint_Link5_Link6",
+]
+HAND_JOINT_NAMES = [
+    "joint_Link6_Link7",
+    "joint_Link6_Link8",
+]
 
 
 def _interpolate_point(
@@ -98,7 +111,7 @@ class TrajectoryToAgentBridgeNode(Node):
     def _log_mapping_and_indices(self) -> None:
         """打印发送规矩与 command 数组下标含义。"""
         self.get_logger().info(
-            "AgentCommand.command 数组下标: [0:8] 推进器, [8:15] 左臂(7), [15:22] 右臂(6关节+1夹爪)"
+            "AgentCommand.command 数组下标: [0:8] 推进器, [9:16] 左臂(6关节+1夹爪), [17:24] 右臂(6关节+1夹爪)"
         )
         self.get_logger().info(
             "发送规矩 Orion -> command 下标: Orion joint(i+1) -> command[%d+ORION_TO_HOLOOCEAN_RIGHT_ARM[i]], 符号 ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN[i]"
@@ -136,10 +149,12 @@ class TrajectoryToAgentBridgeNode(Node):
         )
 
     def _execute_arm_callback(self, goal_handle):
-        """执行 arm 轨迹：6 关节弧度 -> 度写入 right_arm[0:6]，夹爪保持当前。"""
+        """执行 arm 轨迹：按 joint_names 取位置，按 ARM_JOINT_NAMES 顺序写入 right_arm[0:6]，夹爪保持当前。"""
         result = FollowJointTrajectory.Result()
         try:
             trajectory = goal_handle.request.trajectory
+            joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
+            name_to_idx = {name: i for i, name in enumerate(joint_names)}
             points = list(trajectory.points)
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
@@ -153,11 +168,12 @@ class TrajectoryToAgentBridgeNode(Node):
                     return result
                 elapsed = time.monotonic() - start_time
                 pos_rad, done = _interpolate_point(points, elapsed)
-                if len(pos_rad) >= 6:
+                if len(pos_rad) == len(joint_names):
                     for orion_i in range(6):
-                        holo_i = ORION_TO_HOLOOCEAN_RIGHT_ARM[orion_i]
-                        sign = ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN[orion_i]
-                        self._right_arm_deg[holo_i] = sign * float(pos_rad[orion_i]) * RAD_TO_DEG
+                        idx = name_to_idx.get(ARM_JOINT_NAMES[orion_i])
+                        if idx is not None:
+                            sign = ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN[orion_i]
+                            self._right_arm_deg[orion_i] = sign * float(pos_rad[idx]) * RAD_TO_DEG
                 self._publish_agent_command()
                 if done:
                     break
@@ -172,11 +188,13 @@ class TrajectoryToAgentBridgeNode(Node):
             return result
 
     def _execute_hand_callback(self, goal_handle):
-        """执行 hand 轨迹：2 关节弧度合并为 1 个夹爪（度）写入 right_arm[6]。"""
+        """执行 hand 轨迹：按 joint_names 取两夹爪关节弧度，合并为 1 个夹爪（度）写入 right_arm[6]。"""
         result = FollowJointTrajectory.Result()
         try:
             trajectory = goal_handle.request.trajectory
             points = list(trajectory.points)
+            joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
+            name_to_idx = {name: i for i, name in enumerate(joint_names)}
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
                 goal_handle.succeed()
@@ -189,9 +207,16 @@ class TrajectoryToAgentBridgeNode(Node):
                     return result
                 elapsed = time.monotonic() - start_time
                 pos_rad, done = _interpolate_point(points, elapsed)
-                if len(pos_rad) >= 2:
-                    gripper_rad = 0.5 * (float(pos_rad[0]) + float(pos_rad[1]))
-                    self._right_arm_deg[6] = gripper_rad * RAD_TO_DEG
+                if len(pos_rad) == len(joint_names):
+                    vals = []
+                    for name in HAND_JOINT_NAMES:
+                        idx = name_to_idx.get(name)
+                        if idx is not None:
+                            vals.append(float(pos_rad[idx]))
+                    if len(vals) >= 2:
+                        self._right_arm_deg[6] = (0.5 * (vals[0] + vals[1])) * RAD_TO_DEG
+                    elif len(vals) == 1:
+                        self._right_arm_deg[6] = vals[0] * RAD_TO_DEG
                 self._publish_agent_command()
                 if done:
                     break
