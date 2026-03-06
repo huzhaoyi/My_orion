@@ -19,13 +19,14 @@ from std_msgs.msg import Header
 
 
 RAD_TO_DEG = 180.0 / math.pi
-# AgentCommand.command: [0:8] 推进器, [9:16] 左臂(7), [17:24] 右臂 Joint1..Joint6+Gripper(7)，单位度，与 WorkingClassROVArmSensor.right_arm_joints 顺序一致
-RIGHT_ARM_START = 17
+# AgentCommand.command 共 22 维: [0:8] 推进器, [8:15] 左臂(7: 6关节+夹爪), [15:22] 右臂(7: 6关节+夹爪)，单位度；右臂 command[15..20]=Joint1..6，command[21]=夹爪
+RIGHT_ARM_START = 15
 RIGHT_ARM_LEN = 7
+GRIPPER_CMD_INDEX = 21  # 夹爪在 command 数组中的下标
 PUBLISH_RATE_HZ = 50.0
-# 1:1：Orion joint1..6 -> command[17..22]，夹爪 -> command[23]（与 right_arm_joints[0..6] 定义一致）
+# Orion joint1..6 -> command[15..20]，夹爪 -> command[21]（与 right_arm_joints[0..6] 定义一致）
 ORION_TO_HOLOOCEAN_RIGHT_ARM = (0, 1, 2, 3, 4, 5)
-ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
 
 # 与 orion_moveit_config / arm_sensor 一致的关节名，用于按名从 trajectory 中取位置（RViz 下发顺序可能不同）
 ARM_JOINT_NAMES = [
@@ -40,6 +41,10 @@ HAND_JOINT_NAMES = [
     "joint_Link6_Link7",
     "joint_Link6_Link8",
 ]
+# Orion SRDF: close=(0,0) rad, open=(0.4,-0.4) rad；HoloOcean 夹爪单值：0°=闭合，-90°=完全打开
+ORION_OPEN_RAD = 0.4
+HOLOOCEAN_GRIPPER_CLOSED_DEG = 0.0
+HOLOOCEAN_GRIPPER_OPEN_DEG = -90.0
 
 
 def _interpolate_point(
@@ -111,34 +116,32 @@ class TrajectoryToAgentBridgeNode(Node):
     def _log_mapping_and_indices(self) -> None:
         """打印发送规矩与 command 数组下标含义。"""
         self.get_logger().info(
-            "AgentCommand.command 数组下标: [0:8] 推进器, [9:16] 左臂(6关节+1夹爪), [17:24] 右臂(6关节+1夹爪)"
+            "AgentCommand.command: [0:8] 推进器, [8:15] 左臂(7), [15:22] 右臂(7)，夹爪=command[%d]"
+            % GRIPPER_CMD_INDEX
         )
         self.get_logger().info(
-            "发送规矩 Orion -> command 下标: Orion joint(i+1) -> command[%d+ORION_TO_HOLOOCEAN_RIGHT_ARM[i]], 符号 ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN[i]"
-            % RIGHT_ARM_START
+            "Orion joint1..6 -> command[15..20]，符号 ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN"
         )
         for orion_i in range(6):
             holo_i = ORION_TO_HOLOOCEAN_RIGHT_ARM[orion_i]
             sign = ORION_TO_HOLOOCEAN_RIGHT_ARM_SIGN[orion_i]
             cmd_idx = RIGHT_ARM_START + holo_i
             self.get_logger().info(
-                "  Orion joint%d (orion_i=%d) -> command[%d] (right_arm[%d]), sign=%.1f"
-                % (orion_i + 1, orion_i, cmd_idx, holo_i, sign)
+                "  Orion joint%d -> command[%d], sign=%.1f" % (orion_i + 1, cmd_idx, sign)
             )
-        self.get_logger().info(
-            "  夹爪(合并) -> command[%d] (right_arm[6])" % (RIGHT_ARM_START + 6)
-        )
+        self.get_logger().info("  夹爪(合并) -> command[%d]，0°=闭合 -90°=打开" % GRIPPER_CMD_INDEX)
 
     def _goal_callback(self, _goal_request) -> GoalResponse:
         return GoalResponse.ACCEPT
 
     def _publish_agent_command(self) -> None:
-        """发布当前 self._right_arm_deg 到 AgentCommand（推进器/左臂为 0）。"""
+        """发布当前 self._right_arm_deg 到 AgentCommand；右臂占 command[15:22]，夹爪=command[21]。"""
         msg = AgentCommand()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self._frame_id
-        cmd = [0.0] * 8 + [0.0] * 7 + list(self._right_arm_deg)
+        # 共 22 元素：8 推进器 + 7 左臂(6关节+夹爪) + 7 右臂(6关节+夹爪)，右臂夹爪在 command[21]
+        cmd = [0.0] * 15 + list(self._right_arm_deg)
         msg.command = cmd
         self._command_pub.publish(msg)
         # 节流打印：整帧 command 数组下标与值（推进器/左臂为 0，右臂为当前值）
@@ -187,8 +190,20 @@ class TrajectoryToAgentBridgeNode(Node):
             goal_handle.abort()
             return result
 
+    def _orion_hand_to_holoocean_gripper_deg(self, link7_rad: float, link8_rad: float) -> float:
+        """Orion 双关节 (Link7, Link8) 弧度 -> HoloOcean 夹爪度：0°=闭合，-90°=完全打开。"""
+        # 张开量 (rad)：close=(0,0)->0，open=(0.4,-0.4)->0.4
+        opening_rad = 0.5 * (float(link7_rad) - float(link8_rad))
+        if ORION_OPEN_RAD <= 1e-9:
+            return HOLOOCEAN_GRIPPER_CLOSED_DEG
+        ratio = opening_rad / ORION_OPEN_RAD
+        ratio = max(0.0, min(1.0, ratio))
+        return HOLOOCEAN_GRIPPER_CLOSED_DEG + ratio * (
+            HOLOOCEAN_GRIPPER_OPEN_DEG - HOLOOCEAN_GRIPPER_CLOSED_DEG
+        )
+
     def _execute_hand_callback(self, goal_handle):
-        """执行 hand 轨迹：按 joint_names 取两夹爪关节弧度，合并为 1 个夹爪（度）写入 right_arm[6]。"""
+        """执行 hand 轨迹：按 joint_names 取两夹爪关节弧度，映射为 HoloOcean 单值（0°=闭合，-90°=打开）写入 right_arm[6]。"""
         result = FollowJointTrajectory.Result()
         try:
             trajectory = goal_handle.request.trajectory
@@ -214,9 +229,13 @@ class TrajectoryToAgentBridgeNode(Node):
                         if idx is not None:
                             vals.append(float(pos_rad[idx]))
                     if len(vals) >= 2:
-                        self._right_arm_deg[6] = (0.5 * (vals[0] + vals[1])) * RAD_TO_DEG
+                        self._right_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
+                            vals[0], vals[1]
+                        )
                     elif len(vals) == 1:
-                        self._right_arm_deg[6] = vals[0] * RAD_TO_DEG
+                        self._right_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
+                            vals[0], vals[0]
+                        )
                 self._publish_agent_command()
                 if done:
                     break
@@ -240,7 +259,10 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

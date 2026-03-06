@@ -20,7 +20,7 @@ from holoocean_interfaces.msg import WorkingClassROVArmSensor
 
 
 # 与 orion_moveit_config / orion_mtc 一致的关节名
-# 臂关节：joint_base_link_Link1..joint_Link5_Link6，command[17..22]
+# 臂关节：joint_base_link_Link1..joint_Link5_Link6，AgentCommand.command[15..20]
 ARM_JOINT_NAMES = [
     "joint_base_link_Link1",
     "joint_Link1_Link2",
@@ -29,7 +29,7 @@ ARM_JOINT_NAMES = [
     "joint_Link4_Link5",
     "joint_Link5_Link6",
 ]
-# 夹爪：joint_Link6_Link7/Link8，command[23]
+# 夹爪：joint_Link6_Link7/Link8；HoloOcean 中 right_arm_joints[6] / AgentCommand.command[21]
 HAND_JOINT_NAMES = [
     "joint_Link6_Link7",
     "joint_Link6_Link8",
@@ -39,7 +39,10 @@ ALL_JOINT_NAMES = ARM_JOINT_NAMES + HAND_JOINT_NAMES
 DEG_TO_RAD = math.pi / 180.0
 # WorkingClassROVArmSensor: right_arm_joints[0]=Joint1 .. [5]=Joint6, [6]=Gripper，与 Orion 臂关节顺序 1:1
 HOLOOCEAN_TO_ORION_ARM = (0, 1, 2, 3, 4, 5)
-RIGHT_ARM_SIGN = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+RIGHT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
+# HoloOcean 夹爪：0°=闭合，-90°=完全打开 -> Orion open=(0.4,-0.4) rad（与 orion.srdf 一致）
+HOLOOCEAN_GRIPPER_OPEN_DEG = -90.0
+ORION_OPEN_RAD = 0.4
 
 
 def _to_list(val) -> List[float]:
@@ -90,8 +93,14 @@ class ArmSensorToJointStateNode(Node):
             RIGHT_ARM_SIGN[i] * float(right[HOLOOCEAN_TO_ORION_ARM[i]]) * scale
             for i in range(6)
         ]
-        gripper_val = float(right[6]) * scale
-        hand_positions = [gripper_val, gripper_val]
+        # HoloOcean 夹爪度 0°=闭合、-90°=打开 -> Orion (Link7, Link8) rad，与 SRDF open=(0.4,-0.4) 一致
+        gripper_deg = float(right[6])
+        ratio = 0.0 if abs(HOLOOCEAN_GRIPPER_OPEN_DEG) < 1e-9 else max(
+            0.0, min(1.0, gripper_deg / HOLOOCEAN_GRIPPER_OPEN_DEG)
+        )
+        link7_rad = ratio * ORION_OPEN_RAD
+        link8_rad = -link7_rad
+        hand_positions = [link7_rad, link8_rad]
 
         js = JointState()
         js.header.stamp = self.get_clock().now().to_msg()
@@ -101,11 +110,12 @@ class ArmSensorToJointStateNode(Node):
         js.velocity = [0.0] * len(ALL_JOINT_NAMES)
         js.effort = []
         self._pub.publish(js)
-        # 节流打印：当前状态（度），顺序与 right_arm_joints[0..5]=Joint1..6 一致
+        # 节流打印：当前状态（度），joint1~6 + 夹爪
         arm_deg = [arm_positions[i] * (1.0 / DEG_TO_RAD) for i in range(6)]
+        gripper_deg_log = gripper_deg if self._joints_in_degrees else (gripper_deg * (1.0 / DEG_TO_RAD))
         self.get_logger().info(
-            "arm_sensor 当前状态 joint1~6(度): %s"
-            % ", ".join("%.2f" % arm_deg[i] for i in range(6)),
+            "arm_sensor 当前状态 joint1~6(度): %s, gripper(度): %.2f"
+            % (", ".join("%.2f" % arm_deg[i] for i in range(6)), float(gripper_deg_log)),
             throttle_duration_sec=2.0,
         )
 
@@ -125,7 +135,10 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

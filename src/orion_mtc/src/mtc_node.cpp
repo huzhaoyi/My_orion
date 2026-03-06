@@ -901,11 +901,17 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.add(std::move(place));
   }
 
-  /* 回 home：PTP 规矩轨迹 */
+  /* 回 home：臂 PTP 到 ready，再夹爪闭合（Place 后夹爪为 open，回位后闭合） */
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
     stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
     stage->setGoal("ready");
+    task.add(std::move(stage));
+  }
+  {
+    auto stage = std::make_unique<mtc::stages::MoveTo>("close hand (return home)", interpolation_planner);
+    stage->setGroup(hand_group_name);
+    stage->setGoal("close");
     task.add(std::move(stage));
   }
 

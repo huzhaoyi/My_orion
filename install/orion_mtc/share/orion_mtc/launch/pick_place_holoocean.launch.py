@@ -2,7 +2,9 @@
 """
 Pick-and-place 与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSensor（right_arm 6DOF+夹爪）。
 启动 MoveIt + RViz + HoloOcean 桥接节点，MTC 使用 HoloOcean 机械臂当前状态进行规划。
-注意：轨迹执行需 HoloOcean 或其它控制器提供 FollowJointTrajectory action。
+MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
+FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
+/holoocean/command/agent，在 HoloOcean 中驱动机械臂。
 需能导入 holoocean_interfaces：通过环境变量 HOLOOCEAN_ROS_INSTALL 指定 holoocean-ros 的 install 目录，
 或先 source 该工作区的 setup.bash，本 launch 会为桥接节点注入其 Python 路径。
 """
@@ -92,6 +94,14 @@ def generate_launch_description():
     demo_launch = os.path.join(orion_moveit_share, "launch", "demo.launch.py")
     bridge_params = os.path.join(orion_holoocean_share, "config", "holoocean_bridge_params.yaml")
 
+    traj_bridge_params = {}
+    if os.path.isfile(bridge_params):
+        with open(bridge_params, "r") as f:
+            bridge_cfg = yaml.safe_load(f)
+        traj_section = (bridge_cfg or {}).get("trajectory_to_agent_bridge", {})
+        if isinstance(traj_section, dict):
+            traj_bridge_params = traj_section.get("ros__parameters", traj_section) or {}
+
     bridge_node = Node(
         package="orion_holoocean_bridge",
         executable="arm_sensor_to_joint_state",
@@ -105,6 +115,7 @@ def generate_launch_description():
         executable="trajectory_to_agent_bridge",
         name="trajectory_to_agent_bridge",
         output="screen",
+        parameters=[traj_bridge_params] if traj_bridge_params else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
     )
     mtc_node = Node(

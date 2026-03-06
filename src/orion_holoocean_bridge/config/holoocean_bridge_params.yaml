@@ -1,7 +1,14 @@
-# HoloOcean ArmSensor -> Orion joint_states 桥接参数
+# HoloOcean 桥接参数（MTC 规划结果经 trajectory_to_agent_bridge 转发到 HoloOcean 执行）
 arm_sensor_to_joint_state:
   ros__parameters:
     arm_sensor_topic: "/holoocean/rov0/ArmSensor"
     joint_states_topic: "joint_states"
     joints_in_degrees: true
     publish_frame_id: "base_link"
+
+# MTC 执行目标：arm_controller / hand_controller 的 FollowJointTrajectory 由此节点提供并转为 AgentCommand
+trajectory_to_agent_bridge:
+  ros__parameters:
+    agent_command_topic: "/holoocean/command/agent"
+    agent_frame_id: "rov0"
+    publish_rate_hz: 50.0
