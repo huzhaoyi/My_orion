@@ -614,7 +614,8 @@ bool OrionMTCTaskNode::executeSolutionLocally(const mtc::SolutionBase& solution)
     const auto& sub = solution_msg.sub_trajectory[i];
     if (isHandOnlySegment(sub))
     {
-      if (isGripperClosedInSegment(sub))
+      /* 仅对“抓取时闭合”等待 gripped；回位时的 close hand (return home) 不再等待（手中无物） */
+      if (isGripperClosedInSegment(sub) && !have_waited_gripped)
       {
         if (!waitForGripped(true))
           RCLCPP_WARN(LOGGER, "executeSolutionLocally: wait gripped timeout, continue anyway");
