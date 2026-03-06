@@ -108,7 +108,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("rov_odom_topic", "/holoocean/rov0/DynamicsSensorOdom")
         self.declare_parameter("object_pose_topic", "object_pose")
         self.declare_parameter("output_frame_id", "base_link")
-        self.declare_parameter("target_index", 2)
+        self.declare_parameter("target_index", 1)
         self.declare_parameter("use_left_arm", True)
 
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
@@ -167,6 +167,22 @@ class TargetSensorToObjectPoseNode(Node):
         n = msg.num_targets
         if n <= 0:
             return
+
+        R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
+        t_rov = self._rov_position
+
+        # 目标转换与 ROV 当前位置打印已屏蔽（需要时可恢复，需 pos_len/dir_len 与 _format_target_line）
+        # self.get_logger().info(
+        #     "target_sensor_to_object_pose: ROV world (%.3f, %.3f, %.3f)"
+        #     % (float(t_rov[0]), float(t_rov[1]), float(t_rov[2])),
+        #     throttle_duration_sec=1.0,
+        # )
+        # def _format_target_line(k: int) -> str:
+        #     ...
+        # self.get_logger().info(_format_target_line(0), ...)
+        # self.get_logger().info(_format_target_line(1), ...)
+        # self.get_logger().info(_format_target_line(2), ...)
+
         idx = max(0, min(self._target_index, n - 1))
         i = idx * 3
         px = msg.positions[i]
@@ -179,8 +195,6 @@ class TargetSensorToObjectPoseNode(Node):
         p_world = np.array([px, py, pz], dtype=float)
         direction = np.array([dx, dy, dz], dtype=float)
 
-        R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
-        t_rov = self._rov_position
         p_rov = R_rov.T @ (p_world - t_rov)
         p_base = p_rov - self._t_arm_in_rov
 

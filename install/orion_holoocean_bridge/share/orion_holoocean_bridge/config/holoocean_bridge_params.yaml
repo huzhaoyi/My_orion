@@ -5,6 +5,8 @@ arm_sensor_to_joint_state:
     joint_states_topic: "joint_states"
     joints_in_degrees: true
     publish_frame_id: "base_link"
+    # 发布 left_arm_gripped 供 MTC 动态抓取时等待“抓稳/松开”
+    gripped_topic: "left_arm_gripped"
 
 # MTC 执行目标：arm_controller / hand_controller 的 FollowJointTrajectory 由此节点提供并转为 AgentCommand
 trajectory_to_agent_bridge:
@@ -20,5 +22,5 @@ target_sensor_to_object_pose:
     rov_odom_topic: "/holoocean/rov0/DynamicsSensorOdom"
     object_pose_topic: "object_pose"
     output_frame_id: "base_link"
-    target_index: 2
+    target_index: 1
     use_left_arm: true

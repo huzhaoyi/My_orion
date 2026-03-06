@@ -58,14 +58,23 @@ source install/setup.bash
 
 关节状态来自 HoloOcean 的 ArmSensor（`/holoocean/rov0/ArmSensor`），规划在 MoveIt 中完成，轨迹通过桥接节点发给 HoloOcean 执行。
 
+**测试流程：**
+
 1. 确保已安装 holoocean-ros 并设置 `HOLOOCEAN_ROS_INSTALL`（或已 source 其 install）。
 2. 启动：
    ```bash
    ros2 launch orion_mtc pick_place_holoocean.launch.py
    ```
-3. 与 PyBullet 方式相同：先发布 `/object_pose`，再发布 `/pick_place_trigger` 触发一次 pick-place。
+3. 物体位姿由 `target_sensor_to_object_pose` 从 TargetSensor + ROV 里程计自动发布到 `/object_pose`（默认抓取 `目标[1]`）；若需手动测试可自行发布位姿。
+4. 发布空消息触发一次 pick-place：
+   ```bash
+   ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"
+   ```
 
-桥接节点：`arm_sensor_to_joint_state`（ArmSensor → `joint_states`）、`trajectory_to_agent_bridge`（轨迹 → HoloOcean Agent）。参数见 `orion_holoocean_bridge/config/holoocean_bridge_params.yaml`。
+桥接节点：`arm_sensor_to_joint_state`（ArmSensor → `joint_states`）、`trajectory_to_agent_bridge`（轨迹 → HoloOcean Agent）、`target_sensor_to_object_pose`（TargetSensor + ROV 里程计 → `object_pose`）。参数见 `orion_holoocean_bridge/config/holoocean_bridge_params.yaml`。
+
+- **TargetSensor 调试输出**：`target_sensor_to_object_pose` 会逐行打印 `ROV` 当前 world 坐标，并逐行打印 `目标[0]`、`目标[1]`、`目标[2]` 的 `world -> base_link` 变换结果（日志节流约 1Hz）。
+- **抓取目标选择**：默认抓取目标为 `target_index: 1`（即 `目标[1]`），可在 `orion_holoocean_bridge/config/holoocean_bridge_params.yaml` 中修改。
 
 ### 仅查看机器人模型
 

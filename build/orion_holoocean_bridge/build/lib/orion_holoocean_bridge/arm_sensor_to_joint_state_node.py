@@ -2,7 +2,7 @@
 """
 将 HoloOcean /holoocean/rov0/ArmSensor 的 left_arm 数据转为 Orion 的 joint_states，
 供 MoveIt/MTC 使用。单臂：6DOF + 夹爪（2 个手部关节映射为同一夹爪值）。
-left_arm_gripped 可作为夹爪/碰撞状态参考（当前仅用于日志）。
+left_arm_gripped 发布到话题供 MTC 动态抓取时等待“抓稳/松开”。
 
 对应关系（以 WorkingClassROVArmSensor 消息定义为准）：
 - left_arm_joints[0..5] = Joint1..Joint6，left_arm_joints[6] = Gripper，单位度。
@@ -16,6 +16,7 @@ from typing import List
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float32
 from holoocean_interfaces.msg import WorkingClassROVArmSensor
 
 
@@ -64,11 +65,13 @@ class ArmSensorToJointStateNode(Node):
         self.declare_parameter("joint_states_topic", "joint_states")
         self.declare_parameter("joints_in_degrees", True)
         self.declare_parameter("publish_frame_id", "base_link")
+        self.declare_parameter("gripped_topic", "left_arm_gripped")
 
         arm_sensor_topic = self.get_parameter("arm_sensor_topic").get_parameter_value().string_value
         joint_states_topic = self.get_parameter("joint_states_topic").get_parameter_value().string_value
         self._joints_in_degrees = self.get_parameter("joints_in_degrees").get_parameter_value().bool_value
         self._frame_id = self.get_parameter("publish_frame_id").get_parameter_value().string_value
+        gripped_topic = self.get_parameter("gripped_topic").get_parameter_value().string_value
 
         self._sub = self.create_subscription(
             WorkingClassROVArmSensor,
@@ -77,6 +80,7 @@ class ArmSensorToJointStateNode(Node):
             10,
         )
         self._pub = self.create_publisher(JointState, joint_states_topic, 10)
+        self._gripped_pub = self.create_publisher(Float32, gripped_topic, 10)
 
         self.get_logger().info(
             "arm_sensor_to_joint_state: sub=%s pub=%s degrees=%s"
@@ -119,10 +123,13 @@ class ArmSensorToJointStateNode(Node):
             throttle_duration_sec=2.0,
         )
 
-        gripped = getattr(msg, "left_arm_gripped", 0.0)
+        gripped = float(getattr(msg, "left_arm_gripped", 0.0))
+        out = Float32()
+        out.data = gripped
+        self._gripped_pub.publish(out)
         if abs(gripped) > 1e-6:
             self.get_logger().debug(
-                "left_arm_gripped=%.3f (collision/grip hint)" % float(gripped)
+                "left_arm_gripped=%.3f (collision/grip hint)" % gripped
             )
 
 

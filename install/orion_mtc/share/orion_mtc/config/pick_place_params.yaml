@@ -16,6 +16,7 @@ lift_object_max_dist: 0.25
 support_surface_link: ""
 
 # 放置目标（base_link 下）：xy 为放置点，z 为最终放置高度（建议 桌面高+半物体高，如 0.4）
+# 动态放置时由 /place_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），无话题时使用下列参数
 # 内部会使用 preplace_z = place_pose_z + lower_to_place_max_dist，再 LIN 沿手爪 -Z 下降，末端姿态固定朝下
 place_pose_x: 0.35
 place_pose_y: 0.15
@@ -35,3 +36,6 @@ lower_to_place_max_dist: 0.12
 
 # 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），不在此配置
 # 预抓取位姿由物体位置计算：pregrasp = (obj_x, obj_y, obj_z + approach_object_max_dist)，夹爪朝下
+#
+# 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped（std_msgs/Float32）判断抓稳再抬升，
+# 放置“张开”段后根据 left_arm_gripped 从 lock 变为 unlock 再退离。left_arm_gripped 由 arm_sensor_to_joint_state 从 HoloOcean ArmSensor 发布。

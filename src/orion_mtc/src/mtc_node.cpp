@@ -17,6 +17,7 @@
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/float32.hpp>
 
 #if __has_include(<tf2_geometry_msgs/tf2_geometry_msgs.hpp>)
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -90,8 +91,25 @@ private:
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_place_trigger_;
   std::atomic<bool> do_task_running_{ false };  /* 防止连续触发导致重入竞态 */
 
+  /* 放置位姿话题：有则 createTask 中优先使用，实现动态放置 */
+  geometry_msgs::msg::PoseStamped place_pose_from_topic_;
+  bool has_place_pose_from_topic_ = false;
+  std::mutex place_pose_mutex_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_place_pose_;
+
+  /* 左臂夹爪抓取状态（HoloOcean left_arm_gripped）：用于动态抓取时等待“抓稳”再抬升、放置后等待“松开”再退离 */
+  std::atomic<double> left_arm_gripped_{ 0.0 };
+  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
+
   void onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void onPickPlaceTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
+  void onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void onLeftArmGrippedReceived(const std_msgs::msg::Float32::SharedPtr msg);
+  /* 等待 gripped 达到期望（true=抓稳，false=松开），超时返回 false */
+  bool waitForGripped(bool expect_gripped, double timeout_sec = 5.0);
+  /* 判断 segment 是否为仅手部且末端为闭合/张开，用于决定是否等待 gripped/unlock */
+  bool isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub) const;
+  bool isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub) const;
 };
 
 OrionMTCTaskNode::OrionMTCTaskNode(const rclcpp::NodeOptions& options)
@@ -141,6 +159,10 @@ OrionMTCTaskNode::OrionMTCTaskNode(const rclcpp::NodeOptions& options)
       "object_pose", 10, std::bind(&OrionMTCTaskNode::onObjectPoseReceived, this, std::placeholders::_1));
   sub_pick_place_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
       "pick_place_trigger", 10, std::bind(&OrionMTCTaskNode::onPickPlaceTriggerReceived, this, std::placeholders::_1));
+  sub_place_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
+      "place_pose", 10, std::bind(&OrionMTCTaskNode::onPlacePoseReceived, this, std::placeholders::_1));
+  sub_left_arm_gripped_ = action_client_node_->create_subscription<std_msgs::msg::Float32>(
+      "left_arm_gripped", 10, std::bind(&OrionMTCTaskNode::onLeftArmGrippedReceived, this, std::placeholders::_1));
 }
 
 void OrionMTCTaskNode::onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -163,6 +185,88 @@ void OrionMTCTaskNode::onPickPlaceTriggerReceived(const std_msgs::msg::Empty::Sh
   /* 在独立线程中执行，避免阻塞 executor */
   std::thread(&OrionMTCTaskNode::doTask, this).detach();
 }
+
+void OrionMTCTaskNode::onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
+  if (msg->header.frame_id != "base_link")
+  {
+    RCLCPP_WARN(LOGGER, "place_pose frame_id is '%s', expected base_link; ignore",
+                msg->header.frame_id.c_str());
+    return;
+  }
+  std::lock_guard<std::mutex> lock(place_pose_mutex_);
+  place_pose_from_topic_ = *msg;
+  has_place_pose_from_topic_ = true;
+  RCLCPP_DEBUG(LOGGER, "place_pose received: (%.3f, %.3f, %.3f)", msg->pose.position.x, msg->pose.position.y,
+               msg->pose.position.z);
+}
+
+void OrionMTCTaskNode::onLeftArmGrippedReceived(const std_msgs::msg::Float32::SharedPtr msg)
+{
+  left_arm_gripped_.store(static_cast<double>(msg->data));
+}
+
+bool OrionMTCTaskNode::waitForGripped(bool expect_gripped, double timeout_sec)
+{
+  const double threshold = 0.5;
+  const int total_ticks = static_cast<int>(timeout_sec * 20.0);  /* 50 ms per tick */
+  for (int i = 0; i < total_ticks; ++i)
+  {
+    double v = left_arm_gripped_.load();
+    if (expect_gripped && v >= threshold)
+    {
+      RCLCPP_INFO(LOGGER, "waitForGripped: gripped (%.3f >= %.3f)", v, threshold);
+      return true;
+    }
+    if (!expect_gripped && v < threshold)
+    {
+      RCLCPP_INFO(LOGGER, "waitForGripped: unlocked (%.3f < %.3f)", v, threshold);
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+  RCLCPP_WARN(LOGGER, "waitForGripped: timeout (expect_gripped=%d, last=%.3f)", expect_gripped,
+              left_arm_gripped_.load());
+  return false;
+}
+
+bool OrionMTCTaskNode::isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub) const
+{
+  const auto& names = sub.trajectory.joint_trajectory.joint_names;
+  for (const auto& n : names)
+  {
+    if (std::find(ARM_JOINTS.begin(), ARM_JOINTS.end(), n) != ARM_JOINTS.end())
+      return false;
+  }
+  return std::find_first_of(names.begin(), names.end(), HAND_JOINTS.begin(), HAND_JOINTS.end()) != names.end();
+}
+
+bool OrionMTCTaskNode::isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub) const
+{
+  const auto& traj = sub.trajectory.joint_trajectory;
+  if (traj.points.empty() || traj.joint_names.size() != traj.points.back().positions.size())
+    return false;
+  /* Orion 夹爪闭合 (0, 0) rad，张开 (0.4, -0.4) rad */
+  std::vector<size_t> hand_idx;
+  for (const auto& hn : HAND_JOINTS)
+  {
+    for (size_t i = 0; i < traj.joint_names.size(); ++i)
+    {
+      if (traj.joint_names[i] == hn)
+      {
+        hand_idx.push_back(i);
+        break;
+      }
+    }
+  }
+  if (hand_idx.size() != 2u)
+    return false;
+  const auto& p = traj.points.back().positions;
+  double j0 = p[hand_idx[0]];
+  double j1 = p[hand_idx[1]];
+  return std::abs(j0) < 0.15 && std::abs(j1) < 0.15;
+}
+
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCTaskNode::getNodeBaseInterface()
 {
@@ -497,6 +601,7 @@ bool OrionMTCTaskNode::executeSolutionLocally(const mtc::SolutionBase& solution)
   RCLCPP_INFO(LOGGER, "executeSolutionLocally: executing %zu trajectory segments",
               solution_msg.sub_trajectory.size());
 
+  bool have_waited_gripped = false;  /* 已等待过“抓稳”，后续手部张开段则等待“松开” */
   for (size_t i = 0; i < solution_msg.sub_trajectory.size(); ++i)
   {
     RCLCPP_INFO(LOGGER, "Executing segment %zu / %zu", i + 1, solution_msg.sub_trajectory.size());
@@ -504,6 +609,22 @@ bool OrionMTCTaskNode::executeSolutionLocally(const mtc::SolutionBase& solution)
     {
       RCLCPP_ERROR(LOGGER, "executeSolutionLocally: segment %zu failed", i);
       return false;
+    }
+    /* 动态抓取：仅手部 segment 后根据闭合/张开等待 gripped 或 unlock */
+    const auto& sub = solution_msg.sub_trajectory[i];
+    if (isHandOnlySegment(sub))
+    {
+      if (isGripperClosedInSegment(sub))
+      {
+        if (!waitForGripped(true))
+          RCLCPP_WARN(LOGGER, "executeSolutionLocally: wait gripped timeout, continue anyway");
+        have_waited_gripped = true;
+      }
+      else if (have_waited_gripped)
+      {
+        if (!waitForGripped(false))
+          RCLCPP_WARN(LOGGER, "executeSolutionLocally: wait unlock timeout, continue anyway");
+      }
     }
   }
   return true;
@@ -516,12 +637,24 @@ void OrionMTCTaskNode::doTask()
     RCLCPP_WARN(LOGGER, "doTask: already running, skip (wait for current task to finish)");
     return;
   }
-  /* 完全由话题驱动：无 /object_pose 不执行 */
+  /* 完全由话题驱动：无 /object_pose 不执行；若尚未收到则短暂等待（HoloOcean 下 target_sensor 持续发布，避免首触过早跳过） */
   {
+    const int wait_ticks = 60;  /* 约 3 s，50 ms/次 */
+    for (int i = 0; i < wait_ticks; ++i)
+    {
+      {
+        std::lock_guard<std::mutex> lock(object_pose_mutex_);
+        if (has_object_pose_from_topic_)
+          break;
+      }
+      if (i == 0)
+        RCLCPP_INFO(LOGGER, "doTask: waiting for /object_pose (e.g. from target_sensor_to_object_pose)...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     std::lock_guard<std::mutex> lock(object_pose_mutex_);
     if (!has_object_pose_from_topic_)
     {
-      RCLCPP_WARN(LOGGER, "doTask: no object pose from topic yet, skip (publish /object_pose then /pick_place_trigger)");
+      RCLCPP_WARN(LOGGER, "doTask: no object pose from topic after wait, skip (publish /object_pose then /pick_place_trigger)");
       do_task_running_ = false;
       return;
     }
@@ -597,6 +730,22 @@ mtc::Task OrionMTCTaskNode::createTask()
   node_->get_parameter("lower_to_place_min_dist", lower_min);
   node_->get_parameter("lower_to_place_max_dist", lower_max);
 
+  /* 放置位姿：优先来自 /place_pose 话题（动态放置），否则用参数 */
+  {
+    std::lock_guard<std::mutex> lock(place_pose_mutex_);
+    if (has_place_pose_from_topic_)
+    {
+      place_x = place_pose_from_topic_.pose.position.x;
+      place_y = place_pose_from_topic_.pose.position.y;
+      place_z = place_pose_from_topic_.pose.position.z;
+      place_qx = place_pose_from_topic_.pose.orientation.x;
+      place_qy = place_pose_from_topic_.pose.orientation.y;
+      place_qz = place_pose_from_topic_.pose.orientation.z;
+      place_qw = place_pose_from_topic_.pose.orientation.w;
+      RCLCPP_INFO(LOGGER, "createTask: place pose from topic (%.3f, %.3f, %.3f)", place_x, place_y, place_z);
+    }
+  }
+
   /* 物体位姿仅来自 /object_pose（doTask 已保证收到后才调用 createTask） */
   geometry_msgs::msg::Quaternion object_orientation;
   {
@@ -643,7 +792,7 @@ mtc::Task OrionMTCTaskNode::createTask()
     task.add(std::move(stage_add_object));
   }
 
-  /* 工业风格：PTP 到 pregrasp（最小关节运动、轨迹规矩，避免 OMPL 关节空间绕圈导致掏档）；Connect/return 也用 PTP */
+  /* 工业风格：PTP 到 pregrasp（最小关节运动、轨迹规矩）；Connect/return 也用 PTP */
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
@@ -653,7 +802,13 @@ mtc::Task OrionMTCTaskNode::createTask()
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(0.01);
 
-  /* 官方骨架：CurrentState → OpenHand → Connect(pregrasp) → Pick → Connect(preplace) → Place → ReturnHome */
+  /* 先从当前状态移到 ready，避免从全零/奇异位形直接 PTP 到 pregrasp 导致自碰（Link1-Link7 等） */
+  auto stage_move_to_ready = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
+  stage_move_to_ready->setGroup(arm_group_name);
+  stage_move_to_ready->setGoal("ready");
+  task.add(std::move(stage_move_to_ready));
+
+  /* 官方骨架：… → OpenHand → … → Pick → Connect(preplace) → Place → ReturnHome */
   auto stage_open_hand =
       std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
   stage_open_hand->setGroup(hand_group_name);
