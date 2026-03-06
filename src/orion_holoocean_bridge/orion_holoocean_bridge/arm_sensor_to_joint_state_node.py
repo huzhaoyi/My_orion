@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-将 HoloOcean /holoocean/rov0/ArmSensor 的 right_arm 数据转为 Orion 的 joint_states，
+将 HoloOcean /holoocean/rov0/ArmSensor 的 left_arm 数据转为 Orion 的 joint_states，
 供 MoveIt/MTC 使用。单臂：6DOF + 夹爪（2 个手部关节映射为同一夹爪值）。
-right_arm_gripped 可作为夹爪/碰撞状态参考（当前仅用于日志）。
+left_arm_gripped 可作为夹爪/碰撞状态参考（当前仅用于日志）。
 
 对应关系（以 WorkingClassROVArmSensor 消息定义为准）：
-- right_arm_joints[0..5] = Joint1..Joint6，right_arm_joints[6] = Gripper，单位度。
+- left_arm_joints[0..5] = Joint1..Joint6，left_arm_joints[6] = Gripper，单位度。
 - Orion 臂关节顺序：joint_base_link_Link1..joint_Link5_Link6 即 Joint1..Joint6，夹爪为 Link7/Link8。
-- 1:1 映射：right_arm_joints[i] -> Orion 第 i 个臂关节，right_arm_joints[6] -> 夹爪。
+- 1:1 映射：left_arm_joints[i] -> Orion 第 i 个臂关节，left_arm_joints[6] -> 夹爪。
 """
 
 import math
@@ -20,7 +20,7 @@ from holoocean_interfaces.msg import WorkingClassROVArmSensor
 
 
 # 与 orion_moveit_config / orion_mtc 一致的关节名
-# 臂关节：joint_base_link_Link1..joint_Link5_Link6，AgentCommand.command[15..20]
+# 臂关节：joint_base_link_Link1..joint_Link5_Link6，AgentCommand 左臂 command[8..13]
 ARM_JOINT_NAMES = [
     "joint_base_link_Link1",
     "joint_Link1_Link2",
@@ -29,7 +29,7 @@ ARM_JOINT_NAMES = [
     "joint_Link4_Link5",
     "joint_Link5_Link6",
 ]
-# 夹爪：joint_Link6_Link7/Link8；HoloOcean 中 right_arm_joints[6] / AgentCommand.command[21]
+# 夹爪：joint_Link6_Link7/Link8；HoloOcean 中 left_arm_joints[6] / AgentCommand.command[14]
 HAND_JOINT_NAMES = [
     "joint_Link6_Link7",
     "joint_Link6_Link8",
@@ -37,16 +37,16 @@ HAND_JOINT_NAMES = [
 ALL_JOINT_NAMES = ARM_JOINT_NAMES + HAND_JOINT_NAMES
 
 DEG_TO_RAD = math.pi / 180.0
-# WorkingClassROVArmSensor: right_arm_joints[0]=Joint1 .. [5]=Joint6, [6]=Gripper，与 Orion 臂关节顺序 1:1
+# WorkingClassROVArmSensor: left_arm_joints[0]=Joint1 .. [5]=Joint6, [6]=Gripper，与 Orion 臂关节顺序 1:1
 HOLOOCEAN_TO_ORION_ARM = (0, 1, 2, 3, 4, 5)
-RIGHT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
+LEFT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
 # HoloOcean 夹爪：0°=闭合，-90°=完全打开 -> Orion open=(0.4,-0.4) rad（与 orion.srdf 一致）
 HOLOOCEAN_GRIPPER_OPEN_DEG = -90.0
 ORION_OPEN_RAD = 0.4
 
 
 def _to_list(val) -> List[float]:
-    """将 right_arm_joints（可能为 tuple/list）转为 list，长度 7。"""
+    """将 left_arm_joints（可能为 tuple/list）转为 list，长度 7。"""
     if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
         out = list(val)[:7]
         while len(out) < 7:
@@ -56,7 +56,7 @@ def _to_list(val) -> List[float]:
 
 
 class ArmSensorToJointStateNode(Node):
-    """订阅 HoloOcean ArmSensor，发布 Orion 的 joint_states（仅右臂：6DOF + 夹爪）。"""
+    """订阅 HoloOcean ArmSensor，发布 Orion 的 joint_states（仅左臂：6DOF + 夹爪）。"""
 
     def __init__(self) -> None:
         super().__init__("arm_sensor_to_joint_state")
@@ -84,17 +84,17 @@ class ArmSensorToJointStateNode(Node):
         )
 
     def _on_arm_sensor(self, msg: WorkingClassROVArmSensor) -> None:
-        right = _to_list(msg.right_arm_joints)
-        if len(right) < 7:
-            right = right + [0.0] * (7 - len(right))
+        left = _to_list(getattr(msg, "left_arm_joints", [0.0] * 7))
+        if len(left) < 7:
+            left = left + [0.0] * (7 - len(left))
 
         scale = DEG_TO_RAD if self._joints_in_degrees else 1.0
         arm_positions = [
-            RIGHT_ARM_SIGN[i] * float(right[HOLOOCEAN_TO_ORION_ARM[i]]) * scale
+            LEFT_ARM_SIGN[i] * float(left[HOLOOCEAN_TO_ORION_ARM[i]]) * scale
             for i in range(6)
         ]
         # HoloOcean 夹爪度 0°=闭合、-90°=打开 -> Orion (Link7, Link8) rad，与 SRDF open=(0.4,-0.4) 一致
-        gripper_deg = float(right[6])
+        gripper_deg = float(left[6])
         ratio = 0.0 if abs(HOLOOCEAN_GRIPPER_OPEN_DEG) < 1e-9 else max(
             0.0, min(1.0, gripper_deg / HOLOOCEAN_GRIPPER_OPEN_DEG)
         )
@@ -114,15 +114,15 @@ class ArmSensorToJointStateNode(Node):
         arm_deg = [arm_positions[i] * (1.0 / DEG_TO_RAD) for i in range(6)]
         gripper_deg_log = gripper_deg if self._joints_in_degrees else (gripper_deg * (1.0 / DEG_TO_RAD))
         self.get_logger().info(
-            "arm_sensor 当前状态 joint1~6(度): %s, gripper(度): %.2f"
+            "arm_sensor 当前状态 左臂 joint1~6(度): %s, gripper(度): %.2f"
             % (", ".join("%.2f" % arm_deg[i] for i in range(6)), float(gripper_deg_log)),
             throttle_duration_sec=2.0,
         )
 
-        gripped = getattr(msg, "right_arm_gripped", 0.0)
+        gripped = getattr(msg, "left_arm_gripped", 0.0)
         if abs(gripped) > 1e-6:
             self.get_logger().debug(
-                "right_arm_gripped=%.3f (collision/grip hint)", float(gripped)
+                "left_arm_gripped=%.3f (collision/grip hint)" % float(gripped)
             )
 
 
