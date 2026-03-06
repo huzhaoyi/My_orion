@@ -1,10 +1,12 @@
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/arm_sensor_mapping_test_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/trajectory_to_agent_bridge_node.py
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/target_sensor_to_object_pose_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/calibrate_arm_mapping_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__init__.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/arm_sensor_to_joint_state_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/arm_sensor_mapping_test_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/trajectory_to_agent_bridge_node.cpython-310.pyc
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/target_sensor_to_object_pose_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/calibrate_arm_mapping_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/__init__.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/arm_sensor_to_joint_state_node.cpython-310.pyc
@@ -22,4 +24,5 @@
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/arm_sensor_mapping_test
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/arm_sensor_to_joint_state
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/calibrate_arm_mapping
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/target_sensor_to_object_pose
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/trajectory_to_agent_bridge

@@ -118,6 +118,14 @@ def generate_launch_description():
         parameters=[traj_bridge_params] if traj_bridge_params else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
     )
+    target_sensor_to_pose_node = Node(
+        package="orion_holoocean_bridge",
+        executable="target_sensor_to_object_pose",
+        name="target_sensor_to_object_pose",
+        output="screen",
+        parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
+        additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+    )
     mtc_node = Node(
         package="orion_mtc",
         executable="mtc_node",
@@ -134,6 +142,7 @@ def generate_launch_description():
             ),
             bridge_node,
             trajectory_bridge_node,
+            target_sensor_to_pose_node,
             TimerAction(period=12.0, actions=[mtc_node]),
         ]
     )

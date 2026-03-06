@@ -1,1 +1,1 @@
-control_msgs:holoocean_interfaces:rclpy:sensor_msgs:std_msgs
+control_msgs:geometry_msgs:holoocean_interfaces:nav_msgs:rclpy:sensor_msgs:std_msgs
