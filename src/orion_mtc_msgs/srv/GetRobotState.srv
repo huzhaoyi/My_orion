@@ -1,0 +1,7 @@
+# 获取当前机器人任务状态
+---
+string mode          # IDLE | PICKING | HOLDING | PLACING | ERROR
+string task_id       # 当前任务 ID
+string held_object_id
+bool has_held_object
+string last_error

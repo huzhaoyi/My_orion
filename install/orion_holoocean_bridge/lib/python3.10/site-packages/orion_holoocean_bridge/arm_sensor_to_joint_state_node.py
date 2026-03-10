@@ -114,14 +114,6 @@ class ArmSensorToJointStateNode(Node):
         js.velocity = [0.0] * len(ALL_JOINT_NAMES)
         js.effort = []
         self._pub.publish(js)
-        # 节流打印：当前状态（度），joint1~6 + 夹爪
-        arm_deg = [arm_positions[i] * (1.0 / DEG_TO_RAD) for i in range(6)]
-        gripper_deg_log = gripper_deg if self._joints_in_degrees else (gripper_deg * (1.0 / DEG_TO_RAD))
-        self.get_logger().info(
-            "arm_sensor 当前状态 左臂 joint1~6(度): %s, gripper(度): %.2f"
-            % (", ".join("%.2f" % arm_deg[i] for i in range(6)), float(gripper_deg_log)),
-            throttle_duration_sec=2.0,
-        )
 
         gripped = float(getattr(msg, "left_arm_gripped", 0.0))
         out = Float32()

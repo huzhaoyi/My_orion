@@ -1,0 +1,14 @@
+# Pick action: 选目标、生成抓取位姿、闭合夹爪、确认已抓住，保存抓取上下文
+# Goal: 目标物体位姿（base_link 下）
+geometry_msgs/PoseStamped object_pose
+# 可选：物体 ID，用于日志与 held_object 上报
+string object_id
+---
+# Result
+bool success
+string task_id
+string held_object_id
+string message
+---
+# Feedback（可选：当前阶段描述）
+string current_phase

@@ -1,42 +1,59 @@
 # joint_limits.yaml for Orion arm + hand
+# Pilz 规划器需要 has_deceleration_limits / max_deceleration（负值），否则会报 Failed loading deceleration limits
 joint_limits:
   joint_base_link_Link1:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link1_Link2:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link2_Link3:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_LinkVirtual_Link4:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link4_Link5:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link5_Link6:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link6_Link7:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5
   joint_Link6_Link8:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 0.5
+    has_deceleration_limits: true
+    max_deceleration: -0.5

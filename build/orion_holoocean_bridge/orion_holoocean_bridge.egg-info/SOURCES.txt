@@ -17,4 +17,3 @@ orion_holoocean_bridge/calibrate_arm_mapping_node.py
 orion_holoocean_bridge/target_sensor_to_object_pose_node.py
 orion_holoocean_bridge/trajectory_to_agent_bridge_node.py
 resource/orion_holoocean_bridge
-test/test_arm_mapping.py

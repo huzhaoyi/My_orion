@@ -1,6 +1,6 @@
 # My_orion
 
-ROS 2 工作空间，用于 Orion 机械臂的 MoveIt 运动规划，支持 **PyBullet 仿真** 与 **HoloOcean** 联调。
+ROS 2 工作空间，用于 Orion 机械臂与 **HoloOcean** 仿真联调：关节状态来自 HoloOcean ArmSensor，MoveIt 规划、MTC 抓放，轨迹经桥接发给 HoloOcean 执行。
 
 ## 包结构
 
@@ -8,9 +8,9 @@ ROS 2 工作空间，用于 Orion 机械臂的 MoveIt 运动规划，支持 **Py
 |------|------|
 | **orion_description** | 机器人 URDF、网格与描述资源 |
 | **orion_moveit_config** | MoveIt 配置（SRDF、关节限位、OMPL、Pilz PTP/LIN、运动学、控制器等） |
-| **orion_mtc** | 基于 MoveIt Task Constructor 的抓放节点；物体位姿由话题输入，工业风格单路径（PTP pregrasp → LIN approach/lift，preplace → LIN lower → retreat），yaml 配置放置点与距离参数 |
-| **orion_pybullet_sim** | PyBullet 仿真控制器：提供 `FollowJointTrajectory` action 与 `joint_states` 话题 |
-| **orion_holoocean_bridge** | HoloOcean 桥接：将 ArmSensor 转为 Orion `joint_states`（右臂 6DOF+夹爪），并将轨迹转发给 HoloOcean Agent 执行 |
+| **orion_mtc_msgs** | 抓放接口定义：Pick/Place Action、GetRobotState 服务 |
+| **orion_mtc** | 基于 MoveIt Task Constructor 的抓放节点；抓取与放置拆成独立接口，底层共享规划与执行；话题触发或 Action 调用，状态机 IDLE→PICKING→HOLDING→PLACING→IDLE |
+| **orion_holoocean_bridge** | HoloOcean 桥接：ArmSensor → `joint_states`，轨迹 → HoloOcean Agent；TargetSensor + ROV 里程计 → `/object_pose` |
 
 ## 依赖
 
@@ -18,8 +18,7 @@ ROS 2 工作空间，用于 Orion 机械臂的 MoveIt 运动规划，支持 **Py
 - MoveIt 2
 - MoveIt Task Constructor（core + msgs）
 - Pilz Industrial Motion Planner（PTP/LIN）
-- PyBullet（`pip install pybullet`）
-- **HoloOcean 联调时**：holoocean-ros（含 `holoocean_interfaces`），需通过环境变量 `HOLOOCEAN_ROS_INSTALL` 指定其 install 目录，或先 `source` 该工作区
+- holoocean-ros（含 `holoocean_interfaces`），通过环境变量 `HOLOOCEAN_ROS_INSTALL` 指定其 install 目录，或先 `source` 该工作区
 
 ## 构建
 
@@ -29,64 +28,107 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-## 运行
+## orion_mtc 接口说明
 
-### 抓放（PyBullet 仿真，话题驱动）
+抓取与放置为两个独立业务能力，通过状态 **HOLDING** 衔接：
 
-启动 MoveIt + RViz + PyBullet 控制器；**不自动执行**，需通过话题触发：
+- **抓取**：选目标、生成抓取位姿、闭合夹爪、确认抓稳后保存持物上下文（含 `tcp_to_object`），状态变为 HOLDING。
+- **放置**：仅在 HOLDING 时可用；输入为**物体目标位姿**（非末端位姿），内部用持物上下文计算 TCP 目标，执行 pre-place → lower → open → detach → retreat 后清空持物、回到 IDLE。
 
-1. 启动：
-   ```bash
-   ros2 launch orion_mtc pick_place_pybullet.launch.py
-   ```
-2. 发布物体位姿（`base_link` 下，`geometry_msgs/msg/PoseStamped`）：
-   ```bash
-   ros2 topic pub --once /object_pose geometry_msgs/msg/PoseStamped \
-     "{header: {frame_id: 'base_link'}, pose: {position: {x: 0.35, y: -0.15, z: 0.4}, orientation: {w: 1.0}}}"
-   ```
-3. 发布触发执行一次 pick-place：
-   ```bash
-   ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"
-   ```
+| 类型 | 名称 | 说明 |
+|------|------|------|
+| Action | `/pick` | 抓取：Goal 为 `object_pose`（base_link）、可选 `object_id`；Result 含 `success`、`task_id`、`held_object_id` |
+| Action | `/place` | 放置：Goal 为 `target_pose`（物体目标位姿，base_link）；Result 含 `success`、`task_id` |
+| 服务 | `/get_robot_state` | 返回当前 `mode`、`task_id`、`held_object_id`、`has_held_object`、`last_error` |
+| 话题 | `/object_pose` | 物体位姿（PoseStamped，frame_id=base_link），抓取使用；由桥接 target_sensor 自动发布 |
+| 话题 | `/place_pose` | 放置目标位姿（PoseStamped），放置使用 |
+| 话题 | `/pick_place_trigger` | 空消息：触发**一整条** pick-place |
+| 话题 | `/pick_trigger` | 空消息：仅执行**抓取**（需有 `/object_pose`） |
+| 话题 | `/place_trigger` | 空消息：仅执行**放置**（需有 `/place_pose`，且当前为 HOLDING） |
 
-轨迹在 PyBullet 仿真中执行并在 RViz 中显示。抓取与放置均由 orion_mtc 内部根据物体位姿与 yaml 放置目标计算（pregrasp = 物体上方，preplace = 放置点上方，再 LIN 下压/下降）。
+业务规则：未持物时禁止 place；已持物时禁止再次 pick；放置成功后清空持物并回到 IDLE。
 
-- **话题**：`/object_pose`（物体位姿，frame_id 须为 `base_link`）、`/pick_place_trigger`（触发一次 pick-place）
-- **yaml 配置**：`orion_mtc/config/pick_place_params.yaml` 中配置 approach/lift/place/retreat/lower 等距离与放置目标，物体位姿仅由话题提供
+## 运行（HoloOcean 联调）
 
-### 规划（MoveIt + HoloOcean 仿真联调）
+关节状态来自 HoloOcean 的 ArmSensor，规划在 MoveIt 中完成，轨迹通过桥接节点发给 HoloOcean 执行。
 
-关节状态来自 HoloOcean 的 ArmSensor（`/holoocean/rov0/ArmSensor`），规划在 MoveIt 中完成，轨迹通过桥接节点发给 HoloOcean 执行。
+**启动：**
 
-**测试流程：**
+```bash
+# 确保已设置 HOLOOCEAN_ROS_INSTALL 或已 source holoocean-ros 的 install
+ros2 launch orion_mtc pick_place_holoocean.launch.py
+```
 
-1. 确保已安装 holoocean-ros 并设置 `HOLOOCEAN_ROS_INSTALL`（或已 source 其 install）。
-2. 启动：
-   ```bash
-   ros2 launch orion_mtc pick_place_holoocean.launch.py
-   ```
-3. 物体位姿由 `target_sensor_to_object_pose` 从 TargetSensor + ROV 里程计自动发布到 `/object_pose`（默认抓取 `目标[1]`）；若需手动测试可自行发布位姿。
-4. 发布空消息触发一次 pick-place：
-   ```bash
-   ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"
-   ```
+物体位姿由 `target_sensor_to_object_pose` 从 TargetSensor + ROV 里程计**自动发布**到 `/object_pose`（默认抓取 `目标[1]`）。因此**只需发 `/pick_trigger` 即可抓取**，无需再手动发布 object_pose；发 `/pick_place_trigger` 为一次完整 pick-place。
 
-桥接节点：`arm_sensor_to_joint_state`（ArmSensor → `joint_states`）、`trajectory_to_agent_bridge`（轨迹 → HoloOcean Agent）、`target_sensor_to_object_pose`（TargetSensor + ROV 里程计 → `object_pose`）。参数见 `orion_holoocean_bridge/config/holoocean_bridge_params.yaml`。
+**触发方式：**
 
-- **TargetSensor 调试输出**：`target_sensor_to_object_pose` 会逐行打印 `ROV` 当前 world 坐标，并逐行打印 `目标[0]`、`目标[1]`、`目标[2]` 的 `world -> base_link` 变换结果（日志节流约 1Hz）。
-- **抓取目标选择**：默认抓取目标为 `target_index: 1`（即 `目标[1]`），可在 `orion_holoocean_bridge/config/holoocean_bridge_params.yaml` 中修改。
+- 一次完整流程：
+  ```bash
+  ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"
+  ```
+- 仅抓取：
+  ```bash
+  ros2 topic pub --once /pick_trigger std_msgs/msg/Empty "{}"
+  ```
+- 仅放置（需先抓取成功，再发 `/place_pose` 后触发）：
+  ```bash
+  ros2 topic pub --once /place_pose geometry_msgs/msg/PoseStamped \
+    "{header: {frame_id: 'base_link'}, pose: {position: {x: 0.45, y: 0.0, z: 0.4}, orientation: {w: 1.0}}}"
+  ros2 topic pub --once /place_trigger std_msgs/msg/Empty "{}"
+  ```
+- Action 仅抓取：
+  ```bash
+  ros2 action send_goal /pick orion_mtc_msgs/action/Pick \
+    "{object_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.35, y: -0.15, z: 0.4}, orientation: {w: 1.0}}}, object_id: 'cube_1'}"
+  ```
+- Action 仅放置（当前须为 HOLDING）：
+  ```bash
+  ros2 action send_goal /place orion_mtc_msgs/action/Place \
+    "{target_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.45, y: 0.0, z: 0.4}, orientation: {w: 1.0}}}}"
+  ```
 
-### 仅查看机器人模型
+**配置：**
+
+- 桥接与目标索引：`orion_holoocean_bridge/config/holoocean_bridge_params.yaml`（如 `target_index: 1` 对应 `目标[1]`）
+- 抓放参数：`orion_mtc/config/pick_place_params.yaml`（approach/lift/place/retreat/lower 等）
+
+**仅查看机器人模型：**
 
 ```bash
 ros2 launch orion_description display.launch.py
 ```
 
-### 仅 MoveIt Demo（无 MTC、有 PyBullet）
+**仅 MoveIt + RViz（无 MTC，关节由 GUI 或外部发布）：**
 
 ```bash
-ros2 launch orion_pybullet_sim pybullet_sim.launch.py
+ros2 launch orion_moveit_config demo.launch.py
 ```
+
+## 如何测试
+
+1. **编译与接口检查**
+
+   ```bash
+   cd /path/to/My_orion
+   colcon build --symlink-install
+   source install/setup.bash
+   ros2 interface show orion_mtc_msgs/action/Pick
+   ros2 interface show orion_mtc_msgs/action/Place
+   ros2 interface show orion_mtc_msgs/srv/GetRobotState
+   ```
+
+2. **启动 HoloOcean 场景与 launch**
+
+   终端 1：`ros2 launch orion_mtc pick_place_holoocean.launch.py`
+
+3. **终端 2：触发与状态查询**
+
+   - 完整 pick-place：`ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"`
+   - 或拆开：先 `ros2 topic pub --once /pick_trigger std_msgs/msg/Empty "{}"`，再查状态 `ros2 service call /get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`（应为 HOLDING），再发 `/place_pose` 与 `/place_trigger`
+   - 状态查询：`ros2 service call /get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`
+
+4. **业务规则**：未抓取时发 place 应被拒绝；已持物时再发 pick 应被拒绝。
 
 ## 许可证
 

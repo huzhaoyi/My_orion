@@ -1,2 +1,1 @@
-source;share/orion_moveit_config/environment/ament_prefix_path.sh
-source;share/orion_moveit_config/environment/path.sh
+/home/huzy/My_orion/build/orion_moveit_config/ament_cmake_environment_hooks/local_setup.dsv

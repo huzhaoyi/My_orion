@@ -1,7 +1,1 @@
-# Pilz LIN/CIRC 所需；PTP 也会读此命名空间，缺则报错
-robot_description_planning:
-  cartesian_limits:
-    max_trans_vel: 1.0
-    max_trans_acc: 0.5
-    max_trans_dec: -0.5
-    max_rot_vel: 0.5
+/home/huzy/My_orion/src/orion_moveit_config/config/pilz_cartesian_limits.yaml

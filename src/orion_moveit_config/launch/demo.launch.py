@@ -89,7 +89,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "use_joint_state_gui",
                 default_value="true",
-                description="If true, start joint_state_publisher_gui; if false, joint_states come from external (e.g. PyBullet).",
+                description="If true, start joint_state_publisher_gui; if false, joint_states come from external (e.g. HoloOcean bridge).",
             ),
             Node(
                 package="robot_state_publisher",

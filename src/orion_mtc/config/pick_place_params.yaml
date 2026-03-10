@@ -4,7 +4,7 @@
 # 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
 
 # Approach: 沿末端 z 接近物体的距离范围 [m]
-approach_object_min_dist: 0.10
+approach_object_min_dist: 0.08
 approach_object_max_dist: 0.15
 
 # Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败

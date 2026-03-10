@@ -1,0 +1,11 @@
+# Place action: 基于当前已抓住的物体，将物体放到目标位姿
+# Goal: 物体目标位姿（base_link 下），即“物体要放到的位置”，非末端位姿
+geometry_msgs/PoseStamped target_pose
+---
+# Result
+bool success
+string task_id
+string message
+---
+# Feedback
+string current_phase

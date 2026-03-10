@@ -139,18 +139,6 @@ class TargetSensorToObjectPoseNode(Node):
         )
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
 
-        self.get_logger().info(
-            "target_sensor_to_object_pose: target_topic=%s rov_odom=%s object_pose=%s frame=%s target_index=%d arm=%s"
-            % (
-                self._target_sensor_topic,
-                self._rov_odom_topic,
-                self._object_pose_topic,
-                self._output_frame_id,
-                self._target_index,
-                "left" if self._use_left_arm else "right",
-            )
-        )
-
     def _on_rov_odom(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
@@ -213,11 +201,6 @@ class TargetSensorToObjectPoseNode(Node):
         out.pose.orientation.z = q_obj_rov[2]
         out.pose.orientation.w = q_obj_rov[3]
         self._pub_pose.publish(out)
-        self.get_logger().info(
-            "target_sensor_to_object_pose: 已发布 target[%d] 在 base_link 下 (%.3f, %.3f, %.3f)"
-            % (idx, p_base[0], p_base[1], p_base[2]),
-            throttle_duration_sec=1.0,
-        )
 
 
 def main(args=None):
