@@ -1,0 +1,11 @@
+# PlaceRelease: 按末端 TCP 位姿释放（不依赖 tcp_to_object），适用于 HOLDING_TRACKED / HOLDING_UNTRACKED
+# Goal: 末端目标位姿（base_link 下），即“夹爪要到的放置位姿”
+geometry_msgs/PoseStamped target_tcp_pose
+---
+# Result
+bool success
+string task_id
+string message
+---
+# Feedback
+string current_phase

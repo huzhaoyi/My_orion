@@ -1,0 +1,11 @@
+# 显式同步持物状态：程序启动时手里已有物、或外部已知抓取位姿时调用
+# set_holding=true 且 tracked=false -> HOLDING_UNTRACKED（仅可 place_release）
+# set_holding=true 且 tracked=true  -> HOLDING_TRACKED（需提供 object_pose 与 tcp_pose，用于计算 tcp_to_object）
+bool set_holding
+string object_id          # 持物时物体 ID，如 "unknown"
+bool tracked              # true=提供完整位姿进入 HOLDING_TRACKED
+geometry_msgs/Pose object_pose   # tracked 时：base_link 下物体位姿（抓取时）
+geometry_msgs/Pose tcp_pose      # tracked 时：base_link 下 TCP 位姿（抓取时）
+---
+bool success
+string message

@@ -13,7 +13,10 @@ find_package(action_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/Pick.action"
   "action/Place.action"
+  "action/PlaceRelease.action"
   "srv/GetRobotState.srv"
+  "srv/ResetHeldObject.srv"
+  "srv/SyncHeldObject.srv"
   DEPENDENCIES geometry_msgs action_msgs
 )
 

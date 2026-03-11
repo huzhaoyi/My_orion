@@ -1380,11 +1380,26 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__builder.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__traits.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__type_support.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/place_release.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__struct.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__builder.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__traits.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__type_support.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/get_robot_state.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__struct.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__builder.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__traits.hpp \
  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__type_support.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/reset_held_object.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__struct.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__builder.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__traits.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__type_support.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/sync_held_object.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__struct.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__builder.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__traits.hpp \
+ /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__type_support.hpp \
  /opt/ros/humble/include/moveit/robot_state/robot_state.h \
  /opt/ros/humble/include/moveit/robot_state/attached_body.h \
  /opt/ros/humble/include/moveit/transforms/transforms.h \

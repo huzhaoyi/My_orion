@@ -1,6 +1,6 @@
 /* MTC pick-and-place node for Orion robot.
  * 抓取与放置拆成两个独立业务接口，底层共享同一套规划与执行；
- * 状态机：IDLE -> PICKING -> HOLDING -> PLACING -> IDLE
+ * 状态机：IDLE -> PICKING -> HOLDING_TRACKED -> PLACING -> IDLE；HOLDING_UNTRACKED 仅可 release
  */
 
 #include <rclcpp/rclcpp.hpp>
@@ -23,7 +23,10 @@
 #include <std_msgs/msg/float32.hpp>
 #include <orion_mtc_msgs/action/pick.hpp>
 #include <orion_mtc_msgs/action/place.hpp>
+#include <orion_mtc_msgs/action/place_release.hpp>
 #include <orion_mtc_msgs/srv/get_robot_state.hpp>
+#include <orion_mtc_msgs/srv/reset_held_object.hpp>
+#include <orion_mtc_msgs/srv/sync_held_object.hpp>
 #include <moveit/robot_state/robot_state.h>
 
 #if __has_include(<tf2_geometry_msgs/tf2_geometry_msgs.hpp>)
@@ -55,6 +58,81 @@
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc");
 namespace mtc = moveit::task_constructor;
 
+/* 局部 pose 在整体 pose 下变换：result = base * local（世界系下的 local） */
+static geometry_msgs::msg::Pose composePose(const geometry_msgs::msg::Pose& base,
+                                           const geometry_msgs::msg::Pose& local)
+{
+  Eigen::Isometry3d T_base = Eigen::Isometry3d::Identity();
+  T_base.translate(Eigen::Vector3d(base.position.x, base.position.y, base.position.z));
+  T_base.rotate(Eigen::Quaterniond(base.orientation.w, base.orientation.x, base.orientation.y,
+                                    base.orientation.z));
+  Eigen::Isometry3d T_local = Eigen::Isometry3d::Identity();
+  T_local.translate(Eigen::Vector3d(local.position.x, local.position.y, local.position.z));
+  T_local.rotate(Eigen::Quaterniond(local.orientation.w, local.orientation.x, local.orientation.y,
+                                     local.orientation.z));
+  Eigen::Isometry3d T = T_base * T_local;
+  geometry_msgs::msg::Pose out;
+  out.position.x = T.translation().x();
+  out.position.y = T.translation().y();
+  out.position.z = T.translation().z();
+  Eigen::Quaterniond q(T.rotation());
+  out.orientation.x = q.x();
+  out.orientation.y = q.y();
+  out.orientation.z = q.z();
+  out.orientation.w = q.w();
+  return out;
+}
+
+/* 统一生成 target 组合碰撞体：杆 + 把手框，primitive_poses 为世界系（base_link），不再使用 object.pose */
+static moveit_msgs::msg::CollisionObject makeTargetCollisionObject(
+    const std::string& object_id, const geometry_msgs::msg::Pose& object_pose, uint8_t operation)
+{
+  geometry_msgs::msg::Pose rod_local;
+  rod_local.position.x = 0.0;
+  rod_local.position.y = 0.0;
+  rod_local.position.z = -0.10;
+  rod_local.orientation.w = 1.0;
+  rod_local.orientation.x = 0.0;
+  rod_local.orientation.y = 0.0;
+  rod_local.orientation.z = 0.0;
+  geometry_msgs::msg::Pose handle_local;
+  handle_local.position.x = 0.0;
+  handle_local.position.y = 0.0;
+  handle_local.position.z = 0.08;
+  handle_local.orientation.w = 1.0;
+  handle_local.orientation.x = 0.0;
+  handle_local.orientation.y = 0.0;
+  handle_local.orientation.z = 0.0;
+
+  geometry_msgs::msg::Pose rod_world = composePose(object_pose, rod_local);
+  geometry_msgs::msg::Pose handle_world = composePose(object_pose, handle_local);
+
+  moveit_msgs::msg::CollisionObject object;
+  object.id = object_id;
+  object.header.frame_id = "base_link";
+  /* 不设置 object.pose，几何仅由 primitive_poses（世界系）表达 */
+
+  shape_msgs::msg::SolidPrimitive rod;
+  rod.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
+  rod.dimensions = { 0.30f, 0.015f };
+  shape_msgs::msg::SolidPrimitive handle;
+  handle.type = shape_msgs::msg::SolidPrimitive::BOX;
+  handle.dimensions = { 0.15f, 0.03f, 0.10f };
+
+  object.primitives.push_back(rod);
+  object.primitive_poses.push_back(rod_world);
+  object.primitives.push_back(handle);
+  object.primitive_poses.push_back(handle_world);
+  object.operation = operation;
+  return object;
+}
+
+/* 末端与物体允许接触的 link：仅手腕/夹爪，不放开整臂 */
+static const std::vector<std::string> OBJECT_GRASP_ALLOWED_LINKS = { "Link6", "Link7", "Link8" };
+
+/* 机械臂话题/服务/action 统一前缀 */
+static const char* const MANIPULATOR_NS = "/manipulator";
+
 /* 控制器名与关节列表（与 orion_moveit_config moveit_controllers.yaml 一致） */
 static const std::vector<std::string> ARM_JOINTS = {
     "joint_base_link_Link1", "joint_Link1_Link2", "joint_Link2_Link3",
@@ -62,48 +140,52 @@ static const std::vector<std::string> ARM_JOINTS = {
 };
 static const std::vector<std::string> HAND_JOINTS = { "joint_Link6_Link7", "joint_Link6_Link8" };
 
-/* 机器人任务状态：拆分 pick/place 后必须用 HOLDING 连接 */
+/* 机器人任务状态：HOLDING_TRACKED 可精准放置，HOLDING_UNTRACKED 仅可 release 放置 */
 enum class RobotTaskMode
 {
   IDLE,
   PICKING,
-  HOLDING,
+  HOLDING_TRACKED,   /* 有完整 held_object_（来自 pick），可 place_precise */
+  HOLDING_UNTRACKED, /* 手里可能有物但无 tcp_to_object，仅可 place_release */
   PLACING,
   ERROR
 };
 
-/* 抓取成功后保存的持物上下文，place 时用 tcp_to_object 反推末端目标 */
+/* 抓取成功后保存的持物上下文，place 时用 tcp_to_object 反推末端目标；几何由 makeTargetCollisionObject 统一描述 */
 struct HeldObjectContext
 {
   bool valid = false;
   std::string object_id;
   std::string attach_link;
+  std::string scene_attach_id;  /* "object" 来自 pick，"held_tracked" 来自 sync(tracked)，place/release 用此 id 做 allow/detach */
   geometry_msgs::msg::Pose object_pose_at_grasp;
   geometry_msgs::msg::Pose tcp_pose_at_grasp;
   Eigen::Isometry3d tcp_to_object = Eigen::Isometry3d::Identity();
-  shape_msgs::msg::SolidPrimitive shape;
   double weight = 0.0;
 };
 
 using PickAction = orion_mtc_msgs::action::Pick;
 using PlaceAction = orion_mtc_msgs::action::Place;
+using PlaceReleaseAction = orion_mtc_msgs::action::PlaceRelease;
 using GetRobotStateSrv = orion_mtc_msgs::srv::GetRobotState;
+using ResetHeldObjectSrv = orion_mtc_msgs::srv::ResetHeldObject;
+using SyncHeldObjectSrv = orion_mtc_msgs::srv::SyncHeldObject;
 
 class OrionMTCTaskNode
 {
 public:
   OrionMTCTaskNode(const rclcpp::NodeOptions& options);
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
-  void doTask();
   void setupPlanningScene();
 
 private:
-  mtc::Task createTask();
   mtc::Task buildPickTask(double obj_x, double obj_y, double obj_z,
                           const geometry_msgs::msg::Quaternion& object_orientation,
                           const std::string& object_id);
   mtc::Task buildPlaceTask(double place_x, double place_y, double place_z,
                            double place_qx, double place_qy, double place_qz, double place_qw);
+  mtc::Task buildPlaceReleaseTask(const geometry_msgs::msg::PoseStamped& target_tcp_pose,
+                                  const std::string& attached_object_id);
   bool executeSolutionLocally(const mtc::SolutionBase& solution);
   bool executePickSolutionLocally(const mtc::SolutionBase& solution,
                                  const geometry_msgs::msg::Pose& object_pose_at_grasp,
@@ -140,7 +222,6 @@ private:
   bool has_object_pose_from_topic_ = false;
   std::mutex object_pose_mutex_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_place_trigger_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_place_trigger_;
   std::atomic<bool> do_task_running_{ false };
@@ -155,10 +236,12 @@ private:
 
   rclcpp_action::Server<PickAction>::SharedPtr pick_action_server_;
   rclcpp_action::Server<PlaceAction>::SharedPtr place_action_server_;
+  rclcpp_action::Server<PlaceReleaseAction>::SharedPtr place_release_action_server_;
   rclcpp::Service<GetRobotStateSrv>::SharedPtr get_robot_state_srv_;
+  rclcpp::Service<ResetHeldObjectSrv>::SharedPtr reset_held_object_srv_;
+  rclcpp::Service<SyncHeldObjectSrv>::SharedPtr sync_held_object_srv_;
 
   void onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-  void onPickPlaceTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
   void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
   void onPlaceTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
   void onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
@@ -171,14 +254,35 @@ private:
                                                      std::shared_ptr<const PlaceAction::Goal> goal);
   rclcpp_action::CancelResponse handlePlaceGoalCancel(const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceAction>>& goal_handle);
   void handlePlaceGoalAccepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceAction>>& goal_handle);
+  rclcpp_action::GoalResponse handlePlaceReleaseGoalRequest(const rclcpp_action::GoalUUID& uuid,
+                                                             std::shared_ptr<const PlaceReleaseAction::Goal> goal);
+  rclcpp_action::CancelResponse handlePlaceReleaseGoalCancel(
+      const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceReleaseAction>>& goal_handle);
+  void handlePlaceReleaseGoalAccepted(
+      const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceReleaseAction>>& goal_handle);
+  void handleSyncHeldObject(const std::shared_ptr<SyncHeldObjectSrv::Request> req,
+                            std::shared_ptr<SyncHeldObjectSrv::Response> res);
   void handleGetRobotState(const std::shared_ptr<GetRobotStateSrv::Request> req,
                            std::shared_ptr<GetRobotStateSrv::Response> res);
+  void handleResetHeldObject(const std::shared_ptr<ResetHeldObjectSrv::Request> req,
+                              std::shared_ptr<ResetHeldObjectSrv::Response> res);
+
+  /* 放置成功后把 planning scene 中物体更新到目标位姿，供 return home 及后续规划使用 */
+  bool applyObjectPoseToPlanningScene(double px, double py, double pz,
+                                      double qx, double qy, double qz, double qw);
+  /* HOLDING_UNTRACKED 时往 scene 里 attach 保守包络体，使规划知道手上占空间 */
+  bool applyAttachedHeldUnknownToScene();
+  /* 从 planning scene 移除已 attach 的物体（held_unknown / object），尽力清理 */
+  bool clearAttachedObjectFromPlanningScene(const std::string& object_id);
+  /* sync(tracked=true) 时把 target 几何 attach 到 Link6，id=held_tracked，与 makeTargetCollisionObject 风格一致 */
+  bool applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object);
 
   /* 业务编排：仅抓取 / 仅放置（内部用 object_pose 或 place_pose 来自话题或 action goal） */
   void doPick();
   void doPlace();
   bool doPickFromGoal(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id);
   bool doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& target_pose);
+  bool doPlaceReleaseFromGoal(const geometry_msgs::msg::PoseStamped& target_tcp_pose);
 
   bool waitForGripped(bool expect_gripped, double timeout_sec = 5.0);
   bool isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub) const;
@@ -226,35 +330,50 @@ OrionMTCTaskNode::OrionMTCTaskNode(const rclcpp::NodeOptions& options)
   declare_if_not_set("retreat_max_dist", 0.25);
   declare_if_not_set("lower_to_place_min_dist", 0.05);
   declare_if_not_set("lower_to_place_max_dist", 0.12);
-  /* 物体位姿由 /object_pose 话题提供；pregrasp 由物体位置计算 */
+  /* 物体位姿由 /manipulator/object_pose 话题提供；pregrasp 由物体位置计算 */
 
-  /* 物体位姿话题：base_link 下 PoseStamped；抓取仍由内部计算（订阅放在 action_client_node_ 上以便 executor 能收到回调） */
+  /* 机械臂话题/服务/action 统一使用 /manipulator/xxx */
   sub_object_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "object_pose", 10, std::bind(&OrionMTCTaskNode::onObjectPoseReceived, this, std::placeholders::_1));
-  sub_pick_place_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
-      "pick_place_trigger", 10, std::bind(&OrionMTCTaskNode::onPickPlaceTriggerReceived, this, std::placeholders::_1));
+      std::string(MANIPULATOR_NS) + "/object_pose", 10,
+      std::bind(&OrionMTCTaskNode::onObjectPoseReceived, this, std::placeholders::_1));
   sub_pick_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
-      "pick_trigger", 10, std::bind(&OrionMTCTaskNode::onPickTriggerReceived, this, std::placeholders::_1));
+      std::string(MANIPULATOR_NS) + "/pick_trigger", 10,
+      std::bind(&OrionMTCTaskNode::onPickTriggerReceived, this, std::placeholders::_1));
   sub_place_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
-      "place_trigger", 10, std::bind(&OrionMTCTaskNode::onPlaceTriggerReceived, this, std::placeholders::_1));
+      std::string(MANIPULATOR_NS) + "/place_trigger", 10,
+      std::bind(&OrionMTCTaskNode::onPlaceTriggerReceived, this, std::placeholders::_1));
   sub_place_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "place_pose", 10, std::bind(&OrionMTCTaskNode::onPlacePoseReceived, this, std::placeholders::_1));
+      std::string(MANIPULATOR_NS) + "/place_pose", 10,
+      std::bind(&OrionMTCTaskNode::onPlacePoseReceived, this, std::placeholders::_1));
   sub_left_arm_gripped_ = action_client_node_->create_subscription<std_msgs::msg::Float32>(
-      "left_arm_gripped", 10, std::bind(&OrionMTCTaskNode::onLeftArmGrippedReceived, this, std::placeholders::_1));
+      std::string(MANIPULATOR_NS) + "/left_arm_gripped", 10,
+      std::bind(&OrionMTCTaskNode::onLeftArmGrippedReceived, this, std::placeholders::_1));
 
   pick_action_server_ = rclcpp_action::create_server<PickAction>(
-      action_client_node_, "pick",
+      action_client_node_, std::string(MANIPULATOR_NS) + "/pick",
       std::bind(&OrionMTCTaskNode::handlePickGoalRequest, this, std::placeholders::_1, std::placeholders::_2),
       std::bind(&OrionMTCTaskNode::handlePickGoalCancel, this, std::placeholders::_1),
       std::bind(&OrionMTCTaskNode::handlePickGoalAccepted, this, std::placeholders::_1));
   place_action_server_ = rclcpp_action::create_server<PlaceAction>(
-      action_client_node_, "place",
+      action_client_node_, std::string(MANIPULATOR_NS) + "/place",
       std::bind(&OrionMTCTaskNode::handlePlaceGoalRequest, this, std::placeholders::_1, std::placeholders::_2),
       std::bind(&OrionMTCTaskNode::handlePlaceGoalCancel, this, std::placeholders::_1),
       std::bind(&OrionMTCTaskNode::handlePlaceGoalAccepted, this, std::placeholders::_1));
   get_robot_state_srv_ = action_client_node_->create_service<GetRobotStateSrv>(
-      "get_robot_state", std::bind(&OrionMTCTaskNode::handleGetRobotState, this,
-                                   std::placeholders::_1, std::placeholders::_2));
+      std::string(MANIPULATOR_NS) + "/get_robot_state",
+      std::bind(&OrionMTCTaskNode::handleGetRobotState, this, std::placeholders::_1, std::placeholders::_2));
+  reset_held_object_srv_ = action_client_node_->create_service<ResetHeldObjectSrv>(
+      std::string(MANIPULATOR_NS) + "/reset_held_object",
+      std::bind(&OrionMTCTaskNode::handleResetHeldObject, this, std::placeholders::_1, std::placeholders::_2));
+  place_release_action_server_ = rclcpp_action::create_server<PlaceReleaseAction>(
+      action_client_node_, std::string(MANIPULATOR_NS) + "/place_release",
+      std::bind(&OrionMTCTaskNode::handlePlaceReleaseGoalRequest, this,
+                std::placeholders::_1, std::placeholders::_2),
+      std::bind(&OrionMTCTaskNode::handlePlaceReleaseGoalCancel, this, std::placeholders::_1),
+      std::bind(&OrionMTCTaskNode::handlePlaceReleaseGoalAccepted, this, std::placeholders::_1));
+  sync_held_object_srv_ = action_client_node_->create_service<SyncHeldObjectSrv>(
+      std::string(MANIPULATOR_NS) + "/sync_held_object",
+      std::bind(&OrionMTCTaskNode::handleSyncHeldObject, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void OrionMTCTaskNode::onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -270,11 +389,6 @@ void OrionMTCTaskNode::onObjectPoseReceived(const geometry_msgs::msg::PoseStampe
   has_object_pose_from_topic_ = true;
   RCLCPP_DEBUG(LOGGER, "object_pose received: (%.3f, %.3f, %.3f)", msg->pose.position.x, msg->pose.position.y,
                msg->pose.position.z);
-}
-
-void OrionMTCTaskNode::onPickPlaceTriggerReceived(const std_msgs::msg::Empty::SharedPtr /*msg*/)
-{
-  std::thread(&OrionMTCTaskNode::doTask, this).detach();
 }
 
 void OrionMTCTaskNode::onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr /*msg*/)
@@ -306,14 +420,14 @@ void OrionMTCTaskNode::onLeftArmGrippedReceived(const std_msgs::msg::Float32::Sh
 {
   double v = static_cast<double>(msg->data);
   left_arm_gripped_.store(v);
-  /* HOLDING 仅由 pick 成功设置（有 held_object_ 才能放置）；话题 lock 仅用于夹爪松开时清空持物，不根据 locked 设为 HOLDING */
+  /* 夹爪反馈仅作辅助，不直接改业务状态；业务持物由 pick/place/reset 驱动 */
   const double grip_threshold = 0.5;
   std::lock_guard<std::mutex> lock(state_mutex_);
-  if (task_mode_ == RobotTaskMode::HOLDING && v < grip_threshold)
+  if ((task_mode_ == RobotTaskMode::HOLDING_TRACKED || task_mode_ == RobotTaskMode::HOLDING_UNTRACKED) &&
+      v < grip_threshold)
   {
-    held_object_.valid = false;
-    task_mode_ = RobotTaskMode::IDLE;
-    RCLCPP_INFO(LOGGER, "left_arm_gripped=%.3f < %.3f: topic unlocked, clear holding -> IDLE", v, grip_threshold);
+    RCLCPP_WARN(LOGGER, "Holding state but gripper feedback released (%.3f < %.3f); state unchanged, use reset_held_object to clear",
+                v, grip_threshold);
   }
 }
 
@@ -382,10 +496,6 @@ void OrionMTCTaskNode::setState(RobotTaskMode mode)
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   task_mode_ = mode;
-  if (mode == RobotTaskMode::ERROR)
-  {
-    last_error_.clear();
-  }
 }
 
 void OrionMTCTaskNode::setStateError(const std::string& err)
@@ -769,6 +879,257 @@ bool OrionMTCTaskNode::executeSubTrajectory(
   return true;
 }
 
+bool OrionMTCTaskNode::applyObjectPoseToPlanningScene(double px, double py, double pz,
+                                                      double qx, double qy, double qz, double qw)
+{
+  if (!apply_planning_scene_client_)
+  {
+    apply_planning_scene_client_ =
+        action_client_node_->create_client<moveit_msgs::srv::ApplyPlanningScene>("/apply_planning_scene");
+  }
+  if (!apply_planning_scene_client_->service_is_ready())
+  {
+    if (!apply_planning_scene_client_->wait_for_service(std::chrono::seconds(2)))
+    {
+      RCLCPP_WARN(LOGGER, "applyObjectPoseToPlanningScene: apply_planning_scene not available");
+      return false;
+    }
+  }
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  moveit_msgs::msg::CollisionObject remove_obj;
+  remove_obj.id = "object";
+  remove_obj.header.frame_id = "base_link";
+  remove_obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+  scene.world.collision_objects.push_back(remove_obj);
+  geometry_msgs::msg::Pose target_pose;
+  target_pose.position.x = px;
+  target_pose.position.y = py;
+  target_pose.position.z = pz;
+  target_pose.orientation.x = qx;
+  target_pose.orientation.y = qy;
+  target_pose.orientation.z = qz;
+  target_pose.orientation.w = qw;
+  moveit_msgs::msg::CollisionObject add_obj =
+      makeTargetCollisionObject("object", target_pose, moveit_msgs::msg::CollisionObject::ADD);
+  add_obj.header.stamp = action_client_node_->now();
+  scene.world.collision_objects.push_back(add_obj);
+  auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  req->scene = scene;
+  auto fut = apply_planning_scene_client_->async_send_request(req);
+  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  {
+    RCLCPP_WARN(LOGGER, "applyObjectPoseToPlanningScene: timed out");
+    return false;
+  }
+  auto res = fut.get();
+  if (!res || !res->success)
+  {
+    RCLCPP_WARN(LOGGER, "applyObjectPoseToPlanningScene: apply returned false");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "applyObjectPoseToPlanningScene: object updated to (%.3f, %.3f, %.3f)", px, py, pz);
+  return true;
+}
+
+bool OrionMTCTaskNode::applyAttachedHeldUnknownToScene()
+{
+  if (!apply_planning_scene_client_)
+  {
+    apply_planning_scene_client_ =
+        action_client_node_->create_client<moveit_msgs::srv::ApplyPlanningScene>("/apply_planning_scene");
+  }
+  if (!apply_planning_scene_client_->service_is_ready())
+  {
+    if (!apply_planning_scene_client_->wait_for_service(std::chrono::seconds(2)))
+    {
+      RCLCPP_WARN(LOGGER, "applyAttachedHeldUnknownToScene: apply_planning_scene not available");
+      return false;
+    }
+  }
+  moveit_msgs::msg::AttachedCollisionObject att;
+  att.link_name = "Link6";
+  att.object.id = "held_unknown";
+  att.object.header.frame_id = "Link6";
+  att.object.header.stamp = action_client_node_->now();
+  att.object.pose.position.x = 0.0;
+  att.object.pose.position.y = 0.0;
+  att.object.pose.position.z = 0.0;
+  att.object.pose.orientation.w = 1.0;
+  att.object.pose.orientation.x = 0.0;
+  att.object.pose.orientation.y = 0.0;
+  att.object.pose.orientation.z = 0.0;
+  shape_msgs::msg::SolidPrimitive box;
+  box.type = shape_msgs::msg::SolidPrimitive::BOX;
+  box.dimensions = { 0.08f, 0.06f, 0.25f };  /* 保守包络：宁可稍大，Link6 下沿 z 方向 */
+  geometry_msgs::msg::Pose prim_pose;
+  prim_pose.position.x = 0.0;
+  prim_pose.position.y = 0.0;
+  prim_pose.position.z = -0.12;  /* 包络体中心略低于手腕 */
+  prim_pose.orientation.w = 1.0;
+  prim_pose.orientation.x = 0.0;
+  prim_pose.orientation.y = 0.0;
+  prim_pose.orientation.z = 0.0;
+  att.object.primitives.push_back(box);
+  att.object.primitive_poses.push_back(prim_pose);
+  att.object.operation = moveit_msgs::msg::CollisionObject::ADD;
+  att.touch_links = { "Link6", "Link7", "Link8" };
+
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  scene.robot_state.attached_collision_objects.push_back(att);
+  auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  req->scene = scene;
+  auto fut = apply_planning_scene_client_->async_send_request(req);
+  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  {
+    RCLCPP_WARN(LOGGER, "applyAttachedHeldUnknownToScene: timed out");
+    return false;
+  }
+  auto res = fut.get();
+  if (!res || !res->success)
+  {
+    RCLCPP_WARN(LOGGER, "applyAttachedHeldUnknownToScene: apply returned false");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "applyAttachedHeldUnknownToScene: attached held_unknown to Link6");
+  return true;
+}
+
+bool OrionMTCTaskNode::clearAttachedObjectFromPlanningScene(const std::string& object_id)
+{
+  if (object_id.empty())
+    return true;
+  if (!apply_planning_scene_client_)
+  {
+    apply_planning_scene_client_ =
+        action_client_node_->create_client<moveit_msgs::srv::ApplyPlanningScene>("/apply_planning_scene");
+  }
+  if (!apply_planning_scene_client_->service_is_ready())
+  {
+    if (!apply_planning_scene_client_->wait_for_service(std::chrono::seconds(2)))
+    {
+      RCLCPP_WARN(LOGGER, "clearAttachedObjectFromPlanningScene: apply_planning_scene not available");
+      return false;
+    }
+  }
+  moveit_msgs::msg::AttachedCollisionObject att;
+  att.link_name = "Link6";
+  att.object.id = object_id;
+  att.object.header.frame_id = "base_link";
+  att.object.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  scene.robot_state.attached_collision_objects.push_back(att);
+  auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  req->scene = scene;
+  auto fut = apply_planning_scene_client_->async_send_request(req);
+  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  {
+    RCLCPP_WARN(LOGGER, "clearAttachedObjectFromPlanningScene: timed out");
+    return false;
+  }
+  auto res = fut.get();
+  if (!res || !res->success)
+  {
+    RCLCPP_WARN(LOGGER, "clearAttachedObjectFromPlanningScene: apply returned false for id=%s", object_id.c_str());
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "clearAttachedObjectFromPlanningScene: cleared id=%s", object_id.c_str());
+  return true;
+}
+
+bool OrionMTCTaskNode::applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object)
+{
+  if (!apply_planning_scene_client_)
+  {
+    apply_planning_scene_client_ =
+        action_client_node_->create_client<moveit_msgs::srv::ApplyPlanningScene>("/apply_planning_scene");
+  }
+  if (!apply_planning_scene_client_->service_is_ready())
+  {
+    if (!apply_planning_scene_client_->wait_for_service(std::chrono::seconds(2)))
+    {
+      RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: apply_planning_scene not available");
+      return false;
+    }
+  }
+  /* 方案 A：att.object.pose 不参与表达几何，primitive_poses 直接为 Link6 系下的最终位姿，与 makeTargetCollisionObject 一致 */
+  geometry_msgs::msg::Pose tcp_object_pose;
+  tcp_object_pose.position.x = tcp_to_object.translation().x();
+  tcp_object_pose.position.y = tcp_to_object.translation().y();
+  tcp_object_pose.position.z = tcp_to_object.translation().z();
+  Eigen::Quaterniond q_rot(tcp_to_object.rotation());
+  tcp_object_pose.orientation.x = q_rot.x();
+  tcp_object_pose.orientation.y = q_rot.y();
+  tcp_object_pose.orientation.z = q_rot.z();
+  tcp_object_pose.orientation.w = q_rot.w();
+  geometry_msgs::msg::Pose rod_local;
+  rod_local.position.x = 0.0;
+  rod_local.position.y = 0.0;
+  rod_local.position.z = -0.10;
+  rod_local.orientation.w = 1.0;
+  rod_local.orientation.x = 0.0;
+  rod_local.orientation.y = 0.0;
+  rod_local.orientation.z = 0.0;
+  geometry_msgs::msg::Pose handle_local;
+  handle_local.position.x = 0.0;
+  handle_local.position.y = 0.0;
+  handle_local.position.z = 0.08;
+  handle_local.orientation.w = 1.0;
+  handle_local.orientation.x = 0.0;
+  handle_local.orientation.y = 0.0;
+  handle_local.orientation.z = 0.0;
+  geometry_msgs::msg::Pose rod_in_link6 = composePose(tcp_object_pose, rod_local);
+  geometry_msgs::msg::Pose handle_in_link6 = composePose(tcp_object_pose, handle_local);
+
+  moveit_msgs::msg::AttachedCollisionObject att;
+  att.link_name = "Link6";
+  att.object.id = "held_tracked";
+  att.object.header.frame_id = "Link6";
+  att.object.header.stamp = action_client_node_->now();
+  att.object.pose.position.x = 0.0;
+  att.object.pose.position.y = 0.0;
+  att.object.pose.position.z = 0.0;
+  att.object.pose.orientation.w = 1.0;
+  att.object.pose.orientation.x = 0.0;
+  att.object.pose.orientation.y = 0.0;
+  att.object.pose.orientation.z = 0.0;
+  /* 几何仅由 primitive_poses（Link6 系）表达，与 makeTargetCollisionObject 一致 */
+  shape_msgs::msg::SolidPrimitive rod;
+  rod.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
+  rod.dimensions = { 0.30f, 0.015f };
+  shape_msgs::msg::SolidPrimitive handle;
+  handle.type = shape_msgs::msg::SolidPrimitive::BOX;
+  handle.dimensions = { 0.15f, 0.03f, 0.10f };
+  att.object.primitives.push_back(rod);
+  att.object.primitive_poses.push_back(rod_in_link6);
+  att.object.primitives.push_back(handle);
+  att.object.primitive_poses.push_back(handle_in_link6);
+  att.object.operation = moveit_msgs::msg::CollisionObject::ADD;
+  att.touch_links = { "Link6", "Link7", "Link8" };
+
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  scene.robot_state.attached_collision_objects.push_back(att);
+  auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  req->scene = scene;
+  auto fut = apply_planning_scene_client_->async_send_request(req);
+  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  {
+    RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: timed out");
+    return false;
+  }
+  auto res = fut.get();
+  if (!res || !res->success)
+  {
+    RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: apply returned false");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "applyAttachedTrackedObjectToScene: attached held_tracked to Link6");
+  return true;
+}
+
 bool OrionMTCTaskNode::executeSolutionLocally(const mtc::SolutionBase& solution)
 {
   /* 同一进程内直接用 C++ SolutionBase::toMsg 得到 Solution 消息，不依赖 get_solution 服务或 solution 话题 */
@@ -854,6 +1215,7 @@ bool OrionMTCTaskNode::executePickSolutionLocally(const mtc::SolutionBase& solut
         std::lock_guard<std::mutex> lock(state_mutex_);
         held_object_.valid = true;
         held_object_.object_id = object_id.empty() ? "object" : object_id;
+        held_object_.scene_attach_id = "object";
         held_object_.attach_link = hand_frame;
         held_object_.object_pose_at_grasp = object_pose_at_grasp;
         held_object_.tcp_pose_at_grasp = tcp_pose;
@@ -869,8 +1231,6 @@ bool OrionMTCTaskNode::executePickSolutionLocally(const mtc::SolutionBase& solut
                                               object_pose_at_grasp.orientation.y,
                                               object_pose_at_grasp.orientation.z));
         held_object_.tcp_to_object = T_base_tcp.inverse() * T_base_obj;
-        held_object_.shape.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-        held_object_.shape.dimensions = { 0.1, 0.02 };
         RCLCPP_INFO(LOGGER, "executePickSolutionLocally: saved held context object_id=%s",
                     held_object_.object_id.c_str());
       }
@@ -897,77 +1257,6 @@ bool OrionMTCTaskNode::executePickSolutionLocally(const mtc::SolutionBase& solut
   return true;
 }
 
-void OrionMTCTaskNode::doTask()
-{
-  if (do_task_running_.exchange(true))
-  {
-    RCLCPP_WARN(LOGGER, "doTask: already running, skip (wait for current task to finish)");
-    return;
-  }
-  /* 完全由话题驱动：无 /object_pose 不执行；若尚未收到则短暂等待 */
-  {
-    const int wait_ticks = 60;  /* 约 3 s，50 ms/次 */
-    for (int i = 0; i < wait_ticks; ++i)
-    {
-      {
-        std::lock_guard<std::mutex> lock(object_pose_mutex_);
-        if (has_object_pose_from_topic_)
-          break;
-      }
-      if (i == 0)
-        RCLCPP_INFO(LOGGER, "doTask: waiting for /object_pose (e.g. from target_sensor_to_object_pose)...");
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-    std::lock_guard<std::mutex> lock(object_pose_mutex_);
-    if (!has_object_pose_from_topic_)
-    {
-      RCLCPP_WARN(LOGGER, "doTask: no object pose from topic after wait, skip (publish /object_pose then /pick_place_trigger)");
-      do_task_running_ = false;
-      return;
-    }
-  }
-  task_ = createTask();
-
-  try
-  {
-    task_.init();
-    task_.enableIntrospection(true);
-    task_.introspection().publishTaskDescription();  /* 触发 introspection 创建 publisher/service */
-  }
-  catch (mtc::InitStageException& e)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, e);
-    do_task_running_ = false;
-    return;
-  }
-
-  moveit::core::MoveItErrorCode plan_result = task_.plan(5);
-  if (!plan_result)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed (code " << plan_result.val << ")");
-    task_.explainFailure(std::cout);
-    std::cout.flush();
-    do_task_running_ = false;
-    return;
-  }
-  if (task_.solutions().empty())
-  {
-    RCLCPP_ERROR(LOGGER, "Task planning returned success but no solutions");
-    do_task_running_ = false;
-    return;
-  }
-
-  /* 本地执行：取 solution 消息并执行；内部会 publish 供 RViz 显示 */
-  if (!executeSolutionLocally(*task_.solutions().front()))
-  {
-    RCLCPP_ERROR(LOGGER, "Local task execution failed");
-    do_task_running_ = false;
-    return;
-  }
-  RCLCPP_INFO(LOGGER, "Task execution finished successfully");
-  do_task_running_ = false;
-}
-
 void OrionMTCTaskNode::doPick()
 {
   if (do_task_running_.exchange(true))
@@ -984,7 +1273,7 @@ void OrionMTCTaskNode::doPick()
         break;
     }
     if (i == 0)
-      RCLCPP_INFO(LOGGER, "doPick: waiting for /object_pose");
+      RCLCPP_INFO(LOGGER, "doPick: waiting for /manipulator/object_pose");
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
   geometry_msgs::msg::PoseStamped pose;
@@ -1019,7 +1308,7 @@ void OrionMTCTaskNode::doPlace()
         break;
     }
     if (i == 0)
-      RCLCPP_INFO(LOGGER, "doPlace: waiting for /place_pose");
+      RCLCPP_INFO(LOGGER, "doPlace: waiting for /manipulator/place_pose");
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
   geometry_msgs::msg::PoseStamped pose;
@@ -1052,9 +1341,9 @@ bool OrionMTCTaskNode::doPickFromGoal(const geometry_msgs::msg::PoseStamped& obj
     std::lock_guard<std::mutex> lock(state_mutex_);
     mode = task_mode_;
   }
-  if (mode == RobotTaskMode::HOLDING)
+  if (mode == RobotTaskMode::HOLDING_TRACKED || mode == RobotTaskMode::HOLDING_UNTRACKED)
   {
-    RCLCPP_ERROR(LOGGER, "doPickFromGoal: already holding, reject (clear or place first)");
+    RCLCPP_ERROR(LOGGER, "doPickFromGoal: already holding, reject (place or reset_held_object first)");
     return false;
   }
   if (mode != RobotTaskMode::IDLE && mode != RobotTaskMode::ERROR)
@@ -1117,8 +1406,8 @@ bool OrionMTCTaskNode::doPickFromGoal(const geometry_msgs::msg::PoseStamped& obj
     return false;
   }
 
-  setState(RobotTaskMode::HOLDING);
-  RCLCPP_INFO(LOGGER, "Pick finished successfully, state=HOLDING");
+  setState(RobotTaskMode::HOLDING_TRACKED);
+  RCLCPP_INFO(LOGGER, "Pick finished successfully, state=HOLDING_TRACKED");
   return true;
 }
 
@@ -1128,9 +1417,9 @@ bool OrionMTCTaskNode::doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& ta
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
     has_held = held_object_.valid;
-    if (task_mode_ != RobotTaskMode::HOLDING || !has_held)
+    if (task_mode_ != RobotTaskMode::HOLDING_TRACKED || !has_held)
     {
-      RCLCPP_ERROR(LOGGER, "doPlaceFromGoal: not holding (mode=%d, held_valid=%d), reject",
+      RCLCPP_ERROR(LOGGER, "doPlaceFromGoal: precise place requires HOLDING_TRACKED and held_object (mode=%d, held_valid=%d), reject",
                    static_cast<int>(task_mode_), held_object_.valid ? 1 : 0);
       return false;
     }
@@ -1154,8 +1443,11 @@ bool OrionMTCTaskNode::doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& ta
   task_ = buildPlaceTask(px, py, pz, qx, qy, qz, qw);
   if (task_.stages()->numChildren() == 0)
   {
-    setStateError("buildPlaceTask: no held context");
-    setState(RobotTaskMode::HOLDING);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "buildPlaceTask: no held context";
+    }
+    setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
 
@@ -1168,8 +1460,11 @@ bool OrionMTCTaskNode::doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& ta
   catch (mtc::InitStageException& e)
   {
     RCLCPP_ERROR_STREAM(LOGGER, e);
-    setStateError(std::string("place init: ") + e.what());
-    setState(RobotTaskMode::HOLDING);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = std::string("place init: ") + e.what();
+    }
+    setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
 
@@ -1178,25 +1473,37 @@ bool OrionMTCTaskNode::doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& ta
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Place planning failed (code " << plan_result.val << ")");
     task_.explainFailure(std::cout);
-    setStateError("place plan failed");
-    setState(RobotTaskMode::HOLDING);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place plan failed";
+    }
+    setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
   if (task_.solutions().empty())
   {
     RCLCPP_ERROR(LOGGER, "Place plan returned no solutions");
-    setStateError("place no solutions");
-    setState(RobotTaskMode::HOLDING);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place no solutions";
+    }
+    setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
 
   if (!executeSolutionLocally(*task_.solutions().front()))
   {
     RCLCPP_ERROR(LOGGER, "Place execution failed");
-    setStateError("place execution failed");
-    setState(RobotTaskMode::HOLDING);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place execution failed";
+    }
+    setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
+
+  /* detach 后把场景中物体更新到目标位姿，供 return home 及后续规划使用 */
+  applyObjectPoseToPlanningScene(px, py, pz, qx, qy, qz, qw);
 
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
@@ -1204,6 +1511,100 @@ bool OrionMTCTaskNode::doPlaceFromGoal(const geometry_msgs::msg::PoseStamped& ta
   }
   setState(RobotTaskMode::IDLE);
   RCLCPP_INFO(LOGGER, "Place finished successfully, state=IDLE");
+  return true;
+}
+
+bool OrionMTCTaskNode::doPlaceReleaseFromGoal(const geometry_msgs::msg::PoseStamped& target_tcp_pose)
+{
+  RobotTaskMode prev_mode;
+  std::string attached_id;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (task_mode_ != RobotTaskMode::HOLDING_TRACKED && task_mode_ != RobotTaskMode::HOLDING_UNTRACKED)
+    {
+      RCLCPP_ERROR(LOGGER, "doPlaceReleaseFromGoal: require HOLDING_TRACKED or HOLDING_UNTRACKED (mode=%d), reject",
+                   static_cast<int>(task_mode_));
+      return false;
+    }
+    prev_mode = task_mode_;
+    attached_id = (prev_mode == RobotTaskMode::HOLDING_TRACKED)
+                      ? (held_object_.scene_attach_id.empty() ? "object" : held_object_.scene_attach_id)
+                      : "held_unknown";
+  }
+
+  setState(RobotTaskMode::PLACING);
+  current_task_id_ = genTaskId("place_release");
+
+  if (target_tcp_pose.header.frame_id != "base_link" && !target_tcp_pose.header.frame_id.empty())
+  {
+    RCLCPP_WARN(LOGGER, "doPlaceReleaseFromGoal: frame_id '%s', expected base_link",
+                target_tcp_pose.header.frame_id.c_str());
+  }
+
+  task_ = buildPlaceReleaseTask(target_tcp_pose, attached_id);
+  try
+  {
+    task_.init();
+    task_.enableIntrospection(true);
+    task_.introspection().publishTaskDescription();
+  }
+  catch (mtc::InitStageException& e)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, e);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = std::string("place_release init: ") + e.what();
+    }
+    setState(prev_mode);
+    return false;
+  }
+
+  moveit::core::MoveItErrorCode plan_result = task_.plan(5);
+  if (!plan_result)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "PlaceRelease planning failed (code " << plan_result.val << ")");
+    task_.explainFailure(std::cout);
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place_release plan failed";
+    }
+    setState(prev_mode);
+    return false;
+  }
+  if (task_.solutions().empty())
+  {
+    RCLCPP_ERROR(LOGGER, "PlaceRelease plan returned no solutions");
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place_release no solutions";
+    }
+    setState(prev_mode);
+    return false;
+  }
+
+  if (!executeSolutionLocally(*task_.solutions().front()))
+  {
+    RCLCPP_ERROR(LOGGER, "PlaceRelease execution failed");
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "place_release execution failed";
+    }
+    setState(prev_mode);
+    return false;
+  }
+
+  /* untracked 时 MTC 未 detach held_unknown，由业务层显式清理 scene */
+  if (attached_id == "held_unknown")
+  {
+    clearAttachedObjectFromPlanningScene("held_unknown");
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    held_object_.valid = false;
+  }
+  setState(RobotTaskMode::IDLE);
+  RCLCPP_INFO(LOGGER, "PlaceRelease finished successfully, state=IDLE");
   return true;
 }
 
@@ -1236,18 +1637,14 @@ mtc::Task OrionMTCTaskNode::buildPickTask(double obj_x, double obj_y, double obj
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
   {
-    moveit_msgs::msg::CollisionObject object;
-    object.id = "object";
-    object.header.frame_id = "base_link";
-    object.primitives.resize(1);
-    object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-    object.primitives[0].dimensions = { 0.1f, 0.02f };
-    geometry_msgs::msg::Pose pose;
-    pose.position.x = static_cast<float>(obj_x);
-    pose.position.y = static_cast<float>(obj_y);
-    pose.position.z = static_cast<float>(obj_z);
-    pose.orientation = object_orientation;
-    object.pose = pose;
+    geometry_msgs::msg::Pose obj_pose;
+    obj_pose.position.x = obj_x;
+    obj_pose.position.y = obj_y;
+    obj_pose.position.z = obj_z;
+    obj_pose.orientation = object_orientation;
+    moveit_msgs::msg::CollisionObject object =
+        makeTargetCollisionObject("object", obj_pose, moveit_msgs::msg::CollisionObject::ADD);
+    object.header.stamp = node_->now();
     auto stage_add = std::make_unique<mtc::stages::ModifyPlanningScene>("add object");
     stage_add->addObject(object);
     task.add(std::move(stage_add));
@@ -1272,15 +1669,8 @@ mtc::Task OrionMTCTaskNode::buildPickTask(double obj_x, double obj_y, double obj
   task.add(std::move(stage_open));
 
   {
-    std::vector<std::string> object_allowed_links =
-        task.getRobotModel()->getJointModelGroup(arm_group_name)->getLinkModelNamesWithCollisionGeometry();
-    std::vector<std::string> hand_links =
-        task.getRobotModel()->getJointModelGroup(hand_group_name)->getLinkModelNamesWithCollisionGeometry();
-    object_allowed_links.insert(object_allowed_links.end(), hand_links.begin(), hand_links.end());
-    if (std::find(object_allowed_links.begin(), object_allowed_links.end(), hand_frame) == object_allowed_links.end())
-      object_allowed_links.push_back(hand_frame);
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (arm+hand,object)");
-    stage->allowCollisions("object", object_allowed_links, true);
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
+    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
     task.add(std::move(stage));
   }
 
@@ -1329,11 +1719,8 @@ mtc::Task OrionMTCTaskNode::buildPickTask(double obj_x, double obj_y, double obj
   grasp->insert(std::move(stage_approach));
 
   {
-    std::vector<std::string> hand_and_wrist =
-        task.getRobotModel()->getJointModelGroup(hand_group_name)->getLinkModelNamesWithCollisionGeometry();
-    hand_and_wrist.push_back(hand_frame);
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision before close");
-    stage->allowCollisions("object", hand_and_wrist, true);
+    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
     grasp->insert(std::move(stage));
   }
 
@@ -1405,6 +1792,10 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
     }
     held = held_object_;
   }
+  if (held.scene_attach_id.empty())
+  {
+    held.scene_attach_id = "object";
+  }
 
   /* 放置目标为物体位姿；TCP 目标 = T_base_object_target * inv(T_tcp_object) */
   Eigen::Isometry3d T_base_obj_target = Eigen::Isometry3d::Identity();
@@ -1438,6 +1829,12 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
 
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
+    stage->allowCollisions(held.scene_attach_id, OBJECT_GRASP_ALLOWED_LINKS, true);
+    task.add(std::move(stage));
+  }
+
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
@@ -1456,7 +1853,6 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
   task.add(std::move(stage_pre));
 
   auto place = std::make_unique<mtc::SerialContainer>("place object");
-  /* 根容器 property 继承不可靠，直接在 place 上设置供子阶段 PARENT 使用 */
   place->properties().set("eef", hand_group_name);
   place->properties().set("group", arm_group_name);
   place->properties().set("ik_frame", hand_frame);
@@ -1483,7 +1879,7 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
 
   {
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("detach object");
-    stage->detachObject("object", hand_frame);
+    stage->detachObject(held.scene_attach_id, hand_frame);
     place->insert(std::move(stage));
   }
 
@@ -1503,392 +1899,146 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
   }
 
   {
-    std::vector<std::string> hand_and_wrist =
-        task.getRobotModel()->getJointModelGroup(hand_group_name)->getLinkModelNamesWithCollisionGeometry();
-    hand_and_wrist.push_back(hand_frame);
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
-    stage->allowCollisions("object", hand_and_wrist, false);
+    stage->allowCollisions(held.scene_attach_id, OBJECT_GRASP_ALLOWED_LINKS, false);
     place->insert(std::move(stage));
   }
 
   task.add(std::move(place));
+
+  /* 放置完成后回到 ready（物体仍在场景中，规划需绕开）；再闭合夹爪 */
+  {
+    auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
+    stage->setGroup(arm_group_name);
+    stage->setGoal("ready");
+    task.add(std::move(stage));
+  }
+  {
+    auto stage = std::make_unique<mtc::stages::MoveTo>("close hand (return home)", interpolation_planner);
+    stage->setGroup(hand_group_name);
+    stage->setGoal("close");
+    task.add(std::move(stage));
+  }
+
   return task;
 }
 
-mtc::Task OrionMTCTaskNode::createTask()
+mtc::Task OrionMTCTaskNode::buildPlaceReleaseTask(
+    const geometry_msgs::msg::PoseStamped& target_tcp_pose, const std::string& attached_object_id)
 {
-  /* 从参数服务器读取 pick-place 参数（默认见 config/pick_place_params.yaml） */
-  double approach_min = 0.10, approach_max = 0.15;
-  double lift_min = 0.05, lift_max = 0.25;
-  std::string support_surface_link;
-  double place_x = 0.35, place_y = 0.15, place_z = 0.4;
-  double place_qx = 0.0, place_qy = 0.0, place_qz = 0.0, place_qw = 1.0;
   double retreat_min = 0.12, retreat_max = 0.25;
   double lower_min = 0.05, lower_max = 0.12;
-  double obj_x, obj_y, obj_z;
-
-  node_->get_parameter("approach_object_min_dist", approach_min);
-  node_->get_parameter("approach_object_max_dist", approach_max);
-  node_->get_parameter("lift_object_min_dist", lift_min);
-  node_->get_parameter("lift_object_max_dist", lift_max);
-  node_->get_parameter("support_surface_link", support_surface_link);
-  node_->get_parameter("place_pose_x", place_x);
-  node_->get_parameter("place_pose_y", place_y);
-  node_->get_parameter("place_pose_z", place_z);
-  node_->get_parameter("place_pose_qx", place_qx);
-  node_->get_parameter("place_pose_qy", place_qy);
-  node_->get_parameter("place_pose_qz", place_qz);
-  node_->get_parameter("place_pose_qw", place_qw);
   node_->get_parameter("retreat_min_dist", retreat_min);
   node_->get_parameter("retreat_max_dist", retreat_max);
   node_->get_parameter("lower_to_place_min_dist", lower_min);
   node_->get_parameter("lower_to_place_max_dist", lower_max);
 
-  /* 放置位姿：优先来自 /place_pose 话题（动态放置），否则用参数 */
-  {
-    std::lock_guard<std::mutex> lock(place_pose_mutex_);
-    if (has_place_pose_from_topic_)
-    {
-      place_x = place_pose_from_topic_.pose.position.x;
-      place_y = place_pose_from_topic_.pose.position.y;
-      place_z = place_pose_from_topic_.pose.position.z;
-      place_qx = place_pose_from_topic_.pose.orientation.x;
-      place_qy = place_pose_from_topic_.pose.orientation.y;
-      place_qz = place_pose_from_topic_.pose.orientation.z;
-      place_qw = place_pose_from_topic_.pose.orientation.w;
-      RCLCPP_INFO(LOGGER, "createTask: place pose from topic (%.3f, %.3f, %.3f)", place_x, place_y, place_z);
-    }
-  }
-
-  /* 物体位姿仅来自 /object_pose（doTask 已保证收到后才调用 createTask） */
-  geometry_msgs::msg::Quaternion object_orientation;
-  {
-    std::lock_guard<std::mutex> lock(object_pose_mutex_);
-    obj_x = object_pose_from_topic_.pose.position.x;
-    obj_y = object_pose_from_topic_.pose.position.y;
-    obj_z = object_pose_from_topic_.pose.position.z;
-    object_orientation = object_pose_from_topic_.pose.orientation;
-  }
-  RCLCPP_INFO(LOGGER, "createTask: object pose from topic (%.3f, %.3f, %.3f)", obj_x, obj_y, obj_z);
+  double tx = target_tcp_pose.pose.position.x;
+  double ty = target_tcp_pose.pose.position.y;
+  double tz = target_tcp_pose.pose.position.z;
+  const auto& q = target_tcp_pose.pose.orientation;
+  geometry_msgs::msg::Pose pre_place_pose;
+  pre_place_pose.position.x = tx;
+  pre_place_pose.position.y = ty;
+  pre_place_pose.position.z = tz + lower_max;
+  pre_place_pose.orientation = q;
 
   mtc::Task task;
-  task.stages()->setName("orion pick place");
+  task.stages()->setName("orion place release");
   task.loadRobotModel(node_);
-
   const auto& arm_group_name = "arm";
   const auto& hand_group_name = "hand";
   const auto& hand_frame = "Link6";
-
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
-  task.stages()->properties().set("group", arm_group_name);
-  task.stages()->properties().set("eef", hand_group_name);
-  task.stages()->properties().set("ik_frame", hand_frame);
 
-  auto stage_state_current = std::make_unique<mtc::stages::CurrentState>("current");
-  task.add(std::move(stage_state_current));
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
 
-  /* 在任务内将物体加入规划场景（位姿：来自 /object_pose 或参数 object_position_*） */
+  if (!attached_object_id.empty())
   {
-    moveit_msgs::msg::CollisionObject object;
-    object.id = "object";
-    object.header.frame_id = "base_link";
-    object.primitives.resize(1);
-    object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-    object.primitives[0].dimensions = { 0.1f, 0.02f };
-    geometry_msgs::msg::Pose pose;
-    pose.position.x = static_cast<float>(obj_x);
-    pose.position.y = static_cast<float>(obj_y);
-    pose.position.z = static_cast<float>(obj_z);
-    pose.orientation = object_orientation;
-    object.pose = pose;
-
-    auto stage_add_object = std::make_unique<mtc::stages::ModifyPlanningScene>("add object");
-    stage_add_object->addObject(object);
-    task.add(std::move(stage_add_object));
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
+    stage->allowCollisions(attached_object_id, OBJECT_GRASP_ALLOWED_LINKS, true);
+    task.add(std::move(stage));
   }
 
-  /* 工业风格：PTP 到 pregrasp（最小关节运动、轨迹规矩）；Connect/return 也用 PTP */
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
-
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
   cartesian_planner->setMaxVelocityScalingFactor(1.0);
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(0.01);
 
-  /* 先从当前状态移到 ready，避免从全零/奇异位形直接 PTP 到 pregrasp 导致自碰（Link1-Link7 等） */
-  auto stage_move_to_ready = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
-  stage_move_to_ready->setGroup(arm_group_name);
-  stage_move_to_ready->setGoal("ready");
-  task.add(std::move(stage_move_to_ready));
+  geometry_msgs::msg::PoseStamped pre_stamped;
+  pre_stamped.header.frame_id = target_tcp_pose.header.frame_id.empty() ? "base_link" : target_tcp_pose.header.frame_id;
+  pre_stamped.pose = pre_place_pose;
+  auto stage_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-place (release)", ptp_planner);
+  stage_pre->setGroup(arm_group_name);
+  stage_pre->setGoal(pre_stamped);
+  stage_pre->setIKFrame(hand_frame);
+  task.add(std::move(stage_pre));
 
-  /* 官方骨架：… → OpenHand → … → Pick → Connect(preplace) → Place → ReturnHome */
-  auto stage_open_hand =
-      std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
-  stage_open_hand->setGroup(hand_group_name);
-  stage_open_hand->setGoal("open");
-  task.add(std::move(stage_open_hand));
+  auto place = std::make_unique<mtc::SerialContainer>("place release");
+  place->properties().set("eef", hand_group_name);
+  place->properties().set("group", arm_group_name);
+  place->properties().set("ik_frame", hand_frame);
 
-  /* 抓取阶段允许 object 与 arm+hand 碰撞，否则 MoveTo pregrasp/approach 路径易报 object-Link5 等碰撞导致规划失败 */
+  auto stage_lower = std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
+  stage_lower->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  stage_lower->setMinMaxDistance(static_cast<float>(lower_min), static_cast<float>(lower_max));
+  stage_lower->setIKFrame(hand_frame);
+  stage_lower->properties().set("marker_ns", "lower_release");
+  geometry_msgs::msg::Vector3Stamped vec;
+  vec.header.frame_id = hand_frame;
+  vec.vector.x = 0.0;
+  vec.vector.y = 0.0;
+  vec.vector.z = -1.0;
+  stage_lower->setDirection(vec);
+  place->insert(std::move(stage_lower));
+
   {
-    std::vector<std::string> object_allowed_links =
-        task.getRobotModel()
-            ->getJointModelGroup(arm_group_name)
-            ->getLinkModelNamesWithCollisionGeometry();
-    std::vector<std::string> hand_links =
-        task.getRobotModel()
-            ->getJointModelGroup(hand_group_name)
-            ->getLinkModelNamesWithCollisionGeometry();
-    object_allowed_links.insert(object_allowed_links.end(), hand_links.begin(), hand_links.end());
-    if (std::find(object_allowed_links.begin(), object_allowed_links.end(), hand_frame) == object_allowed_links.end())
-    {
-      object_allowed_links.push_back(hand_frame);
-    }
-    auto stage =
-        std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (arm+hand,object)");
-    stage->allowCollisions("object", object_allowed_links, true);
-    task.add(std::move(stage));
+    auto stage = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
+    stage->setGroup(hand_group_name);
+    stage->setGoal("open");
+    place->insert(std::move(stage));
+  }
+
+  /* tracked（object / held_tracked）在 MTC 里 detach；held_unknown 由业务层执行成功后 clearAttachedObjectFromPlanningScene 清理 */
+  if (attached_object_id == "object" || attached_object_id == "held_tracked")
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("detach object");
+    stage->detachObject(attached_object_id, hand_frame);
+    place->insert(std::move(stage));
   }
 
   {
-    auto stage_acm =
-        std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
-    stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link8" }, true);
-    stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
-    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
-    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
-    task.add(std::move(stage_acm));
+    auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
+    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    stage->setMinMaxDistance(static_cast<float>(retreat_min), static_cast<float>(retreat_max));
+    stage->setIKFrame(hand_frame);
+    stage->properties().set("marker_ns", "retreat");
+    geometry_msgs::msg::Vector3Stamped v;
+    v.header.frame_id = hand_frame;
+    v.vector.x = 0.0;
+    v.vector.y = 0.0;
+    v.vector.z = -1.0;
+    stage->setDirection(v);
+    place->insert(std::move(stage));
   }
 
-  mtc::Stage* attach_object_stage = nullptr;
-
-  /* Pick 容器：PTP pregrasp → LIN approach → close → attach → lift */
+  if (!attached_object_id.empty())
   {
-    auto grasp = std::make_unique<mtc::SerialContainer>("pick object");
-    task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
-    grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
-
-    /* 1) PTP 到 pregrasp（物体上方 approach_max），夹爪朝下；再 LIN approach 直线下压 → 工业风格 上方→下压 抓取 */
-    {
-      geometry_msgs::msg::PoseStamped pregrasp;
-      pregrasp.header.frame_id = "base_link";
-      pregrasp.pose.position.x = obj_x;
-      pregrasp.pose.position.y = obj_y;
-      pregrasp.pose.position.z = obj_z + approach_max;
-      pregrasp.pose.orientation.x = 1.0;
-      pregrasp.pose.orientation.y = 0.0;
-      pregrasp.pose.orientation.z = 0.0;
-      pregrasp.pose.orientation.w = 0.0;
-
-      auto stage = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
-      stage->setGroup(arm_group_name);
-      stage->setGoal(pregrasp);
-      stage->setIKFrame(hand_frame);
-      grasp->insert(std::move(stage));
-    }
-
-    /* 2) 笛卡尔 approach：沿 hand_frame(Link6) 的 z 接近物体 */
-    {
-      auto stage =
-          std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
-      stage->properties().set("marker_ns", "approach_object");
-      stage->properties().set("link", hand_frame);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->properties().set("min_fraction", 0.55);
-      stage->setMinMaxDistance(static_cast<float>(approach_min), static_cast<float>(approach_max));
-      geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = hand_frame;
-      vec.vector.x = 0.0;
-      vec.vector.y = 0.0;
-      vec.vector.z = 1.0;
-      stage->setDirection(vec);
-      grasp->insert(std::move(stage));
-    }
-
-    {
-      std::vector<std::string> hand_and_wrist_links =
-          task.getRobotModel()
-              ->getJointModelGroup(hand_group_name)
-              ->getLinkModelNamesWithCollisionGeometry();
-      hand_and_wrist_links.push_back(hand_frame);
-      auto stage =
-          std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision before close");
-      stage->allowCollisions("object", hand_and_wrist_links, true);
-      grasp->insert(std::move(stage));
-    }
-
-    {
-      auto stage = std::make_unique<mtc::stages::MoveTo>("close hand", interpolation_planner);
-      stage->setGroup(hand_group_name);
-      stage->setGoal("close");
-      grasp->insert(std::move(stage));
-    }
-
-    {
-      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("attach object");
-      stage->attachObject("object", hand_frame);
-      attach_object_stage = stage.get();
-      grasp->insert(std::move(stage));
-    }
-
-    /* 有支撑面时：Lift 前允许 object 与支撑面碰撞（与 MTC demo 一致） */
-    if (!support_surface_link.empty())
-    {
-      auto stage =
-          std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,support)");
-      stage->allowCollisions("object", std::vector<std::string>{ support_surface_link }, true);
-      grasp->insert(std::move(stage));
-    }
-
-    /* 抬升：沿 base_link +Z，距离由参数 lift_object_* 指定 */
-    {
-      auto stage =
-          std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(static_cast<float>(lift_min), static_cast<float>(lift_max));
-      stage->setIKFrame(hand_frame);
-      stage->properties().set("marker_ns", "lift_object");
-
-      geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = "base_link";
-      vec.vector.x = 0.0;
-      vec.vector.y = 0.0;
-      vec.vector.z = 1.0;
-      stage->setDirection(vec);
-      grasp->insert(std::move(stage));
-    }
-
-    /* 有支撑面时：Lift 后禁止 object 与支撑面碰撞 */
-    if (!support_surface_link.empty())
-    {
-      auto stage =
-          std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (object,surface)");
-      stage->allowCollisions("object", std::vector<std::string>{ support_surface_link }, false);
-      grasp->insert(std::move(stage));
-    }
-
-    task.add(std::move(grasp));
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
+    stage->allowCollisions(attached_object_id, OBJECT_GRASP_ALLOWED_LINKS, false);
+    place->insert(std::move(stage));
   }
 
-  /* Connect 到预放置：PTP */
-  {
-    auto stage_move_to_place = std::make_unique<mtc::stages::Connect>(
-        "connect preplace",
-        mtc::stages::Connect::GroupPlannerVector{ { arm_group_name, ptp_planner },
-                                                  { hand_group_name, interpolation_planner } });
-    stage_move_to_place->setTimeout(5.0);
-    stage_move_to_place->properties().configureInitFrom(mtc::Stage::PARENT);
-    task.add(std::move(stage_move_to_place));
-  }
+  task.add(std::move(place));
 
-  /* Place 容器：PlaceIK → Lower(笛卡尔) → Open → Detach → Retreat(笛卡尔) */
-  {
-    auto place = std::make_unique<mtc::SerialContainer>("place object");
-    place->properties().set("eef", hand_group_name);
-    place->properties().set("group", arm_group_name);
-    place->properties().set("ik_frame", hand_frame);
-
-    /* 工业流程：preplace 位姿 = 放置点上方（place_z + lower_max），再 LIN 沿手爪 -Z 下降至放置高度，避免压进桌面 */
-    {
-      auto stage = std::make_unique<mtc::stages::GeneratePlacePose>("generate place pose");
-      stage->properties().configureInitFrom(mtc::Stage::PARENT);
-      stage->properties().set("marker_ns", "place_pose");
-      stage->setObject("object");
-
-      geometry_msgs::msg::PoseStamped target_pose_msg;
-      target_pose_msg.header.frame_id = "base_link";
-      target_pose_msg.pose.position.x = place_x;
-      target_pose_msg.pose.position.y = place_y;
-      target_pose_msg.pose.position.z = place_z + lower_max;  /* preplace 高度 = 最终放置高度 + 下降段，避免 IK 直接解到桌面再 lower 压进去 */
-      target_pose_msg.pose.orientation.x = 1.0;
-      target_pose_msg.pose.orientation.y = 0.0;
-      target_pose_msg.pose.orientation.z = 0.0;
-      target_pose_msg.pose.orientation.w = 0.0;  /* 末端朝下，与抓取一致，避免 IK 腕部翻转/肘朝下 */
-
-      stage->setPose(target_pose_msg);
-      stage->setMonitoredStage(attach_object_stage);
-
-      auto wrapper =
-          std::make_unique<mtc::stages::ComputeIK>("place pose IK", std::move(stage));
-      wrapper->setMaxIKSolutions(1);   /* 只取 1 个解，与 pick 一致减少奇怪姿态 */
-      wrapper->setMinSolutionDistance(1.0f);
-      wrapper->setIgnoreCollisions(true);
-      wrapper->setIKFrame(hand_frame);
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
-      place->insert(std::move(wrapper));
-    }
-
-    /* 沿手爪 Z 轴下降（hand_frame -Z），工业流程 LIN lower；沿 TCP 下降避免斜着压 */
-    {
-      auto stage =
-          std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(static_cast<float>(lower_min), static_cast<float>(lower_max));
-      stage->setIKFrame(hand_frame);
-      stage->properties().set("marker_ns", "lower_place");
-
-      geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = hand_frame;
-      vec.vector.x = 0.0;
-      vec.vector.y = 0.0;
-      vec.vector.z = -1.0;
-      stage->setDirection(vec);
-      place->insert(std::move(stage));
-    }
-
-    {
-      auto stage = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
-      stage->setGroup(hand_group_name);
-      stage->setGoal("open");
-      place->insert(std::move(stage));
-    }
-
-    {
-      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("detach object");
-      stage->detachObject("object", hand_frame);
-      place->insert(std::move(stage));
-    }
-
-    /* 沿手爪坐标系 -z 退离，距离由参数 retreat_* 指定 */
-    {
-      auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      stage->setMinMaxDistance(static_cast<float>(retreat_min), static_cast<float>(retreat_max));
-      stage->setIKFrame(hand_frame);
-      stage->properties().set("marker_ns", "retreat");
-
-      geometry_msgs::msg::Vector3Stamped vec;
-      vec.header.frame_id = hand_frame;
-      vec.vector.x = 0.0;
-      vec.vector.y = 0.0;
-      vec.vector.z = -1.0;
-      stage->setDirection(vec);
-      place->insert(std::move(stage));
-    }
-
-    {
-      std::vector<std::string> hand_and_wrist_links =
-          task.getRobotModel()
-              ->getJointModelGroup(hand_group_name)
-              ->getLinkModelNamesWithCollisionGeometry();
-      hand_and_wrist_links.push_back(hand_frame);
-      auto stage =
-          std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
-      stage->allowCollisions("object", hand_and_wrist_links, false);
-      place->insert(std::move(stage));
-    }
-
-    task.add(std::move(place));
-  }
-
-  /* 回 home：臂 PTP 到 ready，再夹爪闭合（Place 后夹爪为 open，回位后闭合） */
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
-    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    stage->setGroup(arm_group_name);
     stage->setGoal("ready");
     task.add(std::move(stage));
   }
@@ -1906,9 +2056,9 @@ rclcpp_action::GoalResponse OrionMTCTaskNode::handlePickGoalRequest(
     const rclcpp_action::GoalUUID& /*uuid*/, std::shared_ptr<const PickAction::Goal> /*goal*/)
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
-  if (task_mode_ == RobotTaskMode::HOLDING)
+  if (task_mode_ == RobotTaskMode::HOLDING_TRACKED || task_mode_ == RobotTaskMode::HOLDING_UNTRACKED)
   {
-    RCLCPP_INFO(LOGGER, "Pick goal rejected: already holding");
+    RCLCPP_INFO(LOGGER, "Pick goal rejected: already holding (place or reset_held_object first)");
     return rclcpp_action::GoalResponse::REJECT;
   }
   if (task_mode_ != RobotTaskMode::IDLE && task_mode_ != RobotTaskMode::ERROR)
@@ -1922,7 +2072,7 @@ rclcpp_action::GoalResponse OrionMTCTaskNode::handlePickGoalRequest(
 rclcpp_action::CancelResponse OrionMTCTaskNode::handlePickGoalCancel(
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<PickAction>>& /*goal_handle*/)
 {
-  return rclcpp_action::CancelResponse::ACCEPT;
+  return rclcpp_action::CancelResponse::REJECT;  /* 当前未实现执行中取消 */
 }
 
 void OrionMTCTaskNode::handlePickGoalAccepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<PickAction>>& goal_handle)
@@ -1938,7 +2088,10 @@ void OrionMTCTaskNode::handlePickGoalAccepted(const std::shared_ptr<rclcpp_actio
       result->held_object_id = ok ? held_object_.object_id : "";
       result->message = ok ? "pick success" : last_error_;
     }
-    goal_handle->succeed(result);
+    if (ok)
+      goal_handle->succeed(result);
+    else
+      goal_handle->abort(result);
   }).detach();
 }
 
@@ -1946,9 +2099,9 @@ rclcpp_action::GoalResponse OrionMTCTaskNode::handlePlaceGoalRequest(
     const rclcpp_action::GoalUUID& /*uuid*/, std::shared_ptr<const PlaceAction::Goal> /*goal*/)
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
-  if (task_mode_ != RobotTaskMode::HOLDING || !held_object_.valid)
+  if (task_mode_ != RobotTaskMode::HOLDING_TRACKED || !held_object_.valid)
   {
-    RCLCPP_INFO(LOGGER, "Place goal rejected: not holding");
+    RCLCPP_INFO(LOGGER, "Place goal rejected: precise place requires HOLDING_TRACKED with held_object");
     return rclcpp_action::GoalResponse::REJECT;
   }
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
@@ -1957,7 +2110,7 @@ rclcpp_action::GoalResponse OrionMTCTaskNode::handlePlaceGoalRequest(
 rclcpp_action::CancelResponse OrionMTCTaskNode::handlePlaceGoalCancel(
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceAction>>& /*goal_handle*/)
 {
-  return rclcpp_action::CancelResponse::ACCEPT;
+  return rclcpp_action::CancelResponse::REJECT;  /* 当前未实现执行中取消 */
 }
 
 void OrionMTCTaskNode::handlePlaceGoalAccepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceAction>>& goal_handle)
@@ -1969,8 +2122,123 @@ void OrionMTCTaskNode::handlePlaceGoalAccepted(const std::shared_ptr<rclcpp_acti
     result->success = ok;
     result->task_id = current_task_id_;
     result->message = ok ? "place success" : last_error_;
-    goal_handle->succeed(result);
+    if (ok)
+      goal_handle->succeed(result);
+    else
+      goal_handle->abort(result);
   }).detach();
+}
+
+rclcpp_action::GoalResponse OrionMTCTaskNode::handlePlaceReleaseGoalRequest(
+    const rclcpp_action::GoalUUID& /*uuid*/, std::shared_ptr<const PlaceReleaseAction::Goal> /*goal*/)
+{
+  std::lock_guard<std::mutex> lock(state_mutex_);
+  if (task_mode_ != RobotTaskMode::HOLDING_TRACKED && task_mode_ != RobotTaskMode::HOLDING_UNTRACKED)
+  {
+    RCLCPP_INFO(LOGGER, "PlaceRelease goal rejected: not holding (mode=%d)", static_cast<int>(task_mode_));
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+  return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse OrionMTCTaskNode::handlePlaceReleaseGoalCancel(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceReleaseAction>>& /*goal_handle*/)
+{
+  return rclcpp_action::CancelResponse::REJECT;  /* 当前未实现执行中取消 */
+}
+
+void OrionMTCTaskNode::handlePlaceReleaseGoalAccepted(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<PlaceReleaseAction>>& goal_handle)
+{
+  std::thread([this, goal_handle]() {
+    const auto goal = goal_handle->get_goal();
+    bool ok = doPlaceReleaseFromGoal(goal->target_tcp_pose);
+    auto result = std::make_shared<PlaceReleaseAction::Result>();
+    result->success = ok;
+    result->task_id = current_task_id_;
+    result->message = ok ? "place_release success" : last_error_;
+    if (ok)
+      goal_handle->succeed(result);
+    else
+      goal_handle->abort(result);
+  }).detach();
+}
+
+void OrionMTCTaskNode::handleSyncHeldObject(const std::shared_ptr<SyncHeldObjectSrv::Request> req,
+                                            std::shared_ptr<SyncHeldObjectSrv::Response> res)
+{
+  bool need_attach_held_unknown = false;
+  bool need_attach_tracked = false;
+  Eigen::Isometry3d tcp_to_object_for_attach = Eigen::Isometry3d::Identity();
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (task_mode_ != RobotTaskMode::IDLE && task_mode_ != RobotTaskMode::ERROR)
+    {
+      res->success = false;
+      res->message = "sync_held_object: only when IDLE or ERROR";
+      RCLCPP_WARN(LOGGER, "%s", res->message.c_str());
+      return;
+    }
+    if (!req->set_holding)
+    {
+      res->success = true;
+      res->message = "set_holding=false, no change";
+      return;
+    }
+    if (req->tracked)
+    {
+      Eigen::Isometry3d T_base_tcp = Eigen::Isometry3d::Identity();
+      T_base_tcp.translate(Eigen::Vector3d(req->tcp_pose.position.x, req->tcp_pose.position.y, req->tcp_pose.position.z));
+      T_base_tcp.rotate(Eigen::Quaterniond(req->tcp_pose.orientation.w, req->tcp_pose.orientation.x,
+                                           req->tcp_pose.orientation.y, req->tcp_pose.orientation.z));
+      Eigen::Isometry3d T_base_obj = Eigen::Isometry3d::Identity();
+      T_base_obj.translate(Eigen::Vector3d(req->object_pose.position.x, req->object_pose.position.y,
+                                           req->object_pose.position.z));
+      T_base_obj.rotate(Eigen::Quaterniond(req->object_pose.orientation.w, req->object_pose.orientation.x,
+                                           req->object_pose.orientation.y, req->object_pose.orientation.z));
+      Eigen::Isometry3d tcp_to_obj = T_base_tcp.inverse() * T_base_obj;
+      held_object_.valid = true;
+      held_object_.object_id = req->object_id.empty() ? "object" : req->object_id;
+      held_object_.scene_attach_id = "held_tracked";
+      held_object_.attach_link = "Link6";
+      held_object_.object_pose_at_grasp = req->object_pose;
+      held_object_.tcp_pose_at_grasp = req->tcp_pose;
+      held_object_.tcp_to_object = tcp_to_obj;
+      task_mode_ = RobotTaskMode::HOLDING_TRACKED;
+      res->success = true;
+      res->message = "HOLDING_TRACKED (synced with object_pose + tcp_pose)";
+      RCLCPP_INFO(LOGGER, "sync_held_object: %s", res->message.c_str());
+      need_attach_tracked = true;
+      tcp_to_object_for_attach = tcp_to_obj;
+    }
+    else
+    {
+      held_object_.valid = true;
+      held_object_.object_id = req->object_id.empty() ? "unknown" : req->object_id;
+      held_object_.scene_attach_id = "held_unknown";
+      held_object_.attach_link = "Link6";
+      held_object_.tcp_to_object = Eigen::Isometry3d::Identity();
+      task_mode_ = RobotTaskMode::HOLDING_UNTRACKED;
+      res->success = true;
+      res->message = "HOLDING_UNTRACKED (only place_release allowed)";
+      RCLCPP_INFO(LOGGER, "sync_held_object: %s", res->message.c_str());
+      need_attach_held_unknown = true;
+    }
+  }
+  /* sync 前先清旧 attach，避免重复 sync 时 scene 残留 */
+  if (need_attach_tracked || need_attach_held_unknown)
+  {
+    clearAttachedObjectFromPlanningScene("held_unknown");
+    clearAttachedObjectFromPlanningScene("held_tracked");
+  }
+  if (need_attach_tracked && !applyAttachedTrackedObjectToScene(tcp_to_object_for_attach))
+  {
+    RCLCPP_WARN(LOGGER, "sync_held_object: applyAttachedTrackedObjectToScene failed (state already HOLDING_TRACKED)");
+  }
+  if (need_attach_held_unknown && !applyAttachedHeldUnknownToScene())
+  {
+    RCLCPP_WARN(LOGGER, "sync_held_object: applyAttachedHeldUnknownToScene failed (state already HOLDING_UNTRACKED)");
+  }
 }
 
 void OrionMTCTaskNode::handleGetRobotState(const std::shared_ptr<GetRobotStateSrv::Request> /*req*/,
@@ -1985,8 +2253,11 @@ void OrionMTCTaskNode::handleGetRobotState(const std::shared_ptr<GetRobotStateSr
     case RobotTaskMode::PICKING:
       res->mode = "PICKING";
       break;
-    case RobotTaskMode::HOLDING:
-      res->mode = "HOLDING";
+    case RobotTaskMode::HOLDING_TRACKED:
+      res->mode = "HOLDING_TRACKED";
+      break;
+    case RobotTaskMode::HOLDING_UNTRACKED:
+      res->mode = "HOLDING_UNTRACKED";
       break;
     case RobotTaskMode::PLACING:
       res->mode = "PLACING";
@@ -2001,6 +2272,32 @@ void OrionMTCTaskNode::handleGetRobotState(const std::shared_ptr<GetRobotStateSr
   res->held_object_id = held_object_.valid ? held_object_.object_id : "";
   res->has_held_object = held_object_.valid;
   res->last_error = last_error_;
+}
+
+void OrionMTCTaskNode::handleResetHeldObject(const std::shared_ptr<ResetHeldObjectSrv::Request> /*req*/,
+                                             std::shared_ptr<ResetHeldObjectSrv::Response> res)
+{
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (task_mode_ != RobotTaskMode::HOLDING_TRACKED && task_mode_ != RobotTaskMode::HOLDING_UNTRACKED &&
+        task_mode_ != RobotTaskMode::IDLE && task_mode_ != RobotTaskMode::ERROR)
+    {
+      res->success = false;
+      res->message = "reset_held_object: busy (PICKING/PLACING), reject";
+      RCLCPP_WARN(LOGGER, "%s", res->message.c_str());
+      return;
+    }
+    held_object_.valid = false;
+    task_mode_ = RobotTaskMode::IDLE;
+    res->success = true;
+    res->message = "held object cleared, state=IDLE";
+    RCLCPP_INFO(LOGGER, "reset_held_object: %s", res->message.c_str());
+  }
+  /* 强清理：尽力从 planning scene 移除所有可能挂在手上的 attach（held_unknown / held_tracked / object），
+   * 语义是“清空 attached”，不是删 world 物体；避免业务 IDLE 但 scene 仍认为手上有物 */
+  clearAttachedObjectFromPlanningScene("held_unknown");
+  clearAttachedObjectFromPlanningScene("held_tracked");
+  clearAttachedObjectFromPlanningScene("object");
 }
 
 int main(int argc, char** argv)
@@ -2020,7 +2317,7 @@ int main(int argc, char** argv)
   });
 
   mtc_task_node->setupPlanningScene();
-  /* 完全由话题驱动：不主动执行；先发 /object_pose，再发 /pick_place_trigger 触发一次 pick-place */
+  /* 拆分接口驱动：/pick、/place、/place_release（action 或话题 trigger），无一体化 pick_place_trigger */
   spin_thread->join();
   rclcpp::shutdown();
   return 0;

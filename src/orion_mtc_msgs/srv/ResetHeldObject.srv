@@ -1,0 +1,4 @@
+# 显式清空持物状态，回到 IDLE（业务持物不由夹爪反馈自动清空）
+---
+bool success
+string message

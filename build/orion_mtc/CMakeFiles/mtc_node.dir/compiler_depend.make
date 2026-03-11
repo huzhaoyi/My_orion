@@ -1463,11 +1463,26 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__builder.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__traits.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place__type_support.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/place_release.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__struct.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__builder.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__traits.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__type_support.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/get_robot_state.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__struct.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__builder.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__traits.hpp \
   /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__type_support.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/reset_held_object.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__struct.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__builder.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__traits.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__type_support.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/sync_held_object.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__struct.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__builder.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__traits.hpp \
+  /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__type_support.hpp \
   /opt/ros/humble/include/moveit/robot_state/robot_state.h \
   /opt/ros/humble/include/moveit/robot_state/attached_body.h \
   /opt/ros/humble/include/moveit/transforms/transforms.h \
@@ -1682,11 +1697,23 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/moveit/robot_state/robot_state.h:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__type_support.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__builder.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__struct.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__type_support.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__struct.hpp:
+
 /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__type_support.hpp:
 
 /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__builder.hpp:
 
 /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/get_robot_state__struct.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__type_support.hpp:
 
 /home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/place.hpp:
 
@@ -1986,6 +2013,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/accel__traits.hpp:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/reset_held_object.hpp:
+
 /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/cartesian_trajectory_point__traits.hpp:
 
 /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/workspace_parameters__traits.hpp:
@@ -2138,6 +2167,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/rclcpp/rclcpp/message_memory_strategy.hpp:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__builder.hpp:
+
 /opt/ros/humble/include/rclcpp/rclcpp/generic_publisher.hpp:
 
 /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__builder.hpp:
@@ -2159,6 +2190,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /opt/ros/humble/include/moveit_msgs/moveit_msgs/msg/detail/trajectory_constraints__traits.hpp:
 
 /opt/ros/humble/include/rclcpp/rclcpp/experimental/buffers/buffer_implementation_base.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/sync_held_object.hpp:
 
 /opt/ros/humble/include/rclcpp/rclcpp/experimental/subscription_intra_process.hpp:
 
@@ -2309,6 +2342,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /opt/ros/humble/include/rclcpp/rclcpp/exceptions/exceptions.hpp:
 
 /usr/include/c++/11/sstream:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/sync_held_object__traits.hpp:
 
 /usr/include/c++/11/optional:
 
@@ -3024,6 +3059,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /usr/include/c++/11/ext/numeric_traits.h:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/place_release.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/sigstack.h:
 
 /opt/ros/humble/include/rcl_interfaces/rcl_interfaces/msg/detail/parameter_event__struct.hpp:
@@ -3192,6 +3229,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /opt/ros/humble/include/libstatistics_collector/libstatistics_collector/moving_average_statistics/types.hpp:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__builder.hpp:
+
 /opt/ros/humble/include/rcl_interfaces/rcl_interfaces/srv/detail/describe_parameters__struct.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/types/time_t.h:
@@ -3353,6 +3392,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
 
 /opt/ros/humble/include/rclcpp/rclcpp/qos_event.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__struct.hpp:
 
 /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/point_stamped__struct.hpp:
 
@@ -4586,6 +4627,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 
 /usr/include/eigen3/Eigen/src/Geometry/Scaling.h:
 
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/action/detail/place_release__traits.hpp:
+
 /usr/include/eigen3/Eigen/src/Geometry/AlignedBox.h:
 
 /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/point__struct.hpp:
@@ -4655,6 +4698,8 @@ CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o: /home/huzy/My_orion/src/orion_mtc/sr
 /usr/include/eigen3/Eigen/src/plugins/ArrayCwiseUnaryOps.h:
 
 /usr/include/boost/type_traits/is_array.hpp:
+
+/home/huzy/My_orion/build/orion_mtc_msgs/rosidl_generator_cpp/orion_mtc_msgs/srv/detail/reset_held_object__traits.hpp:
 
 /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/accel__struct.hpp:
 

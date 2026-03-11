@@ -37,14 +37,13 @@ source install/setup.bash
 
 | 类型 | 名称 | 说明 |
 |------|------|------|
-| Action | `/pick` | 抓取：Goal 为 `object_pose`（base_link）、可选 `object_id`；Result 含 `success`、`task_id`、`held_object_id` |
-| Action | `/place` | 放置：Goal 为 `target_pose`（物体目标位姿，base_link）；Result 含 `success`、`task_id` |
-| 服务 | `/get_robot_state` | 返回当前 `mode`、`task_id`、`held_object_id`、`has_held_object`、`last_error` |
-| 话题 | `/object_pose` | 物体位姿（PoseStamped，frame_id=base_link），抓取使用；由桥接 target_sensor 自动发布 |
-| 话题 | `/place_pose` | 放置目标位姿（PoseStamped），放置使用 |
-| 话题 | `/pick_place_trigger` | 空消息：触发**一整条** pick-place |
-| 话题 | `/pick_trigger` | 空消息：仅执行**抓取**（需有 `/object_pose`） |
-| 话题 | `/place_trigger` | 空消息：仅执行**放置**（需有 `/place_pose`，且当前为 HOLDING） |
+| Action | `/manipulator/pick` | 抓取：Goal 为 `object_pose`（base_link）、可选 `object_id`；Result 含 `success`、`task_id`、`held_object_id` |
+| Action | `/manipulator/place` | 放置：Goal 为 `target_pose`（物体目标位姿，base_link）；Result 含 `success`、`task_id` |
+| 服务 | `/manipulator/get_robot_state` | 返回当前 `mode`、`task_id`、`held_object_id`、`has_held_object`、`last_error` |
+| 话题 | `/manipulator/object_pose` | 物体位姿（PoseStamped，frame_id=base_link），抓取使用；由桥接 target_sensor 自动发布 |
+| 话题 | `/manipulator/place_pose` | 放置目标位姿（PoseStamped），放置使用 |
+| 话题 | `/manipulator/pick_trigger` | 空消息：仅执行**抓取**（需有 `/manipulator/object_pose`） |
+| 话题 | `/manipulator/place_trigger` | 空消息：仅执行**放置**（需有 `/manipulator/place_pose`，且当前为 HOLDING） |
 
 业务规则：未持物时禁止 place；已持物时禁止再次 pick；放置成功后清空持物并回到 IDLE。
 
@@ -59,32 +58,36 @@ source install/setup.bash
 ros2 launch orion_mtc pick_place_holoocean.launch.py
 ```
 
-物体位姿由 `target_sensor_to_object_pose` 从 TargetSensor + ROV 里程计**自动发布**到 `/object_pose`（默认抓取 `目标[1]`）。因此**只需发 `/pick_trigger` 即可抓取**，无需再手动发布 object_pose；发 `/pick_place_trigger` 为一次完整 pick-place。
+物体位姿由 `target_sensor_to_object_pose` 从 TargetSensor + ROV 里程计**自动发布**到 `/manipulator/object_pose`（默认抓取 `目标[1]`）。流程为**拆分接口**：先抓取再放置（或 place_release），无一体化 pick-place 话题。所有接口均在 `/manipulator` 命名空间下。
+
+**前置条件（抓取）**：`/manipulator/pick_trigger` 和话题式抓取都依赖 **已有** `/manipulator/object_pose`。若 HoloOcean 未跑或暂无目标数据，`target_sensor_to_object_pose` 不会发布，会出现 “doPick: no object pose after wait, abort”。此时可：① 先启动 HoloOcean 并确保有目标被跟踪；或 ② 手动发布一次 object_pose 再触发 pick（见下）；或 ③ 直接用 Action `/manipulator/pick` 并在 Goal 里带 `object_pose`（无需话题）。
 
 **触发方式：**
 
-- 一次完整流程：
+- 仅抓取（需已存在 `/manipulator/object_pose`，例如由 target_sensor 发布）：
   ```bash
-  ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"
+  ros2 topic pub --once /manipulator/pick_trigger std_msgs/msg/Empty "{}"
   ```
-- 仅抓取：
+- 无 HoloOcean/目标时，先手动发物体位姿再抓取：
   ```bash
-  ros2 topic pub --once /pick_trigger std_msgs/msg/Empty "{}"
+  ros2 topic pub --once /manipulator/object_pose geometry_msgs/msg/PoseStamped \
+    "{header: {frame_id: 'base_link'}, pose: {position: {x: 0.35, y: -0.15, z: 0.4}, orientation: {w: 1.0}}}"
+  ros2 topic pub --once /manipulator/pick_trigger std_msgs/msg/Empty "{}"
   ```
-- 仅放置（需先抓取成功，再发 `/place_pose` 后触发）：
+- 仅放置（需先抓取成功，再发 `/manipulator/place_pose` 后触发）：
   ```bash
-  ros2 topic pub --once /place_pose geometry_msgs/msg/PoseStamped \
+  ros2 topic pub --once /manipulator/place_pose geometry_msgs/msg/PoseStamped \
     "{header: {frame_id: 'base_link'}, pose: {position: {x: 0.45, y: 0.0, z: 0.4}, orientation: {w: 1.0}}}"
-  ros2 topic pub --once /place_trigger std_msgs/msg/Empty "{}"
+  ros2 topic pub --once /manipulator/place_trigger std_msgs/msg/Empty "{}"
   ```
 - Action 仅抓取：
   ```bash
-  ros2 action send_goal /pick orion_mtc_msgs/action/Pick \
+  ros2 action send_goal /manipulator/pick orion_mtc_msgs/action/Pick \
     "{object_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.35, y: -0.15, z: 0.4}, orientation: {w: 1.0}}}, object_id: 'cube_1'}"
   ```
 - Action 仅放置（当前须为 HOLDING）：
   ```bash
-  ros2 action send_goal /place orion_mtc_msgs/action/Place \
+  ros2 action send_goal /manipulator/place orion_mtc_msgs/action/Place \
     "{target_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.45, y: 0.0, z: 0.4}, orientation: {w: 1.0}}}}"
   ```
 
@@ -124,9 +127,9 @@ ros2 launch orion_moveit_config demo.launch.py
 
 3. **终端 2：触发与状态查询**
 
-   - 完整 pick-place：`ros2 topic pub --once /pick_place_trigger std_msgs/msg/Empty "{}"`
-   - 或拆开：先 `ros2 topic pub --once /pick_trigger std_msgs/msg/Empty "{}"`，再查状态 `ros2 service call /get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`（应为 HOLDING），再发 `/place_pose` 与 `/place_trigger`
-   - 状态查询：`ros2 service call /get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`
+   - 先抓取：`ros2 topic pub --once /manipulator/pick_trigger std_msgs/msg/Empty "{}"`；再查状态 `ros2 service call /manipulator/get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`（应为 HOLDING）；再发 `/manipulator/place_pose` 与 `ros2 topic pub --once /manipulator/place_trigger std_msgs/msg/Empty "{}"`
+   - 或使用 Action：`/manipulator/pick`、`/manipulator/place`、`/manipulator/place_release`
+   - 状态查询：`ros2 service call /manipulator/get_robot_state orion_mtc_msgs/srv/GetRobotState "{}"`
 
 4. **业务规则**：未抓取时发 place 应被拒绝；已持物时再发 pick 应被拒绝。
 
