@@ -1230,9 +1230,9 @@ mtc::Task OrionMTCTaskNode::buildPickTask(double obj_x, double obj_y, double obj
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
-  task.stages()->setProperty("group", arm_group_name);
-  task.stages()->setProperty("eef", hand_group_name);
-  task.stages()->setProperty("ik_frame", hand_frame);
+  task.stages()->properties().set("group", arm_group_name);
+  task.stages()->properties().set("eef", hand_group_name);
+  task.stages()->properties().set("ik_frame", hand_frame);
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
   {
@@ -1284,10 +1284,11 @@ mtc::Task OrionMTCTaskNode::buildPickTask(double obj_x, double obj_y, double obj
     task.add(std::move(stage));
   }
 
-  /* PTP 到 pregrasp 时轨迹常触发 Link1-Link8、Link7/Link8-base_link 自碰，此处放宽 ACM 使规划通过 */
+  /* PTP 到 pregrasp 时轨迹常触发 Link1/Link2-Link8、Link7/Link8-base_link 自碰，此处放宽 ACM 使规划通过 */
   {
     auto stage_acm = std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link8" }, true);
+    stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
     stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
     stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
     task.add(std::move(stage_acm));
@@ -1434,10 +1435,6 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
-  /* 子阶段 configureInitFrom(PARENT) 从根容器读 eef/group/ik_frame，根容器需显式持有 */
-  task.stages()->setProperty("group", arm_group_name);
-  task.stages()->setProperty("eef", hand_group_name);
-  task.stages()->setProperty("ik_frame", hand_frame);
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
 
@@ -1459,8 +1456,10 @@ mtc::Task OrionMTCTaskNode::buildPlaceTask(double place_x, double place_y, doubl
   task.add(std::move(stage_pre));
 
   auto place = std::make_unique<mtc::SerialContainer>("place object");
-  place->properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
-  place->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
+  /* 根容器 property 继承不可靠，直接在 place 上设置供子阶段 PARENT 使用 */
+  place->properties().set("eef", hand_group_name);
+  place->properties().set("group", arm_group_name);
+  place->properties().set("ik_frame", hand_frame);
 
   auto stage_lower = std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
   stage_lower->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
@@ -1583,6 +1582,9 @@ mtc::Task OrionMTCTaskNode::createTask()
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
+  task.stages()->properties().set("group", arm_group_name);
+  task.stages()->properties().set("eef", hand_group_name);
+  task.stages()->properties().set("ik_frame", hand_frame);
 
   auto stage_state_current = std::make_unique<mtc::stages::CurrentState>("current");
   task.add(std::move(stage_state_current));
@@ -1655,6 +1657,7 @@ mtc::Task OrionMTCTaskNode::createTask()
     auto stage_acm =
         std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link8" }, true);
+    stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
     stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
     stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
     task.add(std::move(stage_acm));
@@ -1784,8 +1787,9 @@ mtc::Task OrionMTCTaskNode::createTask()
   /* Place 容器：PlaceIK → Lower(笛卡尔) → Open → Detach → Retreat(笛卡尔) */
   {
     auto place = std::make_unique<mtc::SerialContainer>("place object");
-    task.properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
-    place->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
+    place->properties().set("eef", hand_group_name);
+    place->properties().set("group", arm_group_name);
+    place->properties().set("ik_frame", hand_frame);
 
     /* 工业流程：preplace 位姿 = 放置点上方（place_z + lower_max），再 LIN 沿手爪 -Z 下降至放置高度，避免压进桌面 */
     {

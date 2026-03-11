@@ -144,12 +144,6 @@ class TrajectoryToAgentBridgeNode(Node):
         cmd = [0.0] * 8 + list(self._left_arm_deg) + [0.0] * 7
         msg.command = cmd
         self._command_pub.publish(msg)
-        # 节流打印：整帧 command 数组下标与值（推进器/右臂为 0，左臂为当前值）
-        parts = ["[%d]=%.3f" % (i, cmd[i]) for i in range(len(cmd))]
-        self.get_logger().info(
-            "command 整帧: %s" % ", ".join(parts),
-            throttle_duration_sec=1.0,
-        )
 
     def _execute_arm_callback(self, goal_handle):
         """执行 arm 轨迹：按 joint_names 取位置，按 ARM_JOINT_NAMES 顺序写入 left_arm[0:6]，夹爪保持当前。"""
