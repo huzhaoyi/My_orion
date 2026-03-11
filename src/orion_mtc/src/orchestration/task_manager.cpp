@@ -9,6 +9,11 @@
 #include "orion_mtc/execution/solution_executor.hpp"
 #include "orion_mtc/core/job_result_code.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
+#include "orion_mtc/perception/target_cache.hpp"
+#include "orion_mtc/perception/target_selector.hpp"
+#include "orion_mtc/perception/grasp_generator.hpp"
+#include "orion_mtc/planning/place_generator.hpp"
+#include "orion_mtc/core/place_types.hpp"
 #include <moveit/task_constructor/task.h>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -283,6 +288,163 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   return true;
 }
 
+void TaskManager::setTargetSelection(TargetCache* target_cache,
+                                     TargetSelector* target_selector,
+                                     GraspGenerator* grasp_generator)
+{
+  target_cache_ = target_cache;
+  target_selector_ = target_selector;
+  grasp_generator_ = grasp_generator;
+}
+
+bool TaskManager::handlePickFromTargets(const std::string& object_id)
+{
+  if (!target_cache_ || !target_selector_ || !grasp_generator_)
+  {
+    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: target selection not configured");
+    return false;
+  }
+  std::vector<TargetObject> targets = target_cache_->latest();
+  if (targets.empty())
+  {
+    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: no targets in cache");
+    return false;
+  }
+  std::optional<TargetObject> selected = target_selector_->select(targets);
+  if (!selected.has_value())
+  {
+    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: selector returned no target");
+    return false;
+  }
+  const std::string oid = object_id.empty() ? "object" : object_id;
+
+  /* 先尝试选中目标的所有抓取候选 */
+  std::vector<GraspCandidate> candidates = grasp_generator_->generate(selected.value());
+  if (!candidates.empty())
+  {
+    for (std::size_t i = 0; i < candidates.size(); ++i)
+    {
+      RCLCPP_INFO(LOGGER, "handlePickFromTargets: trying candidate %zu/%zu (target index=%d)",
+                  i + 1, candidates.size(), selected->index);
+      if (handlePick(candidates[i], oid))
+      {
+        return true;
+      }
+    }
+    RCLCPP_WARN(LOGGER, "handlePickFromTargets: target index=%d all %zu candidates failed, trying other targets",
+                selected->index, candidates.size());
+  }
+
+  /* 选中目标全部失败则依次尝试其余目标 */
+  for (const TargetObject& target : targets)
+  {
+    if (target.index == selected->index)
+    {
+      continue;
+    }
+    candidates = grasp_generator_->generate(target);
+    for (std::size_t i = 0; i < candidates.size(); ++i)
+    {
+      RCLCPP_INFO(LOGGER, "handlePickFromTargets: fallback target index=%d candidate %zu/%zu",
+                  target.index, i + 1, candidates.size());
+      if (handlePick(candidates[i], oid))
+      {
+        return true;
+      }
+    }
+  }
+  RCLCPP_WARN(LOGGER, "handlePickFromTargets: all targets and candidates failed");
+  return false;
+}
+
+void TaskManager::setPlaceGenerator(PlaceGenerator* place_generator)
+{
+  place_generator_ = place_generator;
+}
+
+bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& target_pose)
+{
+  HeldObjectContext held;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    held = held_object_;
+  }
+  if (!held.valid)
+  {
+    return false;
+  }
+
+  double px = target_pose.pose.position.x;
+  double py = target_pose.pose.position.y;
+  double pz = target_pose.pose.position.z;
+  double qx = target_pose.pose.orientation.x;
+  double qy = target_pose.pose.orientation.y;
+  double qz = target_pose.pose.orientation.z;
+  double qw = target_pose.pose.orientation.w;
+
+  mtc::Task task = place_builder_->build(px, py, pz, qx, qy, qz, qw, held);
+  if (task.stages()->numChildren() == 0)
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_ = "buildPlaceTask: no held context";
+    return false;
+  }
+
+  try
+  {
+    task.init();
+    task.enableIntrospection(true);
+    task.introspection().publishTaskDescription();
+  }
+  catch (mtc::InitStageException& e)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, e);
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_ = std::string("place init: ") + e.what();
+    return false;
+  }
+
+  moveit::core::MoveItErrorCode plan_result = task.plan(5);
+  if (!plan_result)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "Place planning failed (code " << plan_result.val << ")");
+    task.explainFailure(std::cout);
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_ = "place plan failed";
+    return false;
+  }
+  if (task.solutions().empty())
+  {
+    RCLCPP_ERROR(LOGGER, "Place plan returned no solutions");
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_ = "place no solutions";
+    return false;
+  }
+
+  moveit_task_constructor_msgs::msg::Solution place_solution_msg;
+  task.solutions().front()->toMsg(place_solution_msg, &task.introspection());
+  task.introspection().publishSolution(*task.solutions().front());
+  if (!solution_executor_->executeSolution(place_solution_msg, wait_for_gripped_fn_))
+  {
+    RCLCPP_ERROR(LOGGER, "Place execution failed");
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_ = "place execution failed";
+    return false;
+  }
+
+  if (scene_manager_)
+  {
+    scene_manager_->applyObjectPoseToPlanningScene(px, py, pz, qx, qy, qz, qw);
+  }
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    held_object_.valid = false;
+  }
+  setState(RobotTaskMode::IDLE);
+  RCLCPP_INFO(LOGGER, "Place finished successfully, state=IDLE");
+  return true;
+}
+
 bool TaskManager::handlePlace(const geometry_msgs::msg::PoseStamped& target_pose)
 {
   HeldObjectContext held;
@@ -304,92 +466,40 @@ bool TaskManager::handlePlace(const geometry_msgs::msg::PoseStamped& target_pose
     current_task_id_ = genTaskId("place");
   }
 
-  double px = target_pose.pose.position.x;
-  double py = target_pose.pose.position.y;
-  double pz = target_pose.pose.position.z;
-  double qx = target_pose.pose.orientation.x;
-  double qy = target_pose.pose.orientation.y;
-  double qz = target_pose.pose.orientation.z;
-  double qw = target_pose.pose.orientation.w;
   if (target_pose.header.frame_id != "base_link")
   {
     RCLCPP_WARN(LOGGER, "handlePlace: frame_id '%s', expected base_link", target_pose.header.frame_id.c_str());
   }
 
-  mtc::Task task = place_builder_->build(px, py, pz, qx, qy, qz, qw, held);
-  if (task.stages()->numChildren() == 0)
+  if (place_generator_)
   {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    last_error_ = "buildPlaceTask: no held context";
+    std::vector<PlaceCandidate> candidates = place_generator_->generate(target_pose, held);
+    if (candidates.empty())
+    {
+      RCLCPP_WARN(LOGGER, "handlePlace: PlaceGenerator returned no candidates");
+      setState(RobotTaskMode::HOLDING_TRACKED);
+      return false;
+    }
+    for (std::size_t i = 0; i < candidates.size(); ++i)
+    {
+      RCLCPP_INFO(LOGGER, "handlePlace: trying candidate %zu/%zu (source=%s)",
+                  i + 1, candidates.size(), candidates[i].source.c_str());
+      if (handlePlaceSingle(candidates[i].object_pose))
+      {
+        return true;
+      }
+    }
+    RCLCPP_WARN(LOGGER, "handlePlace: all %zu candidates failed", candidates.size());
     setState(RobotTaskMode::HOLDING_TRACKED);
     return false;
   }
 
-  try
+  if (handlePlaceSingle(target_pose))
   {
-    task.init();
-    task.enableIntrospection(true);
-    task.introspection().publishTaskDescription();
+    return true;
   }
-  catch (mtc::InitStageException& e)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, e);
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      last_error_ = std::string("place init: ") + e.what();
-    }
-    setState(RobotTaskMode::HOLDING_TRACKED);
-    return false;
-  }
-
-  moveit::core::MoveItErrorCode plan_result = task.plan(5);
-  if (!plan_result)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, "Place planning failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      last_error_ = "place plan failed";
-    }
-    setState(RobotTaskMode::HOLDING_TRACKED);
-    return false;
-  }
-  if (task.solutions().empty())
-  {
-    RCLCPP_ERROR(LOGGER, "Place plan returned no solutions");
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      last_error_ = "place no solutions";
-    }
-    setState(RobotTaskMode::HOLDING_TRACKED);
-    return false;
-  }
-
-  moveit_task_constructor_msgs::msg::Solution place_solution_msg;
-  task.solutions().front()->toMsg(place_solution_msg, &task.introspection());
-  task.introspection().publishSolution(*task.solutions().front());
-  if (!solution_executor_->executeSolution(place_solution_msg, wait_for_gripped_fn_))
-  {
-    RCLCPP_ERROR(LOGGER, "Place execution failed");
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      last_error_ = "place execution failed";
-    }
-    setState(RobotTaskMode::HOLDING_TRACKED);
-    return false;
-  }
-
-  if (scene_manager_)
-  {
-    scene_manager_->applyObjectPoseToPlanningScene(px, py, pz, qx, qy, qz, qw);
-  }
-  {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    held_object_.valid = false;
-  }
-  setState(RobotTaskMode::IDLE);
-  RCLCPP_INFO(LOGGER, "Place finished successfully, state=IDLE");
-  return true;
+  setState(RobotTaskMode::HOLDING_TRACKED);
+  return false;
 }
 
 bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& target_tcp_pose)
@@ -925,12 +1035,16 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   {
     case JobType::PICK:
     {
-      if (!job.object_pose.has_value())
+      if (job.object_pose.has_value())
       {
-        RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose");
-        return false;
+        return handlePick(job.object_pose.value(), job.object_id);
       }
-      return handlePick(job.object_pose.value(), job.object_id);
+      if (target_cache_ && target_selector_ && grasp_generator_)
+      {
+        return handlePickFromTargets(job.object_id);
+      }
+      RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose and no target selection");
+      return false;
     }
     case JobType::PLACE:
     {

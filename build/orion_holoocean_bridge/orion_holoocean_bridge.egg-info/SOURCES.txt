@@ -11,9 +11,7 @@ setup.py
 config/holoocean_bridge_params.yaml
 launch/holoocean_bridge.launch.py
 orion_holoocean_bridge/__init__.py
-orion_holoocean_bridge/arm_sensor_mapping_test_node.py
 orion_holoocean_bridge/arm_sensor_to_joint_state_node.py
-orion_holoocean_bridge/calibrate_arm_mapping_node.py
 orion_holoocean_bridge/target_sensor_to_object_pose_node.py
 orion_holoocean_bridge/trajectory_to_agent_bridge_node.py
 resource/orion_holoocean_bridge

@@ -4,7 +4,7 @@ Pick-and-place 与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSens
 启动 MoveIt + RViz + HoloOcean 桥接节点，MTC 使用 HoloOcean 机械臂当前状态进行规划。
 MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
 FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
-/holoocean/command/agent，在 HoloOcean 中驱动机械臂。
+/holoocean/command/agent/arm，在 HoloOcean 中驱动机械臂（顺序：0=左臂，1=右臂）。
 需能导入 holoocean_interfaces：通过环境变量 HOLOOCEAN_ROS_INSTALL 指定 holoocean-ros 的 install 目录，
 或先 source 该工作区的 setup.bash，本 launch 会为桥接节点注入其 Python 路径。
 """
@@ -146,7 +146,10 @@ def generate_launch_description():
         [
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(demo_launch),
-                launch_arguments=[("use_joint_state_gui", "false")],
+                launch_arguments=[
+                    ("use_joint_state_gui", "false"),
+                    ("tf_under_manipulator", "true"),
+                ],
             ),
             bridge_node,
             trajectory_bridge_node,

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-将 MoveIt FollowJointTrajectory 转为 HoloOcean AgentCommand 的桥接节点。
+将 MoveIt FollowJointTrajectory 转为 HoloOcean 臂指令的桥接节点。
 - 弧度转度数；左臂 6 关节 + 夹爪（2 个手部关节合并为 1 个自由度）。
-- 发布到 /holoocean/command/agent，话题。
+- 发布到 /holoocean/command/agent/arm：仅 14 维（无推进器），[0:7] 左臂 7 关节，[7:14] 右臂 7 关节。
 """
 
 import math
@@ -19,12 +19,10 @@ from std_msgs.msg import Header
 
 
 RAD_TO_DEG = 180.0 / math.pi
-# AgentCommand.command 共 22 维: [0:8] 推进器, [8:15] 左臂(7: 6关节+夹爪), [15:22] 右臂(7)，单位度；左臂 command[8..13]=Joint1..6，command[14]=夹爪
-LEFT_ARM_START = 8
-LEFT_ARM_LEN = 7
-GRIPPER_CMD_INDEX = 14  # 左臂夹爪在 command 数组中的下标
+# /holoocean/command/agent/arm 仅 14 维（无推进器）：[0:7] 左臂，[7:14] 右臂，单位度；左臂 command[0..5]=Joint1..6，command[6]=夹爪
+ARM_LEN = 7
+LEFT_ARM_GRIPPER_INDEX = 6  # 左臂夹爪在左臂 7 维中的下标
 PUBLISH_RATE_HZ = 50.0
-# Orion joint1..6 -> command[8..13]，夹爪 -> command[14]（与 left_arm_joints[0..6] 定义一致）
 ORION_TO_HOLOOCEAN_LEFT_ARM = (0, 1, 2, 3, 4, 5)
 ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
 
@@ -76,11 +74,11 @@ def _interpolate_point(
 
 
 class TrajectoryToAgentBridgeNode(Node):
-    """提供 FollowJointTrajectory action，将轨迹转为 AgentCommand（度、夹爪合并）发布到 /holoocean/command/agent。"""
+    """提供 FollowJointTrajectory action，将轨迹转为 AgentCommand（度、夹爪合并）发布到 /holoocean/command/agent/arm，顺序：0=左臂、1=右臂。"""
 
     def __init__(self) -> None:
         super().__init__("trajectory_to_agent_bridge")
-        self.declare_parameter("agent_command_topic", "/holoocean/command/agent")
+        self.declare_parameter("agent_command_topic", "/holoocean/command/agent/arm")
         self.declare_parameter("agent_frame_id", "rov0")
         self.declare_parameter("publish_rate_hz", PUBLISH_RATE_HZ)
 
@@ -90,8 +88,8 @@ class TrajectoryToAgentBridgeNode(Node):
         self._dt = 1.0 / rate_hz if rate_hz > 0.0 else 0.02
 
         self._command_pub = self.create_publisher(AgentCommand, topic, 10)
-        # 当前左臂 7 维（度）：6 关节 + 1 夹爪（合并）
-        self._left_arm_deg: List[float] = [0.0] * LEFT_ARM_LEN
+        # 当前左臂 7 维（度）：6 关节 + 1 夹爪（合并），对应 command[0:7]
+        self._left_arm_deg: List[float] = [0.0] * ARM_LEN
 
         self._arm_action = ActionServer(
             self,
@@ -108,40 +106,41 @@ class TrajectoryToAgentBridgeNode(Node):
             goal_callback=self._goal_callback,
         )
         self.get_logger().info(
-            "trajectory_to_agent_bridge: publishing to %s (left arm in deg, gripper merged)"
+            "trajectory_to_agent_bridge: publishing to %s (14 dim: [0:7] left arm, [7:14] right arm, no thrusters)"
             % topic
         )
         self._log_mapping_and_indices()
 
     def _log_mapping_and_indices(self) -> None:
-        """打印发送规矩与 command 数组下标含义。"""
+        """打印发送规矩与 command 数组下标含义（14 维臂指令，无推进器）。"""
         self.get_logger().info(
-            "AgentCommand.command: [0:8] 推进器, [8:15] 左臂(7), [15:22] 右臂(7)，左臂夹爪=command[%d]"
-            % GRIPPER_CMD_INDEX
+            "command: 14 dim, [0:7] left arm, [7:14] right arm; left gripper = command[%d]"
+            % LEFT_ARM_GRIPPER_INDEX
         )
         self.get_logger().info(
-            "Orion joint1..6 -> command[8..13]（左臂），符号 ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN"
+            "Orion joint1..6 -> command[0..5] (left), sign ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN"
         )
         for orion_i in range(6):
             holo_i = ORION_TO_HOLOOCEAN_LEFT_ARM[orion_i]
             sign = ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN[orion_i]
-            cmd_idx = LEFT_ARM_START + holo_i
             self.get_logger().info(
-                "  Orion joint%d -> command[%d], sign=%.1f" % (orion_i + 1, cmd_idx, sign)
+                "  Orion joint%d -> command[%d], sign=%.1f" % (orion_i + 1, holo_i, sign)
             )
-        self.get_logger().info("  夹爪(合并) -> command[%d]，0°=闭合 -90°=打开" % GRIPPER_CMD_INDEX)
+        self.get_logger().info(
+            "  gripper (merged) -> command[%d], 0 deg=closed -90 deg=open" % LEFT_ARM_GRIPPER_INDEX
+        )
 
     def _goal_callback(self, _goal_request) -> GoalResponse:
         return GoalResponse.ACCEPT
 
     def _publish_agent_command(self) -> None:
-        """发布当前 self._left_arm_deg 到 AgentCommand；左臂占 command[8:15]，夹爪=command[14]。"""
+        """发布到 /holoocean/command/agent/arm：14 维，[0:7] 左臂，[7:14] 右臂，无推进器。"""
         msg = AgentCommand()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self._frame_id
-        # 共 22 元素：8 推进器 + 7 左臂(6关节+夹爪) + 7 右臂；左臂夹爪在 command[14]
-        cmd = [0.0] * 8 + list(self._left_arm_deg) + [0.0] * 7
+        # 14 维：左臂 7（6 关节 + 夹爪）+ 右臂 7（当前未用填 0）
+        cmd = list(self._left_arm_deg) + [0.0] * ARM_LEN
         msg.command = cmd
         self._command_pub.publish(msg)
 

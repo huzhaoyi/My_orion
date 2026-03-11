@@ -5,7 +5,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -13,6 +13,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     use_joint_state_gui = LaunchConfiguration("use_joint_state_gui", default="true")
+    tf_under_manipulator = LaunchConfiguration("tf_under_manipulator", default="false")
+    remappings_tf = [("tf", "/manipulator/tf"), ("tf_static", "/manipulator/tf_static")]
     orion_desc_share = get_package_share_directory("orion_description")
     orion_moveit_share = get_package_share_directory("orion_moveit_config")
 
@@ -91,12 +93,27 @@ def generate_launch_description():
                 default_value="true",
                 description="If true, start joint_state_publisher_gui; if false, joint_states come from external (e.g. HoloOcean bridge).",
             ),
+            DeclareLaunchArgument(
+                "tf_under_manipulator",
+                default_value="false",
+                description="If true, publish/subscribe TF on /manipulator/tf and /manipulator/tf_static.",
+            ),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
                 name="robot_state_publisher",
                 output="screen",
                 parameters=[{"robot_description": urdf_content}],
+                remappings=remappings_tf,
+                condition=IfCondition(tf_under_manipulator),
+            ),
+            Node(
+                package="robot_state_publisher",
+                executable="robot_state_publisher",
+                name="robot_state_publisher",
+                output="screen",
+                parameters=[{"robot_description": urdf_content}],
+                condition=UnlessCondition(tf_under_manipulator),
             ),
             Node(
                 package="joint_state_publisher_gui",
@@ -111,6 +128,16 @@ def generate_launch_description():
                 name="move_group",
                 output="screen",
                 parameters=[move_group_params],
+                remappings=remappings_tf,
+                condition=IfCondition(tf_under_manipulator),
+            ),
+            Node(
+                package="moveit_ros_move_group",
+                executable="move_group",
+                name="move_group",
+                output="screen",
+                parameters=[move_group_params],
+                condition=UnlessCondition(tf_under_manipulator),
             ),
             Node(
                 package="rviz2",
@@ -123,6 +150,21 @@ def generate_launch_description():
                     {"robot_description_semantic": srdf_content},
                     {"robot_description_kinematics": kinematics_config},
                 ],
+                remappings=remappings_tf,
+                condition=IfCondition(tf_under_manipulator),
+            ),
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                name="rviz2",
+                arguments=["-d", rviz_path],
+                output="screen",
+                parameters=[
+                    {"robot_description": urdf_content},
+                    {"robot_description_semantic": srdf_content},
+                    {"robot_description_kinematics": kinematics_config},
+                ],
+                condition=UnlessCondition(tf_under_manipulator),
             ),
         ]
     )

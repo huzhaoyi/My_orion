@@ -23,8 +23,6 @@ setup(
         "console_scripts": [
             "arm_sensor_to_joint_state = orion_holoocean_bridge.arm_sensor_to_joint_state_node:main",
             "trajectory_to_agent_bridge = orion_holoocean_bridge.trajectory_to_agent_bridge_node:main",
-            "calibrate_arm_mapping = orion_holoocean_bridge.calibrate_arm_mapping_node:main",
-            "arm_sensor_mapping_test = orion_holoocean_bridge.arm_sensor_mapping_test_node:main",
             "target_sensor_to_object_pose = orion_holoocean_bridge.target_sensor_to_object_pose_node:main",
         ],
     },

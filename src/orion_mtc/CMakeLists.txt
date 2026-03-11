@@ -30,10 +30,14 @@ set(ORION_MTC_SOURCES
   src/planning/pick_task_builder.cpp
   src/planning/place_task_builder.cpp
   src/planning/place_release_task_builder.cpp
+  src/planning/place_generator.cpp
   src/scene/planning_scene_manager.cpp
   src/execution/trajectory_executor.cpp
   src/execution/solution_executor.cpp
   src/perception/pose_cache.cpp
+  src/perception/target_cache.cpp
+  src/perception/target_selector.cpp
+  src/perception/grasp_generator.cpp
   src/orchestration/task_queue.cpp
   src/orchestration/recovery_actions.cpp
   src/orchestration/task_manager.cpp
@@ -67,7 +71,5 @@ install(DIRECTORY include/
   FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME})
-install(PROGRAMS scripts/test_pick_then_place.sh
-  DESTINATION share/${PROJECT_NAME}/scripts)
 
 ament_package()

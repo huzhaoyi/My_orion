@@ -13,6 +13,7 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>holoocean_interfaces</depend>
+  <depend>orion_mtc_msgs</depend>
   <export>
     <build_type>ament_python</build_type>
   </export>

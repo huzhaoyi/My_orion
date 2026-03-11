@@ -21,6 +21,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
+#include <orion_mtc_msgs/msg/target_set.hpp>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -32,6 +33,10 @@ class PlanningSceneManager;
 class TrajectoryExecutor;
 class SolutionExecutor;
 class TaskManager;
+class TargetCache;
+class TargetSelector;
+class GraspGenerator;
+class PlaceGenerator;
 }
 
 namespace orion_mtc
@@ -97,6 +102,10 @@ private:
   RuntimePolicy runtime_policy_;
   std::shared_ptr<PoseCache> object_pose_cache_;
   std::shared_ptr<PoseCache> place_pose_cache_;
+  std::shared_ptr<TargetCache> target_cache_;
+  std::shared_ptr<TargetSelector> target_selector_;
+  std::shared_ptr<GraspGenerator> grasp_generator_;
+  std::shared_ptr<PlaceGenerator> place_generator_;
   std::shared_ptr<PlanningSceneManager> scene_manager_;
   std::shared_ptr<TrajectoryExecutor> trajectory_executor_;
   std::shared_ptr<SolutionExecutor> solution_executor_;
@@ -107,6 +116,7 @@ private:
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_place_pose_;
+  rclcpp::Subscription<orion_mtc_msgs::msg::TargetSet>::SharedPtr sub_target_set_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_place_trigger_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;

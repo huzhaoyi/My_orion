@@ -125,6 +125,12 @@ mtc::Task PlaceReleaseTaskBuilder::build(const geometry_msgs::msg::PoseStamped& 
 
   task.add(std::move(place));
 
+  if (!attached_object_id.empty())
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for return home");
+    stage->allowCollisions(attached_object_id, RETURN_HOME_OBJECT_ALLOWED_LINKS, true);
+    task.add(std::move(stage));
+  }
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
     stage->setGroup(arm_group_name);

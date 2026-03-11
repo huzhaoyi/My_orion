@@ -5,6 +5,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <vector>
 
 namespace mtc = moveit::task_constructor;
 
@@ -59,6 +60,7 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
 
+  /* 放置阶段仅允许 hand-object（lower/open/detach/退离前），不放开整臂与物体 */
   {
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
     stage->allowCollisions(scene_attach_id, OBJECT_GRASP_ALLOWED_LINKS, true);
@@ -86,6 +88,13 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
   place->properties().set("eef", hand_group_name);
   place->properties().set("group", arm_group_name);
   place->properties().set("ik_frame", hand_frame);
+
+  if (!config_.support_surface_link.empty())
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,support) for place");
+    stage->allowCollisions(scene_attach_id, std::vector<std::string>{ config_.support_surface_link }, true);
+    place->insert(std::move(stage));
+  }
 
   auto stage_lower = std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
   stage_lower->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
@@ -129,15 +138,27 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
     stage->setDirection(v);
     place->insert(std::move(stage));
   }
-
+  /* 退离完成后立即恢复：hand 与 object 不再允许碰撞 */
   {
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
     stage->allowCollisions(scene_attach_id, OBJECT_GRASP_ALLOWED_LINKS, false);
     place->insert(std::move(stage));
   }
+  if (!config_.support_surface_link.empty())
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (object,support)");
+    stage->allowCollisions(scene_attach_id, std::vector<std::string>{ config_.support_surface_link }, false);
+    place->insert(std::move(stage));
+  }
 
   task.add(std::move(place));
 
+  /* 已放置物体仍在 scene 中，return home 仅允许与末端 Link5~8 接触，不放开整臂 */
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for return home");
+    stage->allowCollisions(scene_attach_id, RETURN_HOME_OBJECT_ALLOWED_LINKS, true);
+    task.add(std::move(stage));
+  }
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
     stage->setGroup(arm_group_name);

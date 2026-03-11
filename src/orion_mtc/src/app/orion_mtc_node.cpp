@@ -8,6 +8,10 @@
 #include "orion_mtc/core/runtime_status.hpp"
 #include "orion_mtc/core/task_state.hpp"
 #include "orion_mtc/perception/pose_cache.hpp"
+#include "orion_mtc/perception/target_cache.hpp"
+#include "orion_mtc/perception/target_selector.hpp"
+#include "orion_mtc/perception/grasp_generator.hpp"
+#include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
@@ -39,6 +43,10 @@ void OrionMTCNode::initModules()
 {
   object_pose_cache_ = std::make_shared<PoseCache>("base_link");
   place_pose_cache_ = std::make_shared<PoseCache>("base_link");
+  target_cache_ = std::make_shared<TargetCache>("base_link");
+  target_selector_ = std::make_shared<TargetSelector>(TargetSelectorParams());
+  grasp_generator_ = std::make_shared<GraspGenerator>(GraspGeneratorParams());
+  place_generator_ = std::make_shared<PlaceGenerator>(PlaceGeneratorParams());
   scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_.get());
   trajectory_executor_ = std::make_shared<TrajectoryExecutor>(action_client_node_.get());
   solution_executor_ =
@@ -71,6 +79,8 @@ void OrionMTCNode::initModules()
       node_, config_, scene_manager_.get(), trajectory_executor_.get(),
       solution_executor_.get(), std::move(wait_fn));
   task_manager_->setPolicy(runtime_policy_);
+  task_manager_->setTargetSelection(target_cache_.get(), target_selector_.get(), grasp_generator_.get());
+  task_manager_->setPlaceGenerator(place_generator_.get());
 }
 
 void OrionMTCNode::initInterfaces()
@@ -83,6 +93,10 @@ void OrionMTCNode::initInterfaces()
   sub_place_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       ns + "/place_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
         place_pose_cache_->update(*msg);
+      });
+  sub_target_set_ = action_client_node_->create_subscription<orion_mtc_msgs::msg::TargetSet>(
+      ns + "/target_set", 10, [this](const orion_mtc_msgs::msg::TargetSet::SharedPtr msg) {
+        target_cache_->update(*msg);
       });
   sub_pick_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
       ns + "/pick_trigger", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
@@ -193,19 +207,34 @@ void OrionMTCNode::onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::Sh
 
 void OrionMTCNode::onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr)
 {
-  /* topic 只负责受理：短等待 pose → 组 job → submitJob，不直接执行 */
+  /* 优先多目标：有 target_set 则入队 PICK（无 object_pose），worker 内选目标+候选抓取；否则回退单 pose */
   std::thread([this]() {
+    ManipulationJob job;
+    job.type = JobType::PICK;
+    job.object_id = "";
+    job.source = "topic_pick_trigger";
+    if (target_cache_->hasTargets())
+    {
+      job.object_pose = std::nullopt;
+      std::string reject_reason;
+      std::string job_id = task_manager_->submitJob(job, &reject_reason);
+      if (job_id.empty())
+      {
+        RCLCPP_INFO(LOGGER, "topic_pick_trigger: rejected (%s)", reject_reason.c_str());
+      }
+      else
+      {
+        RCLCPP_INFO(LOGGER, "topic_pick_trigger: accepted job_id=%s (multi-target)", job_id.c_str());
+      }
+      return;
+    }
     geometry_msgs::msg::PoseStamped pose;
     if (!object_pose_cache_->waitForPose(std::chrono::milliseconds(3000), pose))
     {
-      RCLCPP_WARN(LOGGER, "topic_pick_trigger: no object pose after wait, not enqueued");
+      RCLCPP_WARN(LOGGER, "topic_pick_trigger: no target_set and no object pose after wait, not enqueued");
       return;
     }
-    ManipulationJob job;
-    job.type = JobType::PICK;
     job.object_pose = pose;
-    job.object_id = "";
-    job.source = "topic_pick_trigger";
     std::string reject_reason;
     std::string job_id = task_manager_->submitJob(job, &reject_reason);
     if (job_id.empty())

@@ -9,9 +9,11 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(action_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/JobExecutionRecord.msg"
+  "msg/TargetSet.msg"
   "action/Pick.action"
   "action/Place.action"
   "action/PlaceRelease.action"
@@ -22,7 +24,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ResetHeldObject.srv"
   "srv/SubmitJob.srv"
   "srv/SyncHeldObject.srv"
-  DEPENDENCIES geometry_msgs action_msgs
+  DEPENDENCIES geometry_msgs action_msgs std_msgs
 )
 
 ament_package()

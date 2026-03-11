@@ -207,7 +207,10 @@ bool SolutionExecutor::executePickSolution(
       if (isGripperClosedInSegment(sub) && !have_waited_gripped)
       {
         if (!wait_for_gripped(true, 5.0))
-          RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout");
+        {
+          RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout, pick failed (no object or sensor)");
+          return false;
+        }
         have_waited_gripped = true;
       }
       else if (have_waited_gripped)

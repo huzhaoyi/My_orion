@@ -32,6 +32,10 @@ class PlaceTaskBuilder;
 class PlaceReleaseTaskBuilder;
 class TaskQueue;
 class RecoveryActions;
+class TargetCache;
+class TargetSelector;
+class GraspGenerator;
+class PlaceGenerator;
 }
 
 namespace orion_mtc
@@ -50,7 +54,16 @@ public:
   ~TaskManager();
 
   bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id);
+
+  /** 从 TargetCache 选目标、生成抓取候选，逐个尝试直至成功或耗尽；需先 setTargetSelection */
+  bool handlePickFromTargets(const std::string& object_id);
+
+  void setTargetSelection(TargetCache* target_cache,
+                         TargetSelector* target_selector,
+                         GraspGenerator* grasp_generator);
+
   bool handlePlace(const geometry_msgs::msg::PoseStamped& target_pose);
+  void setPlaceGenerator(PlaceGenerator* place_generator);
   bool handlePlaceRelease(const geometry_msgs::msg::PoseStamped& target_tcp_pose);
 
   /** sync_held_object 逻辑：tracked 时填 object_pose+tcp_pose，untracked 时仅 set_holding */
@@ -114,6 +127,9 @@ private:
   void updateExecutionRecordFinish(JobResultCode code, const std::string& message, int64_t finished_at_ns);
   void pushExecutionRecordCancelled(const ManipulationJob& job, int64_t finished_at_ns);
 
+  /** 单次放置尝试（规划+执行）；成功时更新 scene、清 held、设 IDLE；失败仅返回 false，不改 state */
+  bool handlePlaceSingle(const geometry_msgs::msg::PoseStamped& target_pose);
+
   static constexpr std::size_t MAX_RECENT_RECORDS = 50;
 
   rclcpp::Node::SharedPtr node_;
@@ -128,6 +144,11 @@ private:
   std::unique_ptr<PlaceReleaseTaskBuilder> place_release_builder_;
   std::shared_ptr<TaskQueue> queue_;
   std::unique_ptr<RecoveryActions> recovery_actions_;
+
+  TargetCache* target_cache_ = nullptr;
+  TargetSelector* target_selector_ = nullptr;
+  GraspGenerator* grasp_generator_ = nullptr;
+  PlaceGenerator* place_generator_ = nullptr;
 
   mutable std::mutex state_mutex_;
   RobotTaskMode task_mode_ = RobotTaskMode::IDLE;

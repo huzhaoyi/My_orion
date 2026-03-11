@@ -69,12 +69,6 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   task.add(std::move(stage_open));
 
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
-    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
-    task.add(std::move(stage));
-  }
-
-  {
     auto stage_acm = std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link8" }, true);
     stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
@@ -93,15 +87,20 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   pregrasp.pose.position.x = obj_x;
   pregrasp.pose.position.y = obj_y;
   pregrasp.pose.position.z = obj_z + approach_max;
-  pregrasp.pose.orientation.x = 1.0;
-  pregrasp.pose.orientation.y = 0.0;
-  pregrasp.pose.orientation.z = 0.0;
-  pregrasp.pose.orientation.w = 0.0;
+  /* 与抓取候选一致：预抓取朝向使用物体朝向，避免固定 (1,0,0,0) 在第二次或不同目标下无 IK 解 */
+  pregrasp.pose.orientation = object_orientation;
   auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
   stage_pregrasp->setGroup(arm_group_name);
   stage_pregrasp->setGoal(pregrasp);
   stage_pregrasp->setIKFrame(hand_frame);
   grasp->insert(std::move(stage_pregrasp));
+
+  /* 只在接近/闭合/attach 阶段临时允许 hand-object，不提前放开避免 move to pregrasp 穿物 */
+  {
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
+    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
+    grasp->insert(std::move(stage));
+  }
 
   auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
   stage_approach->properties().set("marker_ns", "approach_object");

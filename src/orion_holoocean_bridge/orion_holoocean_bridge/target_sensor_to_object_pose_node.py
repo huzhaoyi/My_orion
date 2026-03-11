@@ -12,12 +12,14 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
+from orion_mtc_msgs.msg import TargetSet
 
 
-# 机械臂基座在 ROV 系下平移 [m]，仅平移无旋转（与 docs/tf_conversion.md 一致）
-LEFT_ARM_BASE_IN_ROV = (1.55, 0.5653, -0.283628)
-RIGHT_ARM_BASE_IN_ROV = (1.55, -0.5653, -0.283628)
+# 机械臂基座在 ROV 系下平移 [m] 的默认值，仅平移无旋转（与 docs/tf_conversion.md 一致）；可由参数覆盖
+DEFAULT_LEFT_ARM_BASE_IN_ROV = (1.55, 0.5653, -0.283628)
+DEFAULT_RIGHT_ARM_BASE_IN_ROV = (1.55, -0.5653, -0.283628)
 
 
 def _quat_from_rotation_matrix(R: np.ndarray) -> Tuple[float, float, float, float]:
@@ -107,21 +109,39 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("target_sensor_topic", "/holoocean/rov0/TargetSensor")
         self.declare_parameter("rov_odom_topic", "/holoocean/rov0/DynamicsSensorOdom")
         self.declare_parameter("object_pose_topic", "object_pose")
+        self.declare_parameter("target_set_topic", "target_set")
         self.declare_parameter("output_frame_id", "base_link")
         self.declare_parameter("target_index", 1)
         self.declare_parameter("use_left_arm", True)
+        self.declare_parameter("left_arm_base_in_rov_x", DEFAULT_LEFT_ARM_BASE_IN_ROV[0])
+        self.declare_parameter("left_arm_base_in_rov_y", DEFAULT_LEFT_ARM_BASE_IN_ROV[1])
+        self.declare_parameter("left_arm_base_in_rov_z", DEFAULT_LEFT_ARM_BASE_IN_ROV[2])
+        self.declare_parameter("right_arm_base_in_rov_x", DEFAULT_RIGHT_ARM_BASE_IN_ROV[0])
+        self.declare_parameter("right_arm_base_in_rov_y", DEFAULT_RIGHT_ARM_BASE_IN_ROV[1])
+        self.declare_parameter("right_arm_base_in_rov_z", DEFAULT_RIGHT_ARM_BASE_IN_ROV[2])
+        self.declare_parameter("position_offset_x", 0.0)
+        self.declare_parameter("position_offset_y", 0.0)
+        self.declare_parameter("position_offset_z", 0.0)
 
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
         self._rov_odom_topic = self.get_parameter("rov_odom_topic").get_parameter_value().string_value
         self._object_pose_topic = self.get_parameter("object_pose_topic").get_parameter_value().string_value
+        self._target_set_topic = self.get_parameter("target_set_topic").get_parameter_value().string_value
         self._output_frame_id = self.get_parameter("output_frame_id").get_parameter_value().string_value
         self._target_index = self.get_parameter("target_index").get_parameter_value().integer_value
         self._use_left_arm = self.get_parameter("use_left_arm").get_parameter_value().bool_value
-
-        self._t_arm_in_rov = np.array(
-            LEFT_ARM_BASE_IN_ROV if self._use_left_arm else RIGHT_ARM_BASE_IN_ROV,
-            dtype=float,
-        )
+        if self._use_left_arm:
+            tx = self.get_parameter("left_arm_base_in_rov_x").get_parameter_value().double_value
+            ty = self.get_parameter("left_arm_base_in_rov_y").get_parameter_value().double_value
+            tz = self.get_parameter("left_arm_base_in_rov_z").get_parameter_value().double_value
+        else:
+            tx = self.get_parameter("right_arm_base_in_rov_x").get_parameter_value().double_value
+            ty = self.get_parameter("right_arm_base_in_rov_y").get_parameter_value().double_value
+            tz = self.get_parameter("right_arm_base_in_rov_z").get_parameter_value().double_value
+        self._t_arm_in_rov = np.array([tx, ty, tz], dtype=float)
+        self._offset_x = self.get_parameter("position_offset_x").get_parameter_value().double_value
+        self._offset_y = self.get_parameter("position_offset_y").get_parameter_value().double_value
+        self._offset_z = self.get_parameter("position_offset_z").get_parameter_value().double_value
         self._rov_position: Optional[np.ndarray] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
 
@@ -138,6 +158,7 @@ class TargetSensorToObjectPoseNode(Node):
             10,
         )
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
+        self._pub_target_set = self.create_publisher(TargetSet, self._target_set_topic, 10)
 
     def _on_rov_odom(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
@@ -158,19 +179,42 @@ class TargetSensorToObjectPoseNode(Node):
 
         R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
         t_rov = self._rov_position
+        stamp = self.get_clock().now().to_msg()
 
-        # 目标转换与 ROV 当前位置打印已屏蔽（需要时可恢复，需 pos_len/dir_len 与 _format_target_line）
-        # self.get_logger().info(
-        #     "target_sensor_to_object_pose: ROV world (%.3f, %.3f, %.3f)"
-        #     % (float(t_rov[0]), float(t_rov[1]), float(t_rov[2])),
-        #     throttle_duration_sec=1.0,
-        # )
-        # def _format_target_line(k: int) -> str:
-        #     ...
-        # self.get_logger().info(_format_target_line(0), ...)
-        # self.get_logger().info(_format_target_line(1), ...)
-        # self.get_logger().info(_format_target_line(2), ...)
+        # 发布多目标集合（base_link），供 MTC 目标选择 + 抓取候选
+        positions_base = []
+        directions_base = []
+        for k in range(n):
+            i = k * 3
+            px = msg.positions[i]
+            py = msg.positions[i + 1]
+            pz = msg.positions[i + 2]
+            dx = msg.directions[i]
+            dy = msg.directions[i + 1]
+            dz = msg.directions[i + 2]
+            p_world = np.array([px, py, pz], dtype=float)
+            d_world = np.array([dx, dy, dz], dtype=float)
+            dn = np.linalg.norm(d_world)
+            if dn < 1e-9:
+                d_world = np.array([0.0, 0.0, 1.0])
+            else:
+                d_world = d_world / dn
+            p_rov = R_rov.T @ (p_world - t_rov)
+            p_base = p_rov - self._t_arm_in_rov + np.array(
+                [self._offset_x, self._offset_y, self._offset_z], dtype=float
+            )
+            d_base = R_rov.T @ d_world
+            d_base = d_base / np.linalg.norm(d_base)
+            positions_base.extend([float(p_base[0]), float(p_base[1]), float(p_base[2])])
+            directions_base.extend([float(d_base[0]), float(d_base[1]), float(d_base[2])])
+        target_set = TargetSet()
+        target_set.header = Header(stamp=stamp, frame_id=self._output_frame_id)
+        target_set.num_targets = n
+        target_set.positions = positions_base
+        target_set.directions = directions_base
+        self._pub_target_set.publish(target_set)
 
+        # 保留单目标 object_pose（选定 target_index）供向后兼容
         idx = max(0, min(self._target_index, n - 1))
         i = idx * 3
         px = msg.positions[i]
@@ -179,19 +223,17 @@ class TargetSensorToObjectPoseNode(Node):
         dx = msg.directions[i]
         dy = msg.directions[i + 1]
         dz = msg.directions[i + 2]
-
         p_world = np.array([px, py, pz], dtype=float)
         direction = np.array([dx, dy, dz], dtype=float)
-
         p_rov = R_rov.T @ (p_world - t_rov)
-        p_base = p_rov - self._t_arm_in_rov
-
+        p_base = p_rov - self._t_arm_in_rov + np.array(
+            [self._offset_x, self._offset_y, self._offset_z], dtype=float
+        )
         R_obj_world = _rotation_matrix_from_direction(direction)
         R_obj_rov = R_rov.T @ R_obj_world
         q_obj_rov = _quat_from_rotation_matrix(R_obj_rov)
-
         out = PoseStamped()
-        out.header.stamp = self.get_clock().now().to_msg()
+        out.header.stamp = stamp
         out.header.frame_id = self._output_frame_id
         out.pose.position.x = float(p_base[0])
         out.pose.position.y = float(p_base[1])

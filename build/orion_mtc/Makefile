@@ -450,6 +450,30 @@ src/orchestration/task_queue.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.s
 .PHONY : src/orchestration/task_queue.cpp.s
 
+src/perception/grasp_generator.o: src/perception/grasp_generator.cpp.o
+.PHONY : src/perception/grasp_generator.o
+
+# target to build an object file
+src/perception/grasp_generator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o
+.PHONY : src/perception/grasp_generator.cpp.o
+
+src/perception/grasp_generator.i: src/perception/grasp_generator.cpp.i
+.PHONY : src/perception/grasp_generator.i
+
+# target to preprocess a source file
+src/perception/grasp_generator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.i
+.PHONY : src/perception/grasp_generator.cpp.i
+
+src/perception/grasp_generator.s: src/perception/grasp_generator.cpp.s
+.PHONY : src/perception/grasp_generator.s
+
+# target to generate assembly for a file
+src/perception/grasp_generator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.s
+.PHONY : src/perception/grasp_generator.cpp.s
+
 src/perception/pose_cache.o: src/perception/pose_cache.cpp.o
 .PHONY : src/perception/pose_cache.o
 
@@ -473,6 +497,54 @@ src/perception/pose_cache.s: src/perception/pose_cache.cpp.s
 src/perception/pose_cache.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s
 .PHONY : src/perception/pose_cache.cpp.s
+
+src/perception/target_cache.o: src/perception/target_cache.cpp.o
+.PHONY : src/perception/target_cache.o
+
+# target to build an object file
+src/perception/target_cache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o
+.PHONY : src/perception/target_cache.cpp.o
+
+src/perception/target_cache.i: src/perception/target_cache.cpp.i
+.PHONY : src/perception/target_cache.i
+
+# target to preprocess a source file
+src/perception/target_cache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i
+.PHONY : src/perception/target_cache.cpp.i
+
+src/perception/target_cache.s: src/perception/target_cache.cpp.s
+.PHONY : src/perception/target_cache.s
+
+# target to generate assembly for a file
+src/perception/target_cache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s
+.PHONY : src/perception/target_cache.cpp.s
+
+src/perception/target_selector.o: src/perception/target_selector.cpp.o
+.PHONY : src/perception/target_selector.o
+
+# target to build an object file
+src/perception/target_selector.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o
+.PHONY : src/perception/target_selector.cpp.o
+
+src/perception/target_selector.i: src/perception/target_selector.cpp.i
+.PHONY : src/perception/target_selector.i
+
+# target to preprocess a source file
+src/perception/target_selector.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.i
+.PHONY : src/perception/target_selector.cpp.i
+
+src/perception/target_selector.s: src/perception/target_selector.cpp.s
+.PHONY : src/perception/target_selector.s
+
+# target to generate assembly for a file
+src/perception/target_selector.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.s
+.PHONY : src/perception/target_selector.cpp.s
 
 src/planning/collision_object_utils.o: src/planning/collision_object_utils.cpp.o
 .PHONY : src/planning/collision_object_utils.o
@@ -521,6 +593,30 @@ src/planning/pick_task_builder.s: src/planning/pick_task_builder.cpp.s
 src/planning/pick_task_builder.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s
 .PHONY : src/planning/pick_task_builder.cpp.s
+
+src/planning/place_generator.o: src/planning/place_generator.cpp.o
+.PHONY : src/planning/place_generator.o
+
+# target to build an object file
+src/planning/place_generator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o
+.PHONY : src/planning/place_generator.cpp.o
+
+src/planning/place_generator.i: src/planning/place_generator.cpp.i
+.PHONY : src/planning/place_generator.i
+
+# target to preprocess a source file
+src/planning/place_generator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.i
+.PHONY : src/planning/place_generator.cpp.i
+
+src/planning/place_generator.s: src/planning/place_generator.cpp.s
+.PHONY : src/planning/place_generator.s
+
+# target to generate assembly for a file
+src/planning/place_generator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.s
+.PHONY : src/planning/place_generator.cpp.s
 
 src/planning/place_release_task_builder.o: src/planning/place_release_task_builder.cpp.o
 .PHONY : src/planning/place_release_task_builder.o
@@ -640,15 +736,27 @@ help:
 	@echo "... src/orchestration/task_queue.o"
 	@echo "... src/orchestration/task_queue.i"
 	@echo "... src/orchestration/task_queue.s"
+	@echo "... src/perception/grasp_generator.o"
+	@echo "... src/perception/grasp_generator.i"
+	@echo "... src/perception/grasp_generator.s"
 	@echo "... src/perception/pose_cache.o"
 	@echo "... src/perception/pose_cache.i"
 	@echo "... src/perception/pose_cache.s"
+	@echo "... src/perception/target_cache.o"
+	@echo "... src/perception/target_cache.i"
+	@echo "... src/perception/target_cache.s"
+	@echo "... src/perception/target_selector.o"
+	@echo "... src/perception/target_selector.i"
+	@echo "... src/perception/target_selector.s"
 	@echo "... src/planning/collision_object_utils.o"
 	@echo "... src/planning/collision_object_utils.i"
 	@echo "... src/planning/collision_object_utils.s"
 	@echo "... src/planning/pick_task_builder.o"
 	@echo "... src/planning/pick_task_builder.i"
 	@echo "... src/planning/pick_task_builder.s"
+	@echo "... src/planning/place_generator.o"
+	@echo "... src/planning/place_generator.i"
+	@echo "... src/planning/place_generator.s"
 	@echo "... src/planning/place_release_task_builder.o"
 	@echo "... src/planning/place_release_task_builder.i"
 	@echo "... src/planning/place_release_task_builder.s"
