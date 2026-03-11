@@ -1,0 +1,4 @@
+# 返回最近 N 条执行记录（含已执行、取消等），便于长跑问题定位
+uint32 max_count
+---
+JobExecutionRecord[] records

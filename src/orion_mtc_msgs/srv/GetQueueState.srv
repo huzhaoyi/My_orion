@@ -1,0 +1,14 @@
+# 队列与 Worker 可观测：queue_size, 当前执行 job_id, worker_status, task_mode, last_error
+# worker_status: 0=STOPPED, 1=IDLE, 2=RUNNING_JOB, 3=RECOVERING, 4=ERROR
+---
+uint32 queue_size
+string current_job_id
+string current_job_type
+string next_job_type
+string next_job_id
+int32 next_job_priority
+uint8 worker_status
+string task_mode
+string last_error
+bool worker_running
+bool queue_empty

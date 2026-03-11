@@ -210,29 +210,389 @@ mtc_node/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/build
 .PHONY : mtc_node/fast
 
-src/mtc_node.o: src/mtc_node.cpp.o
-.PHONY : src/mtc_node.o
+src/app/orion_mtc_node.o: src/app/orion_mtc_node.cpp.o
+.PHONY : src/app/orion_mtc_node.o
 
 # target to build an object file
-src/mtc_node.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/mtc_node.cpp.o
-.PHONY : src/mtc_node.cpp.o
+src/app/orion_mtc_node.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.o
+.PHONY : src/app/orion_mtc_node.cpp.o
 
-src/mtc_node.i: src/mtc_node.cpp.i
-.PHONY : src/mtc_node.i
+src/app/orion_mtc_node.i: src/app/orion_mtc_node.cpp.i
+.PHONY : src/app/orion_mtc_node.i
 
 # target to preprocess a source file
-src/mtc_node.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/mtc_node.cpp.i
-.PHONY : src/mtc_node.cpp.i
+src/app/orion_mtc_node.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.i
+.PHONY : src/app/orion_mtc_node.cpp.i
 
-src/mtc_node.s: src/mtc_node.cpp.s
-.PHONY : src/mtc_node.s
+src/app/orion_mtc_node.s: src/app/orion_mtc_node.cpp.s
+.PHONY : src/app/orion_mtc_node.s
 
 # target to generate assembly for a file
-src/mtc_node.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/mtc_node.cpp.s
-.PHONY : src/mtc_node.cpp.s
+src/app/orion_mtc_node.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.s
+.PHONY : src/app/orion_mtc_node.cpp.s
+
+src/config/mtc_config.o: src/config/mtc_config.cpp.o
+.PHONY : src/config/mtc_config.o
+
+# target to build an object file
+src/config/mtc_config.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o
+.PHONY : src/config/mtc_config.cpp.o
+
+src/config/mtc_config.i: src/config/mtc_config.cpp.i
+.PHONY : src/config/mtc_config.i
+
+# target to preprocess a source file
+src/config/mtc_config.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.i
+.PHONY : src/config/mtc_config.cpp.i
+
+src/config/mtc_config.s: src/config/mtc_config.cpp.s
+.PHONY : src/config/mtc_config.s
+
+# target to generate assembly for a file
+src/config/mtc_config.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.s
+.PHONY : src/config/mtc_config.cpp.s
+
+src/config/runtime_policy_loader.o: src/config/runtime_policy_loader.cpp.o
+.PHONY : src/config/runtime_policy_loader.o
+
+# target to build an object file
+src/config/runtime_policy_loader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o
+.PHONY : src/config/runtime_policy_loader.cpp.o
+
+src/config/runtime_policy_loader.i: src/config/runtime_policy_loader.cpp.i
+.PHONY : src/config/runtime_policy_loader.i
+
+# target to preprocess a source file
+src/config/runtime_policy_loader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.i
+.PHONY : src/config/runtime_policy_loader.cpp.i
+
+src/config/runtime_policy_loader.s: src/config/runtime_policy_loader.cpp.s
+.PHONY : src/config/runtime_policy_loader.s
+
+# target to generate assembly for a file
+src/config/runtime_policy_loader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.s
+.PHONY : src/config/runtime_policy_loader.cpp.s
+
+src/core/constants.o: src/core/constants.cpp.o
+.PHONY : src/core/constants.o
+
+# target to build an object file
+src/core/constants.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/core/constants.cpp.o
+.PHONY : src/core/constants.cpp.o
+
+src/core/constants.i: src/core/constants.cpp.i
+.PHONY : src/core/constants.i
+
+# target to preprocess a source file
+src/core/constants.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/core/constants.cpp.i
+.PHONY : src/core/constants.cpp.i
+
+src/core/constants.s: src/core/constants.cpp.s
+.PHONY : src/core/constants.s
+
+# target to generate assembly for a file
+src/core/constants.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/core/constants.cpp.s
+.PHONY : src/core/constants.cpp.s
+
+src/execution/solution_executor.o: src/execution/solution_executor.cpp.o
+.PHONY : src/execution/solution_executor.o
+
+# target to build an object file
+src/execution/solution_executor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o
+.PHONY : src/execution/solution_executor.cpp.o
+
+src/execution/solution_executor.i: src/execution/solution_executor.cpp.i
+.PHONY : src/execution/solution_executor.i
+
+# target to preprocess a source file
+src/execution/solution_executor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.i
+.PHONY : src/execution/solution_executor.cpp.i
+
+src/execution/solution_executor.s: src/execution/solution_executor.cpp.s
+.PHONY : src/execution/solution_executor.s
+
+# target to generate assembly for a file
+src/execution/solution_executor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.s
+.PHONY : src/execution/solution_executor.cpp.s
+
+src/execution/trajectory_executor.o: src/execution/trajectory_executor.cpp.o
+.PHONY : src/execution/trajectory_executor.o
+
+# target to build an object file
+src/execution/trajectory_executor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o
+.PHONY : src/execution/trajectory_executor.cpp.o
+
+src/execution/trajectory_executor.i: src/execution/trajectory_executor.cpp.i
+.PHONY : src/execution/trajectory_executor.i
+
+# target to preprocess a source file
+src/execution/trajectory_executor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.i
+.PHONY : src/execution/trajectory_executor.cpp.i
+
+src/execution/trajectory_executor.s: src/execution/trajectory_executor.cpp.s
+.PHONY : src/execution/trajectory_executor.s
+
+# target to generate assembly for a file
+src/execution/trajectory_executor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.s
+.PHONY : src/execution/trajectory_executor.cpp.s
+
+src/main.o: src/main.cpp.o
+.PHONY : src/main.o
+
+# target to build an object file
+src/main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
+
+src/main.i: src/main.cpp.i
+.PHONY : src/main.i
+
+# target to preprocess a source file
+src/main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
+
+src/main.s: src/main.cpp.s
+.PHONY : src/main.s
+
+# target to generate assembly for a file
+src/main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
+
+src/orchestration/recovery_actions.o: src/orchestration/recovery_actions.cpp.o
+.PHONY : src/orchestration/recovery_actions.o
+
+# target to build an object file
+src/orchestration/recovery_actions.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o
+.PHONY : src/orchestration/recovery_actions.cpp.o
+
+src/orchestration/recovery_actions.i: src/orchestration/recovery_actions.cpp.i
+.PHONY : src/orchestration/recovery_actions.i
+
+# target to preprocess a source file
+src/orchestration/recovery_actions.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.i
+.PHONY : src/orchestration/recovery_actions.cpp.i
+
+src/orchestration/recovery_actions.s: src/orchestration/recovery_actions.cpp.s
+.PHONY : src/orchestration/recovery_actions.s
+
+# target to generate assembly for a file
+src/orchestration/recovery_actions.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.s
+.PHONY : src/orchestration/recovery_actions.cpp.s
+
+src/orchestration/task_manager.o: src/orchestration/task_manager.cpp.o
+.PHONY : src/orchestration/task_manager.o
+
+# target to build an object file
+src/orchestration/task_manager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o
+.PHONY : src/orchestration/task_manager.cpp.o
+
+src/orchestration/task_manager.i: src/orchestration/task_manager.cpp.i
+.PHONY : src/orchestration/task_manager.i
+
+# target to preprocess a source file
+src/orchestration/task_manager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.i
+.PHONY : src/orchestration/task_manager.cpp.i
+
+src/orchestration/task_manager.s: src/orchestration/task_manager.cpp.s
+.PHONY : src/orchestration/task_manager.s
+
+# target to generate assembly for a file
+src/orchestration/task_manager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.s
+.PHONY : src/orchestration/task_manager.cpp.s
+
+src/orchestration/task_queue.o: src/orchestration/task_queue.cpp.o
+.PHONY : src/orchestration/task_queue.o
+
+# target to build an object file
+src/orchestration/task_queue.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o
+.PHONY : src/orchestration/task_queue.cpp.o
+
+src/orchestration/task_queue.i: src/orchestration/task_queue.cpp.i
+.PHONY : src/orchestration/task_queue.i
+
+# target to preprocess a source file
+src/orchestration/task_queue.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.i
+.PHONY : src/orchestration/task_queue.cpp.i
+
+src/orchestration/task_queue.s: src/orchestration/task_queue.cpp.s
+.PHONY : src/orchestration/task_queue.s
+
+# target to generate assembly for a file
+src/orchestration/task_queue.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.s
+.PHONY : src/orchestration/task_queue.cpp.s
+
+src/perception/pose_cache.o: src/perception/pose_cache.cpp.o
+.PHONY : src/perception/pose_cache.o
+
+# target to build an object file
+src/perception/pose_cache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o
+.PHONY : src/perception/pose_cache.cpp.o
+
+src/perception/pose_cache.i: src/perception/pose_cache.cpp.i
+.PHONY : src/perception/pose_cache.i
+
+# target to preprocess a source file
+src/perception/pose_cache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.i
+.PHONY : src/perception/pose_cache.cpp.i
+
+src/perception/pose_cache.s: src/perception/pose_cache.cpp.s
+.PHONY : src/perception/pose_cache.s
+
+# target to generate assembly for a file
+src/perception/pose_cache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s
+.PHONY : src/perception/pose_cache.cpp.s
+
+src/planning/collision_object_utils.o: src/planning/collision_object_utils.cpp.o
+.PHONY : src/planning/collision_object_utils.o
+
+# target to build an object file
+src/planning/collision_object_utils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o
+.PHONY : src/planning/collision_object_utils.cpp.o
+
+src/planning/collision_object_utils.i: src/planning/collision_object_utils.cpp.i
+.PHONY : src/planning/collision_object_utils.i
+
+# target to preprocess a source file
+src/planning/collision_object_utils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.i
+.PHONY : src/planning/collision_object_utils.cpp.i
+
+src/planning/collision_object_utils.s: src/planning/collision_object_utils.cpp.s
+.PHONY : src/planning/collision_object_utils.s
+
+# target to generate assembly for a file
+src/planning/collision_object_utils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.s
+.PHONY : src/planning/collision_object_utils.cpp.s
+
+src/planning/pick_task_builder.o: src/planning/pick_task_builder.cpp.o
+.PHONY : src/planning/pick_task_builder.o
+
+# target to build an object file
+src/planning/pick_task_builder.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o
+.PHONY : src/planning/pick_task_builder.cpp.o
+
+src/planning/pick_task_builder.i: src/planning/pick_task_builder.cpp.i
+.PHONY : src/planning/pick_task_builder.i
+
+# target to preprocess a source file
+src/planning/pick_task_builder.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.i
+.PHONY : src/planning/pick_task_builder.cpp.i
+
+src/planning/pick_task_builder.s: src/planning/pick_task_builder.cpp.s
+.PHONY : src/planning/pick_task_builder.s
+
+# target to generate assembly for a file
+src/planning/pick_task_builder.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s
+.PHONY : src/planning/pick_task_builder.cpp.s
+
+src/planning/place_release_task_builder.o: src/planning/place_release_task_builder.cpp.o
+.PHONY : src/planning/place_release_task_builder.o
+
+# target to build an object file
+src/planning/place_release_task_builder.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o
+.PHONY : src/planning/place_release_task_builder.cpp.o
+
+src/planning/place_release_task_builder.i: src/planning/place_release_task_builder.cpp.i
+.PHONY : src/planning/place_release_task_builder.i
+
+# target to preprocess a source file
+src/planning/place_release_task_builder.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.i
+.PHONY : src/planning/place_release_task_builder.cpp.i
+
+src/planning/place_release_task_builder.s: src/planning/place_release_task_builder.cpp.s
+.PHONY : src/planning/place_release_task_builder.s
+
+# target to generate assembly for a file
+src/planning/place_release_task_builder.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.s
+.PHONY : src/planning/place_release_task_builder.cpp.s
+
+src/planning/place_task_builder.o: src/planning/place_task_builder.cpp.o
+.PHONY : src/planning/place_task_builder.o
+
+# target to build an object file
+src/planning/place_task_builder.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o
+.PHONY : src/planning/place_task_builder.cpp.o
+
+src/planning/place_task_builder.i: src/planning/place_task_builder.cpp.i
+.PHONY : src/planning/place_task_builder.i
+
+# target to preprocess a source file
+src/planning/place_task_builder.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.i
+.PHONY : src/planning/place_task_builder.cpp.i
+
+src/planning/place_task_builder.s: src/planning/place_task_builder.cpp.s
+.PHONY : src/planning/place_task_builder.s
+
+# target to generate assembly for a file
+src/planning/place_task_builder.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.s
+.PHONY : src/planning/place_task_builder.cpp.s
+
+src/scene/planning_scene_manager.o: src/scene/planning_scene_manager.cpp.o
+.PHONY : src/scene/planning_scene_manager.o
+
+# target to build an object file
+src/scene/planning_scene_manager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o
+.PHONY : src/scene/planning_scene_manager.cpp.o
+
+src/scene/planning_scene_manager.i: src/scene/planning_scene_manager.cpp.i
+.PHONY : src/scene/planning_scene_manager.i
+
+# target to preprocess a source file
+src/scene/planning_scene_manager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.i
+.PHONY : src/scene/planning_scene_manager.cpp.i
+
+src/scene/planning_scene_manager.s: src/scene/planning_scene_manager.cpp.s
+.PHONY : src/scene/planning_scene_manager.s
+
+# target to generate assembly for a file
+src/scene/planning_scene_manager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.s
+.PHONY : src/scene/planning_scene_manager.cpp.s
 
 # Help Target
 help:
@@ -250,9 +610,54 @@ help:
 	@echo "... orion_mtc_uninstall"
 	@echo "... uninstall"
 	@echo "... mtc_node"
-	@echo "... src/mtc_node.o"
-	@echo "... src/mtc_node.i"
-	@echo "... src/mtc_node.s"
+	@echo "... src/app/orion_mtc_node.o"
+	@echo "... src/app/orion_mtc_node.i"
+	@echo "... src/app/orion_mtc_node.s"
+	@echo "... src/config/mtc_config.o"
+	@echo "... src/config/mtc_config.i"
+	@echo "... src/config/mtc_config.s"
+	@echo "... src/config/runtime_policy_loader.o"
+	@echo "... src/config/runtime_policy_loader.i"
+	@echo "... src/config/runtime_policy_loader.s"
+	@echo "... src/core/constants.o"
+	@echo "... src/core/constants.i"
+	@echo "... src/core/constants.s"
+	@echo "... src/execution/solution_executor.o"
+	@echo "... src/execution/solution_executor.i"
+	@echo "... src/execution/solution_executor.s"
+	@echo "... src/execution/trajectory_executor.o"
+	@echo "... src/execution/trajectory_executor.i"
+	@echo "... src/execution/trajectory_executor.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
+	@echo "... src/orchestration/recovery_actions.o"
+	@echo "... src/orchestration/recovery_actions.i"
+	@echo "... src/orchestration/recovery_actions.s"
+	@echo "... src/orchestration/task_manager.o"
+	@echo "... src/orchestration/task_manager.i"
+	@echo "... src/orchestration/task_manager.s"
+	@echo "... src/orchestration/task_queue.o"
+	@echo "... src/orchestration/task_queue.i"
+	@echo "... src/orchestration/task_queue.s"
+	@echo "... src/perception/pose_cache.o"
+	@echo "... src/perception/pose_cache.i"
+	@echo "... src/perception/pose_cache.s"
+	@echo "... src/planning/collision_object_utils.o"
+	@echo "... src/planning/collision_object_utils.i"
+	@echo "... src/planning/collision_object_utils.s"
+	@echo "... src/planning/pick_task_builder.o"
+	@echo "... src/planning/pick_task_builder.i"
+	@echo "... src/planning/pick_task_builder.s"
+	@echo "... src/planning/place_release_task_builder.o"
+	@echo "... src/planning/place_release_task_builder.i"
+	@echo "... src/planning/place_release_task_builder.s"
+	@echo "... src/planning/place_task_builder.o"
+	@echo "... src/planning/place_task_builder.i"
+	@echo "... src/planning/place_task_builder.s"
+	@echo "... src/scene/planning_scene_manager.o"
+	@echo "... src/scene/planning_scene_manager.i"
+	@echo "... src/scene/planning_scene_manager.s"
 .PHONY : help
 
 

@@ -11,11 +11,16 @@ find_package(geometry_msgs REQUIRED)
 find_package(action_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/JobExecutionRecord.msg"
   "action/Pick.action"
   "action/Place.action"
   "action/PlaceRelease.action"
   "srv/GetRobotState.srv"
+  "srv/GetQueueState.srv"
+  "srv/GetRecentJobs.srv"
+  "srv/CancelJob.srv"
   "srv/ResetHeldObject.srv"
+  "srv/SubmitJob.srv"
   "srv/SyncHeldObject.srv"
   DEPENDENCIES geometry_msgs action_msgs
 )

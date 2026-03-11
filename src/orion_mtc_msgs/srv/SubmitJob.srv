@@ -1,0 +1,14 @@
+# 异步入队：仅负责入队，不等待执行结果。与 action 的“即时执行”语义分离。
+# job_type: 0=PICK, 1=PLACE, 2=PLACE_RELEASE, 3=RESET_HELD_OBJECT, 4=SYNC_HELD_OBJECT
+uint8 job_type
+string job_id             # 可选，空则服务端生成
+geometry_msgs/PoseStamped target_pose   # PLACE/PLACE_RELEASE 目标位姿
+geometry_msgs/PoseStamped object_pose   # PICK 物体位姿 或 SYNC 时物体位姿
+geometry_msgs/Pose tcp_pose             # SYNC 时 TCP 位姿
+string object_id
+bool tracked              # SYNC 时是否 tracked
+int32 priority            # 预留，当前 FIFO
+---
+bool success
+string message
+string job_id             # 回显或生成的 job_id

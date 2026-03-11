@@ -18,8 +18,32 @@ find_package(rclcpp_action REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(orion_mtc_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-add_executable(mtc_node src/mtc_node.cpp)
+set(ORION_MTC_SOURCES
+  src/main.cpp
+  src/app/orion_mtc_node.cpp
+  src/core/constants.cpp
+  src/config/mtc_config.cpp
+  src/config/runtime_policy_loader.cpp
+  src/planning/collision_object_utils.cpp
+  src/planning/pick_task_builder.cpp
+  src/planning/place_task_builder.cpp
+  src/planning/place_release_task_builder.cpp
+  src/scene/planning_scene_manager.cpp
+  src/execution/trajectory_executor.cpp
+  src/execution/solution_executor.cpp
+  src/perception/pose_cache.cpp
+  src/orchestration/task_queue.cpp
+  src/orchestration/recovery_actions.cpp
+  src/orchestration/task_manager.cpp
+)
+
+add_executable(mtc_node ${ORION_MTC_SOURCES})
+target_include_directories(mtc_node PRIVATE
+  include
+  ${Eigen3_INCLUDE_DIRS}
+)
 ament_target_dependencies(mtc_node
   rclcpp
   moveit_task_constructor_core
@@ -38,6 +62,9 @@ ament_target_dependencies(mtc_node
 
 install(TARGETS mtc_node
   DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/
+  DESTINATION include
+  FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME})
 install(PROGRAMS scripts/test_pick_then_place.sh
