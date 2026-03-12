@@ -1,0 +1,260 @@
+/**
+ * 全局状态存储：RuntimeStatus、队列、持物、感知、JobEvent、TaskStage、日志
+ * 供各 Panel 订阅更新
+ */
+
+const initialState = {
+  // 连接
+  rosConnected: false,
+  wsConnected: false,
+  backendConnected: false,
+
+  // 前端本地策略：停止入队时仅在前端拦截 submit_job
+  acceptNewJobs: true,
+
+  // RuntimeStatus 对应字段
+  workerStatus: '',
+  taskMode: '',
+  currentJobId: '',
+  currentJobType: '',
+  nextJobType: '',
+  nextJobId: '',
+  workerRunning: false,
+  queueEmpty: true,
+  queueSize: 0,
+  hasHeldObject: false,
+  heldObjectId: '',
+  heldSceneAttachId: '',
+  lastError: '',
+
+  // 当前任务卡片（来自当前执行 job）
+  currentJobSource: '',
+  currentJobPriority: 0,
+  currentStageName: '',
+  currentJobStartTime: null,
+  currentJobCreatedAt: null,
+
+  // 队列列表（简要信息，需后端提供或从 GetQueueState + GetRecentJobs 推导）
+  queueList: [],
+
+  // HeldObject 状态（HeldObjectState 话题）
+  heldValid: false,
+  heldTracked: false,
+  heldSceneAttachId: '',
+  heldAttachLink: '',
+  heldObjectId: '',
+  heldObjectPoseAtGrasp: null,
+  heldTcpPoseAtGrasp: null,
+
+  // 感知状态（来自话题 object_pose / place_pose）
+  objectPoseValid: false,
+  placePoseValid: false,
+  perceptionUpdatedAt: null,
+  targetCount: 0,
+  objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
+  placePose: null,
+
+  // 关节状态（来自 joint_states，驱动 3D）
+  jointNames: [],
+  jointPositions: [],
+
+  // 轨迹点（用于 3D 显示，可选）
+  trajectoryPoints: [],
+
+  // Scene 一致性（便于调试）
+  worldObjectPresent: false,
+  attachedObjectPresent: false,
+  heldTrackedPresent: false,
+  heldUntrackedPresent: false,
+
+  // 恢复（来自 /manipulator/recovery_event，RecoveryEvent.msg）
+  lastRecoveryType: '',
+  lastRecoverySuccess: false,
+  lastRecoveryDetail: '',
+  lastRecoveryTrigger: '',
+
+  // 最近执行记录（来自 get_recent_jobs 服务，JobExecutionRecord[]）
+  recentJobs: [],
+
+  // 事件流
+  jobEvents: [],
+  taskStages: [],
+  maxJobEvents: 100,
+  maxTaskStages: 100,
+
+  // 系统日志
+  systemLogs: [],
+  maxSystemLogs: 200,
+};
+
+let state = { ...initialState };
+const listeners = new Set();
+
+function getState() {
+  return { ...state };
+}
+
+function setState(partial) {
+  state = { ...state, ...partial };
+  listeners.forEach((fn) => fn(getState()));
+}
+
+function subscribe(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+/* 与 orion_mtc_msgs/msg/RuntimeStatus.msg 字段一一对应（ROS 为 snake_case） */
+function applyRuntimeStatus(msg) {
+  setState({
+    workerStatus: msg.worker_status ?? state.workerStatus,
+    taskMode: msg.task_mode ?? state.taskMode,
+    currentJobId: msg.current_job_id ?? state.currentJobId,
+    currentJobType: msg.current_job_type ?? state.currentJobType,
+    nextJobType: msg.next_job_type ?? state.nextJobType,
+    workerRunning: msg.worker_running ?? state.workerRunning,
+    queueEmpty: msg.queue_empty ?? state.queueEmpty,
+    queueSize: msg.queue_size ?? state.queueSize,
+    hasHeldObject: msg.has_held_object ?? state.hasHeldObject,
+    heldObjectId: msg.held_object_id ?? state.heldObjectId,
+    heldSceneAttachId: msg.held_scene_attach_id ?? state.heldSceneAttachId,
+    lastError: msg.last_error ?? state.lastError,
+  });
+}
+
+/* 与 orion_mtc_msgs/msg/HeldObjectState.msg 字段一一对应 */
+function applyHeldObjectState(msg) {
+  setState({
+    heldValid: msg.valid ?? state.heldValid,
+    heldTracked: msg.tracked ?? state.heldTracked,
+    heldObjectId: msg.object_id ?? state.heldObjectId,
+    heldSceneAttachId: msg.scene_attach_id ?? state.heldSceneAttachId,
+    heldAttachLink: msg.attach_link ?? state.heldAttachLink,
+    heldObjectPoseAtGrasp: msg.object_pose_at_grasp ?? state.heldObjectPoseAtGrasp,
+    heldTcpPoseAtGrasp: msg.tcp_pose_at_grasp ?? state.heldTcpPoseAtGrasp,
+  });
+}
+
+/* 与 orion_mtc_msgs/msg/RecoveryEvent.msg 字段一一对应 */
+function applyRecoveryEvent(msg) {
+  setState({
+    lastRecoveryType: msg.recovery_type ?? state.lastRecoveryType,
+    lastRecoverySuccess: msg.success ?? state.lastRecoverySuccess,
+    lastRecoveryDetail: msg.detail ?? state.lastRecoveryDetail,
+    lastRecoveryTrigger: msg.trigger_reason ?? state.lastRecoveryTrigger,
+  });
+}
+
+function setRecentJobs(list) {
+  setState({ recentJobs: Array.isArray(list) ? list : [] });
+}
+
+/* 与 orion_mtc_msgs/srv/GetRobotState.srv 响应字段一一对应 */
+function applyGetRobotStateResponse(res) {
+  if (!res) return;
+  setState({
+    taskMode: res.mode != null ? res.mode : state.taskMode,
+    currentJobId: res.task_id != null ? res.task_id : state.currentJobId,
+    heldObjectId: res.held_object_id != null ? res.held_object_id : state.heldObjectId,
+    hasHeldObject: res.has_held_object != null ? res.has_held_object : state.hasHeldObject,
+    lastError: res.last_error != null ? res.last_error : state.lastError,
+  });
+}
+
+function pushJobEvent(event) {
+  const list = [...state.jobEvents, event].slice(-state.maxJobEvents);
+  setState({ jobEvents: list });
+}
+
+function pushTaskStage(stage) {
+  const list = [...state.taskStages, stage].slice(-state.maxTaskStages);
+  setState({ taskStages: list });
+}
+
+function pushSystemLog(level, message, meta = {}) {
+  const entry = {
+    ts: new Date().toISOString(),
+    level,
+    message,
+    ...meta,
+  };
+  const list = [...state.systemLogs, entry].slice(-state.maxSystemLogs);
+  setState({ systemLogs: list });
+}
+
+function setQueueList(list) {
+  setState({ queueList: list });
+}
+
+function setConnection(which, value) {
+  const partial = {};
+  if (which === 'ros') partial.rosConnected = value;
+  if (which === 'ws') partial.wsConnected = value;
+  if (which === 'backend') partial.backendConnected = value;
+  setState(partial);
+}
+
+function setObjectPose(poseStampedOrNull) {
+  if (!poseStampedOrNull) {
+    setState({ objectPose: null, objectPoseValid: false });
+    return;
+  }
+  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  setState({
+    objectPose: {
+      position: pose.position || { x: 0, y: 0, z: 0 },
+      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    },
+    objectPoseValid: true,
+    perceptionUpdatedAt: Date.now(),
+  });
+}
+
+function setPlacePose(poseStampedOrNull) {
+  if (!poseStampedOrNull) {
+    setState({ placePose: null, placePoseValid: false });
+    return;
+  }
+  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  setState({
+    placePose: {
+      position: pose.position || { x: 0, y: 0, z: 0 },
+      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    },
+    placePoseValid: true,
+    perceptionUpdatedAt: Date.now(),
+  });
+}
+
+function setJointState(names, positions) {
+  setState({ jointNames: names || [], jointPositions: positions || [] });
+}
+
+function setTrajectoryPoints(points) {
+  setState({ trajectoryPoints: points || [] });
+}
+
+function setAcceptNewJobs(accept) {
+  setState({ acceptNewJobs: !!accept });
+}
+
+export default {
+  getState,
+  setState,
+  subscribe,
+  applyRuntimeStatus,
+  applyHeldObjectState,
+  pushJobEvent,
+  pushTaskStage,
+  pushSystemLog,
+  setQueueList,
+  setConnection,
+  setObjectPose,
+  setPlacePose,
+  setJointState,
+  setTrajectoryPoints,
+  setAcceptNewJobs,
+  applyRecoveryEvent,
+  setRecentJobs,
+  applyGetRobotStateResponse,
+};

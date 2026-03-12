@@ -16,6 +16,7 @@
 #include <atomic>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <rclcpp/node.hpp>
@@ -32,9 +33,6 @@ class PlaceTaskBuilder;
 class PlaceReleaseTaskBuilder;
 class TaskQueue;
 class RecoveryActions;
-class TargetCache;
-class TargetSelector;
-class GraspGenerator;
 class PlaceGenerator;
 }
 
@@ -55,13 +53,6 @@ public:
 
   bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id);
 
-  /** 从 TargetCache 选目标、生成抓取候选，逐个尝试直至成功或耗尽；需先 setTargetSelection */
-  bool handlePickFromTargets(const std::string& object_id);
-
-  void setTargetSelection(TargetCache* target_cache,
-                         TargetSelector* target_selector,
-                         GraspGenerator* grasp_generator);
-
   bool handlePlace(const geometry_msgs::msg::PoseStamped& target_pose);
   void setPlaceGenerator(PlaceGenerator* place_generator);
   bool handlePlaceRelease(const geometry_msgs::msg::PoseStamped& target_tcp_pose);
@@ -75,6 +66,30 @@ public:
 
   /** reset_held_object：清空持物状态并清理 scene attach */
   bool handleResetHeldObject(std::string& out_message);
+
+  /** 设置夹爪“有物”查询：返回 true 时 pick 会被拒绝，避免 object 在夹爪上导致规划失败 */
+  void setGripperLockedCallback(std::function<bool()> fn);
+
+  /** 分层状态话题回调：由 Node 设置，在对应事件时调用并发布 */
+  using JobEventFn = std::function<void(const std::string& job_id, const std::string& job_type,
+                                       const std::string& source, uint32_t priority,
+                                       const std::string& event_type, bool success,
+                                       const std::string& reason, int64_t created_at_ns,
+                                       int64_t started_at_ns, int64_t finished_at_ns)>;
+  using HeldObjectStateFn = std::function<void(const HeldObjectContext&)>;
+  using RecoveryEventFn = std::function<void(const std::string& recovery_type,
+                                             const std::string& trigger_reason,
+                                             bool success, const std::string& detail)>;
+  using StageReportFn = std::function<void(const std::string& job_id, const std::string& task_type,
+                                          std::size_t stage_index, const std::string& stage_name,
+                                          const std::string& stage_state, const std::string& detail)>;
+  void setJobEventCallback(JobEventFn fn);
+  void setHeldObjectStateCallback(HeldObjectStateFn fn);
+  void setRecoveryEventCallback(RecoveryEventFn fn);
+  void setStageReportCallback(StageReportFn fn);
+
+  /** 队首 job 类型（用于 runtime_status next_job_type）；空队列返回空串 */
+  std::string getNextJobType() const;
 
   RobotTaskMode getMode() const;
   std::string getTaskId() const;
@@ -130,6 +145,13 @@ private:
   /** 单次放置尝试（规划+执行）；成功时更新 scene、清 held、设 IDLE；失败仅返回 false，不改 state */
   bool handlePlaceSingle(const geometry_msgs::msg::PoseStamped& target_pose);
 
+  /** 从当前状态规划并执行回到 ready（臂 + 手张开），失败只打日志不抛 */
+  bool retreatToReady();
+
+  /** 仅动夹爪：从当前状态（joint_states/joystick）仅对手 group 做 MoveTo open/close，臂关节保持不变 */
+  bool handleOpenGripper();
+  bool handleCloseGripper();
+
   static constexpr std::size_t MAX_RECENT_RECORDS = 50;
 
   rclcpp::Node::SharedPtr node_;
@@ -139,15 +161,17 @@ private:
   TrajectoryExecutor* trajectory_executor_;
   SolutionExecutor* solution_executor_;
   WaitForGrippedFn wait_for_gripped_fn_;
+  std::function<bool()> is_gripper_locked_fn_;
+  JobEventFn job_event_fn_;
+  HeldObjectStateFn held_object_state_fn_;
+  RecoveryEventFn recovery_event_fn_;
+  StageReportFn stage_report_fn_;
   std::unique_ptr<PickTaskBuilder> pick_builder_;
   std::unique_ptr<PlaceTaskBuilder> place_builder_;
   std::unique_ptr<PlaceReleaseTaskBuilder> place_release_builder_;
   std::shared_ptr<TaskQueue> queue_;
   std::unique_ptr<RecoveryActions> recovery_actions_;
 
-  TargetCache* target_cache_ = nullptr;
-  TargetSelector* target_selector_ = nullptr;
-  GraspGenerator* grasp_generator_ = nullptr;
   PlaceGenerator* place_generator_ = nullptr;
 
   mutable std::mutex state_mutex_;

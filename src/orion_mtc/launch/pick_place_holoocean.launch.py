@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Pick-and-place 与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSensor（right_arm 6DOF+夹爪）。
-启动 MoveIt + RViz + HoloOcean 桥接节点，MTC 使用 HoloOcean 机械臂当前状态进行规划。
+启动 MoveIt + RViz + HoloOcean 桥接节点、rosbridge（网页上位机用）、MTC。
 MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
 FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
 /holoocean/command/agent/arm，在 HoloOcean 中驱动机械臂（顺序：0=左臂，1=右臂）。
@@ -12,7 +12,7 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -142,18 +142,27 @@ def generate_launch_description():
         parameters=[move_group_params],
     )
 
-    return LaunchDescription(
-        [
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(demo_launch),
-                launch_arguments=[
-                    ("use_joint_state_gui", "false"),
-                    ("tf_under_manipulator", "true"),
-                ],
-            ),
-            bridge_node,
-            trajectory_bridge_node,
-            target_sensor_to_pose_node,
-            TimerAction(period=12.0, actions=[mtc_node]),
-        ]
-    )
+    actions = [
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(demo_launch),
+            launch_arguments=[
+                ("use_joint_state_gui", "false"),
+                ("tf_under_manipulator", "true"),
+            ],
+        ),
+        bridge_node,
+        trajectory_bridge_node,
+        target_sensor_to_pose_node,
+        mtc_node,
+    ]
+
+    try:
+        from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
+        rosbridge_share = get_package_share_directory("rosbridge_server")
+        rosbridge_launch = os.path.join(rosbridge_share, "launch", "rosbridge_websocket_launch.xml")
+        if os.path.isfile(rosbridge_launch):
+            actions.insert(0, IncludeLaunchDescription(XMLLaunchDescriptionSource(rosbridge_launch)))
+    except Exception:
+        pass
+
+    return LaunchDescription(actions)

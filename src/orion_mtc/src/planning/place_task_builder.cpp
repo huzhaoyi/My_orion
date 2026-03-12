@@ -153,22 +153,22 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
 
   task.add(std::move(place));
 
-  /* 已放置物体仍在 scene 中，return home 仅允许与末端 Link5~8 接触，不放开整臂 */
+  /* 已放置物体仍在 scene 中，回到 ready 仅允许与末端 Link5~8 接触，不放开整臂 */
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for return home");
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for move to ready");
     stage->allowCollisions(scene_attach_id, RETURN_HOME_OBJECT_ALLOWED_LINKS, true);
     task.add(std::move(stage));
   }
   {
-    auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
+    auto stage = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
     stage->setGroup(arm_group_name);
     stage->setGoal("ready");
     task.add(std::move(stage));
   }
   {
-    auto stage = std::make_unique<mtc::stages::MoveTo>("close hand (return home)", interpolation_planner);
+    auto stage = std::make_unique<mtc::stages::MoveTo>("open hand (ready)", interpolation_planner);
     stage->setGroup(hand_group_name);
-    stage->setGoal("close");
+    stage->setGoal("open");
     task.add(std::move(stage));
   }
 

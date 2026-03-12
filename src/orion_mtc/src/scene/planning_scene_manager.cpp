@@ -201,6 +201,33 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
   return true;
 }
 
+bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
+{
+  if (object_id.empty())
+  {
+    return true;
+  }
+  if (!ensureClient())
+  {
+    RCLCPP_WARN(LOGGER, "removeWorldObject: apply_planning_scene not available");
+    return false;
+  }
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  moveit_msgs::msg::CollisionObject obj;
+  obj.id = object_id;
+  obj.header.frame_id = "base_link";
+  obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+  scene.world.collision_objects.push_back(obj);
+  if (!applySceneDiff(scene))
+  {
+    RCLCPP_WARN(LOGGER, "removeWorldObject: apply failed for id=%s", object_id.c_str());
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "removeWorldObject: removed world id=%s", object_id.c_str());
+  return true;
+}
+
 bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object)
 {
   if (!ensureClient())

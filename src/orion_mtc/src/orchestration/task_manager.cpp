@@ -9,12 +9,11 @@
 #include "orion_mtc/execution/solution_executor.hpp"
 #include "orion_mtc/core/job_result_code.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
-#include "orion_mtc/perception/target_cache.hpp"
-#include "orion_mtc/perception/target_selector.hpp"
-#include "orion_mtc/perception/grasp_generator.hpp"
 #include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/core/place_types.hpp"
 #include <moveit/task_constructor/task.h>
+#include <moveit/task_constructor/solvers.h>
+#include <moveit/task_constructor/stages.h>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Geometry>
@@ -22,6 +21,7 @@
 #include <chrono>
 #include <cmath>
 #include <sstream>
+#include <vector>
 
 namespace mtc = moveit::task_constructor;
 
@@ -29,6 +29,12 @@ namespace orion_mtc
 {
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
+
+/* PICK 任务 MTC 阶段名（与 pick_task_builder 顺序对应，不足时用 segment_N） */
+static const std::vector<std::string> PICK_STAGE_NAMES = {
+    "move_to_ready", "add_object", "open_hand", "move_to_pregrasp",
+    "approach_object", "close_hand", "attach_object", "lift_object"
+};
 
 /* 去重阈值：位置 1cm，姿态约 5°（quat dot ≥ 0.99），时间窗口 1s */
 static constexpr double DEDUP_POS_TOL_M = 0.01;
@@ -215,6 +221,11 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     RCLCPP_ERROR(LOGGER, "handlePick: busy (mode not IDLE/ERROR), reject");
     return false;
   }
+  if (is_gripper_locked_fn_ && is_gripper_locked_fn_())
+  {
+    RCLCPP_ERROR(LOGGER, "handlePick: gripper locked (has object), reject (place or open_gripper first)");
+    return false;
+  }
 
   setState(RobotTaskMode::PICKING);
   {
@@ -230,6 +241,11 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   {
     RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s', expected base_link", object_pose.header.frame_id.c_str());
   }
+  double pregrasp_z = obj_z + config_.approach_object_max_dist;
+  RCLCPP_INFO(LOGGER,
+              "handlePick: object (base_link) x=%.3f y=%.3f z=%.3f, pregrasp z=%.3f; if GOAL_STATE_INVALID adjust "
+              "holoocean_bridge position_offset_* or left_arm_base_in_rov_*",
+              obj_x, obj_y, obj_z, pregrasp_z);
 
   mtc::Task task = pick_builder_->build(obj_x, obj_y, obj_z, object_orientation, object_id);
   try
@@ -269,13 +285,31 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
   HeldObjectContext new_held;
+  StageReportFn stage_report = nullptr;
+  if (stage_report_fn_)
+  {
+    stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                         const std::string& name, const std::string& state, const std::string& detail) {
+      if (stage_report_fn_)
+      {
+        stage_report_fn_(jid, tt, ix, name, state, detail);
+      }
+    };
+  }
   if (!solution_executor_->executePickSolution(
           solution_msg, object_pose_at_grasp,
           object_id.empty() ? "object" : object_id,
-          task.getRobotModel(), new_held, wait_for_gripped_fn_))
+          task.getRobotModel(), new_held, wait_for_gripped_fn_,
+          stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES))
   {
     RCLCPP_ERROR(LOGGER, "Pick execution failed");
-    setStateError("pick execution failed");
+    retreatToReady();
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      task_mode_ = RobotTaskMode::IDLE;
+      last_error_ = "pick execution failed";
+    }
+    RCLCPP_INFO(LOGGER, "state=IDLE (ready for next pick)");
     return false;
   }
 
@@ -284,82 +318,209 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     held_object_ = new_held;
   }
   setState(RobotTaskMode::HOLDING_TRACKED);
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
+  }
   RCLCPP_INFO(LOGGER, "Pick finished successfully, state=HOLDING_TRACKED");
   return true;
 }
 
-void TaskManager::setTargetSelection(TargetCache* target_cache,
-                                     TargetSelector* target_selector,
-                                     GraspGenerator* grasp_generator)
+bool TaskManager::retreatToReady()
 {
-  target_cache_ = target_cache;
-  target_selector_ = target_selector;
-  grasp_generator_ = grasp_generator;
+  const std::string arm_group_name = "arm";
+  const std::string hand_group_name = "hand";
+  const std::string hand_frame = "Link6";
+
+  mtc::Task task;
+  task.stages()->setName("retreat to ready");
+  task.loadRobotModel(node_);
+  task.setProperty("group", arm_group_name);
+  task.setProperty("eef", hand_group_name);
+  task.setProperty("ik_frame", hand_frame);
+  task.stages()->properties().set("group", arm_group_name);
+  task.stages()->properties().set("eef", hand_group_name);
+  task.stages()->properties().set("ik_frame", hand_frame);
+
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+  auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  ptp_planner->setPlannerId("PTP");
+  auto stage_ready = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
+  stage_ready->setGroup(arm_group_name);
+  stage_ready->setGoal("ready");
+  task.add(std::move(stage_ready));
+
+  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
+  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand (ready)", interpolation_planner);
+  stage_open->setGroup(hand_group_name);
+  stage_open->setGoal("open");
+  task.add(std::move(stage_open));
+
+  try
+  {
+    task.init();
+    task.enableIntrospection(true);
+  }
+  catch (mtc::InitStageException& e)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "retreatToReady init failed: " << e);
+    return false;
+  }
+
+  moveit::core::MoveItErrorCode plan_result = task.plan(5);
+  if (!plan_result)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "retreatToReady plan failed (code " << plan_result.val << ")");
+    task.explainFailure(std::cout);
+    return false;
+  }
+  if (task.solutions().empty())
+  {
+    RCLCPP_ERROR(LOGGER, "retreatToReady: no solutions");
+    return false;
+  }
+
+  moveit_task_constructor_msgs::msg::Solution solution_msg;
+  task.solutions().front()->toMsg(solution_msg, &task.introspection());
+  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_))
+  {
+    RCLCPP_ERROR(LOGGER, "retreatToReady execution failed");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "retreatToReady finished");
+  return true;
 }
 
-bool TaskManager::handlePickFromTargets(const std::string& object_id)
+bool TaskManager::handleOpenGripper()
 {
-  if (!target_cache_ || !target_selector_ || !grasp_generator_)
+  const std::string hand_group_name = "hand";
+  mtc::Task task;
+  task.stages()->setName("open gripper");
+  task.loadRobotModel(node_);
+  /* CurrentState 来自 joint_states（joystick/编码器），仅对手 group MoveTo，臂关节保持不变 */
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
+  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
+  stage_open->setGroup(hand_group_name);
+  stage_open->setGoal("open");
+  task.add(std::move(stage_open));
+  try
   {
-    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: target selection not configured");
+    task.init();
+    task.enableIntrospection(true);
+  }
+  catch (mtc::InitStageException& e)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "open gripper init failed: " << e);
     return false;
   }
-  std::vector<TargetObject> targets = target_cache_->latest();
-  if (targets.empty())
+  moveit::core::MoveItErrorCode plan_result = task.plan(5);
+  if (!plan_result)
   {
-    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: no targets in cache");
+    RCLCPP_ERROR_STREAM(LOGGER, "open gripper plan failed (code " << plan_result.val << ")");
+    task.explainFailure(std::cout);
     return false;
   }
-  std::optional<TargetObject> selected = target_selector_->select(targets);
-  if (!selected.has_value())
+  if (task.solutions().empty())
   {
-    RCLCPP_ERROR(LOGGER, "handlePickFromTargets: selector returned no target");
+    RCLCPP_ERROR(LOGGER, "open gripper: no solutions");
     return false;
   }
-  const std::string oid = object_id.empty() ? "object" : object_id;
+  moveit_task_constructor_msgs::msg::Solution solution_msg;
+  task.solutions().front()->toMsg(solution_msg, &task.introspection());
+  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_))
+  {
+    RCLCPP_ERROR(LOGGER, "open gripper execution failed");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "open gripper finished");
+  return true;
+}
 
-  /* 先尝试选中目标的所有抓取候选 */
-  std::vector<GraspCandidate> candidates = grasp_generator_->generate(selected.value());
-  if (!candidates.empty())
+bool TaskManager::handleCloseGripper()
+{
+  const std::string hand_group_name = "hand";
+  mtc::Task task;
+  task.stages()->setName("close gripper");
+  task.loadRobotModel(node_);
+  /* CurrentState 来自 joint_states（joystick/编码器），仅对手 group MoveTo，臂关节保持不变 */
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
+  auto stage_close = std::make_unique<mtc::stages::MoveTo>("close hand", interpolation_planner);
+  stage_close->setGroup(hand_group_name);
+  stage_close->setGoal("close");
+  task.add(std::move(stage_close));
+  try
   {
-    for (std::size_t i = 0; i < candidates.size(); ++i)
-    {
-      RCLCPP_INFO(LOGGER, "handlePickFromTargets: trying candidate %zu/%zu (target index=%d)",
-                  i + 1, candidates.size(), selected->index);
-      if (handlePick(candidates[i], oid))
-      {
-        return true;
-      }
-    }
-    RCLCPP_WARN(LOGGER, "handlePickFromTargets: target index=%d all %zu candidates failed, trying other targets",
-                selected->index, candidates.size());
+    task.init();
+    task.enableIntrospection(true);
   }
-
-  /* 选中目标全部失败则依次尝试其余目标 */
-  for (const TargetObject& target : targets)
+  catch (mtc::InitStageException& e)
   {
-    if (target.index == selected->index)
-    {
-      continue;
-    }
-    candidates = grasp_generator_->generate(target);
-    for (std::size_t i = 0; i < candidates.size(); ++i)
-    {
-      RCLCPP_INFO(LOGGER, "handlePickFromTargets: fallback target index=%d candidate %zu/%zu",
-                  target.index, i + 1, candidates.size());
-      if (handlePick(candidates[i], oid))
-      {
-        return true;
-      }
-    }
+    RCLCPP_ERROR_STREAM(LOGGER, "close gripper init failed: " << e);
+    return false;
   }
-  RCLCPP_WARN(LOGGER, "handlePickFromTargets: all targets and candidates failed");
-  return false;
+  moveit::core::MoveItErrorCode plan_result = task.plan(5);
+  if (!plan_result)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "close gripper plan failed (code " << plan_result.val << ")");
+    task.explainFailure(std::cout);
+    return false;
+  }
+  if (task.solutions().empty())
+  {
+    RCLCPP_ERROR(LOGGER, "close gripper: no solutions");
+    return false;
+  }
+  moveit_task_constructor_msgs::msg::Solution solution_msg;
+  task.solutions().front()->toMsg(solution_msg, &task.introspection());
+  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_))
+  {
+    RCLCPP_ERROR(LOGGER, "close gripper execution failed");
+    return false;
+  }
+  RCLCPP_INFO(LOGGER, "close gripper finished");
+  return true;
 }
 
 void TaskManager::setPlaceGenerator(PlaceGenerator* place_generator)
 {
   place_generator_ = place_generator;
+}
+
+void TaskManager::setGripperLockedCallback(std::function<bool()> fn)
+{
+  is_gripper_locked_fn_ = std::move(fn);
+}
+
+void TaskManager::setJobEventCallback(JobEventFn fn)
+{
+  job_event_fn_ = std::move(fn);
+}
+
+void TaskManager::setHeldObjectStateCallback(HeldObjectStateFn fn)
+{
+  held_object_state_fn_ = std::move(fn);
+}
+
+void TaskManager::setRecoveryEventCallback(RecoveryEventFn fn)
+{
+  recovery_event_fn_ = std::move(fn);
+}
+
+void TaskManager::setStageReportCallback(StageReportFn fn)
+{
+  stage_report_fn_ = std::move(fn);
+}
+
+std::string TaskManager::getNextJobType() const
+{
+  ManipulationJob front;
+  if (!queue_ || !queue_->peekFront(front))
+  {
+    return "";
+  }
+  return jobTypeToCString(front.type);
 }
 
 bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& target_pose)
@@ -424,7 +585,19 @@ bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& targe
   moveit_task_constructor_msgs::msg::Solution place_solution_msg;
   task.solutions().front()->toMsg(place_solution_msg, &task.introspection());
   task.introspection().publishSolution(*task.solutions().front());
-  if (!solution_executor_->executeSolution(place_solution_msg, wait_for_gripped_fn_))
+  StageReportFn place_stage_report = nullptr;
+  if (stage_report_fn_)
+  {
+    place_stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                                const std::string& name, const std::string& state, const std::string& detail) {
+      if (stage_report_fn_)
+      {
+        stage_report_fn_(jid, tt, ix, name, state, detail);
+      }
+    };
+  }
+  if (!solution_executor_->executeSolution(place_solution_msg, wait_for_gripped_fn_,
+                                           place_stage_report, getCurrentJobId(), "PLACE", {}))
   {
     RCLCPP_ERROR(LOGGER, "Place execution failed");
     std::lock_guard<std::mutex> lock(state_mutex_);
@@ -434,6 +607,9 @@ bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& targe
 
   if (scene_manager_)
   {
+    /* 放置成功后兜底清除 attached，再更新 world 位姿，避免 scene 双份 */
+    scene_manager_->clearAttachedObjectFromPlanningScene("object");
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
     scene_manager_->applyObjectPoseToPlanningScene(px, py, pz, qx, qy, qz, qw);
   }
   {
@@ -441,6 +617,10 @@ bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& targe
     held_object_.valid = false;
   }
   setState(RobotTaskMode::IDLE);
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
+  }
   RCLCPP_INFO(LOGGER, "Place finished successfully, state=IDLE");
   return true;
 }
@@ -576,7 +756,19 @@ bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& targ
   moveit_task_constructor_msgs::msg::Solution release_solution_msg;
   task.solutions().front()->toMsg(release_solution_msg, &task.introspection());
   task.introspection().publishSolution(*task.solutions().front());
-  if (!solution_executor_->executeSolution(release_solution_msg, wait_for_gripped_fn_))
+  StageReportFn release_stage_report = nullptr;
+  if (stage_report_fn_)
+  {
+    release_stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                                 const std::string& name, const std::string& state, const std::string& detail) {
+      if (stage_report_fn_)
+      {
+        stage_report_fn_(jid, tt, ix, name, state, detail);
+      }
+    };
+  }
+  if (!solution_executor_->executeSolution(release_solution_msg, wait_for_gripped_fn_,
+                                           release_stage_report, getCurrentJobId(), "PLACE_RELEASE", {}))
   {
     RCLCPP_ERROR(LOGGER, "PlaceRelease execution failed");
     {
@@ -587,8 +779,11 @@ bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& targ
     return false;
   }
 
-  if (attached_id == "held_unknown" && scene_manager_)
+  if (scene_manager_)
   {
+    /* 放置成功后兜底清除所有可能残留的 attached */
+    scene_manager_->clearAttachedObjectFromPlanningScene("object");
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
     scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
   }
   {
@@ -596,6 +791,10 @@ bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& targ
     held_object_.valid = false;
   }
   setState(RobotTaskMode::IDLE);
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
+  }
   RCLCPP_INFO(LOGGER, "PlaceRelease finished successfully, state=IDLE");
   return true;
 }
@@ -662,6 +861,11 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
   }
   if (scene_manager_ && (need_attach_tracked || need_attach_held_unknown))
   {
+    /* sync(tracked) 时避免 world 残留 "object" 与 attached "held_tracked" 双份 */
+    if (need_attach_tracked)
+    {
+      scene_manager_->removeWorldObject("object");
+    }
     scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
     scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
   }
@@ -672,6 +876,10 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
   if (need_attach_held_unknown && scene_manager_ && !scene_manager_->applyAttachedHeldUnknownToScene())
   {
     RCLCPP_WARN(LOGGER, "sync_held_object: applyAttachedHeldUnknownToScene failed");
+  }
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
   }
   return true;
 }
@@ -697,6 +905,10 @@ bool TaskManager::handleResetHeldObject(std::string& out_message)
     scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
     scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
     scene_manager_->clearAttachedObjectFromPlanningScene("object");
+  }
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
   }
   return true;
 }
@@ -727,23 +939,6 @@ HeldObjectContext TaskManager::getHeldObject() const
 
 std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_reject_reason)
 {
-  if (policy_.reject_new_jobs_while_busy)
-  {
-    WorkerStatus s = getWorkerStatus();
-    if (s == WorkerStatus::RUNNING_JOB || s == WorkerStatus::RECOVERING)
-    {
-      const char* reason = "busy and reject_new_jobs_while_busy";
-      RCLCPP_WARN(LOGGER, "submitJob rejected: type=%s source=%s reason=%s",
-                  jobTypeToCString(job.type),
-                  job.source.empty() ? "(none)" : job.source.c_str(), reason);
-      if (out_reject_reason)
-      {
-        *out_reject_reason = reason;
-      }
-      return "";
-    }
-  }
-
   ManipulationJob j = job;
   if (j.job_id.empty())
   {
@@ -762,6 +957,28 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
       std::chrono::system_clock::now().time_since_epoch()).count();
   j.created_at_ns = now_ns;
 
+  if (policy_.reject_new_jobs_while_busy)
+  {
+    WorkerStatus s = getWorkerStatus();
+    if (s == WorkerStatus::RUNNING_JOB || s == WorkerStatus::RECOVERING)
+    {
+      const char* reason = "busy and reject_new_jobs_while_busy";
+      RCLCPP_WARN(LOGGER, "submitJob rejected: type=%s source=%s reason=%s",
+                  jobTypeToCString(j.type),
+                  j.source.empty() ? "(none)" : j.source.c_str(), reason);
+      if (out_reject_reason)
+      {
+        *out_reject_reason = reason;
+      }
+      if (job_event_fn_)
+      {
+        job_event_fn_(j.job_id, jobTypeToCString(j.type), j.source, static_cast<uint32_t>(j.priority),
+                      "REJECTED", false, reason, j.created_at_ns, 0, 0);
+      }
+      return "";
+    }
+  }
+
   std::string reject_reason;
   {
     std::lock_guard<std::mutex> lock(worker_mutex_);
@@ -774,6 +991,11 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
       {
         *out_reject_reason = reject_reason;
       }
+      if (job_event_fn_)
+      {
+        job_event_fn_(j.job_id, jobTypeToCString(j.type), j.source, static_cast<uint32_t>(j.priority),
+                      "REJECTED", false, reject_reason, j.created_at_ns, 0, 0);
+      }
       return "";
     }
     last_accepted_type_ = j.type;
@@ -782,6 +1004,11 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
   }
 
   queue_->push(j);
+  if (job_event_fn_)
+  {
+    job_event_fn_(j.job_id, jobTypeToCString(j.type), j.source, static_cast<uint32_t>(j.priority),
+                  "SUBMITTED", true, "", j.created_at_ns, 0, 0);
+  }
   const std::size_t qsize = queue_->size();
   RCLCPP_INFO(LOGGER,
               "submitJob accepted: job_id=%s type=%s source=%s priority=%d queue_size=%zu",
@@ -891,6 +1118,12 @@ bool TaskManager::cancelJob(const std::string& job_id, std::string* out_message)
     const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     pushExecutionRecordCancelled(removed_job, now_ns);
+    if (job_event_fn_)
+    {
+      job_event_fn_(removed_job.job_id, jobTypeToCString(removed_job.type), removed_job.source,
+                    static_cast<uint32_t>(removed_job.priority), "CANCELLED", false, "cancelled",
+                    removed_job.created_at_ns, 0, now_ns);
+    }
     if (out_message)
     {
       *out_message = "cancelled";
@@ -988,6 +1221,12 @@ void TaskManager::workerLoop()
       current_job_type_ = jobTypeToCString(job.type);
       current_job_has_pose_ = getJobPoseForDedup(job, &current_job_target_pose_);
     }
+    if (job_event_fn_)
+    {
+      job_event_fn_(job.job_id, jobTypeToCString(job.type), job.source,
+                    static_cast<uint32_t>(job.priority), "STARTED", true, "",
+                    job.created_at_ns, started_ns, 0);
+    }
     RCLCPP_INFO(LOGGER, "worker: executing job %s type=%s source=%s",
                 job.job_id.c_str(), jobTypeToCString(job.type),
                 job.source.empty() ? "(none)" : job.source.c_str());
@@ -1000,6 +1239,13 @@ void TaskManager::workerLoop()
     const int64_t finished_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     updateExecutionRecordFinish(ok ? JobResultCode::SUCCESS : JobResultCode::EXEC_FAILED, err_msg, finished_ns);
+    if (job_event_fn_)
+    {
+      job_event_fn_(job.job_id, jobTypeToCString(job.type), job.source,
+                    static_cast<uint32_t>(job.priority),
+                    ok ? "SUCCEEDED" : "FAILED", ok, err_msg,
+                    job.created_at_ns, started_ns, finished_ns);
+    }
     {
       std::lock_guard<std::mutex> lock(worker_mutex_);
       current_job_id_.clear();
@@ -1016,11 +1262,29 @@ void TaskManager::workerLoop()
           std::lock_guard<std::mutex> lock(worker_mutex_);
           worker_status_ = WorkerStatus::RECOVERING;
         }
-        recovery_actions_->resetHeldState();
-        recovery_actions_->clearSceneResiduals();
+        const std::string trigger = "execution_failure";
+        bool r1 = recovery_actions_->resetHeldState();
+        if (recovery_event_fn_)
+        {
+          recovery_event_fn_("RESET_HELD", trigger, r1, r1 ? "ok" : "failed");
+        }
+        bool r2 = recovery_actions_->clearSceneResiduals();
+        if (recovery_event_fn_)
+        {
+          recovery_event_fn_("CLEAR_SCENE", trigger, r2, r2 ? "ok" : "failed");
+        }
+        bool r3 = true;
         if (policy_.auto_go_home_after_failure)
         {
-          recovery_actions_->goHomeIfSafe();
+          r3 = recovery_actions_->goHomeIfSafe();
+          if (recovery_event_fn_)
+          {
+            recovery_event_fn_("GO_HOME", trigger, r3, r3 ? "ok" : "skipped or failed");
+          }
+        }
+        if (recovery_event_fn_)
+        {
+          recovery_event_fn_("AUTO_RECOVERY", trigger, r1 && r2 && r3, "reset_held + clear_scene + go_home");
         }
         std::lock_guard<std::mutex> lock(worker_mutex_);
         worker_status_ = WorkerStatus::IDLE;
@@ -1035,16 +1299,12 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   {
     case JobType::PICK:
     {
-      if (job.object_pose.has_value())
+      if (!job.object_pose.has_value())
       {
-        return handlePick(job.object_pose.value(), job.object_id);
+        RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose");
+        return false;
       }
-      if (target_cache_ && target_selector_ && grasp_generator_)
-      {
-        return handlePickFromTargets(job.object_id);
-      }
-      RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose and no target selection");
-      return false;
+      return handlePick(job.object_pose.value(), job.object_id);
     }
     case JobType::PLACE:
     {
@@ -1069,6 +1329,10 @@ bool TaskManager::executeJob(const ManipulationJob& job)
       std::string msg;
       return handleResetHeldObject(msg);
     }
+    case JobType::OPEN_GRIPPER:
+      return handleOpenGripper();
+    case JobType::CLOSE_GRIPPER:
+      return handleCloseGripper();
     case JobType::SYNC_HELD_OBJECT:
     {
       std::string msg;

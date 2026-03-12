@@ -127,20 +127,20 @@ mtc::Task PlaceReleaseTaskBuilder::build(const geometry_msgs::msg::PoseStamped& 
 
   if (!attached_object_id.empty())
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for return home");
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for move to ready");
     stage->allowCollisions(attached_object_id, RETURN_HOME_OBJECT_ALLOWED_LINKS, true);
     task.add(std::move(stage));
   }
   {
-    auto stage = std::make_unique<mtc::stages::MoveTo>("return home", ptp_planner);
+    auto stage = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
     stage->setGroup(arm_group_name);
     stage->setGoal("ready");
     task.add(std::move(stage));
   }
   {
-    auto stage = std::make_unique<mtc::stages::MoveTo>("close hand (return home)", interpolation_planner);
+    auto stage = std::make_unique<mtc::stages::MoveTo>("open hand (ready)", interpolation_planner);
     stage->setGroup(hand_group_name);
-    stage->setGoal("close");
+    stage->setGoal("open");
     task.add(std::move(stage));
   }
 

@@ -32,6 +32,7 @@ void declareParameters(rclcpp::Node* node)
   };
   declare_if_not_set("approach_object_min_dist", 0.08);
   declare_if_not_set("approach_object_max_dist", 0.15);
+  declare_if_not_set("approach_min_fraction", 0.85);
   declare_if_not_set("lift_object_min_dist", 0.05);
   declare_if_not_set("lift_object_max_dist", 0.25);
   declare_str_if_not_set("support_surface_link", "");
@@ -56,6 +57,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   }
   node->get_parameter("approach_object_min_dist", config.approach_object_min_dist);
   node->get_parameter("approach_object_max_dist", config.approach_object_max_dist);
+  node->get_parameter("approach_min_fraction", config.approach_min_fraction);
   node->get_parameter("lift_object_min_dist", config.lift_object_min_dist);
   node->get_parameter("lift_object_max_dist", config.lift_object_max_dist);
   node->get_parameter("retreat_min_dist", config.retreat_min_dist);

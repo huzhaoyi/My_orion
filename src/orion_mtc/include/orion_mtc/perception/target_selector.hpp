@@ -22,6 +22,8 @@ struct TargetSelectorParams
   double distance_weight = 1.0;
   /** 最低置信度阈值，低于则过滤 */
   double min_confidence = 0.0;
+  /** 优先选中的目标 index，若存在则直接返回该目标；<0 表示不按 index 优先，按距离/姿态打分 */
+  int preferred_index = 1;
 };
 
 class TargetSelector

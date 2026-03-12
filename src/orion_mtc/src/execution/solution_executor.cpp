@@ -103,7 +103,11 @@ SolutionExecutor::SolutionExecutor(PlanningSceneManager* scene_manager,
 
 bool SolutionExecutor::executeSolution(
     const moveit_task_constructor_msgs::msg::Solution& solution_msg,
-    WaitForGrippedFn wait_for_gripped)
+    WaitForGrippedFn wait_for_gripped,
+    StageReportFn stage_report,
+    const std::string& job_id,
+    const std::string& task_type,
+    const std::vector<std::string>& stage_names)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -113,14 +117,36 @@ bool SolutionExecutor::executeSolution(
   RCLCPP_INFO(LOGGER, "executeSolution: executing %zu trajectory segments",
               solution_msg.sub_trajectory.size());
 
+  auto stage_name_at = [&stage_names](size_t i) -> std::string {
+    if (i < stage_names.size())
+    {
+      return stage_names[i];
+    }
+    return "segment_" + std::to_string(i);
+  };
+
   bool have_waited_gripped = false;
   for (size_t i = 0; i < solution_msg.sub_trajectory.size(); ++i)
   {
+    const std::string name = stage_name_at(i);
+    if (stage_report)
+    {
+      stage_report(job_id, task_type, i, name, "ENTER", "");
+      stage_report(job_id, task_type, i, name, "RUNNING", "");
+    }
     RCLCPP_INFO(LOGGER, "Executing segment %zu / %zu", i + 1, solution_msg.sub_trajectory.size());
     if (!trajectory_executor_->executeSubTrajectory(solution_msg.sub_trajectory[i], scene_manager_))
     {
+      if (stage_report)
+      {
+        stage_report(job_id, task_type, i, name, "FAILED", "segment execution failed");
+      }
       RCLCPP_ERROR(LOGGER, "executeSolution: segment %zu failed", i);
       return false;
+    }
+    if (stage_report)
+    {
+      stage_report(job_id, task_type, i, name, "DONE", "");
     }
     const auto& sub = solution_msg.sub_trajectory[i];
     if (isHandOnlySegment(sub) && wait_for_gripped)
@@ -147,7 +173,11 @@ bool SolutionExecutor::executePickSolution(
     const std::string& object_id,
     const moveit::core::RobotModelConstPtr& robot_model,
     HeldObjectContext& held_context_out,
-    WaitForGrippedFn wait_for_gripped)
+    WaitForGrippedFn wait_for_gripped,
+    StageReportFn stage_report,
+    const std::string& job_id,
+    const std::string& task_type,
+    const std::vector<std::string>& stage_names)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -158,14 +188,36 @@ bool SolutionExecutor::executePickSolution(
   trajectory_msgs::msg::JointTrajectory last_trajectory;
   bool have_waited_gripped = false;
 
+  auto stage_name_at = [&stage_names](size_t i) -> std::string {
+    if (i < stage_names.size())
+    {
+      return stage_names[i];
+    }
+    return "segment_" + std::to_string(i);
+  };
+
   for (size_t i = 0; i < solution_msg.sub_trajectory.size(); ++i)
   {
+    const std::string name = stage_name_at(i);
+    if (stage_report)
+    {
+      stage_report(job_id, task_type, i, name, "ENTER", "");
+      stage_report(job_id, task_type, i, name, "RUNNING", "");
+    }
     const auto& sub = solution_msg.sub_trajectory[i];
     RCLCPP_INFO(LOGGER, "Executing pick segment %zu / %zu", i + 1, solution_msg.sub_trajectory.size());
     if (!trajectory_executor_->executeSubTrajectory(sub, scene_manager_))
     {
+      if (stage_report)
+      {
+        stage_report(job_id, task_type, i, name, "FAILED", "segment execution failed");
+      }
       RCLCPP_ERROR(LOGGER, "executePickSolution: segment %zu failed", i);
       return false;
+    }
+    if (stage_report)
+    {
+      stage_report(job_id, task_type, i, name, "DONE", "");
     }
     if (!sub.trajectory.joint_trajectory.points.empty())
     {
@@ -173,6 +225,11 @@ bool SolutionExecutor::executePickSolution(
     }
     if (sceneDiffHasAttach(sub) && !last_trajectory.points.empty())
     {
+      /* attach 已通过 executeSubTrajectory 应用，兜底移除 world 中同名物体，避免 scene 双份导致规划碰撞 */
+      if (scene_manager_)
+      {
+        scene_manager_->removeWorldObject("object");
+      }
       geometry_msgs::msg::Pose tcp_pose;
       if (computeTcpPoseFromTrajectoryEnd(robot_model, last_trajectory, hand_frame, tcp_pose))
       {
@@ -208,7 +265,7 @@ bool SolutionExecutor::executePickSolution(
       {
         if (!wait_for_gripped(true, 5.0))
         {
-          RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout, pick failed (no object or sensor)");
+          RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout, pick failed (no grip detected)");
           return false;
         }
         have_waited_gripped = true;
@@ -216,7 +273,9 @@ bool SolutionExecutor::executePickSolution(
       else if (have_waited_gripped)
       {
         if (!wait_for_gripped(false, 5.0))
+        {
           RCLCPP_WARN(LOGGER, "executePickSolution: wait unlock timeout");
+        }
       }
     }
   }

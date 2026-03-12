@@ -1,0 +1,262 @@
+/**
+ * Orion 上位机 - 工业深色主题 (SEALIEN 品牌 + 高对比状态)
+ * 背景 #0F172A / 卡片 #1E293B，主色 #3B82F6，状态色一眼可辨
+ */
+
+:root {
+  /* SEALIEN 品牌色 */
+  --color-brand: #00A9E0;
+  --color-brand-dark: #0088b8;
+  --color-brand-light: #33bae8;
+
+  /* 工业深色背景 */
+  --bg-page: #0F172A;
+  --bg-panel: #1E293B;
+  --bg-card: #1E293B;
+  --bg-input: #0F172A;
+  --bg-hover: #334155;
+
+  /* 主色与语义色 */
+  --color-primary: #3B82F6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #06B6D4;
+
+  /* 状态色块 - 顶部栏：绿/蓝/青/红/橙 一眼识别 */
+  --status-idle: #3B82F6;
+  --status-connected: #22C55E;
+  --status-taskmode: #06B6D4;
+  --status-running: #3B82F6;
+  --status-recovering: #F59E0B;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+  --status-disconnected: #64748B;
+
+  /* 轨迹/目标色 */
+  --trajectory-planned: #22C55E;
+  --trajectory-executing: #00A9E0;
+  --target-pick: #00A9E0;
+  --target-place: #33bae8;
+  --attached-object: #F59E0B;
+  --world-object: #94A3B8;
+  --collision-debug: rgba(239, 68, 68, 0.5);
+
+  /* 文字层级 */
+  --text-primary: #E8E8E8;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+
+  /* 卡片内 label / value */
+  --text-label: #9CA3AF;
+  --text-value: #F1F5F9;
+
+  /* 边框与分割 */
+  --border: #334155;
+  --border-focus: var(--color-primary);
+
+  /* 尺寸 */
+  --top-bar-height: 40px;
+  --left-panel-width: 18%;
+  --right-panel-width: 18%;
+  --bottom-panel-height: 180px;
+  --radius: 4px;
+  --radius-btn: 6px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+button:hover {
+  background: var(--bg-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+button.btn-action {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-btn);
+  font-weight: 500;
+}
+
+button.btn-secondary {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-btn);
+  background: #334155;
+  border-color: #334155;
+  color: #fff;
+}
+
+button.danger {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: #fff;
+}
+
+input, select, textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+label {
+  color: var(--text-label);
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+/* 状态标签 - 工业风格 + 图标，颜色一眼识别 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.badge-icon {
+  font-size: 10px;
+  opacity: 0.95;
+}
+
+.badge-connected { background: var(--status-connected); color: #fff; }
+.badge-idle,
+.badge-running { background: var(--status-idle); color: #fff; }
+.badge-taskmode { background: var(--status-taskmode); color: #fff; }
+.badge-job,
+.badge-queue { background: var(--border); color: var(--text-secondary); }
+.badge-recovering,
+.badge-warning { background: var(--status-warning); color: #0F172A; }
+.badge-error,
+.badge-disconnected { background: var(--status-error); color: #fff; }
+
+/* 卡片 - 留白 + 阴影层次 */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #E5E7EB;
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+}
+
+/* 卡片内容层级：标题突出，内容 12px 次级色 */
+.card-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.card-row .card-label {
+  font-size: 12px;
+  color: #94A3B8;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.card-row .card-value {
+  font-size: 12px;
+  color: #E5E7EB;
+  word-break: break-all;
+}
+
+/* Tab */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+  gap: 2px;
+}
+
+.tab {
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  margin-bottom: -1px;
+  font-size: 12px;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* 日志 - 180px 区域 + 级别色区分 */
+.log-line {
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-line.log-info { color: #9CA3AF; }
+.log-line.log-warn { color: var(--color-warning); background: rgba(245, 158, 11, 0.08); }
+.log-line.log-error { color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
+.log-line.log-success { color: var(--color-success); background: rgba(34, 197, 94, 0.06); }

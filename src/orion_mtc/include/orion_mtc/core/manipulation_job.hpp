@@ -17,7 +17,9 @@ enum class JobType
   PLACE,
   PLACE_RELEASE,
   RESET_HELD_OBJECT,
-  SYNC_HELD_OBJECT
+  SYNC_HELD_OBJECT,
+  OPEN_GRIPPER,
+  CLOSE_GRIPPER
 };
 
 struct ManipulationJob
@@ -61,6 +63,10 @@ inline const char* jobTypeToCString(JobType t)
       return "RESET_HELD_OBJECT";
     case JobType::SYNC_HELD_OBJECT:
       return "SYNC_HELD_OBJECT";
+    case JobType::OPEN_GRIPPER:
+      return "OPEN_GRIPPER";
+    case JobType::CLOSE_GRIPPER:
+      return "CLOSE_GRIPPER";
     default:
       return "NONE";
   }
@@ -79,6 +85,8 @@ inline int getDefaultPriority(JobType t)
       return 70;
     case JobType::PICK:
     case JobType::PLACE:
+    case JobType::OPEN_GRIPPER:
+    case JobType::CLOSE_GRIPPER:
     default:
       return 0;
   }

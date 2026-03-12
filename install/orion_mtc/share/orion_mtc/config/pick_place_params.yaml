@@ -1,1 +1,45 @@
-/home/huzy/My_orion/src/orion_mtc/config/pick_place_params.yaml
+# 若机械臂姿态“扭曲”、不像真实机械臂：
+# 1) 核对 orion.urdf 各关节 origin/axis/limit 与实机一致，零位与 SRDF ready 一致；
+# 2) 在 orion_moveit_config/config/joint_limits.yaml 为各关节加 has_position_limits/min_position/max_position（实机限位），避免规划到不可达姿态；
+# 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
+
+# Approach: 沿末端 z 接近物体的距离范围 [m]
+# 没夹到时可调：1) 增大 approach_object_min_dist（如 0.12）让 approach 至少走够远；
+# 2) 略减 approach_object_max_dist（如 0.12）让预抓取更低、更贴近物体；3) 增大 approach_min_fraction（如 0.9~1.0）
+approach_object_min_dist: 0.08
+approach_object_max_dist: 0.15
+# approach 段最少走满距离的比例 [0,1]，越大越易夹到（末端更贴近再闭合），实机没夹到可试 0.9 或 1.0
+approach_min_fraction: 0.95
+
+# Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
+lift_object_min_dist: 0.05
+lift_object_max_dist: 0.25
+
+# 支撑面 link：非空时在 Lift 前加 allow collision (object,support)、Lift 后加 forbid
+# 无桌面时留空 ""；加桌面后填对应 collision object 的 id 或 link 名（如 "table"）
+support_surface_link: ""
+
+# 放置目标（base_link 下）：xy 为放置点，z 为最终放置高度（建议 桌面高+半物体高，如 0.4）
+# 动态放置时由 /place_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），无话题时使用下列参数
+# 内部会使用 preplace_z = place_pose_z + lower_to_place_max_dist，再 LIN 沿手爪 -Z 下降，末端姿态固定朝下
+place_pose_x: 0.35
+place_pose_y: 0.15
+place_pose_z: 0.4
+place_pose_qx: 0.0
+place_pose_qy: 0.0
+place_pose_qz: 0.0
+place_pose_qw: 1.0
+
+# Retreat 退离距离范围 [m]
+retreat_min_dist: 0.12
+retreat_max_dist: 0.25
+
+# 放置前下降距离范围 [m]
+lower_to_place_min_dist: 0.05
+lower_to_place_max_dist: 0.12
+
+# 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），不在此配置
+# 预抓取位姿由物体位置计算：pregrasp = (obj_x, obj_y, obj_z + approach_object_max_dist)，夹爪朝下
+#
+# 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped（std_msgs/Float32）判断抓稳再抬升，
+# 放置“张开”段后根据 left_arm_gripped 从 lock 变为 unlock 再退离。left_arm_gripped 由 arm_sensor_to_joint_state 从 HoloOcean ArmSensor 发布。

@@ -18,6 +18,8 @@ struct MTCConfig
   /* pick approach / lift */
   double approach_object_min_dist = 0.08f;
   double approach_object_max_dist = 0.15f;
+  /* approach 段最少走满距离的比例 [0,1]，越大越容易“夹到”（末端更贴近物体再闭合） */
+  double approach_min_fraction = 0.85f;
   double lift_object_min_dist = 0.05f;
   double lift_object_max_dist = 0.25f;
   /* place retreat / lower */

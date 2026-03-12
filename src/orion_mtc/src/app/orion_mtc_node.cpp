@@ -4,13 +4,11 @@
 #include "orion_mtc/config/mtc_config.hpp"
 #include "orion_mtc/config/runtime_policy_loader.hpp"
 #include "orion_mtc/core/constants.hpp"
+#include "orion_mtc/core/held_object.hpp"
 #include "orion_mtc/core/manipulation_job.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
 #include "orion_mtc/core/task_state.hpp"
 #include "orion_mtc/perception/pose_cache.hpp"
-#include "orion_mtc/perception/target_cache.hpp"
-#include "orion_mtc/perception/target_selector.hpp"
-#include "orion_mtc/perception/grasp_generator.hpp"
 #include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
@@ -18,8 +16,12 @@
 #include "orion_mtc/orchestration/task_manager.hpp"
 #include "orion_mtc/orchestration/task_queue.hpp"
 #include "orion_mtc/core/job_result_code.hpp"
+#include <builtin_interfaces/msg/time.hpp>
 #include <orion_mtc_msgs/msg/job_execution_record.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <cstdint>
+#include <std_srvs/srv/trigger.hpp>
+#include <chrono>
 #include <thread>
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc");
@@ -43,9 +45,6 @@ void OrionMTCNode::initModules()
 {
   object_pose_cache_ = std::make_shared<PoseCache>("base_link");
   place_pose_cache_ = std::make_shared<PoseCache>("base_link");
-  target_cache_ = std::make_shared<TargetCache>("base_link");
-  target_selector_ = std::make_shared<TargetSelector>(TargetSelectorParams());
-  grasp_generator_ = std::make_shared<GraspGenerator>(GraspGeneratorParams());
   place_generator_ = std::make_shared<PlaceGenerator>(PlaceGeneratorParams());
   scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_.get());
   trajectory_executor_ = std::make_shared<TrajectoryExecutor>(action_client_node_.get());
@@ -79,9 +78,27 @@ void OrionMTCNode::initModules()
       node_, config_, scene_manager_.get(), trajectory_executor_.get(),
       solution_executor_.get(), std::move(wait_fn));
   task_manager_->setPolicy(runtime_policy_);
-  task_manager_->setTargetSelection(target_cache_.get(), target_selector_.get(), grasp_generator_.get());
   task_manager_->setPlaceGenerator(place_generator_.get());
+  /* locked = 夹爪有物，此时禁止 pick 避免 object 在夹爪上导致规划失败 */
+  task_manager_->setGripperLockedCallback([this]() { return isGripperLocked(); });
 }
+
+namespace
+{
+void nsToTime(int64_t ns, builtin_interfaces::msg::Time& t)
+{
+  if (ns <= 0)
+  {
+    t.sec = 0;
+    t.nanosec = 0u;
+    return;
+  }
+  const int64_t sec = ns / 1000000000;
+  const int64_t nsec = ns % 1000000000;
+  t.sec = static_cast<int32_t>(sec);
+  t.nanosec = static_cast<uint32_t>(nsec);
+}
+}  // namespace
 
 void OrionMTCNode::initInterfaces()
 {
@@ -93,10 +110,6 @@ void OrionMTCNode::initInterfaces()
   sub_place_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       ns + "/place_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
         place_pose_cache_->update(*msg);
-      });
-  sub_target_set_ = action_client_node_->create_subscription<orion_mtc_msgs::msg::TargetSet>(
-      ns + "/target_set", 10, [this](const orion_mtc_msgs::msg::TargetSet::SharedPtr msg) {
-        target_cache_->update(*msg);
       });
   sub_pick_trigger_ = action_client_node_->create_subscription<std_msgs::msg::Empty>(
       ns + "/pick_trigger", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
@@ -180,6 +193,18 @@ void OrionMTCNode::initInterfaces()
              std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res) {
         handleCancelJob(req, res);
       });
+  open_gripper_srv_ = action_client_node_->create_service<std_srvs::srv::Trigger>(
+      ns + "/open_gripper",
+      [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+             std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
+        handleOpenGripper(req, res);
+      });
+  close_gripper_srv_ = action_client_node_->create_service<std_srvs::srv::Trigger>(
+      ns + "/close_gripper",
+      [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+             std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
+        handleCloseGripper(req, res);
+      });
   reset_held_object_srv_ =
       action_client_node_->create_service<orion_mtc_msgs::srv::ResetHeldObject>(
           ns + "/reset_held_object",
@@ -193,6 +218,108 @@ void OrionMTCNode::initInterfaces()
              std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res) {
         handleSyncHeldObject(req, res);
       });
+
+  setupStatusPublishersAndCallbacks();
+}
+
+void OrionMTCNode::setupStatusPublishersAndCallbacks()
+{
+  const std::string ns(MANIPULATOR_NS);
+  pub_runtime_status_ =
+      action_client_node_->create_publisher<orion_mtc_msgs::msg::RuntimeStatus>(ns + "/runtime_status", 10);
+  pub_job_event_ =
+      action_client_node_->create_publisher<orion_mtc_msgs::msg::JobEvent>(ns + "/job_event", 10);
+  pub_task_stage_ =
+      action_client_node_->create_publisher<orion_mtc_msgs::msg::TaskStage>(ns + "/task_stage", 10);
+  pub_held_object_state_ =
+      action_client_node_->create_publisher<orion_mtc_msgs::msg::HeldObjectState>(ns + "/held_object_state", 10);
+  pub_recovery_event_ =
+      action_client_node_->create_publisher<orion_mtc_msgs::msg::RecoveryEvent>(ns + "/recovery_event", 10);
+
+  runtime_status_timer_ = action_client_node_->create_wall_timer(
+      std::chrono::milliseconds(500), [this]() { publishRuntimeStatus(); });
+
+  task_manager_->setJobEventCallback([this](const std::string& job_id, const std::string& job_type,
+                                            const std::string& source, uint32_t priority,
+                                            const std::string& event_type, bool success,
+                                            const std::string& reason, int64_t created_at_ns,
+                                            int64_t started_at_ns, int64_t finished_at_ns) {
+    orion_mtc_msgs::msg::JobEvent msg;
+    msg.header.stamp = action_client_node_->now();
+    msg.job_id = job_id;
+    msg.job_type = job_type;
+    msg.source = source;
+    msg.priority = priority;
+    msg.event_type = event_type;
+    msg.success = success;
+    msg.reason = reason;
+    nsToTime(created_at_ns, msg.created_at);
+    nsToTime(started_at_ns, msg.started_at);
+    nsToTime(finished_at_ns, msg.finished_at);
+    pub_job_event_->publish(msg);
+  });
+
+  task_manager_->setHeldObjectStateCallback([this](const HeldObjectContext& ctx) {
+    orion_mtc_msgs::msg::HeldObjectState msg;
+    msg.header.stamp = action_client_node_->now();
+    msg.valid = ctx.valid;
+    msg.tracked = isTracked(ctx);
+    msg.object_id = ctx.object_id;
+    msg.scene_attach_id = ctx.scene_attach_id;
+    msg.attach_link = ctx.attach_link;
+    msg.object_pose_at_grasp = ctx.object_pose_at_grasp;
+    msg.tcp_pose_at_grasp = ctx.tcp_pose_at_grasp;
+    msg.weight = static_cast<float>(ctx.weight);
+    pub_held_object_state_->publish(msg);
+  });
+
+  task_manager_->setRecoveryEventCallback([this](const std::string& recovery_type,
+                                                 const std::string& trigger_reason,
+                                                 bool success, const std::string& detail) {
+    orion_mtc_msgs::msg::RecoveryEvent msg;
+    msg.header.stamp = action_client_node_->now();
+    msg.recovery_type = recovery_type;
+    msg.trigger_reason = trigger_reason;
+    msg.success = success;
+    msg.detail = detail;
+    pub_recovery_event_->publish(msg);
+  });
+
+  task_manager_->setStageReportCallback([this](const std::string& job_id, const std::string& task_type,
+                                               std::size_t stage_index, const std::string& stage_name,
+                                               const std::string& stage_state, const std::string& detail) {
+    (void)stage_index;
+    orion_mtc_msgs::msg::TaskStage msg;
+    msg.header.stamp = action_client_node_->now();
+    msg.job_id = job_id;
+    msg.task_type = task_type;
+    msg.stage_name = stage_name;
+    msg.stage_state = stage_state;
+    msg.detail = detail;
+    pub_task_stage_->publish(msg);
+  });
+}
+
+void OrionMTCNode::publishRuntimeStatus()
+{
+  orion_mtc_msgs::msg::RuntimeStatus msg;
+  msg.header.stamp = action_client_node_->now();
+  msg.header.frame_id = "";
+  msg.worker_status = toCString(task_manager_->getWorkerStatus());
+  msg.task_mode = toStateString(task_manager_->getMode());
+  msg.current_job_id = task_manager_->getCurrentJobId();
+  msg.current_job_type = task_manager_->getCurrentJobType();
+  msg.next_job_type = task_manager_->getNextJobType();
+  msg.worker_running = task_manager_->isWorkerRunning();
+  std::shared_ptr<TaskQueue> q = task_manager_->getQueue();
+  msg.queue_empty = !q || q->empty();
+  msg.queue_size = q ? static_cast<uint32_t>(q->size()) : 0u;
+  HeldObjectContext held = task_manager_->getHeldObject();
+  msg.has_held_object = held.valid;
+  msg.held_object_id = held.valid ? held.object_id : "";
+  msg.held_scene_attach_id = held.valid ? held.scene_attach_id : "";
+  msg.last_error = task_manager_->getLastError();
+  pub_runtime_status_->publish(msg);
 }
 
 void OrionMTCNode::onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -207,34 +334,29 @@ void OrionMTCNode::onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::Sh
 
 void OrionMTCNode::onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr)
 {
-  /* 优先多目标：有 target_set 则入队 PICK（无 object_pose），worker 内选目标+候选抓取；否则回退单 pose */
+  /* Pick 仅使用话题 /object_pose：有则入队，无则等待后入队；夹爪 locked（有物）时拒绝 */
   std::thread([this]() {
+    if (isGripperLocked())
+    {
+      RCLCPP_WARN(LOGGER, "topic_pick_trigger: gripper locked (has object), not enqueued (place or open_gripper first)");
+      return;
+    }
     ManipulationJob job;
     job.type = JobType::PICK;
     job.object_id = "";
     job.source = "topic_pick_trigger";
-    if (target_cache_->hasTargets())
+    std::optional<geometry_msgs::msg::PoseStamped> topic_pose = object_pose_cache_->latest();
+    if (!topic_pose.has_value())
     {
-      job.object_pose = std::nullopt;
-      std::string reject_reason;
-      std::string job_id = task_manager_->submitJob(job, &reject_reason);
-      if (job_id.empty())
+      geometry_msgs::msg::PoseStamped pose;
+      if (!object_pose_cache_->waitForPose(std::chrono::milliseconds(3000), pose))
       {
-        RCLCPP_INFO(LOGGER, "topic_pick_trigger: rejected (%s)", reject_reason.c_str());
+        RCLCPP_WARN(LOGGER, "topic_pick_trigger: no object_pose after wait, not enqueued");
+        return;
       }
-      else
-      {
-        RCLCPP_INFO(LOGGER, "topic_pick_trigger: accepted job_id=%s (multi-target)", job_id.c_str());
-      }
-      return;
+      topic_pose = pose;
     }
-    geometry_msgs::msg::PoseStamped pose;
-    if (!object_pose_cache_->waitForPose(std::chrono::milliseconds(3000), pose))
-    {
-      RCLCPP_WARN(LOGGER, "topic_pick_trigger: no target_set and no object pose after wait, not enqueued");
-      return;
-    }
-    job.object_pose = pose;
+    job.object_pose = *topic_pose;
     std::string reject_reason;
     std::string job_id = task_manager_->submitJob(job, &reject_reason);
     if (job_id.empty())
@@ -286,6 +408,12 @@ void OrionMTCNode::onLeftArmGrippedReceived(const std_msgs::msg::Float32::Shared
   left_arm_gripped_.store(static_cast<double>(msg->data));
 }
 
+bool OrionMTCNode::isGripperLocked() const
+{
+  const double threshold = 0.5;
+  return left_arm_gripped_.load() >= threshold;
+}
+
 rclcpp_action::GoalResponse OrionMTCNode::handlePickGoalRequest(
     const rclcpp_action::GoalUUID&,
     std::shared_ptr<const orion_mtc_msgs::action::Pick::Goal>)
@@ -294,6 +422,11 @@ rclcpp_action::GoalResponse OrionMTCNode::handlePickGoalRequest(
   if (isHolding(mode))
   {
     RCLCPP_INFO(LOGGER, "Pick goal rejected: already holding (place or reset_held_object first)");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+  if (isGripperLocked())
+  {
+    RCLCPP_INFO(LOGGER, "Pick goal rejected: gripper locked (has object), place or open_gripper first");
     return rclcpp_action::GoalResponse::REJECT;
   }
   if (!canAcceptPick(mode))
@@ -467,10 +600,16 @@ void OrionMTCNode::handleSubmitJob(
     const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Response> res)
 {
-  if (req->job_type > 4)
+  if (req->job_type > 6)
   {
     res->success = false;
-    res->message = "invalid job_type (0=PICK,1=PLACE,2=PLACE_RELEASE,3=RESET_HELD_OBJECT,4=SYNC_HELD_OBJECT)";
+    res->message = "invalid job_type (0=PICK,1=PLACE,2=PLACE_RELEASE,3=RESET,4=SYNC,5=OPEN_GRIPPER,6=CLOSE_GRIPPER)";
+    return;
+  }
+  if (req->job_type == static_cast<uint8_t>(JobType::PICK) && isGripperLocked())
+  {
+    res->success = false;
+    res->message = "gripper locked (has object), place or open_gripper first";
     return;
   }
   ManipulationJob job;
@@ -519,6 +658,32 @@ void OrionMTCNode::handleSyncHeldObject(
 {
   res->success = task_manager_->handleSyncHeldObject(
       req->set_holding, req->tracked, req->object_id, req->object_pose, req->tcp_pose, res->message);
+}
+
+void OrionMTCNode::handleOpenGripper(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  ManipulationJob job;
+  job.type = JobType::OPEN_GRIPPER;
+  job.source = "open_gripper_srv";
+  std::string reject_reason;
+  std::string job_id = task_manager_->submitJob(job, &reject_reason);
+  res->success = !job_id.empty();
+  res->message = res->success ? job_id : ("rejected: " + reject_reason);
+}
+
+void OrionMTCNode::handleCloseGripper(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  ManipulationJob job;
+  job.type = JobType::CLOSE_GRIPPER;
+  job.source = "close_gripper_srv";
+  std::string reject_reason;
+  std::string job_id = task_manager_->submitJob(job, &reject_reason);
+  res->success = !job_id.empty();
+  res->message = res->success ? job_id : ("rejected: " + reject_reason);
 }
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getNodeBaseInterface()

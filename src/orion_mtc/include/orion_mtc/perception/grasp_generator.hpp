@@ -16,8 +16,8 @@ using GraspCandidate = geometry_msgs::msg::PoseStamped;
 
 struct GraspGeneratorParams
 {
-  /** 绕圆柱轴采样角度（度），多采样提高 IK 可解概率，如 0,30,60,90,120,150 */
-  std::vector<double> yaw_degrees = { 0.0, 30.0, 60.0, 90.0, 120.0, 150.0 };
+  /** 绕圆柱轴采样角度（度）；少量备选（如 0,90,180）用于 NO_IK_SOLUTION 时换姿态重试 */
+  std::vector<double> yaw_degrees = { 0.0, 90.0, 180.0 };
   /** 输出 PoseStamped 的 frame_id */
   std::string frame_id = "base_link";
 };

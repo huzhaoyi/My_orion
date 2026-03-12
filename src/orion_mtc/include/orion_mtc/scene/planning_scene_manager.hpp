@@ -25,7 +25,7 @@ public:
   explicit PlanningSceneManager(rclcpp::Node* node);
   ~PlanningSceneManager() = default;
 
-  /* 放置成功后把 planning scene 中物体更新到目标位姿，供 return home 及后续规划使用 */
+  /* 放置成功后把 planning scene 中物体更新到目标位姿，供 move to ready 及后续规划使用 */
   bool applyObjectPoseToPlanningScene(double px, double py, double pz,
                                       double qx, double qy, double qz, double qw);
 
@@ -34,6 +34,9 @@ public:
 
   /* 从 planning scene 移除已 attach 的物体（held_unknown / object），尽力清理 */
   bool clearAttachedObjectFromPlanningScene(const std::string& object_id);
+
+  /* 从 world 中移除指定 id 的碰撞体（抓取 attach 后兜底清理，避免 scene 双份物体） */
+  bool removeWorldObject(const std::string& object_id);
 
   /* sync(tracked=true) 时把 target 几何 attach 到 Link6，id=held_tracked */
   bool applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object);

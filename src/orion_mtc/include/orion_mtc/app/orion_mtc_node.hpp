@@ -16,12 +16,18 @@
 #include <orion_mtc_msgs/srv/reset_held_object.hpp>
 #include <orion_mtc_msgs/srv/submit_job.hpp>
 #include <orion_mtc_msgs/srv/sync_held_object.hpp>
+#include <orion_mtc_msgs/msg/runtime_status.hpp>
+#include <orion_mtc_msgs/msg/job_event.hpp>
+#include <orion_mtc_msgs/msg/task_stage.hpp>
+#include <orion_mtc_msgs/msg/held_object_state.hpp>
+#include <orion_mtc_msgs/msg/recovery_event.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/timer.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
-#include <orion_mtc_msgs/msg/target_set.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -33,9 +39,6 @@ class PlanningSceneManager;
 class TrajectoryExecutor;
 class SolutionExecutor;
 class TaskManager;
-class TargetCache;
-class TargetSelector;
-class GraspGenerator;
 class PlaceGenerator;
 }
 
@@ -52,12 +55,17 @@ public:
 private:
   void initModules();
   void initInterfaces();
+  void publishRuntimeStatus();
+  void setupStatusPublishersAndCallbacks();
 
   void onObjectPoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void onPlacePoseReceived(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
   void onPlaceTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
   void onLeftArmGrippedReceived(const std_msgs::msg::Float32::SharedPtr msg);
+
+  /** 夹爪有物（locked）：与 waitForGripped 阈值一致，用于拒绝 pick */
+  bool isGripperLocked() const;
 
   rclcpp_action::GoalResponse handlePickGoalRequest(const rclcpp_action::GoalUUID& uuid,
                                                     std::shared_ptr<const orion_mtc_msgs::action::Pick::Goal> goal);
@@ -95,6 +103,10 @@ private:
                       std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res);
   void handleSyncHeldObject(const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
                             std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res);
+  void handleOpenGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                        std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+  void handleCloseGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                         std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Node::SharedPtr action_client_node_;
@@ -102,9 +114,6 @@ private:
   RuntimePolicy runtime_policy_;
   std::shared_ptr<PoseCache> object_pose_cache_;
   std::shared_ptr<PoseCache> place_pose_cache_;
-  std::shared_ptr<TargetCache> target_cache_;
-  std::shared_ptr<TargetSelector> target_selector_;
-  std::shared_ptr<GraspGenerator> grasp_generator_;
   std::shared_ptr<PlaceGenerator> place_generator_;
   std::shared_ptr<PlanningSceneManager> scene_manager_;
   std::shared_ptr<TrajectoryExecutor> trajectory_executor_;
@@ -116,7 +125,6 @@ private:
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_place_pose_;
-  rclcpp::Subscription<orion_mtc_msgs::msg::TargetSet>::SharedPtr sub_target_set_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_place_trigger_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
@@ -131,6 +139,15 @@ private:
   rclcpp::Service<orion_mtc_msgs::srv::ResetHeldObject>::SharedPtr reset_held_object_srv_;
   rclcpp::Service<orion_mtc_msgs::srv::SubmitJob>::SharedPtr submit_job_srv_;
   rclcpp::Service<orion_mtc_msgs::srv::SyncHeldObject>::SharedPtr sync_held_object_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr open_gripper_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr close_gripper_srv_;
+
+  rclcpp::Publisher<orion_mtc_msgs::msg::RuntimeStatus>::SharedPtr pub_runtime_status_;
+  rclcpp::Publisher<orion_mtc_msgs::msg::JobEvent>::SharedPtr pub_job_event_;
+  rclcpp::Publisher<orion_mtc_msgs::msg::TaskStage>::SharedPtr pub_task_stage_;
+  rclcpp::Publisher<orion_mtc_msgs::msg::HeldObjectState>::SharedPtr pub_held_object_state_;
+  rclcpp::Publisher<orion_mtc_msgs::msg::RecoveryEvent>::SharedPtr pub_recovery_event_;
+  rclcpp::TimerBase::SharedPtr runtime_status_timer_;
 };
 
 }  // namespace orion_mtc

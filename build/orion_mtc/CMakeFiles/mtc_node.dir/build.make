@@ -679,8 +679,8 @@ mtc_node: /usr/lib/x86_64-linux-gnu/libpython3.10.so
 mtc_node: /opt/ros/humble/lib/libunique_identifier_msgs__rosidl_typesupport_c.so
 mtc_node: /opt/ros/humble/lib/libunique_identifier_msgs__rosidl_generator_c.so
 mtc_node: /opt/ros/humble/lib/librosidl_typesupport_c.so
-mtc_node: /opt/ros/humble/lib/librcpputils.so
 mtc_node: /opt/ros/humble/lib/librosidl_runtime_c.so
+mtc_node: /opt/ros/humble/lib/librcpputils.so
 mtc_node: /opt/ros/humble/lib/librcutils.so
 mtc_node: CMakeFiles/mtc_node.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Linking CXX executable mtc_node"

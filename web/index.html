@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orion 机械臂上位机</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/": "https://unpkg.com/three@0.160.0/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app" class="app">
+    <header id="top-bar" class="top-bar" role="banner"></header>
+    <aside id="left-panel" class="left-panel" role="complementary"></aside>
+    <main id="viewport-3d" class="viewport-3d" role="main"></main>
+    <aside id="right-panel" class="right-panel" role="complementary"></aside>
+    <footer id="bottom-panel" class="bottom-panel" role="contentinfo"></footer>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

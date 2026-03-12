@@ -15,6 +15,21 @@ std::optional<TargetObject> TargetSelector::select(const std::vector<TargetObjec
   {
     return std::nullopt;
   }
+  const double min_conf = params_.min_confidence;
+
+  /* 若配置了 preferred_index，优先返回该 index 的目标（稳定结构：多目标只选一个） */
+  if (params_.preferred_index >= 0)
+  {
+    for (const auto& t : targets)
+    {
+      if (t.index == params_.preferred_index && t.confidence >= min_conf)
+      {
+        return t;
+      }
+    }
+  }
+
+  /* 否则按距离 + 姿态打分选最近的 */
   double best_score = -std::numeric_limits<double>::max();
   std::optional<TargetObject> best;
   const double nx = params_.nominal_x;
@@ -22,7 +37,6 @@ std::optional<TargetObject> TargetSelector::select(const std::vector<TargetObjec
   const double nz = params_.nominal_z;
   const double w_dist = params_.distance_weight;
   const double w_align = params_.alignment_weight;
-  const double min_conf = params_.min_confidence;
 
   for (const auto& t : targets)
   {

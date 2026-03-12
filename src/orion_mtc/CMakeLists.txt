@@ -16,6 +16,8 @@ find_package(moveit_task_constructor_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(trajectory_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(orion_mtc_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -49,6 +51,7 @@ target_include_directories(mtc_node PRIVATE
   ${Eigen3_INCLUDE_DIRS}
 )
 ament_target_dependencies(mtc_node
+  builtin_interfaces
   rclcpp
   moveit_task_constructor_core
   moveit_ros_planning_interface
@@ -61,6 +64,7 @@ ament_target_dependencies(mtc_node
   rclcpp_action
   trajectory_msgs
   std_msgs
+  std_srvs
   orion_mtc_msgs
 )
 
