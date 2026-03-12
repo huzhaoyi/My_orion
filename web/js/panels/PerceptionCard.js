@@ -16,8 +16,8 @@ function render(parentEl) {
     const t = s.perceptionUpdatedAt ? new Date(s.perceptionUpdatedAt).toLocaleTimeString() : '—';
     wrap.innerHTML = `
       <div class="card-title">感知状态</div>
-      <div class="card-row"><span class="card-label">object_pose</span><span class="card-value">${s.objectPoseValid ? '有效' : '无效'}</span></div>
-      <div class="card-row"><span class="card-label">place_pose</span><span class="card-value">${s.placePoseValid ? '有效' : '无效'}</span></div>
+      <div class="card-row"><span class="card-label">物体位姿</span><span class="card-value">${s.objectPoseValid ? '有效' : '无效'}</span></div>
+      <div class="card-row"><span class="card-label">放置位姿</span><span class="card-value">${s.placePoseValid ? '有效' : '无效'}</span></div>
       <div class="card-row"><span class="card-label">更新时间</span><span class="card-value">${t}</span></div>
       <div class="card-row"><span class="card-label">目标数</span><span class="card-value">${s.targetCount}</span></div>
     `;

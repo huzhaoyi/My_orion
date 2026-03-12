@@ -14,15 +14,25 @@
 
 import stateStore from './stateStore.js';
 
-const DEFAULT_WS_URL = 'ws://localhost:9090';
+// 默认 WS 使用当前页面主机（外机访问时自动连到该主机上的 rosbridge）
+function getDefaultWsUrl() {
+  const host = typeof window !== 'undefined' && window.location && window.location.hostname
+    ? window.location.hostname
+    : 'localhost';
+  return 'ws://' + host + ':9090';
+}
+
 let ws = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
 function getWsUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('ws') || DEFAULT_WS_URL;
+  const query = typeof window !== 'undefined' && window.location ? window.location.search : '';
+  const params = new URLSearchParams(query);
+  const fromQuery = params.get('ws');
+  if (fromQuery) return fromQuery;
+  return getDefaultWsUrl();
 }
 
 function getTopicPrefix() {

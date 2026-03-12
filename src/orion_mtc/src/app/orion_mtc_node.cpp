@@ -181,6 +181,7 @@ void OrionMTCNode::initInterfaces()
              std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Response> res) {
         handleGetRecentJobs(req, res);
       });
+  /* 以下服务均返回 success + message（及业务字段），供前端/客户端弹框与日志 */
   submit_job_srv_ = action_client_node_->create_service<orion_mtc_msgs::srv::SubmitJob>(
       ns + "/submit_job",
       [this](const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,

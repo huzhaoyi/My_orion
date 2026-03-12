@@ -3,8 +3,10 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import wsClient from '../data/wsClient.js';
 
 const TAB_EVENTS = 'events';
+const TAB_RECENT_JOBS = 'recent';
 const TAB_SYSTEM = 'system';
 
 function mount(containerId) {
@@ -37,10 +39,10 @@ function mount(containerId) {
   toolbar.innerHTML = `
     <select id="log-level">
       <option value="all">全部</option>
-      <option value="error">Error</option>
-      <option value="warn">Warn</option>
-      <option value="info">Info</option>
-      <option value="success">Success</option>
+      <option value="error">错误</option>
+      <option value="warn">警告</option>
+      <option value="info">信息</option>
+      <option value="success">成功</option>
     </select>
     <input type="text" id="log-search" placeholder="搜索" style="width:120px;">
     <label><input type="checkbox" id="log-autoscroll" checked> 自动滚动</label>
@@ -74,6 +76,19 @@ function mount(containerId) {
     if (autoScroll) logContainer.scrollTop = 0;
   }
 
+  function jobTypeLabel(t) {
+    if (!t) return '—';
+    const u = (t + '').toUpperCase();
+    if (u === 'PICK') return '抓取';
+    if (u === 'PLACE') return '放置';
+    if (u === 'PLACE_RELEASE') return '放置释放';
+    if (u === 'OPEN_GRIPPER') return '打开夹爪';
+    if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
+    if (u === 'RESET_HELD_OBJECT') return '重置持物';
+    if (u === 'SYNC_HELD_OBJECT') return '同步持物';
+    return t;
+  }
+
   function renderRecentJobs() {
     const s = stateStore.getState();
     const records = s.recentJobs || [];
@@ -83,16 +98,16 @@ function mount(containerId) {
     };
     logContainer.innerHTML = `
       <div class="bottom-panel__recent-toolbar">
-        <button type="button" id="log-refresh-recent" class="primary">刷新 (get_recent_jobs)</button>
+        <button type="button" id="log-refresh-recent" class="primary">刷新（获取最近执行）</button>
       </div>
       <div class="bottom-panel__recent-list">
         ${records.length === 0
           ? '<div class="log-line" style="color:var(--text-muted);">暂无记录，点击刷新从后端拉取</div>'
           : records.map((r) => {
               const created = nsToStr(r.created_at_ns);
-              const result = r.result_code != null ? `code=${r.result_code}` : '';
+              const result = r.result_code != null ? `结果码=${r.result_code}` : '';
               const msg = (r.message || '').slice(0, 80);
-              return `<div class="log-line">${created} | ${r.job_type || '—'} | ${(r.job_id || '—').slice(0, 12)} | ${r.source || '—'} ${result} ${msg ? '| ' + msg : ''}</div>`;
+              return `<div class="log-line">${created} | ${jobTypeLabel(r.job_type)} | ${(r.job_id || '—').slice(0, 12)} | ${r.source || '—'} ${result} ${msg ? '| ' + msg : ''}</div>`;
             }).join('')}
       </div>
     `;
@@ -117,9 +132,11 @@ function mount(containerId) {
     if (levelFilter !== 'all') list = list.filter((l) => l.level === levelFilter);
     if (searchText) list = list.filter((l) => (l.message || '').toLowerCase().includes(searchText.toLowerCase()));
     list = list.slice(-100).reverse();
+    const levelLabel = { error: '错误', warn: '警告', info: '信息', success: '成功' };
     logContainer.innerHTML = list.map((l) => {
       const cls = l.level === 'error' ? 'log-error' : l.level === 'warn' ? 'log-warn' : l.level === 'success' ? 'log-success' : 'log-info';
-      return `<div class="log-line ${cls}">${l.ts} [${l.level}] ${l.message}</div>`;
+      const label = levelLabel[l.level] || l.level;
+      return `<div class="log-line ${cls}">${l.ts} [${label}] ${l.message}</div>`;
     }).join('') || '<div class="log-line" style="color:var(--text-muted);">暂无日志</div>';
     if (autoScroll) logContainer.scrollTop = 0;
   }

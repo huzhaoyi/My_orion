@@ -1,18 +1,23 @@
 /**
- * Orion 上位机 - 主布局
+ * Orion 上位机 - 主布局（视口内自适应，无整页滚动）
  * 顶部状态栏 | 左侧任务/状态 | 中间 3D | 右侧控制/参数 | 底部日志
  */
 
 .app {
   display: grid;
-  grid-template-rows: var(--top-bar-height) 1fr var(--bottom-panel-height);
-  grid-template-columns: var(--left-panel-width) 1fr var(--right-panel-width);
+  grid-template-rows: var(--top-bar-height) minmax(0, 1fr) var(--bottom-panel-height);
+  grid-template-columns: var(--left-panel-width) minmax(0, 1fr) var(--right-panel-width);
   grid-template-areas:
     "top top top"
     "left center right"
     "bottom bottom bottom";
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
+  max-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .top-bar {
@@ -46,13 +51,16 @@
 .top-bar__brand-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-brand);
+  color: var(--color-primary);
   letter-spacing: 0.02em;
 }
 
 .left-panel {
   grid-area: left;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 10px;
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -61,13 +69,18 @@
 .viewport-3d {
   grid-area: center;
   position: relative;
+  min-width: 0;
   min-height: 0;
-  background: linear-gradient(180deg, #0F223A 0%, #081425 100%);
+  overflow: hidden;
+  background: linear-gradient(180deg, #0E1621 0%, #06090D 100%);
 }
 
 .right-panel {
   grid-area: right;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 10px;
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
@@ -75,13 +88,14 @@
 
 .bottom-panel {
   grid-area: bottom;
+  min-height: 0;
   height: var(--bottom-panel-height);
-  min-height: var(--bottom-panel-height);
   max-height: var(--bottom-panel-height);
   display: flex;
   flex-direction: column;
   background: var(--bg-panel);
   border-top: 1px solid var(--border);
+  overflow: hidden;
 }
 
 /* 顶部状态栏内部 */
@@ -101,12 +115,14 @@
   font-size: 11px;
 }
 
-/* 左侧卡片区：间距与层级 */
+/* 左侧卡片区：面板灰 + 6px 圆角 */
 .left-panel .card {
   margin-bottom: 12px;
   padding: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
 }
 
 .left-panel .card:last-child {
@@ -117,7 +133,7 @@
 .viewport-3d__canvas-wrap {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #0F223A 0%, #081425 100%);
+  background: linear-gradient(180deg, #0E1621 0%, #06090D 100%);
 }
 
 .viewport-3d__canvas-wrap canvas {
@@ -132,7 +148,7 @@
   top: 10px;
   left: 10px;
   z-index: 10;
-  background: rgba(30, 41, 59, 0.92);
+  background: rgba(21, 27, 34, 0.94);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 8px 10px;
@@ -156,7 +172,7 @@
 .viewport-3d__view-buttons button {
   padding: 4px 10px;
   font-size: 11px;
-  background: rgba(30, 41, 59, 0.9);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-primary);
 }
@@ -188,7 +204,7 @@
   z-index: 10;
   width: 100%;
   max-width: 280px;
-  background: rgba(30, 41, 59, 0.94);
+  background: rgba(21, 27, 34, 0.96);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 8px 12px;
@@ -388,14 +404,16 @@
 }
 
 .bottom-panel__recent-list {
-  overflow-y: auto;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .bottom-panel__log {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 0;
 }
 

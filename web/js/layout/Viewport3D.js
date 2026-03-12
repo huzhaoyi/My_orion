@@ -9,7 +9,15 @@ import stateStore from '../data/stateStore.js';
 
 let sceneApi = null;
 let unsubscribeState = null;
-const layerToggles = { showTargets: true, showTrajectory: true };
+const layerToggles = {
+  showTargets: true,
+  showTrajectory: true,
+  showAxes: true,
+  showWorldObject: true,
+  showAttachedObject: true,
+  showCollision: false,
+  showWorkspace: false,
+};
 
 function rosToThreePosition(pos) {
   if (!pos) return { x: 0, y: 0, z: 0 };
@@ -30,8 +38,8 @@ function createLayerToggles(containerEl, sceneApiRef) {
   div.className = 'viewport-3d__toolbar';
   const toggles = [
     { id: 'show-axes', label: '坐标轴', key: 'showAxes', default: true },
-    { id: 'show-world', label: 'World 物体', key: 'showWorldObject', default: true },
-    { id: 'show-attached', label: 'Attached 物体', key: 'showAttachedObject', default: true },
+    { id: 'show-world', label: '场景物体', key: 'showWorldObject', default: true },
+    { id: 'show-attached', label: '附着物体', key: 'showAttachedObject', default: true },
     { id: 'show-collision', label: '碰撞体', key: 'showCollision', default: false },
     { id: 'show-trajectory', label: '轨迹', key: 'showTrajectory', default: true },
     { id: 'show-targets', label: '目标点', key: 'showTargets', default: true },
@@ -45,20 +53,33 @@ function createLayerToggles(containerEl, sceneApiRef) {
     const cb = label.querySelector('input');
     cb.addEventListener('change', () => {
       state[t.key] = cb.checked;
-      if (t.key === 'showTargets') layerToggles.showTargets = cb.checked;
-      if (t.key === 'showTrajectory') layerToggles.showTrajectory = cb.checked;
-        if (sceneApiRef) {
-          if (t.key === 'showAxes') {
-            sceneApiRef.world.getObjectByName('base_axes').visible = cb.checked;
-            const tcp = sceneApiRef.robot.getObjectByName('tcp_axes');
-            if (tcp) tcp.visible = cb.checked;
-          }
-          if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
-          if (t.key === 'showTargets') {
-            sceneApiRef.pickMarker.visible = cb.checked;
-            sceneApiRef.placeMarker.visible = cb.checked;
-          }
+      if (layerToggles[t.key] !== undefined) layerToggles[t.key] = cb.checked;
+      if (sceneApiRef) {
+        if (t.key === 'showAxes') {
+          const baseAxes = sceneApiRef.world.getObjectByName('base_axes');
+          if (baseAxes) baseAxes.visible = cb.checked;
         }
+        if (t.key === 'showWorldObject') {
+          const wo = sceneApiRef.targets.getObjectByName('world_object');
+          if (wo) wo.visible = cb.checked && wo.userData.valid;
+        }
+        if (t.key === 'showAttachedObject') {
+          const ao = sceneApiRef.targets.getObjectByName('attached_object');
+          if (ao) ao.visible = cb.checked && ao.userData.valid;
+        }
+        if (t.key === 'showCollision') {
+          if (sceneApiRef.setCollisionDebugVisible) sceneApiRef.setCollisionDebugVisible(cb.checked);
+        }
+        if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
+        if (t.key === 'showTargets') {
+          sceneApiRef.pickMarker.visible = cb.checked;
+          sceneApiRef.placeMarker.visible = cb.checked;
+        }
+        if (t.key === 'showWorkspace') {
+          const ws = sceneApiRef.world.getObjectByName('workspace_box');
+          if (ws) ws.visible = cb.checked;
+        }
+      }
     });
     div.appendChild(label);
   });
@@ -73,7 +94,7 @@ function createJoystickTable(containerEl) {
   panel.className = 'viewport-3d__joystick-panel';
   const title = document.createElement('div');
   title.className = 'viewport-3d__joystick-panel-title';
-  title.textContent = '关节角度 (Joystick / joint_states)';
+  title.textContent = '关节角度';
   panel.appendChild(title);
   const tableWrap = document.createElement('div');
   tableWrap.className = 'viewport-3d__joystick-table-wrap';
@@ -125,10 +146,10 @@ function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   div.className = 'viewport-3d__view-buttons';
   div.style.cssText = 'position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px; z-index:10;';
   const views = [
-    { label: 'Top', pos: [0, 1.5, 0.01], target: [0, 0, 0] },
-    { label: 'Front', pos: [1.2, 0, 0], target: [0, 0, 0] },
-    { label: 'Side', pos: [0, 0.5, 1.2], target: [0, 0, 0] },
-    { label: 'Home', pos: [1.5, 1.2, 1.5], target: [0, 0, 0] },
+    { label: '顶视', pos: [0, 1.5, 0.01], target: [0, 0, 0] },
+    { label: '前视', pos: [1.2, 0, 0], target: [0, 0, 0] },
+    { label: '侧视', pos: [0, 0.5, 1.2], target: [0, 0, 0] },
+    { label: '默认', pos: [1.5, 1.2, 1.5], target: [0, 0, 0] },
   ];
   views.forEach((v) => {
     const btn = document.createElement('button');
@@ -143,7 +164,7 @@ function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   });
   const followLabel = document.createElement('label');
   followLabel.style.cssText = 'margin-top:6px; font-size:11px; color:var(--text-secondary); cursor:pointer;';
-  followLabel.innerHTML = '<input type="checkbox" id="view-follow-tcp"> Follow TCP';
+  followLabel.innerHTML = '<input type="checkbox" id="view-follow-tcp"> 跟随末端';
   const followCb = followLabel.querySelector('input');
   followCb.addEventListener('change', () => {
     if (sceneApiRef && sceneApiRef.setFollowTcp) sceneApiRef.setFollowTcp(followCb.checked);
@@ -178,6 +199,19 @@ function mount(containerId) {
     const p = rosToThreePosition(s.placePose?.position);
     sceneApi.placeMarker.position.set(p.x, p.y, p.z);
     sceneApi.placeMarker.visible = layerToggles.showTargets && !!s.placePoseValid;
+    const wo = sceneApi.targets.getObjectByName('world_object');
+    if (wo) {
+      wo.position.set(t.x, t.y, t.z);
+      wo.userData.valid = !!s.objectPoseValid;
+      wo.visible = layerToggles.showWorldObject && !!s.objectPoseValid;
+    }
+    const heldPos = rosToThreePosition(s.heldObjectPoseAtGrasp?.position || s.heldObjectPoseAtGrasp);
+    const ao = sceneApi.targets.getObjectByName('attached_object');
+    if (ao) {
+      ao.position.set(heldPos.x, heldPos.y, heldPos.z);
+      ao.userData.valid = !!s.heldValid;
+      ao.visible = layerToggles.showAttachedObject && !!s.heldValid;
+    }
     const names = s.jointNames || [];
     const positions = s.jointPositions || [];
     if (sceneApi.setRobotJointValues && names.length && positions.length) {
@@ -201,6 +235,13 @@ function mount(containerId) {
   window.addEventListener('resize', () => sceneApi.resize());
   window.addEventListener('orion:viewport-reload-model', () => {
     updateFromState(stateStore.getState());
+  });
+  window.addEventListener('orion:toggle-show-collision', (e) => {
+    const cb = el.querySelector('#show-collision');
+    if (cb) {
+      cb.checked = !!e.detail.visible;
+      cb.dispatchEvent(new Event('change'));
+    }
   });
 
   return sceneApi;

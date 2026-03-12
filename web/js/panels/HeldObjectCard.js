@@ -15,15 +15,15 @@ function render(parentEl) {
     const s = stateStore.getState();
     wrap.innerHTML = `
       <div class="card-title">持物状态</div>
-      <div class="card-row"><span class="card-label">has_held_object</span><span class="card-value">${s.hasHeldObject ? '是' : '否'}</span></div>
-      <div class="card-row"><span class="card-label">tracked</span><span class="card-value">${s.heldTracked ? '是' : '否'}</span></div>
-      <div class="card-row"><span class="card-label">object_id</span><span class="card-value">${s.heldObjectId || '—'}</span></div>
-      <div class="card-row"><span class="card-label">scene_attach_id</span><span class="card-value">${(s.heldSceneAttachId || '—').slice(0, 20)}</span></div>
-      <div class="card-title" style="margin-top: 10px;">Scene 一致性</div>
-      <div class="card-row"><span class="card-label">world.object</span><span class="card-value">${s.worldObjectPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">attached.object</span><span class="card-value">${s.attachedObjectPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">held_tracked</span><span class="card-value">${s.heldTrackedPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">held_untracked</span><span class="card-value">${s.heldUntrackedPresent ? '有' : '无'}</span></div>
+      <div class="card-row"><span class="card-label">持物</span><span class="card-value">${s.hasHeldObject ? '是' : '否'}</span></div>
+      <div class="card-row"><span class="card-label">已跟踪</span><span class="card-value">${s.heldTracked ? '是' : '否'}</span></div>
+      <div class="card-row"><span class="card-label">物体ID</span><span class="card-value">${s.heldObjectId || '—'}</span></div>
+      <div class="card-row"><span class="card-label">场景附着ID</span><span class="card-value">${(s.heldSceneAttachId || '—').slice(0, 20)}</span></div>
+      <div class="card-title" style="margin-top: 10px;">场景一致性</div>
+      <div class="card-row"><span class="card-label">场景物体</span><span class="card-value">${s.worldObjectPresent ? '有' : '无'}</span></div>
+      <div class="card-row"><span class="card-label">附着物体</span><span class="card-value">${s.attachedObjectPresent ? '有' : '无'}</span></div>
+      <div class="card-row"><span class="card-label">已跟踪持物</span><span class="card-value">${s.heldTrackedPresent ? '有' : '无'}</span></div>
+      <div class="card-row"><span class="card-label">未跟踪持物</span><span class="card-value">${s.heldUntrackedPresent ? '有' : '无'}</span></div>
     `;
   }
 

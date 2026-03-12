@@ -20,6 +20,17 @@ function taskModeBadgeClass(taskMode) {
   return 'badge-taskmode';
 }
 
+function statusToLabel(s) {
+  if (!s) return '空闲';
+  const u = (s + '').toUpperCase();
+  if (u.includes('RUNNING') || u.includes('PICKING') || u.includes('PLACING')) return '运行中';
+  if (u.includes('HOLDING')) return '持物中';
+  if (u.includes('ERROR') || u.includes('DISCONNECTED')) return '异常';
+  if (u.includes('RECOVERING') || u.includes('WARNING')) return '恢复中';
+  if (u.includes('IDLE')) return '空闲';
+  return s;
+}
+
 function render(el) {
   if (!el) return;
 
@@ -31,25 +42,23 @@ function render(el) {
   const wsBadge = conn.wsConnected ? 'badge-connected' : 'badge-disconnected';
   const workerBadge = workerBadgeClass(conn.workerStatus);
   const taskBadge = taskModeBadgeClass(conn.taskMode);
-  const jobLabel = (conn.currentJobType || 'NONE').toUpperCase().slice(0, 12);
+  const queueCount = conn.queueSize ?? 0;
   const acceptNewJobs = conn.acceptNewJobs !== false;
 
   el.innerHTML = `
     <div class="top-bar__brand">
-      <img src="SEALIEN-LOGO.png" alt="SEALIEN" class="top-bar__logo" />
-      <span class="top-bar__brand-title">Orion 上位机</span>
+      <img src="SEALIEN-LOGO.png" alt="Orion" class="top-bar__logo" />
+      <span class="top-bar__brand-title">Orion</span>
     </div>
-    ${section(tag(wsBadge, '●', conn.wsConnected ? 'WS CONNECTED' : 'WS DISCONNECTED', conn.wsConnected ? '' : '需先启动 rosbridge (默认 ws://localhost:9090)，或访问 ?ws=ws://host:port'))}
-    ${section(tag(workerBadge, '⚙', 'WORKER ' + (conn.workerStatus || 'IDLE').toUpperCase()))}
-    ${section(tag(taskBadge, '◇', 'TASK MODE ' + (conn.taskMode || 'IDLE').toUpperCase()))}
-    ${section(tag('badge-job', '▣', 'JOB ' + jobLabel, conn.currentJobId || ''))}
-    ${section(tag('badge-queue', '☰', 'QUEUE ' + (conn.queueSize ?? 0)))}
-    <div class="top-bar__section" style="margin-left: auto;">
-      <button type="button" id="btn-stop-queue" title="仅前端拦截 submit_job，不影响后端已有队列">${acceptNewJobs ? '停止入队' : '恢复入队'}</button>
-      <button type="button" id="btn-clear-queue" title="清空队列">清空队列</button>
-      <button type="button" id="btn-reset-held" title="Reset 持物">ResetHeld</button>
-      <button type="button" id="btn-recover" title="恢复">Recover</button>
-      <button type="button" id="btn-go-home" title="回 Home">Home</button>
+    ${section(tag(wsBadge, '●', conn.wsConnected ? '已连接' : '未连接', conn.wsConnected ? '' : '需先启动 rosbridge (默认 ws://当前主机:9090，可用 ?ws= 覆盖)'))}
+    ${section(tag(workerBadge, '⚙', '工作线程 ' + statusToLabel(conn.workerStatus)))}
+    ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
+    ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}
+    <div class="top-bar__section top-bar__section--emergency" style="margin-left: auto;">
+      <button type="button" id="btn-stop-queue" class="btn-secondary" title="仅前端拦截入队">${acceptNewJobs ? '停止入队' : '恢复入队'}</button>
+      <button type="button" id="btn-clear-queue" class="btn-secondary" title="清空队列">清空</button>
+      <button type="button" id="btn-reset-held" class="btn-secondary" title="重置持物状态">重置持物</button>
+      <button type="button" id="btn-recover" class="btn-secondary" title="恢复">恢复</button>
     </div>
   `;
 
@@ -57,7 +66,6 @@ function render(el) {
   el.querySelector('#btn-clear-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-queue')));
   el.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
   el.querySelector('#btn-recover')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:recover')));
-  el.querySelector('#btn-go-home')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-home')));
 }
 
 function mount(containerId) {

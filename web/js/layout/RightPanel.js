@@ -1,16 +1,20 @@
 /**
- * 右侧栏：操作与参数，Tab = 任务操作 | 运行策略 | 调试工具 | 参数配置
+ * 右侧栏：工业机械臂控制区
+ * Tab = 任务(Task) | 机器人(Robot) | 调试(Debug) | 配置(Config)
+ * 主操作 = primary，次操作 = btn-secondary
  */
+
+import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
 
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
   const tabs = [
-    { id: 'task', label: '任务操作', content: renderTaskTab },
-    { id: 'policy', label: '运行策略', content: renderPolicyTab },
-    { id: 'debug', label: '调试工具', content: renderDebugTab },
-    { id: 'params', label: '参数配置', content: renderParamsTab },
+    { id: 'task', label: '任务', content: renderTaskTab },
+    { id: 'robot', label: '机器人', content: renderRobotTab },
+    { id: 'debug', label: '调试', content: renderDebugTab },
+    { id: 'config', label: '配置', content: renderConfigTab },
   ];
 
   const tabBar = document.createElement('div');
@@ -32,7 +36,7 @@ function mount(containerId) {
   el.appendChild(content);
 
   function showTab(id) {
-    tabs.forEach((t, i) => {
+    tabs.forEach((t) => {
       const btn = tabBar.querySelector(`[data-tab="${t.id}"]`);
       if (btn) btn.classList.toggle('active', t.id === id);
     });
@@ -49,20 +53,30 @@ function mount(containerId) {
 }
 
 function renderTaskTab(container) {
+  const ws = getWorkspaceBoundsForDoc();
+  const u = ws.urdf_frame;
   container.innerHTML = `
-    <div class="card">
-      <div class="card-title">Pick</div>
-      <div class="form-actions form-actions--row">
-        <button type="button" id="btn-pick-send" class="primary btn-action">发送 Pick</button>
-        <button type="button" id="btn-pick-queue" class="btn-secondary">加入队列</button>
-      </div>
-      <div class="form-row"><label>object_id</label><input type="text" id="input-object-id" placeholder="可选" style="flex:1; max-width:140px;"></div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">使用当前 object_pose</p>
+    <div class="workspace-hint">
+      <span class="workspace-hint__label">工作空间</span>
+      <span class="workspace-hint__axes">X <var>${u.x_m.min.toFixed(2)}</var>～<var>${u.x_m.max.toFixed(2)}</var></span>
+      <span class="workspace-hint__axes">Y <var>${u.y_m.min.toFixed(2)}</var>～<var>${u.y_m.max.toFixed(2)}</var></span>
+      <span class="workspace-hint__axes">Z <var>${u.z_m.min.toFixed(2)}</var>～<var>${u.z_m.max.toFixed(2)}</var></span>
+      <span class="workspace-hint__unit">m</span>
+      <span class="workspace-hint__note">勿超出</span>
     </div>
     <div class="card">
-      <div class="card-title">Place</div>
+      <div class="card-title">抓取</div>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-place-send" class="primary btn-action">发送 Place</button>
+        <button type="button" id="btn-pick-send" class="primary btn-action">发送抓取</button>
+        <button type="button" id="btn-pick-queue" class="btn-secondary">加入队列</button>
+      </div>
+      <div class="form-row"><label>物体ID</label><input type="text" id="input-object-id" placeholder="可选" style="flex:1; max-width:140px;"></div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">使用当前物体位姿</p>
+    </div>
+    <div class="card">
+      <div class="card-title">放置</div>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-place-send" class="primary btn-action">发送放置</button>
         <button type="button" id="btn-place-queue" class="btn-secondary">加入队列</button>
       </div>
       <div class="form-row form-row--xyz">
@@ -78,20 +92,12 @@ function renderTaskTab(container) {
       </div>
     </div>
     <div class="card">
-      <div class="card-title">PlaceRelease</div>
+      <div class="card-title">放置释放</div>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-place-release-send" class="primary btn-action">发送 PlaceRelease</button>
+        <button type="button" id="btn-place-release-send" class="primary btn-action">发送放置释放</button>
         <button type="button" id="btn-place-release-queue" class="btn-secondary">加入队列</button>
       </div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">TCP 目标位姿（同 Place 输入框）</p>
-    </div>
-    <div class="card">
-      <div class="card-title">夹爪</div>
-      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">仅动夹爪，臂关节保持当前 joint_states</p>
-      <div class="form-actions form-actions--row">
-        <button type="button" id="btn-open-gripper" class="primary btn-action">打开夹爪</button>
-        <button type="button" id="btn-close-gripper" class="btn-action">关闭夹爪</button>
-      </div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">TCP 目标位姿（同放置输入框）</p>
     </div>
   `;
   const getObjectId = () => (container.querySelector('#input-object-id')?.value || '').trim();
@@ -122,92 +128,79 @@ function renderTaskTab(container) {
     const p = getPlacePose();
     window.dispatchEvent(new CustomEvent('orion:place-release', { detail: { ...p, immediate: false } }));
   });
-  container.querySelector('#btn-open-gripper')?.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('orion:open-gripper'));
-  });
-  container.querySelector('#btn-close-gripper')?.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('orion:close-gripper'));
-  });
 }
 
-function renderPolicyTab(container) {
+function renderRobotTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">运行策略 (RuntimePolicy)</div>
-      <div class="form-row"><label>auto_start_worker</label><input type="checkbox" id="policy-auto-start" checked></div>
-      <div class="form-row"><label>retry_on_plan_failure</label><input type="checkbox" id="policy-retry"></div>
-      <div class="form-row"><label>max_retries</label><input type="number" id="policy-max-retries" value="2" min="0"></div>
-      <div class="form-row"><label>auto_clear_scene_before_sync</label><input type="checkbox" id="policy-clear-scene" checked></div>
-      <div class="form-row"><label>auto_reset_after_execution_failure</label><input type="checkbox" id="policy-auto-reset"></div>
-      <div class="form-row"><label>auto_go_home_after_failure</label><input type="checkbox" id="policy-go-home"></div>
-      <div class="form-row"><label>allow_place_fallback_to_release</label><input type="checkbox" id="policy-place-fallback"></div>
-      <div class="form-row"><label>reject_new_jobs_while_busy</label><input type="checkbox" id="policy-reject-busy"></div>
-      <button type="button" id="btn-apply-policy" class="primary">应用策略</button>
+      <div class="card-title">夹爪</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">仅动夹爪，臂关节保持当前姿态</p>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-open-gripper" class="primary btn-action">打开夹爪</button>
+        <button type="button" id="btn-close-gripper" class="btn-secondary">闭合夹爪</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">运动</div>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-stop-queue" class="btn-secondary">停止入队</button>
+      </div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">停止：仅前端拦截入队；清空队列见顶部栏</p>
     </div>
   `;
-  container.querySelector('#btn-apply-policy')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:apply-policy', {
-    detail: {
-      auto_start_worker: container.querySelector('#policy-auto-start').checked,
-      retry_on_plan_failure: container.querySelector('#policy-retry').checked,
-      max_retries: parseInt(container.querySelector('#policy-max-retries').value, 10) || 2,
-      auto_clear_scene_before_sync: container.querySelector('#policy-clear-scene').checked,
-      auto_reset_after_execution_failure: container.querySelector('#policy-auto-reset').checked,
-      auto_go_home_after_failure: container.querySelector('#policy-go-home').checked,
-      allow_place_fallback_to_release: container.querySelector('#policy-place-fallback').checked,
-      reject_new_jobs_while_busy: container.querySelector('#policy-reject-busy').checked,
-    },
-  })));
+  container.querySelector('#btn-open-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:open-gripper')));
+  container.querySelector('#btn-close-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:close-gripper')));
+  container.querySelector('#btn-stop-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:stop-queue')));
 }
 
 function renderDebugTab(container) {
   container.innerHTML = `
     <div class="card">
       <div class="card-title">调试工具</div>
-      <button type="button" id="btn-open-gripper">打开夹爪</button>
-      <button type="button" id="btn-close-gripper">关闭夹爪</button>
-      <button type="button" id="btn-sync-tracked">Sync tracked held object</button>
-      <button type="button" id="btn-sync-untracked">Sync untracked held object</button>
-      <button type="button" id="btn-reset-held">ResetHeldObject</button>
-      <button type="button" id="btn-clear-attached">Clear attached residual</button>
-      <button type="button" id="btn-remove-world">Remove world object</button>
-      <button type="button" id="btn-go-home">手动 Go Home</button>
-      <button type="button" id="btn-reload-model">重新加载模型</button>
+      <div class="form-actions form-actions--row" style="flex-direction: column; align-items: stretch;">
+        <button type="button" id="btn-reset-held" class="btn-action">重置持物</button>
+        <button type="button" id="btn-recover" class="btn-action">恢复</button>
+        <button type="button" id="btn-sync-tracked" class="btn-secondary">同步场景（已跟踪）</button>
+        <button type="button" id="btn-sync-untracked" class="btn-secondary">同步场景（未跟踪）</button>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--text-secondary);">
+          <input type="checkbox" id="debug-show-collision"> 显示碰撞体
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">场景 / 模型</div>
+      <div class="form-actions form-actions--row" style="flex-direction: column; align-items: stretch;">
+        <button type="button" id="btn-clear-attached" class="btn-secondary">清除附着残留</button>
+        <button type="button" id="btn-reload-model" class="btn-secondary">重新加载模型</button>
+      </div>
     </div>
   `;
-  container.querySelector('#btn-open-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:open-gripper')));
-  container.querySelector('#btn-close-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:close-gripper')));
+  container.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
+  container.querySelector('#btn-recover')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:recover')));
   container.querySelector('#btn-sync-tracked')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:sync-held', { detail: { tracked: true } })));
   container.querySelector('#btn-sync-untracked')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:sync-held', { detail: { tracked: false } })));
-  container.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
   container.querySelector('#btn-clear-attached')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-attached')));
-  container.querySelector('#btn-remove-world')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:remove-world-object')));
-  container.querySelector('#btn-go-home')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-home')));
   container.querySelector('#btn-reload-model')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reload-model')));
+  const collisionCb = container.querySelector('#debug-show-collision');
+  if (collisionCb) {
+    collisionCb.addEventListener('change', () => {
+      window.dispatchEvent(new CustomEvent('orion:toggle-show-collision', { detail: { visible: collisionCb.checked } }));
+    });
+  }
 }
 
-function renderParamsTab(container) {
+function renderConfigTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">参数配置</div>
-      <div class="form-row"><label>approach_distance</label><input type="number" id="param-approach" value="0.05" step="0.01"></div>
-      <div class="form-row"><label>lift_distance</label><input type="number" id="param-lift" value="0.05" step="0.01"></div>
-      <div class="form-row"><label>lower_to_place</label><input type="number" id="param-lower" value="0.02" step="0.01"></div>
-      <div class="form-row"><label>retreat_distance</label><input type="number" id="param-retreat" value="0.05" step="0.01"></div>
-      <div class="form-row"><label>velocity_scaling</label><input type="number" id="param-velocity" value="1" step="0.1" min="0.1" max="1"></div>
-      <div class="form-row"><label>acceleration_scaling</label><input type="number" id="param-acceleration" value="1" step="0.1" min="0.1" max="1"></div>
-      <button type="button" id="btn-apply-params" class="primary">应用参数</button>
+      <div class="card-title">规划参数与运行策略</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">由后端 launch 与配置文件加载，当前无运行时修改接口。</p>
+      <div class="form-row"><label>接近距离</label><input type="number" id="param-approach" value="0.05" step="0.01" readonly disabled></div>
+      <div class="form-row"><label>抬升距离</label><input type="number" id="param-lift" value="0.05" step="0.01" readonly disabled></div>
+      <div class="form-row"><label>放置下压</label><input type="number" id="param-lower" value="0.02" step="0.01" readonly disabled></div>
+      <div class="form-row"><label>回退距离</label><input type="number" id="param-retreat" value="0.05" step="0.01" readonly disabled></div>
+      <div class="form-row"><label>速度/加速度比例</label><input type="text" value="由 config 加载" readonly disabled style="flex:1;"></div>
     </div>
   `;
-  container.querySelector('#btn-apply-params')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:apply-params', {
-    detail: {
-      approach_distance: parseFloat(container.querySelector('#param-approach').value) || 0.05,
-      lift_distance: parseFloat(container.querySelector('#param-lift').value) || 0.05,
-      lower_to_place: parseFloat(container.querySelector('#param-lower').value) || 0.02,
-      retreat_distance: parseFloat(container.querySelector('#param-retreat').value) || 0.05,
-      velocity_scaling: parseFloat(container.querySelector('#param-velocity').value) || 1,
-      acceleration_scaling: parseFloat(container.querySelector('#param-acceleration').value) || 1,
-    },
-  })));
 }
 
 export default { mount };

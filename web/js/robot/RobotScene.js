@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { loadRobotModel } from './RobotModelLoader.js';
+import { loadRobotModel, getWorkspaceBoundsScene } from './RobotModelLoader.js';
 
 const LAYER_NAMES = {
   showAxes: 'show_axes',
@@ -17,13 +17,35 @@ const LAYER_NAMES = {
   showWorkspace: 'show_workspace',
 };
 
-/* 工业主题色；背景用 CSS 渐变，此处透明 */
-const GRID_COLOR = 0x334155;
-const AXIS_SIZE = 0.07;
+/* 工业主题：与页面灰阶层级一致 */
+const GRID_COLOR = 0x1f2a36;
+const AXIS_SIZE = 0.28;
+const AXIS_LABEL_SCALE = 0.06;
 const PICK_MARKER_COLOR = 0x22d3ee;
 const PICK_MARKER_RADIUS = 0.04;
 const PLACE_MARKER_RADIUS = 0.04;
 const OUTLINE_COLOR = 0x64748b;
+const AXIS_COLOR_X = 0xe53935;
+const AXIS_COLOR_Y = 0x43a047;
+const AXIS_COLOR_Z = 0x1e88e5;
+
+function makeAxisLabel(text, hexColor) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = 'bold 42px sans-serif';
+  ctx.fillStyle = '#' + hexColor.toString(16).padStart(6, '0');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 32, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(AXIS_LABEL_SCALE, AXIS_LABEL_SCALE, 1);
+  return sprite;
+}
 
 function createScene(containerEl) {
   const width = containerEl.clientWidth;
@@ -38,7 +60,7 @@ function createScene(containerEl) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setClearColor(0x000000, 0);
+  renderer.setClearColor(0x0e1621, 0);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   containerEl.appendChild(renderer.domElement);
@@ -50,14 +72,14 @@ function createScene(containerEl) {
   controls.minDistance = 0.3;
   controls.maxDistance = 5;
 
-  /* 光照：环境光 0.5 + 方向光 0.8 + 半球光，立体感更强 */
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  /* 工业 3D 舞台感：Ambient 0.4 + Directional 0.8 + Hemisphere 0.5 */
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
   const directional = new THREE.DirectionalLight(0xffffff, 0.8);
   directional.position.set(2, 3, 2);
   directional.castShadow = true;
   scene.add(directional);
-  const hemi = new THREE.HemisphereLight(0x94a3b8, 0x334155, 0.35);
+  const hemi = new THREE.HemisphereLight(0x94a3b8, 0x334155, 0.5);
   scene.add(hemi);
 
   /* 对象树：world / robot / targets / overlays */
@@ -84,13 +106,31 @@ function createScene(containerEl) {
   world.add(grid);
   robot.position.y = GRID_Y;
 
-  /* 基坐标系 - ROS 配色 X 红 Y 绿 Z 蓝，尺寸 0.06 */
+  /* 基坐标系 - ROS 配色 X 红 Y 绿 Z 蓝，带 X/Y/Z 标注 */
+  const baseAxesGroup = new THREE.Group();
+  baseAxesGroup.name = 'base_axes';
   const baseAxes = new THREE.AxesHelper(AXIS_SIZE);
-  baseAxes.name = 'base_axes';
-  world.add(baseAxes);
+  baseAxes.name = 'base_axes_lines';
+  baseAxesGroup.add(baseAxes);
+  const labelX = makeAxisLabel('X', AXIS_COLOR_X);
+  labelX.position.set(AXIS_SIZE, 0, 0);
+  baseAxesGroup.add(labelX);
+  const labelY = makeAxisLabel('Y', AXIS_COLOR_Y);
+  labelY.position.set(0, AXIS_SIZE, 0);
+  baseAxesGroup.add(labelY);
+  const labelZ = makeAxisLabel('Z', AXIS_COLOR_Z);
+  labelZ.position.set(0, 0, AXIS_SIZE);
+  baseAxesGroup.add(labelZ);
+  world.add(baseAxesGroup);
 
-  /* 机械臂 STL 模型（异步加载）+ 轮廓线 */
+  /* 机械臂 STL 模型（异步加载）+ 轮廓线；碰撞体显示状态在模型加载后补刷 */
   let robotModel = null;
+  let collisionDebugVisible = false;
+  function applyCollisionDebugVisible() {
+    robot.traverse((obj) => {
+      if (obj.name === 'collision_debug') obj.visible = collisionDebugVisible;
+    });
+  }
   function addOutlineToModel(model) {
     model.traverse((child) => {
       if (child.isMesh && child.geometry) {
@@ -107,21 +147,57 @@ function createScene(containerEl) {
     robotModel = model;
     robot.add(model);
     addOutlineToModel(model);
+    applyCollisionDebugVisible();
   }).catch((err) => {
     console.warn('RobotScene: 机械臂模型加载失败，使用占位', err);
     const linkGeo = new THREE.CylinderGeometry(0.03, 0.04, 0.3, 16);
-    const linkMat = new THREE.MeshStandardMaterial({ color: 0x4a90d9 });
+    const linkMat = new THREE.MeshStandardMaterial({
+      color: 0xc7d2fe,
+      metalness: 0.4,
+      roughness: 0.6,
+    });
     const link = new THREE.Mesh(linkGeo, linkMat);
     link.rotation.z = Math.PI / 2;
     link.position.set(0.15, 0, 0);
     robot.add(link);
   });
 
-  /* TCP 坐标系 - 明显尺寸，ROS 红 X 绿 Y 蓝 Z */
-  const tcpAxes = new THREE.AxesHelper(AXIS_SIZE);
-  tcpAxes.name = 'tcp_axes';
-  tcpAxes.position.set(0.3, 0, 0);
-  robot.add(tcpAxes);
+  /* 工作空间示意框：由 URDF 推导，含下方可达 */
+  const wsBounds = getWorkspaceBoundsScene();
+  const wsMin = new THREE.Vector3(wsBounds.min.x, wsBounds.min.y, wsBounds.min.z);
+  const wsMax = new THREE.Vector3(wsBounds.max.x, wsBounds.max.y, wsBounds.max.z);
+  const wsSize = new THREE.Vector3().subVectors(wsMax, wsMin);
+  const wsCenter = new THREE.Vector3().addVectors(wsMin, wsMax).multiplyScalar(0.5);
+  const wsGeo = new THREE.BoxGeometry(wsSize.x, wsSize.y, wsSize.z);
+  const wsEdges = new THREE.EdgesGeometry(wsGeo);
+  const workspaceBox = new THREE.LineSegments(
+    wsEdges,
+    new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.7 })
+  );
+  workspaceBox.name = 'workspace_box';
+  workspaceBox.position.copy(wsCenter);
+  workspaceBox.visible = false;
+  world.add(workspaceBox);
+
+  /* 场景物体（感知到的世界物体，位置由 object_pose 更新） */
+  const worldObject = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.04, 0.04),
+    new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.85 })
+  );
+  worldObject.name = 'world_object';
+  worldObject.visible = false;
+  worldObject.userData.valid = false;
+  targets.add(worldObject);
+
+  /* 附着物体（持物，位置由 held 状态更新） */
+  const attachedObject = new THREE.Mesh(
+    new THREE.BoxGeometry(0.035, 0.035, 0.035),
+    new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.9 })
+  );
+  attachedObject.name = 'attached_object';
+  attachedObject.visible = false;
+  attachedObject.userData.valid = false;
+  targets.add(attachedObject);
 
   /* 目标点：pick 青 #22D3EE 稍大，place 紫 */
   const pickMarker = new THREE.Mesh(
@@ -134,7 +210,7 @@ function createScene(containerEl) {
 
   const placeMarker = new THREE.Mesh(
     new THREE.SphereGeometry(PLACE_MARKER_RADIUS, 20, 20),
-    new THREE.MeshBasicMaterial({ color: 0xa78bfa })
+    new THREE.MeshBasicMaterial({ color: PICK_MARKER_COLOR })
   );
   placeMarker.name = 'place_target';
   placeMarker.visible = false;
@@ -155,9 +231,9 @@ function createScene(containerEl) {
   function animate() {
     animationId = requestAnimationFrame(animate);
     if (followTcp) {
-      const tcp = robot.getObjectByName('tcp_axes');
-      if (tcp) {
-        tcp.getWorldPosition(tcpTarget);
+      const tip = robot.getObjectByName('joint_Link6_Link7') || robot.getObjectByName('joint_Link5_Link6');
+      if (tip) {
+        tip.getWorldPosition(tcpTarget);
         controls.target.copy(tcpTarget);
       }
     }
@@ -191,6 +267,11 @@ function createScene(containerEl) {
     if (robotModel && robotModel.setJointValues) robotModel.setJointValues(names, positions);
   }
 
+  function setCollisionDebugVisible(visible) {
+    collisionDebugVisible = !!visible;
+    applyCollisionDebugVisible();
+  }
+
   return {
     scene,
     camera,
@@ -205,6 +286,7 @@ function createScene(containerEl) {
     trajectoryLine,
     setRobotJointValues,
     setFollowTcp,
+    setCollisionDebugVisible,
     resize,
     dispose,
     LAYER_NAMES,

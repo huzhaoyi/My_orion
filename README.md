@@ -114,6 +114,7 @@ ros2 launch orion_mtc pick_place_holoocean.launch.py
 - 桥接与目标索引：`orion_holoocean_bridge/config/holoocean_bridge_params.yaml`（如 `target_index: 1` 对应 `目标[1]`）
 - 抓放几何参数：`orion_mtc/config/pick_place_params.yaml`（approach/lift/place/retreat/lower 等）
 - 运行策略：`orion_mtc/config/runtime_policy.yaml`（auto_start_worker、reject_new_jobs_while_busy、失败后恢复等）
+- **工作空间限值**（水平/垂直 min～max，防止抓取/放置目标配置超出）：见 [docs/workspace_limits.md](docs/workspace_limits.md)
 
 **仅查看机器人模型：**
 

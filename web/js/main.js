@@ -9,6 +9,7 @@ import RightPanel from './layout/RightPanel.js';
 import BottomLogPanel from './layout/BottomLogPanel.js';
 import wsClient from './data/wsClient.js';
 import stateStore from './data/stateStore.js';
+import toast from './ui/toast.js';
 
 function init() {
   TopBar.mount('top-bar');
@@ -79,7 +80,9 @@ function registerGlobalHandlers() {
           wsClient.callService(wsClient.getTopicPrefix() + '/cancel_job', { job_id: nextId }, (r2) => {
             const v2 = r2 && r2.values ? r2.values : r2;
             const ok = v2 && (v2.success === true || v2.success === undefined);
-            stateStore.pushSystemLog(ok ? 'info' : 'warn', (v2 && v2.message) || (ok ? '已取消' : '取消失败'));
+            const msg2 = (v2 && v2.message) || (ok ? '已取消' : '取消失败');
+            stateStore.pushSystemLog(ok ? 'info' : 'warn', msg2);
+            if (ok) toast.success(msg2); else toast.warn(msg2);
             setTimeout(cancelNext, 200);
           });
         });
@@ -95,7 +98,9 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? 'ResetHeldObject 成功' : 'ResetHeldObject 失败'));
+        const msg = (v && v.message) || (ok ? 'ResetHeldObject 成功' : 'ResetHeldObject 失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
       });
     },
     'orion:recover': () => {
@@ -107,12 +112,11 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? 'ResetHeldObject 成功' : 'ResetHeldObject 失败'));
+        const msg = (v && v.message) || (ok ? 'Recover 成功' : 'Recover 失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
-    },
-    'orion:go-home': () => {
-      stateStore.pushSystemLog('warn', 'Go Home：后端 RecoveryActions::goHomeIfSafe() 当前未实现（需要后端补齐）');
     },
     'orion:cancel-job': (e) => {
       const jobId = e.detail?.job_id;
@@ -124,7 +128,9 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/cancel_job', { job_id: jobId }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'warn', (v && v.message) || (ok ? '已取消' : '取消失败'));
+        const msg = (v && v.message) || (ok ? '已取消' : '取消失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'warn', msg);
+        if (ok) toast.success(msg); else toast.warn(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
@@ -153,7 +159,9 @@ function registerGlobalHandlers() {
       }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? `Pick 已提交 ${(v && v.job_id) || ''}` : 'Pick 提交失败'));
+        const msg = (v && v.message) || (ok ? `抓取已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
@@ -177,7 +185,9 @@ function registerGlobalHandlers() {
       wsClient.submitJob({ job_type: wsClient.JOB_TYPE.PLACE, target_pose }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? `Place 已提交 ${(v && v.job_id) || ''}` : 'Place 提交失败'));
+        const msg = (v && v.message) || (ok ? `放置已提交 ${(v && v.job_id) || ''}` : '放置提交失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
@@ -201,12 +211,11 @@ function registerGlobalHandlers() {
       wsClient.submitJob({ job_type: wsClient.JOB_TYPE.PLACE_RELEASE, target_pose }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? `PlaceRelease 已提交 ${(v && v.job_id) || ''}` : 'PlaceRelease 提交失败'));
+        const msg = (v && v.message) || (ok ? `放置释放已提交 ${(v && v.job_id) || ''}` : '放置释放提交失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
-    },
-    'orion:apply-policy': () => {
-      stateStore.pushSystemLog('info', '应用运行策略：当前仅在前端保存/提示（如需写入 ROS2 参数，需要后端/rosbridge 参数服务支持）');
     },
     'orion:sync-held': (e) => {
       const tracked = e.detail?.tracked ?? true;
@@ -238,7 +247,10 @@ function registerGlobalHandlers() {
 
       wsClient.callService(wsClient.getTopicPrefix() + '/sync_held_object', req, (res) => {
         const v = res && res.values ? res.values : res;
-        stateStore.pushSystemLog((v && v.success) ? 'info' : 'error', (v && v.message) || 'SyncHeldObject');
+        const ok = v && v.success;
+        const msg = (v && v.message) || (ok ? '持物同步成功' : '持物同步失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
       });
     },
     'orion:clear-attached': () => {
@@ -250,12 +262,11 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? 'ResetHeldObject 成功' : 'ResetHeldObject 失败'));
+        const msg = (v && v.message) || (ok ? '清除附着成功' : '清除附着失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
-    },
-    'orion:remove-world-object': () => {
-      stateStore.pushSystemLog('info', 'Remove world object（需规划场景接口）');
     },
     'orion:reload-model': () => {
       window.dispatchEvent(new CustomEvent('orion:viewport-reload-model'));
@@ -268,7 +279,9 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/open_gripper', {}, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? '打开夹爪已入队' : '打开夹爪失败'));
+        const msg = (v && v.message) || (ok ? '打开夹爪已入队' : '打开夹爪失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
@@ -280,7 +293,9 @@ function registerGlobalHandlers() {
       wsClient.callService(wsClient.getTopicPrefix() + '/close_gripper', {}, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        stateStore.pushSystemLog(ok ? 'info' : 'error', (v && v.message) || (ok ? '关闭夹爪已入队' : '关闭夹爪失败'));
+        const msg = (v && v.message) || (ok ? '关闭夹爪已入队' : '关闭夹爪失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },

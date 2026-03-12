@@ -12,6 +12,19 @@ function render(parentEl) {
   parentEl.appendChild(wrap);
   const listEl = wrap.querySelector('#queue-list-root');
 
+  function jobTypeLabel(t) {
+    if (!t) return '—';
+    const u = (t + '').toUpperCase();
+    if (u === 'PICK') return '抓取';
+    if (u === 'PLACE') return '放置';
+    if (u === 'PLACE_RELEASE') return '放置释放';
+    if (u === 'OPEN_GRIPPER') return '打开夹爪';
+    if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
+    if (u === 'RESET_HELD_OBJECT') return '重置持物';
+    if (u === 'SYNC_HELD_OBJECT') return '同步持物';
+    return t;
+  }
+
   function update() {
     const s = stateStore.getState();
     listEl.innerHTML = '';
@@ -26,7 +39,7 @@ function render(parentEl) {
     items.forEach((item) => {
       const li = document.createElement('li');
       li.innerHTML = `
-        <span>${item.job_type || '—'} ${item.job_id ? `(${String(item.job_id).slice(0, 8)})` : ''}</span>
+        <span>${jobTypeLabel(item.job_type)} ${item.job_id ? `(${String(item.job_id).slice(0, 8)})` : ''}</span>
         ${item.is_current ? '<span class="badge badge-running">执行中</span>' : `<button type="button" class="queue-item-cancel" data-job-id="${item.job_id || ''}">取消</button>`}
       `;
       const btn = li.querySelector('.queue-item-cancel');

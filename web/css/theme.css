@@ -1,79 +1,83 @@
 /**
- * Orion 上位机 - 工业深色主题 (SEALIEN 品牌 + 高对比状态)
- * 背景 #0F172A / 卡片 #1E293B，主色 #3B82F6，状态色一眼可辨
+ * Orion 上位机 - SEALIEN 工业机械臂 UI
+ * 灰阶层级（深灰 > 黑）+ 品牌蓝仅用于主按钮/选中/高亮
+ * 背景 #0B0F14 | 面板 #151B22 | 次级 #1E2630 | 边框 #2B3642
  */
 
 :root {
-  /* SEALIEN 品牌色 */
-  --color-brand: #00A9E0;
-  --color-brand-dark: #0088b8;
-  --color-brand-light: #33bae8;
+  /* 背景：深灰层级，不纯黑 */
+  --bg-page: #0B0F14;
+  --bg-panel: #151B22;
+  --bg-card: #151B22;
+  --bg-input: #1E2630;
+  --bg-hover: #1E2630;
 
-  /* 工业深色背景 */
-  --bg-page: #0F172A;
-  --bg-panel: #1E293B;
-  --bg-card: #1E293B;
-  --bg-input: #0F172A;
-  --bg-hover: #334155;
-
-  /* 主色与语义色 */
-  --color-primary: #3B82F6;
+  /* 主色仅用于：主按钮、选中状态、链接 */
+  --color-primary: #00ACED;
+  --color-primary-hover: #0095D1;
   --color-success: #22C55E;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
-  --color-info: #06B6D4;
+  --color-info: #94A3B8;
 
-  /* 状态色块 - 顶部栏：绿/蓝/青/红/橙 一眼识别 */
-  --status-idle: #3B82F6;
+  /* 状态标签：CONNECTED 绿 / IDLE·TASK MODE 蓝 / ERROR 红，蓝不泛滥 */
+  --status-idle: #00ACED;
   --status-connected: #22C55E;
-  --status-taskmode: #06B6D4;
-  --status-running: #3B82F6;
+  --status-taskmode: #00ACED;
+  --status-running: #00ACED;
   --status-recovering: #F59E0B;
   --status-warning: #F59E0B;
   --status-error: #EF4444;
   --status-disconnected: #64748B;
 
-  /* 轨迹/目标色 */
+  /* 轨迹/目标 */
   --trajectory-planned: #22C55E;
-  --trajectory-executing: #00A9E0;
-  --target-pick: #00A9E0;
-  --target-place: #33bae8;
+  --trajectory-executing: #00ACED;
+  --target-pick: #00ACED;
+  --target-place: #26C6DA;
   --attached-object: #F59E0B;
   --world-object: #94A3B8;
-  --collision-debug: rgba(239, 68, 68, 0.5);
+  --collision-debug: rgba(239, 68, 68, 0.45);
 
-  /* 文字层级 */
-  --text-primary: #E8E8E8;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
+  /* 文字 */
+  --text-primary: #E6EDF3;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-label: #94A3B8;
+  --text-value: #E6EDF3;
 
-  /* 卡片内 label / value */
-  --text-label: #9CA3AF;
-  --text-value: #F1F5F9;
-
-  /* 边框与分割 */
-  --border: #334155;
+  /* 分割线 / 边框 */
+  --border: #2B3642;
   --border-focus: var(--color-primary);
 
-  /* 尺寸 */
-  --top-bar-height: 40px;
-  --left-panel-width: 18%;
-  --right-panel-width: 18%;
-  --bottom-panel-height: 180px;
+  /* 顶部/底部用 clamp 随视口缩放，避免小屏溢出、大屏过小 */
+  --top-bar-height: clamp(36px, 4.5vh, 48px);
+  --left-panel-width: min(22%, 320px);
+  --right-panel-width: min(22%, 320px);
+  --bottom-panel-height: clamp(140px, 18vh, 220px);
   --radius: 4px;
+  --radius-card: 6px;
   --radius-btn: 6px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* 整页锁定视口，不同分辨率下不出现整页滚动条 */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
+  height: 100%;
+  min-height: 0;
   font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
-  font-size: 13px;
+  font-size: clamp(11px, 1.2vw, 14px);
   background: var(--bg-page);
   color: var(--text-primary);
   overflow: hidden;
@@ -92,6 +96,7 @@ button {
 
 button:hover {
   background: var(--bg-hover);
+  border-color: var(--border);
 }
 
 button:disabled {
@@ -99,10 +104,16 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* 主操作：发送 Pick / 发送 Place 等 */
 button.primary {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 button.btn-action {
@@ -112,13 +123,19 @@ button.btn-action {
   font-weight: 500;
 }
 
+/* 次操作：加入队列等，灰底不抢主按钮 */
 button.btn-secondary {
   height: 36px;
   padding: 0 14px;
   border-radius: var(--radius-btn);
-  background: #334155;
-  border-color: #334155;
-  color: #fff;
+  background: #1E2630;
+  border: 1px solid #2B3642;
+  color: var(--text-secondary);
+}
+
+button.btn-secondary:hover:not(:disabled) {
+  background: #2B3642;
+  color: var(--text-primary);
 }
 
 button.danger {
@@ -128,10 +145,10 @@ button.danger {
 }
 
 input, select, textarea {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: #1E2630;
+  border: 1px solid #2B3642;
   border-radius: var(--radius);
-  color: var(--text-primary);
+  color: #E6EDF3;
   padding: 6px 8px;
   font-size: 12px;
 }
@@ -170,20 +187,25 @@ label {
 .badge-running { background: var(--status-idle); color: #fff; }
 .badge-taskmode { background: var(--status-taskmode); color: #fff; }
 .badge-job,
-.badge-queue { background: var(--border); color: var(--text-secondary); }
+.badge-queue { background: var(--color-info); color: #0B0F14; }
 .badge-recovering,
-.badge-warning { background: var(--status-warning); color: #0F172A; }
+.badge-warning { background: var(--status-warning); color: #0B0F14; }
 .badge-error,
 .badge-disconnected { background: var(--status-error); color: #fff; }
 
-/* 卡片 - 留白 + 阴影层次 */
+/* 卡片 - 面板灰 + 边框层级，hover 轻微品牌蓝高亮 */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 12px;
   margin-bottom: 12px;
   box-shadow: var(--shadow-card);
+  transition: border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--color-primary);
 }
 
 .card:last-child {
@@ -193,9 +215,46 @@ label {
 .card-title {
   font-weight: 600;
   font-size: 14px;
-  color: #E5E7EB;
+  color: var(--text-primary);
   margin-bottom: 10px;
   letter-spacing: 0.3px;
+}
+
+/* 任务栏工作空间提示：单行紧凑，运动学 AABB */
+.workspace-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.workspace-hint__label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 4px;
+}
+.workspace-hint__axes {
+  font-variant-numeric: tabular-nums;
+}
+.workspace-hint__axes var {
+  font-style: normal;
+  font-family: "Consolas", "Monaco", monospace;
+  color: var(--text-value);
+}
+.workspace-hint__unit {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.workspace-hint__note {
+  margin-left: auto;
+  color: var(--color-warning);
+  font-size: 10px;
 }
 
 /* 卡片内容层级：标题突出，内容 12px 次级色 */
@@ -209,14 +268,14 @@ label {
 
 .card-row .card-label {
   font-size: 12px;
-  color: #94A3B8;
+  color: var(--text-secondary);
   min-width: 0;
   flex-shrink: 0;
 }
 
 .card-row .card-value {
   font-size: 12px;
-  color: #E5E7EB;
+  color: var(--text-value);
   word-break: break-all;
 }
 
@@ -256,7 +315,63 @@ label {
   border-bottom: 1px solid var(--border);
 }
 
-.log-line.log-info { color: #9CA3AF; }
+.log-line.log-info { color: var(--text-secondary); }
 .log-line.log-warn { color: var(--color-warning); background: rgba(245, 158, 11, 0.08); }
 .log-line.log-error { color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
 .log-line.log-success { color: var(--color-success); background: rgba(34, 197, 94, 0.06); }
+
+/* Toast 弹框：固定右上角，成功/失败/警告/信息 */
+#toast-container {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.25s ease, transform 0.28s ease;
+}
+
+.toast--visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toast__text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.toast--success .toast__icon { background: var(--color-success); color: #fff; }
+.toast--error .toast__icon { background: var(--color-error); color: #fff; }
+.toast--warn .toast__icon { background: var(--color-warning); color: #0B0F14; }
+.toast--info .toast__icon { background: var(--color-info); color: #0B0F14; }
