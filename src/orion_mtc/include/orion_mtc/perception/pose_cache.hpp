@@ -5,6 +5,7 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -23,12 +24,16 @@ public:
   /** 阻塞等待直到有数据或超时；out 仅在返回 true 时有效 */
   bool waitForPose(std::chrono::milliseconds timeout,
                    geometry_msgs::msg::PoseStamped& out) const;
+  /** 阻塞直到发生一次 update 或超时，便于调用方在取 latest() 前等到“更新后”的位姿 */
+  void waitForNextUpdate(std::chrono::milliseconds timeout) const;
 
 private:
   std::string expected_frame_id_;
   mutable std::mutex mutex_;
+  mutable std::condition_variable cv_;
   geometry_msgs::msg::PoseStamped pose_;
   bool has_pose_ = false;
+  uint64_t update_count_ = 0;
 };
 
 }  // namespace orion_mtc

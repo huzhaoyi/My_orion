@@ -20,9 +20,11 @@ mtc::Task PlaceReleaseTaskBuilder::build(const geometry_msgs::msg::PoseStamped& 
                                          const std::string& attached_object_id)
 {
   const double lower_max = config_.lower_to_place_max_dist;
+  /* 传入的 target_tcp_pose 语义为“释放高度”（物体/夹爪），IK 目标为 Link6，需将 Link6 目标 z 抬高夹爪偏移 */
+  const double gripper_z_offset = config_.gripper_tip_offset_from_link6_z;
   double tx = target_tcp_pose.pose.position.x;
   double ty = target_tcp_pose.pose.position.y;
-  double tz = target_tcp_pose.pose.position.z;
+  double tz = target_tcp_pose.pose.position.z + gripper_z_offset;
   const auto& q = target_tcp_pose.pose.orientation;
   geometry_msgs::msg::Pose pre_place_pose;
   pre_place_pose.position.x = tx;

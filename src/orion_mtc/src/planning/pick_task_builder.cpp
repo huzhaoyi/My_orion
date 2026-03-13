@@ -7,6 +7,7 @@
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <Eigen/Geometry>
 
 namespace mtc = moveit::task_constructor;
 
@@ -94,31 +95,34 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   }
 
   const double approach_max = config_.approach_object_max_dist;
+  const double gripper_z_offset = config_.gripper_tip_offset_from_link6_z;
+  const double approach_dist = approach_max + gripper_z_offset;
+
+  /* 抓取姿态由 object_orientation 给出（侧向抓取系：z=接近方向，y=闭合方向，均垂直于圆柱轴）。
+   * 从四元数得到 base_link 下 z 轴方向，pregrasp 放在物体中心沿 z 方向偏移 approach_dist，approach 段沿 -z 接近。 */
+  Eigen::Quaterniond q_obj(object_orientation.w, object_orientation.x, object_orientation.y, object_orientation.z);
+  Eigen::Vector3d approach_axis = q_obj * Eigen::Vector3d::UnitZ();
+
   geometry_msgs::msg::PoseStamped pregrasp;
   pregrasp.header.frame_id = "base_link";
-  pregrasp.pose.position.x = obj_x;
-  pregrasp.pose.position.y = obj_y;
-  pregrasp.pose.position.z = obj_z + approach_max;
-  /* 预抓取使用固定“竖直向下”（Link6 的 z 沿 base_link -Z），approach 段沿 hand_frame +Z 下压，提高 IK 成功率；
-   * 若用 object_orientation 易在部分目标位姿下报 NO_IK_SOLUTION（Link6 限位/奇异）。 */
-  pregrasp.pose.orientation.x = 1.0;
-  pregrasp.pose.orientation.y = 0.0;
-  pregrasp.pose.orientation.z = 0.0;
-  pregrasp.pose.orientation.w = 0.0;
+  pregrasp.pose.position.x = obj_x + approach_dist * approach_axis.x();
+  pregrasp.pose.position.y = obj_y + approach_dist * approach_axis.y();
+  pregrasp.pose.position.z = obj_z + approach_dist * approach_axis.z();
+  pregrasp.pose.orientation = object_orientation;
+
   auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
   stage_pregrasp->setGroup(arm_group_name);
   stage_pregrasp->setGoal(pregrasp);
   stage_pregrasp->setIKFrame(hand_frame);
   grasp->insert(std::move(stage_pregrasp));
 
-  /* 接近/闭合/attach 阶段保持 hand-object 允许（与上阶段重叠，语义明确） */
   {
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
     stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
     grasp->insert(std::move(stage));
   }
 
-  /* 接近段：沿 base_link -Z 竖直下压，避免用手系方向导致 IK 多解/步进时姿态漂移产生“旋转卡上去” */
+  /* 接近段：沿抓取系 -z 方向（即 base_link 下 -approach_axis）平动，末端姿态保持与 pregrasp 一致 */
   auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
   stage_approach->properties().set("marker_ns", "approach_object");
   stage_approach->properties().set("link", hand_frame);
@@ -129,9 +133,9 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   stage_approach->setIKFrame(hand_frame);
   geometry_msgs::msg::Vector3Stamped vec;
   vec.header.frame_id = "base_link";
-  vec.vector.x = 0.0;
-  vec.vector.y = 0.0;
-  vec.vector.z = -1.0;  // 竖直向下，纯平动无旋转
+  vec.vector.x = static_cast<float>(-approach_axis.x());
+  vec.vector.y = static_cast<float>(-approach_axis.y());
+  vec.vector.z = static_cast<float>(-approach_axis.z());
   stage_approach->setDirection(vec);
   grasp->insert(std::move(stage_approach));
 

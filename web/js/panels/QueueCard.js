@@ -3,6 +3,7 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import { jobTypeLabel } from '../data/labels.js';
 
 function render(parentEl) {
   if (!parentEl) return;
@@ -11,19 +12,6 @@ function render(parentEl) {
   wrap.innerHTML = '<div class="card-title">队列</div><ul class="queue-list" id="queue-list-root"></ul>';
   parentEl.appendChild(wrap);
   const listEl = wrap.querySelector('#queue-list-root');
-
-  function jobTypeLabel(t) {
-    if (!t) return '—';
-    const u = (t + '').toUpperCase();
-    if (u === 'PICK') return '抓取';
-    if (u === 'PLACE') return '放置';
-    if (u === 'PLACE_RELEASE') return '放置释放';
-    if (u === 'OPEN_GRIPPER') return '打开夹爪';
-    if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
-    if (u === 'RESET_HELD_OBJECT') return '重置持物';
-    if (u === 'SYNC_HELD_OBJECT') return '同步持物';
-    return t;
-  }
 
   function update() {
     const s = stateStore.getState();

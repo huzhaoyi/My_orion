@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 import wsClient from '../data/wsClient.js';
+import { jobTypeLabel, stageNameLabel, stageStateLabel } from '../data/labels.js';
 
 const TAB_EVENTS = 'events';
 const TAB_RECENT_JOBS = 'recent';
@@ -68,25 +69,12 @@ function mount(containerId) {
     const list = events.slice(-80).reverse();
     logContainer.innerHTML = list.map((e) => {
       const ts = e.header?.stamp ? `${e.header.stamp.sec}.${String(e.header.stamp.nanosec || 0).slice(0, 3)}` : (e._ts ? new Date(e._ts).toLocaleTimeString() : '');
-      const type = e.event_type || e.task_type || e.stage_name || '—';
+      const typeZh = (e.stage_name ? stageNameLabel(e.stage_name) : null) || (e.task_type ? jobTypeLabel(e.task_type) : null) || e.event_type || '—';
       const id = e.job_id || '—';
-      const detail = e.reason || e.detail || e.stage_state || '';
-      return `<div class="log-line">${ts} | ${type} | ${id} ${detail ? '| ' + detail : ''}</div>`;
+      const detailPart = e.stage_state ? stageStateLabel(e.stage_state) : (e.reason || e.detail || '');
+      return `<div class="log-line">${ts} | ${typeZh} | ${id} ${detailPart ? '| ' + detailPart : ''}</div>`;
     }).join('') || '<div class="log-line" style="color:var(--text-muted);">暂无事件</div>';
     if (autoScroll) logContainer.scrollTop = 0;
-  }
-
-  function jobTypeLabel(t) {
-    if (!t) return '—';
-    const u = (t + '').toUpperCase();
-    if (u === 'PICK') return '抓取';
-    if (u === 'PLACE') return '放置';
-    if (u === 'PLACE_RELEASE') return '放置释放';
-    if (u === 'OPEN_GRIPPER') return '打开夹爪';
-    if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
-    if (u === 'RESET_HELD_OBJECT') return '重置持物';
-    if (u === 'SYNC_HELD_OBJECT') return '同步持物';
-    return t;
   }
 
   function renderRecentJobs() {

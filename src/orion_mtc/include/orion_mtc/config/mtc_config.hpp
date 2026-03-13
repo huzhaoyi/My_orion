@@ -20,6 +20,9 @@ struct MTCConfig
   double approach_object_max_dist = 0.15f;
   /* approach 段最少走满距离的比例 [0,1]，越大越容易“夹到”（末端更贴近物体再闭合） */
   double approach_min_fraction = 0.85f;
+  /* 夹爪中心相对 Link6 在 Link6 +Z 方向的偏移 [m]。IK 目标为 Link6，实际夹取为 Link7/Link8，
+   * 竖直朝下接近时需将 pregrasp/grasp 的 Z 抬高此值，使到位时是夹爪而非手腕碰到物体。URDF 中 Link7/8 约 0.048m */
+  double gripper_tip_offset_from_link6_z = 0.048f;
   double lift_object_min_dist = 0.05f;
   double lift_object_max_dist = 0.25f;
   /* place retreat / lower */

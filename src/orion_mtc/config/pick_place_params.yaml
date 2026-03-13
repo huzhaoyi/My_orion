@@ -10,6 +10,8 @@ approach_object_min_dist: 0.08
 approach_object_max_dist: 0.15
 # approach 段最少走满距离的比例 [0,1]，越大越易夹到（末端更贴近再闭合），实机没夹到可试 0.9 或 1.0
 approach_min_fraction: 0.95
+# 夹爪中心相对 Link6 在 Link6 +Z 方向偏移 [m]。IK 目标为 Link6，实际夹取为 Link7/Link8，竖直朝下时需将 pregrasp z 抬高此值（与 URDF joint_Link6_Link7/Link8 的 origin z 约 0.048 一致）
+gripper_tip_offset_from_link6_z: 0.048
 
 # Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
 lift_object_min_dist: 0.05

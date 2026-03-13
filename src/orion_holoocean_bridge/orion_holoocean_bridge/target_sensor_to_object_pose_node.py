@@ -77,6 +77,40 @@ def _rotation_matrix_from_direction(direction: np.ndarray) -> np.ndarray:
     return R
 
 
+def _rotation_matrix_side_grasp_from_direction(direction: np.ndarray) -> np.ndarray:
+    """
+    由圆柱轴方向构造侧向抓取坐标系（base_link 下）的旋转矩阵。
+    约定：y = 夹爪闭合方向（垂直于圆柱轴），z = 末端接近方向（垂直于圆柱轴，从外侧指向物体）。
+    这样末端从 z 方向接近、夹爪沿 y 方向闭合，从圆柱侧面包夹。
+    direction 为圆柱轴单位向量（在 base_link 下）；会做归一化与符号统一（a.z >= 0）。
+    """
+    a = np.asarray(direction, dtype=float).ravel()[:3]
+    n = np.linalg.norm(a)
+    if n < 1e-9:
+        a = np.array([0.0, 0.0, 1.0])
+    else:
+        a = a / n
+    if a[2] < 0.0:
+        a = -a
+    ref = np.array([0.0, 0.0, 1.0])
+    if abs(float(np.dot(a, ref))) > 0.95:
+        ref = np.array([1.0, 0.0, 0.0])
+    y = np.cross(a, ref)
+    ny = np.linalg.norm(y)
+    if ny < 1e-9:
+        y = np.array([1.0, 0.0, 0.0]) if abs(a[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        y = y - np.dot(y, a) * a
+        y = y / np.linalg.norm(y)
+    else:
+        y = y / ny
+    z = np.cross(y, a)
+    z = z / np.linalg.norm(z)
+    x = np.cross(y, z)
+    x = x / np.linalg.norm(x)
+    R = np.column_stack((x, y, z))
+    return R
+
+
 def _quat_to_rotation_matrix(qx: float, qy: float, qz: float, qw: float) -> np.ndarray:
     """四元数 (x,y,z,w) 转 3x3 旋转矩阵。"""
     return np.array([
@@ -214,7 +248,7 @@ class TargetSensorToObjectPoseNode(Node):
         target_set.directions = directions_base
         self._pub_target_set.publish(target_set)
 
-        # 保留单目标 object_pose（选定 target_index）供向后兼容
+        # 单目标 object_pose（选定 target_index）：位置为物体中心，姿态为侧向抓取系（y=闭合方向，z=接近方向，均垂直于圆柱轴）
         idx = max(0, min(self._target_index, n - 1))
         i = idx * 3
         px = msg.positions[i]
@@ -224,24 +258,30 @@ class TargetSensorToObjectPoseNode(Node):
         dy = msg.directions[i + 1]
         dz = msg.directions[i + 2]
         p_world = np.array([px, py, pz], dtype=float)
-        direction = np.array([dx, dy, dz], dtype=float)
+        d_world = np.array([dx, dy, dz], dtype=float)
+        dn = np.linalg.norm(d_world)
+        if dn < 1e-9:
+            d_world = np.array([0.0, 0.0, 1.0])
+        else:
+            d_world = d_world / dn
         p_rov = R_rov.T @ (p_world - t_rov)
         p_base = p_rov - self._t_arm_in_rov + np.array(
             [self._offset_x, self._offset_y, self._offset_z], dtype=float
         )
-        R_obj_world = _rotation_matrix_from_direction(direction)
-        R_obj_rov = R_rov.T @ R_obj_world
-        q_obj_rov = _quat_from_rotation_matrix(R_obj_rov)
+        d_base = R_rov.T @ d_world
+        d_base = d_base / np.linalg.norm(d_base)
+        R_grasp_base = _rotation_matrix_side_grasp_from_direction(d_base)
+        q_grasp = _quat_from_rotation_matrix(R_grasp_base)
         out = PoseStamped()
         out.header.stamp = stamp
         out.header.frame_id = self._output_frame_id
         out.pose.position.x = float(p_base[0])
         out.pose.position.y = float(p_base[1])
         out.pose.position.z = float(p_base[2])
-        out.pose.orientation.x = q_obj_rov[0]
-        out.pose.orientation.y = q_obj_rov[1]
-        out.pose.orientation.z = q_obj_rov[2]
-        out.pose.orientation.w = q_obj_rov[3]
+        out.pose.orientation.x = q_grasp[0]
+        out.pose.orientation.y = q_grasp[1]
+        out.pose.orientation.z = q_grasp[2]
+        out.pose.orientation.w = q_grasp[3]
         self._pub_pose.publish(out)
 
 

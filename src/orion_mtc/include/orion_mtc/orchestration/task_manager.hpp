@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <rclcpp/node.hpp>
 #include <string>
 #include <thread>
@@ -69,6 +70,10 @@ public:
 
   /** 设置夹爪“有物”查询：返回 true 时 pick 会被拒绝，避免 object 在夹爪上导致规划失败 */
   void setGripperLockedCallback(std::function<bool()> fn);
+
+  /** 话题触发的 PICK 执行时用此回调取最新物体位姿，使物体移动后仍夹当前话题位置；未设置或返回空则用 job 入队时的 object_pose */
+  void setGetLatestObjectPoseCallback(
+      std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn);
 
   /** 分层状态话题回调：由 Node 设置，在对应事件时调用并发布 */
   using JobEventFn = std::function<void(const std::string& job_id, const std::string& job_type,
@@ -162,6 +167,7 @@ private:
   SolutionExecutor* solution_executor_;
   WaitForGrippedFn wait_for_gripped_fn_;
   std::function<bool()> is_gripper_locked_fn_;
+  std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fn_;
   JobEventFn job_event_fn_;
   HeldObjectStateFn held_object_state_fn_;
   RecoveryEventFn recovery_event_fn_;

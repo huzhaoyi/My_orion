@@ -81,6 +81,11 @@ void OrionMTCNode::initModules()
   task_manager_->setPlaceGenerator(place_generator_.get());
   /* locked = 夹爪有物，此时禁止 pick 避免 object 在夹爪上导致规划失败 */
   task_manager_->setGripperLockedCallback([this]() { return isGripperLocked(); });
+  /* 执行 PICK 时先等待话题一次更新（短超时），再取 latest，使目标点尽量是当前位姿而非入队时的旧值 */
+  task_manager_->setGetLatestObjectPoseCallback([this]() {
+    object_pose_cache_->waitForNextUpdate(std::chrono::milliseconds(120));
+    return object_pose_cache_->latest();
+  });
 }
 
 namespace

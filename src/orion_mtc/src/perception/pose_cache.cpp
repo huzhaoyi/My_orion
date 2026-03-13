@@ -19,9 +19,13 @@ void PoseCache::update(const geometry_msgs::msg::PoseStamped& msg)
                 msg.header.frame_id.c_str(), expected_frame_id_.c_str());
     return;
   }
-  std::lock_guard<std::mutex> lock(mutex_);
-  pose_ = msg;
-  has_pose_ = true;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    pose_ = msg;
+    has_pose_ = true;
+    ++update_count_;
+    cv_.notify_all();
+  }
   RCLCPP_DEBUG(LOGGER, "pose received: (%.3f, %.3f, %.3f)",
                msg.pose.position.x, msg.pose.position.y, msg.pose.position.z);
 }
@@ -58,6 +62,19 @@ bool PoseCache::waitForPose(std::chrono::milliseconds timeout,
     std::this_thread::sleep_for(tick);
   }
   return false;
+}
+
+void PoseCache::waitForNextUpdate(std::chrono::milliseconds timeout) const
+{
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  std::unique_lock<std::mutex> lock(mutex_);
+  const uint64_t count_at_start = update_count_;
+  while (update_count_ == count_at_start && std::chrono::steady_clock::now() < deadline)
+  {
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline -
+                                                                                 std::chrono::steady_clock::now());
+    cv_.wait_for(lock, std::min(remaining, std::chrono::milliseconds(50)));
+  }
 }
 
 }  // namespace orion_mtc

@@ -30,10 +30,37 @@ namespace orion_mtc
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
 
-/* PICK 任务 MTC 阶段名（与 pick_task_builder 顺序对应，不足时用 segment_N） */
+/* PICK 任务 MTC 阶段名（与 pick_task_builder 顺序对应，含 ModifyPlanningScene 等，不足时前端显示 segment_N） */
 static const std::vector<std::string> PICK_STAGE_NAMES = {
-    "move_to_ready", "add_object", "open_hand", "move_to_pregrasp",
-    "approach_object", "close_hand", "attach_object", "lift_object"
+    "move_to_ready",
+    "add_object",
+    "open_hand",
+    "allow_self_collision_pregrasp",
+    "allow_collision_arm_object_pregrasp",
+    "move_to_pregrasp",
+    "allow_collision_hand_object",
+    "approach_object",
+    "allow_collision_before_close",
+    "close_hand",
+    "attach_object",
+    "allow_collision_object_support",
+    "lift_object",
+    "forbid_collision_object_support",
+};
+
+/* PLACE 任务 MTC 阶段名（与 place_task_builder 顺序对应） */
+static const std::vector<std::string> PLACE_STAGE_NAMES = {
+    "allow_collision_hand_object", "move_to_pre_place", "allow_collision_object_support",
+    "lower_to_place", "open_hand", "detach_object", "retreat",
+    "forbid_collision_hand_object", "forbid_collision_object_support",
+    "allow_collision_object_arm", "move_to_ready", "open_hand_ready"
+};
+
+/* PLACE_RELEASE 任务 MTC 阶段名（与 place_release_task_builder 顺序对应） */
+static const std::vector<std::string> PLACE_RELEASE_STAGE_NAMES = {
+    "allow_collision_hand_object", "move_to_pre_place_release", "lower_to_place",
+    "open_hand", "detach_object", "retreat", "forbid_collision_hand_object",
+    "allow_collision_object_arm", "move_to_ready", "open_hand_ready"
 };
 
 /* 去重阈值：位置 1cm，姿态约 5°（quat dot ≥ 0.99），时间窗口 1s */
@@ -241,9 +268,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   {
     RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s', expected base_link", object_pose.header.frame_id.c_str());
   }
-  double pregrasp_z = obj_z + config_.approach_object_max_dist;
+  double pregrasp_z = obj_z + config_.approach_object_max_dist + config_.gripper_tip_offset_from_link6_z;
   RCLCPP_INFO(LOGGER,
-              "handlePick: object (base_link) x=%.3f y=%.3f z=%.3f, pregrasp z=%.3f; if GOAL_STATE_INVALID adjust "
+              "handlePick: object (base_link) x=%.3f y=%.3f z=%.3f, pregrasp z=%.3f (with gripper offset); if GOAL_STATE_INVALID adjust "
               "holoocean_bridge position_offset_* or left_arm_base_in_rov_*",
               obj_x, obj_y, obj_z, pregrasp_z);
 
@@ -493,6 +520,12 @@ void TaskManager::setGripperLockedCallback(std::function<bool()> fn)
   is_gripper_locked_fn_ = std::move(fn);
 }
 
+void TaskManager::setGetLatestObjectPoseCallback(
+    std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn)
+{
+  get_latest_object_pose_fn_ = std::move(fn);
+}
+
 void TaskManager::setJobEventCallback(JobEventFn fn)
 {
   job_event_fn_ = std::move(fn);
@@ -597,7 +630,7 @@ bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& targe
     };
   }
   if (!solution_executor_->executeSolution(place_solution_msg, wait_for_gripped_fn_,
-                                           place_stage_report, getCurrentJobId(), "PLACE", {}))
+                                           place_stage_report, getCurrentJobId(), "PLACE", PLACE_STAGE_NAMES))
   {
     RCLCPP_ERROR(LOGGER, "Place execution failed");
     std::lock_guard<std::mutex> lock(state_mutex_);
@@ -768,7 +801,7 @@ bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& targ
     };
   }
   if (!solution_executor_->executeSolution(release_solution_msg, wait_for_gripped_fn_,
-                                           release_stage_report, getCurrentJobId(), "PLACE_RELEASE", {}))
+                                           release_stage_report, getCurrentJobId(), "PLACE_RELEASE", PLACE_RELEASE_STAGE_NAMES))
   {
     RCLCPP_ERROR(LOGGER, "PlaceRelease execution failed");
     {
@@ -1299,12 +1332,35 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   {
     case JobType::PICK:
     {
-      if (!job.object_pose.has_value())
+      geometry_msgs::msg::PoseStamped pose_to_use;
+      if (job.source == "topic_pick_trigger" && get_latest_object_pose_fn_)
+      {
+        std::optional<geometry_msgs::msg::PoseStamped> latest = get_latest_object_pose_fn_();
+        if (latest.has_value())
+        {
+          pose_to_use = latest.value();
+          RCLCPP_DEBUG(LOGGER, "executeJob PICK: using latest object_pose from topic");
+        }
+        else if (job.object_pose.has_value())
+        {
+          pose_to_use = job.object_pose.value();
+        }
+        else
+        {
+          RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose and no latest from topic");
+          return false;
+        }
+      }
+      else if (job.object_pose.has_value())
+      {
+        pose_to_use = job.object_pose.value();
+      }
+      else
       {
         RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose");
         return false;
       }
-      return handlePick(job.object_pose.value(), job.object_id);
+      return handlePick(pose_to_use, job.object_id);
     }
     case JobType::PLACE:
     {
