@@ -11,7 +11,7 @@ approach_object_max_dist: 0.15
 # approach 段最少走满距离的比例 [0,1]，越大越易夹到（末端更贴近再闭合），实机没夹到可试 0.9 或 1.0
 approach_min_fraction: 0.95
 # 夹爪中心相对 Link6 在 Link6 +Z 方向偏移 [m]。IK 目标为 Link6，实际夹取为 Link7/Link8，竖直朝下时需将 pregrasp z 抬高此值（与 URDF joint_Link6_Link7/Link8 的 origin z 约 0.048 一致）
-gripper_tip_offset_from_link6_z: 0.048
+gripper_tip_offset_from_link6_z: 0.028
 
 # Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
 lift_object_min_dist: 0.05
@@ -45,3 +45,24 @@ lower_to_place_max_dist: 0.12
 #
 # 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped（std_msgs/Float32）判断抓稳再抬升，
 # 放置“张开”段后根据 left_arm_gripped 从 lock 变为 unlock 再退离。left_arm_gripped 由 arm_sensor_to_joint_state 从 HoloOcean ArmSensor 发布。
+
+# ---------- 审批模式（CheckPick / CheckPlace）工作空间与诊断阈值 ----------
+# 基座为 base_link 原点，单位 m。超过 max_reach_hard 直接禁止；超过 max_reach_soft 给 warning
+feasibility:
+  max_reach_hard: 1.20
+  max_reach_soft: 1.10
+  min_reach_safe: 0.12
+  z_min: -0.50
+  z_max: 0.80
+  # 关节极限余量 [rad]，小于此值报 JOINT_NEAR_LIMIT warning
+  joint_margin_warning_rad: 0.10
+  # IK 超时 [s]
+  ik_timeout: 0.2
+  # 接近方向与竖直向下最大夹角 [°]，超过报 BAD_APPROACH_ANGLE
+  approach_angle_max_deg: 55.0
+  # 建议修正扰动步长 [m] 或 [rad]
+  suggestion_perturb_xy: 0.02
+  suggestion_perturb_z: 0.03
+  suggestion_perturb_yaw_rad: 0.15
+  # 碰撞检查：GetPlanningScene 服务名，空则不做碰撞检查
+  get_planning_scene_service: ""

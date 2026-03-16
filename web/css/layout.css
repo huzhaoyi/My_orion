@@ -80,7 +80,7 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   padding: 10px;
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
@@ -322,42 +322,30 @@
   flex-wrap: wrap;
 }
 
-.right-panel .form-row--xyz {
+.right-panel .form-row--pose {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 8px;
 }
 
-.right-panel .form-row--xyz label {
-  min-width: 0;
-  font-size: 11px;
-  width: 18px;
-}
-
-.right-panel .form-row--xyz input {
-  flex: 1;
-  min-width: 0;
-  width: 60px;
-}
-
-.right-panel .form-row--quat {
+.right-panel .form-num-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
 }
 
-.right-panel .form-row--quat label {
-  min-width: 0;
+.right-panel .form-num-item label {
   font-size: 11px;
-  width: 22px;
+  width: 32px;      /* 标签统一 32px，文字左对齐，形成一条直线 */
+  flex-shrink: 0;
+  text-align: left;
 }
 
-.right-panel .form-row--quat input {
-  flex: 1;
-  min-width: 0;
-  width: 52px;
+.right-panel .form-num-item input {
+  width: 140px;     /* 输入框加宽，便于看到更多小数位 */
+  min-width: 140px;
+  box-sizing: border-box;
 }
 
 .right-panel .form-group {

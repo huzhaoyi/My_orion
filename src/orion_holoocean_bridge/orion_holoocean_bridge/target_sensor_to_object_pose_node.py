@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 将 HoloOcean TargetSensor（世界系下 xyz + 圆柱轴方向）转换为 MTC 所需的 /object_pose（base_link 下）。
-订阅 ROV 位姿（DynamicsSensorOdom），将目标点从世界系变换到机械臂 base_link，并用 direction 构造物体姿态（无欧拉角时由方向向量推导）。
+订阅 ROV 位姿（PoseSensor，世界系），将目标点从世界系变换到机械臂 base_link，并用 direction 构造物体姿态（无欧拉角时由方向向量推导）。
 """
 
 import math
@@ -10,11 +10,11 @@ from typing import Optional, Tuple
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped
 from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
-from orion_mtc_msgs.msg import TargetSet
+from orion_mtc_msgs.msg import TargetSet, PerceptionState
+from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
 # 机械臂基座在 ROV 系下平移 [m] 的默认值，仅平移无旋转（与 docs/tf_conversion.md 一致）；可由参数覆盖
@@ -141,9 +141,11 @@ class TargetSensorToObjectPoseNode(Node):
     def __init__(self) -> None:
         super().__init__("target_sensor_to_object_pose")
         self.declare_parameter("target_sensor_topic", "/holoocean/rov0/TargetSensor")
-        self.declare_parameter("rov_odom_topic", "/holoocean/rov0/DynamicsSensorOdom")
+        self.declare_parameter("rov_pose_topic", "/holoocean/rov0/PoseSensor")
         self.declare_parameter("object_pose_topic", "object_pose")
-        self.declare_parameter("target_set_topic", "target_set")
+        self.declare_parameter("world_frame_id", "map")
+        self.declare_parameter("publish_tf", True)
+        self.declare_parameter("perception_state_topic", "perception_state")
         self.declare_parameter("output_frame_id", "base_link")
         self.declare_parameter("target_index", 1)
         self.declare_parameter("use_left_arm", True)
@@ -158,9 +160,11 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("position_offset_z", 0.0)
 
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
-        self._rov_odom_topic = self.get_parameter("rov_odom_topic").get_parameter_value().string_value
+        self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
         self._object_pose_topic = self.get_parameter("object_pose_topic").get_parameter_value().string_value
-        self._target_set_topic = self.get_parameter("target_set_topic").get_parameter_value().string_value
+        self._world_frame_id = self.get_parameter("world_frame_id").get_parameter_value().string_value
+        self._publish_tf = self.get_parameter("publish_tf").get_parameter_value().bool_value
+        self._perception_state_topic = self.get_parameter("perception_state_topic").get_parameter_value().string_value
         self._output_frame_id = self.get_parameter("output_frame_id").get_parameter_value().string_value
         self._target_index = self.get_parameter("target_index").get_parameter_value().integer_value
         self._use_left_arm = self.get_parameter("use_left_arm").get_parameter_value().bool_value
@@ -178,6 +182,11 @@ class TargetSensorToObjectPoseNode(Node):
         self._offset_z = self.get_parameter("position_offset_z").get_parameter_value().double_value
         self._rov_position: Optional[np.ndarray] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
+        self._last_rov_in_base: Optional[PoseStamped] = None
+        self._last_rov_pose_in_world: Optional[PoseStamped] = None
+        self._last_target_set: Optional[TargetSet] = None
+        self._last_target_set_world: Optional[TargetSet] = None
+        self._last_object_pose: Optional[PoseStamped] = None
 
         self._sub_target = self.create_subscription(
             TargetSensor,
@@ -185,25 +194,100 @@ class TargetSensorToObjectPoseNode(Node):
             self._on_target_sensor,
             10,
         )
-        self._sub_odom = self.create_subscription(
-            Odometry,
-            self._rov_odom_topic,
-            self._on_rov_odom,
+        self._sub_rov_pose = self.create_subscription(
+            PoseWithCovarianceStamped,
+            self._rov_pose_topic,
+            self._on_rov_pose,
             10,
         )
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
-        self._pub_target_set = self.create_publisher(TargetSet, self._target_set_topic, 10)
+        self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
+        if self._publish_tf:
+            self._tf_broadcaster = TransformBroadcaster(self)
+            self._tf_static_broadcaster = StaticTransformBroadcaster(self)
+            self._publish_static_rov_to_base_link()
+        else:
+            self._tf_broadcaster = None
+            self._tf_static_broadcaster = None
 
-    def _on_rov_odom(self, msg: Odometry) -> None:
+    def _publish_static_rov_to_base_link(self) -> None:
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = "rov0"
+        t.child_frame_id = self._output_frame_id
+        t.transform.translation.x = float(self._t_arm_in_rov[0])
+        t.transform.translation.y = float(self._t_arm_in_rov[1])
+        t.transform.translation.z = float(self._t_arm_in_rov[2])
+        t.transform.rotation.x = 0.0
+        t.transform.rotation.y = 0.0
+        t.transform.rotation.z = 0.0
+        t.transform.rotation.w = 1.0
+        self._tf_static_broadcaster.sendTransform(t)
+
+    def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
+        """ROV 世界系位姿（PoseSensor），用于 world→ROV→base_link 变换。"""
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
         self._rov_position = np.array([p.x, p.y, p.z], dtype=float)
         self._rov_orientation_xyzw = (o.x, o.y, o.z, o.w)
+        if self._publish_tf and self._tf_broadcaster is not None:
+            t = TransformStamped()
+            t.header.stamp = msg.header.stamp
+            t.header.frame_id = self._world_frame_id
+            t.child_frame_id = "rov0"
+            t.transform.translation.x = p.x
+            t.transform.translation.y = p.y
+            t.transform.translation.z = p.z
+            t.transform.rotation.x = o.x
+            t.transform.rotation.y = o.y
+            t.transform.rotation.z = o.z
+            t.transform.rotation.w = o.w
+            self._tf_broadcaster.sendTransform(t)
+        rov_in_base = PoseStamped()
+        rov_in_base.header.stamp = msg.header.stamp
+        rov_in_base.header.frame_id = self._output_frame_id
+        rov_in_base.pose.position.x = float(-self._t_arm_in_rov[0])
+        rov_in_base.pose.position.y = float(-self._t_arm_in_rov[1])
+        rov_in_base.pose.position.z = float(-self._t_arm_in_rov[2])
+        rov_in_base.pose.orientation.x = 0.0
+        rov_in_base.pose.orientation.y = 0.0
+        rov_in_base.pose.orientation.z = 0.0
+        rov_in_base.pose.orientation.w = 1.0
+        self._last_rov_in_base = rov_in_base
+        rov_in_world = PoseStamped()
+        rov_in_world.header.stamp = msg.header.stamp
+        rov_in_world.header.frame_id = self._world_frame_id
+        rov_in_world.pose.position.x = p.x
+        rov_in_world.pose.position.y = p.y
+        rov_in_world.pose.position.z = p.z
+        rov_in_world.pose.orientation.x = o.x
+        rov_in_world.pose.orientation.y = o.y
+        rov_in_world.pose.orientation.z = o.z
+        rov_in_world.pose.orientation.w = o.w
+        self._last_rov_pose_in_world = rov_in_world
+        # 仅在已有物体/目标数据时发布感知状态，避免网页收到“空 object_pose”与“有数据”交替导致 0↔有数据 闪烁
+        if self._last_object_pose is None or self._last_target_set is None:
+            return
+        ps = PerceptionState()
+        ps.header.stamp = msg.header.stamp
+        ps.header.frame_id = self._output_frame_id
+        ps.object_pose = self._last_object_pose
+        ps.rov_pose_in_base_link = rov_in_base
+        ps.rov_pose_in_world = rov_in_world
+        ps.target_set = self._last_target_set
+        ps.target_set_world = self._last_target_set_world if self._last_target_set_world is not None else TargetSet()
+        self._pub_perception_state.publish(ps)
+        if not hasattr(self, "_rov_pose_logged"):
+            self._rov_pose_logged = True
+            self.get_logger().info(
+                "target_sensor_to_object_pose: 已收到 ROV 位姿（" + self._rov_pose_topic + "），开始发布 object_pose 与 TF"
+            )
 
     def _on_target_sensor(self, msg: TargetSensor) -> None:
         if self._rov_position is None or self._rov_orientation_xyzw is None:
-            self.get_logger().debug(
-                "target_sensor_to_object_pose: 尚无 ROV 位姿，跳过本帧",
+            self.get_logger().warn(
+                "target_sensor_to_object_pose: 尚无 ROV 位姿，跳过本帧（需订阅 "
+                + self._rov_pose_topic + " 且 HoloOcean 有发布）",
                 throttle_duration_sec=2.0,
             )
             return
@@ -214,6 +298,25 @@ class TargetSensorToObjectPoseNode(Node):
         R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
         t_rov = self._rov_position
         stamp = self.get_clock().now().to_msg()
+
+        if self._publish_tf and self._tf_broadcaster is not None:
+            for k in range(n):
+                i = k * 3
+                px = msg.positions[i]
+                py = msg.positions[i + 1]
+                pz = msg.positions[i + 2]
+                t = TransformStamped()
+                t.header.stamp = stamp
+                t.header.frame_id = self._world_frame_id
+                t.child_frame_id = "target_{}".format(k)
+                t.transform.translation.x = float(px)
+                t.transform.translation.y = float(py)
+                t.transform.translation.z = float(pz)
+                t.transform.rotation.x = 0.0
+                t.transform.rotation.y = 0.0
+                t.transform.rotation.z = 0.0
+                t.transform.rotation.w = 1.0
+                self._tf_broadcaster.sendTransform(t)
 
         # 发布多目标集合（base_link），供 MTC 目标选择 + 抓取候选
         positions_base = []
@@ -246,7 +349,15 @@ class TargetSensorToObjectPoseNode(Node):
         target_set.num_targets = n
         target_set.positions = positions_base
         target_set.directions = directions_base
-        self._pub_target_set.publish(target_set)
+
+        # 世界系多目标：直接来自 TargetSensor 原始 positions/directions（世界坐标），供网页“目标→世界坐标”表格
+        target_set_world = TargetSet()
+        target_set_world.header = Header(stamp=stamp, frame_id=self._world_frame_id)
+        target_set_world.num_targets = n
+        pos_world = list(msg.positions)[: n * 3]
+        target_set_world.positions = [float(pos_world[k]) for k in range(len(pos_world))]
+        dir_world = list(msg.directions)[: n * 3]
+        target_set_world.directions = [float(dir_world[k]) for k in range(len(dir_world))]
 
         # 单目标 object_pose（选定 target_index）：位置为物体中心，姿态为侧向抓取系（y=闭合方向，z=接近方向，均垂直于圆柱轴）
         idx = max(0, min(self._target_index, n - 1))
@@ -283,6 +394,26 @@ class TargetSensorToObjectPoseNode(Node):
         out.pose.orientation.z = q_grasp[2]
         out.pose.orientation.w = q_grasp[3]
         self._pub_pose.publish(out)
+        self._last_object_pose = out
+        self._last_target_set = target_set
+        self._last_target_set_world = target_set_world
+
+        # 感知状态：物体位姿 + ROV 世界系/基座系位姿 + 多目标（世界系+机械臂系），单话题供网页显示
+        ps = PerceptionState()
+        ps.header.stamp = stamp
+        ps.header.frame_id = self._output_frame_id
+        ps.object_pose = out
+        ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base is not None else PoseStamped()
+        if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
+            ps.rov_pose_in_base_link.header.stamp = stamp
+            ps.rov_pose_in_base_link.header.frame_id = self._output_frame_id
+        ps.rov_pose_in_world = self._last_rov_pose_in_world if self._last_rov_pose_in_world is not None else PoseStamped()
+        if ps.rov_pose_in_world.header.stamp.sec == 0 and ps.rov_pose_in_world.header.stamp.nanosec == 0:
+            ps.rov_pose_in_world.header.stamp = stamp
+            ps.rov_pose_in_world.header.frame_id = self._world_frame_id
+        ps.target_set = target_set
+        ps.target_set_world = target_set_world
+        self._pub_perception_state.publish(ps)
 
 
 def main(args=None):

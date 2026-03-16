@@ -20,6 +20,8 @@ find_package(std_srvs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(orion_mtc_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 set(ORION_MTC_SOURCES
@@ -28,6 +30,7 @@ set(ORION_MTC_SOURCES
   src/core/constants.cpp
   src/config/mtc_config.cpp
   src/config/runtime_policy_loader.cpp
+  src/feasibility/feasibility_checker.cpp
   src/planning/collision_object_utils.cpp
   src/planning/pick_task_builder.cpp
   src/planning/place_task_builder.cpp
@@ -56,6 +59,8 @@ ament_target_dependencies(mtc_node
   moveit_task_constructor_core
   moveit_ros_planning_interface
   moveit_core
+  moveit_ros_planning
+  sensor_msgs
   geometry_msgs
   shape_msgs
   moveit_msgs

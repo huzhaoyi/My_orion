@@ -53,6 +53,11 @@ const initialState = {
   targetCount: 0,
   objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
   placePose: null,
+  // 桥接坐标系显示：TargetSet（多目标 base_link 下）、世界系多目标、ROV 在 base_link 下位姿
+  targetSet: null,       // { num_targets, positions: [x,y,z,...], directions } 机械臂系
+  targetSetWorld: null,  // { num_targets, positions, directions } 世界系 (map)
+  rovPoseInBaseLink: null,  // ROV 在 base_link 下
+  rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
 
   // 关节状态（来自 joint_states，驱动 3D）
   jointNames: [],
@@ -85,6 +90,12 @@ const initialState = {
   // 系统日志
   systemLogs: [],
   maxSystemLogs: 200,
+
+  // 审批结果（CheckPick / CheckPlace 最后一次结果）
+  approvalResult: null,  // { type: 'pick'|'place', approved, severity, summary, items: [], best_candidate_pose?, adjusted_place_pose?, at }
+  approvalLoading: false,
+  approvalTargetIndex: 1,   // 本次审批用的目标索引（0-based），默认第 2 个
+  approvalTargetTotal: 0,   // 当前目标总数，用于显示「第 N 个（共 M 个）」
 };
 
 let state = { ...initialState };
@@ -234,8 +245,121 @@ function setTrajectoryPoints(points) {
   setState({ trajectoryPoints: points || [] });
 }
 
+function setTargetSet(msgOrNull) {
+  if (!msgOrNull || !msgOrNull.positions) {
+    setState({ targetSet: null, targetCount: 0 });
+    return;
+  }
+  const n = msgOrNull.num_targets || 0;
+  setState({
+    targetSet: {
+      num_targets: n,
+      positions: msgOrNull.positions || [],
+      directions: msgOrNull.directions || [],
+    },
+    targetCount: n,
+  });
+}
+
+function setRovPoseInBaseLink(poseStampedOrNull) {
+  if (!poseStampedOrNull) {
+    setState({ rovPoseInBaseLink: null });
+    return;
+  }
+  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  setState({
+    rovPoseInBaseLink: {
+      position: pose.position || { x: 0, y: 0, z: 0 },
+      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    },
+  });
+}
+
+function _isMeaningfulPosition(pos) {
+  if (!pos) return false;
+  const x = pos.x != null ? Number(pos.x) : 0;
+  const y = pos.y != null ? Number(pos.y) : 0;
+  const z = pos.z != null ? Number(pos.z) : 0;
+  const eps = 1e-6;
+  return Math.abs(x) > eps || Math.abs(y) > eps || Math.abs(z) > eps;
+}
+
+/* 从 /manipulator/perception_state 一次更新：物体位姿、ROV 在 base_link 下位姿、多目标集合 */
+function setPerceptionState(msg) {
+  if (!msg) return;
+  const patch = { perceptionUpdatedAt: Date.now() };
+  /* 仅在有意义的物体位姿时更新，避免 (0,0,0) 覆盖导致 0↔有数据 闪烁 */
+  if (msg.object_pose && msg.object_pose.pose) {
+    const p = msg.object_pose.pose;
+    const pos = p.position || { x: 0, y: 0, z: 0 };
+    if (_isMeaningfulPosition(pos)) {
+      patch.objectPose = {
+        position: pos,
+        orientation: p.orientation || { x: 0, y: 0, z: 0, w: 1 },
+      };
+      patch.objectPoseValid = true;
+    }
+  }
+  if (msg.rov_pose_in_base_link && msg.rov_pose_in_base_link.pose) {
+    const p = msg.rov_pose_in_base_link.pose;
+    patch.rovPoseInBaseLink = {
+      position: p.position || { x: 0, y: 0, z: 0 },
+      orientation: p.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    };
+  } else {
+    patch.rovPoseInBaseLink = null;
+  }
+  if (msg.rov_pose_in_world && msg.rov_pose_in_world.pose) {
+    const p = msg.rov_pose_in_world.pose;
+    patch.rovPoseInWorld = {
+      position: p.position || { x: 0, y: 0, z: 0 },
+      orientation: p.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    };
+  } else {
+    patch.rovPoseInWorld = null;
+  }
+  /* 仅在有目标数据时更新 targetSet / targetSetWorld，避免“仅 ROV”消息把表格清空导致闪烁 */
+  if (msg.target_set && msg.target_set.positions && (msg.target_set.num_targets || 0) > 0) {
+    const n = msg.target_set.num_targets || 0;
+    patch.targetSet = {
+      num_targets: n,
+      positions: msg.target_set.positions || [],
+      directions: msg.target_set.directions || [],
+    };
+    patch.targetCount = n;
+  }
+  const tw = msg.target_set_world; /* 世界系：TargetSensor 原始坐标 */
+  if (tw && (tw.num_targets || 0) > 0) {
+    const n = tw.num_targets || 0;
+    const pos = Array.isArray(tw.positions) ? tw.positions : [];
+    if (pos.length >= n * 3) {
+      patch.targetSetWorld = {
+        num_targets: n,
+        positions: pos,
+        directions: Array.isArray(tw.directions) ? tw.directions : [],
+      };
+    }
+  }
+  setState(patch);
+}
+
 function setAcceptNewJobs(accept) {
   setState({ acceptNewJobs: !!accept });
+}
+
+function setApprovalResult(payload) {
+  setState({
+    approvalResult: payload == null ? null : {
+      type: payload.type || 'pick',
+      approved: payload.approved,
+      severity: payload.severity != null ? payload.severity : 0,
+      summary: payload.summary || '',
+      items: Array.isArray(payload.items) ? payload.items : [],
+      best_candidate_pose: payload.best_candidate_pose || null,
+      adjusted_place_pose: payload.adjusted_place_pose || null,
+      at: Date.now(),
+    },
+  });
 }
 
 export default {
@@ -253,8 +377,12 @@ export default {
   setPlacePose,
   setJointState,
   setTrajectoryPoints,
+  setTargetSet,
+  setRovPoseInBaseLink,
+  setPerceptionState,
   setAcceptNewJobs,
   applyRecoveryEvent,
   setRecentJobs,
   applyGetRobotStateResponse,
+  setApprovalResult,
 };

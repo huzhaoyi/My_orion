@@ -292,7 +292,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Pick planning failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     setStateError("pick plan failed");
     return false;
   }
@@ -398,7 +400,9 @@ bool TaskManager::retreatToReady()
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "retreatToReady plan failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     return false;
   }
   if (task.solutions().empty())
@@ -445,7 +449,9 @@ bool TaskManager::handleOpenGripper()
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "open gripper plan failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     return false;
   }
   if (task.solutions().empty())
@@ -491,7 +497,9 @@ bool TaskManager::handleCloseGripper()
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "close gripper plan failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     return false;
   }
   if (task.solutions().empty())
@@ -602,7 +610,9 @@ bool TaskManager::handlePlaceSingle(const geometry_msgs::msg::PoseStamped& targe
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Place planning failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     std::lock_guard<std::mutex> lock(state_mutex_);
     last_error_ = "place plan failed";
     return false;
@@ -767,7 +777,9 @@ bool TaskManager::handlePlaceRelease(const geometry_msgs::msg::PoseStamped& targ
   if (!plan_result)
   {
     RCLCPP_ERROR_STREAM(LOGGER, "PlaceRelease planning failed (code " << plan_result.val << ")");
-    task.explainFailure(std::cout);
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, os.str());
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
       last_error_ = "place_release plan failed";

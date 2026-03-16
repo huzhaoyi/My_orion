@@ -1,3 +1,4 @@
+/home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/app/orion_mtc_node.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/task_manager.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/recovery_actions.hpp
@@ -11,6 +12,7 @@
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/planning/place_task_builder.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/planning/place_generator.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/planning/collision_object_utils.hpp
+/home/huzy/My_orion/install/orion_mtc/include/orion_mtc/feasibility/feasibility_checker.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/config/runtime_policy_loader.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/config/runtime_policy.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/config/mtc_config.hpp
@@ -25,3 +27,21 @@
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/scene/planning_scene_manager.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/solution_executor.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/trajectory_executor.hpp
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_place_holoocean.launch.py
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/config/runtime_policy.yaml
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/config/pick_place_params.yaml
+/home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
+/home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.dsv
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.sh
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/path.dsv
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.bash
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.sh
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.zsh
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/local_setup.dsv
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.dsv
+/home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/packages/orion_mtc
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig.cmake
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/cmake/orion_mtcConfig-version.cmake
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/package.xml

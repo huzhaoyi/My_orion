@@ -16,6 +16,8 @@
 #include <orion_mtc_msgs/srv/reset_held_object.hpp>
 #include <orion_mtc_msgs/srv/submit_job.hpp>
 #include <orion_mtc_msgs/srv/sync_held_object.hpp>
+#include <orion_mtc_msgs/srv/check_pick.hpp>
+#include <orion_mtc_msgs/srv/check_place.hpp>
 #include <orion_mtc_msgs/msg/runtime_status.hpp>
 #include <orion_mtc_msgs/msg/job_event.hpp>
 #include <orion_mtc_msgs/msg/task_stage.hpp>
@@ -40,6 +42,7 @@ class TrajectoryExecutor;
 class SolutionExecutor;
 class TaskManager;
 class PlaceGenerator;
+class FeasibilityChecker;
 }
 
 namespace orion_mtc
@@ -103,6 +106,10 @@ private:
                       std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res);
   void handleSyncHeldObject(const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
                             std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res);
+  void handleCheckPick(const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
+                       std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res);
+  void handleCheckPlace(const std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Request> req,
+                        std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Response> res);
   void handleOpenGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                         std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   void handleCloseGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
@@ -119,6 +126,7 @@ private:
   std::shared_ptr<TrajectoryExecutor> trajectory_executor_;
   std::shared_ptr<SolutionExecutor> solution_executor_;
   std::shared_ptr<TaskManager> task_manager_;
+  std::shared_ptr<FeasibilityChecker> feasibility_checker_;
 
   std::atomic<double> left_arm_gripped_{ 0.0 };
   std::atomic<bool> do_task_running_{ false };
@@ -139,6 +147,8 @@ private:
   rclcpp::Service<orion_mtc_msgs::srv::ResetHeldObject>::SharedPtr reset_held_object_srv_;
   rclcpp::Service<orion_mtc_msgs::srv::SubmitJob>::SharedPtr submit_job_srv_;
   rclcpp::Service<orion_mtc_msgs::srv::SyncHeldObject>::SharedPtr sync_held_object_srv_;
+  rclcpp::Service<orion_mtc_msgs::srv::CheckPick>::SharedPtr check_pick_srv_;
+  rclcpp::Service<orion_mtc_msgs::srv::CheckPlace>::SharedPtr check_place_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr open_gripper_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr close_gripper_srv_;
 

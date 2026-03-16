@@ -17,6 +17,7 @@ const layerToggles = {
   showAttachedObject: true,
   showCollision: false,
   showWorkspace: false,
+  showCoordFrames: true,
 };
 
 function rosToThreePosition(pos) {
@@ -38,6 +39,7 @@ function createLayerToggles(containerEl, sceneApiRef) {
   div.className = 'viewport-3d__toolbar';
   const toggles = [
     { id: 'show-axes', label: '坐标轴', key: 'showAxes', default: true },
+    { id: 'show-coord-frames', label: 'ROV/目标系', key: 'showCoordFrames', default: true },
     { id: 'show-world', label: '场景物体', key: 'showWorldObject', default: true },
     { id: 'show-attached', label: '附着物体', key: 'showAttachedObject', default: true },
     { id: 'show-collision', label: '碰撞体', key: 'showCollision', default: false },
@@ -78,6 +80,10 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (t.key === 'showWorkspace') {
           const ws = sceneApiRef.world.getObjectByName('workspace_box');
           if (ws) ws.visible = cb.checked;
+        }
+        if (t.key === 'showCoordFrames') {
+          if (sceneApiRef.rovAxesGroup) sceneApiRef.rovAxesGroup.visible = cb.checked;
+          if (sceneApiRef.targetSetMarkersGroup) sceneApiRef.targetSetMarkersGroup.visible = cb.checked;
         }
       }
     });
@@ -199,6 +205,27 @@ function mount(containerId) {
     const p = rosToThreePosition(s.placePose?.position);
     sceneApi.placeMarker.position.set(p.x, p.y, p.z);
     sceneApi.placeMarker.visible = layerToggles.showTargets && !!s.placePoseValid;
+    const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
+    if (sceneApi.rovAxesGroup) {
+      sceneApi.rovAxesGroup.position.set(rovPos.x, rovPos.y, rovPos.z);
+      sceneApi.rovAxesGroup.visible = layerToggles.showCoordFrames && !!s.rovPoseInBaseLink;
+    }
+    if (sceneApi.targetSetMarkersGroup && s.targetSet && Array.isArray(s.targetSet.positions)) {
+      const posArr = s.targetSet.positions;
+      const n = Math.min(Math.floor(posArr.length / 3), sceneApi.targetSetMarkersGroup.children.length);
+      for (let i = 0; i < n; i++) {
+        const child = sceneApi.targetSetMarkersGroup.children[i];
+        child.position.set(posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2]);
+        child.visible = true;
+      }
+      for (let i = n; i < sceneApi.targetSetMarkersGroup.children.length; i++) {
+        sceneApi.targetSetMarkersGroup.children[i].visible = false;
+      }
+      sceneApi.targetSetMarkersGroup.visible = layerToggles.showCoordFrames && n > 0;
+    } else if (sceneApi.targetSetMarkersGroup) {
+      sceneApi.targetSetMarkersGroup.children.forEach((c) => { c.visible = false; });
+      sceneApi.targetSetMarkersGroup.visible = false;
+    }
     const wo = sceneApi.targets.getObjectByName('world_object');
     if (wo) {
       wo.position.set(t.x, t.y, t.z);

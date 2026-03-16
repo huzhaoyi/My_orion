@@ -354,6 +354,30 @@ src/execution/trajectory_executor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.s
 .PHONY : src/execution/trajectory_executor.cpp.s
 
+src/feasibility/feasibility_checker.o: src/feasibility/feasibility_checker.cpp.o
+.PHONY : src/feasibility/feasibility_checker.o
+
+# target to build an object file
+src/feasibility/feasibility_checker.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o
+.PHONY : src/feasibility/feasibility_checker.cpp.o
+
+src/feasibility/feasibility_checker.i: src/feasibility/feasibility_checker.cpp.i
+.PHONY : src/feasibility/feasibility_checker.i
+
+# target to preprocess a source file
+src/feasibility/feasibility_checker.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.i
+.PHONY : src/feasibility/feasibility_checker.cpp.i
+
+src/feasibility/feasibility_checker.s: src/feasibility/feasibility_checker.cpp.s
+.PHONY : src/feasibility/feasibility_checker.s
+
+# target to generate assembly for a file
+src/feasibility/feasibility_checker.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.s
+.PHONY : src/feasibility/feasibility_checker.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -724,6 +748,9 @@ help:
 	@echo "... src/execution/trajectory_executor.o"
 	@echo "... src/execution/trajectory_executor.i"
 	@echo "... src/execution/trajectory_executor.s"
+	@echo "... src/feasibility/feasibility_checker.o"
+	@echo "... src/feasibility/feasibility_checker.i"
+	@echo "... src/feasibility/feasibility_checker.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

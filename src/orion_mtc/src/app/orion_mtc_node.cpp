@@ -13,6 +13,7 @@
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
+#include "orion_mtc/feasibility/feasibility_checker.hpp"
 #include "orion_mtc/orchestration/task_manager.hpp"
 #include "orion_mtc/orchestration/task_queue.hpp"
 #include "orion_mtc/core/job_result_code.hpp"
@@ -86,6 +87,8 @@ void OrionMTCNode::initModules()
     object_pose_cache_->waitForNextUpdate(std::chrono::milliseconds(120));
     return object_pose_cache_->latest();
   });
+  feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
+  feasibility_checker_->setMTCConfig(&config_);
 }
 
 namespace
@@ -223,6 +226,18 @@ void OrionMTCNode::initInterfaces()
       [this](const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
              std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res) {
         handleSyncHeldObject(req, res);
+      });
+  check_pick_srv_ = action_client_node_->create_service<orion_mtc_msgs::srv::CheckPick>(
+      ns + "/check_pick",
+      [this](const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
+             std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res) {
+        handleCheckPick(req, res);
+      });
+  check_place_srv_ = action_client_node_->create_service<orion_mtc_msgs::srv::CheckPlace>(
+      ns + "/check_place",
+      [this](const std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Request> req,
+             std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Response> res) {
+        handleCheckPlace(req, res);
       });
 
   setupStatusPublishersAndCallbacks();
@@ -664,6 +679,38 @@ void OrionMTCNode::handleSyncHeldObject(
 {
   res->success = task_manager_->handleSyncHeldObject(
       req->set_holding, req->tracked, req->object_id, req->object_pose, req->tcp_pose, res->message);
+}
+
+void OrionMTCNode::handleCheckPick(
+    const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
+    std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res)
+{
+  if (feasibility_checker_)
+  {
+    feasibility_checker_->checkPick(req, res);
+  }
+  else
+  {
+    res->approved = false;
+    res->severity = 2;
+    res->summary = "审批模块未就绪";
+  }
+}
+
+void OrionMTCNode::handleCheckPlace(
+    const std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Request> req,
+    std::shared_ptr<orion_mtc_msgs::srv::CheckPlace::Response> res)
+{
+  if (feasibility_checker_)
+  {
+    feasibility_checker_->checkPlace(req, res);
+  }
+  else
+  {
+    res->approved = false;
+    res->severity = 2;
+    res->summary = "审批模块未就绪";
+  }
 }
 
 void OrionMTCNode::handleOpenGripper(

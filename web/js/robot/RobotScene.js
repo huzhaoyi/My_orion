@@ -216,6 +216,32 @@ function createScene(containerEl) {
   placeMarker.visible = false;
   targets.add(placeMarker);
 
+  /* ROV 坐标系（base_link 下，由 rov_pose_in_base_link 更新） */
+  const ROV_AXIS_SIZE = 0.12;
+  const rovAxesGroup = new THREE.Group();
+  rovAxesGroup.name = 'rov_axes';
+  const rovAxes = new THREE.AxesHelper(ROV_AXIS_SIZE);
+  rovAxesGroup.add(rovAxes);
+  rovAxesGroup.visible = false;
+  world.add(rovAxesGroup);
+
+  /* TargetSet 多目标球（base_link 下，由 target_set 更新，最多 10 个） */
+  const targetSetMarkersGroup = new THREE.Group();
+  targetSetMarkersGroup.name = 'target_set_markers';
+  const MAX_TARGET_MARKERS = 10;
+  const targetMarkerRadius = 0.03;
+  for (let i = 0; i < MAX_TARGET_MARKERS; i++) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(targetMarkerRadius, 12, 12),
+      new THREE.MeshBasicMaterial({ color: i === 0 ? 0x22d3ee : 0x64748b, transparent: true, opacity: 0.9 })
+    );
+    m.name = 'target_set_' + i;
+    m.visible = false;
+    targetSetMarkersGroup.add(m);
+  }
+  targetSetMarkersGroup.visible = false;
+  targets.add(targetSetMarkersGroup);
+
   /* 轨迹线（空） */
   const trajectoryLine = new THREE.Line(
     new THREE.BufferGeometry(),
@@ -283,6 +309,8 @@ function createScene(containerEl) {
     overlays,
     pickMarker,
     placeMarker,
+    rovAxesGroup,
+    targetSetMarkersGroup,
     trajectoryLine,
     setRobotJointValues,
     setFollowTcp,

@@ -6,6 +6,7 @@
  *   /manipulator/task_stage       (TaskStage)  — 注意单数
  *   /manipulator/held_object_state (HeldObjectState)
  *   /manipulator/object_pose, /manipulator/place_pose (PoseStamped)
+ *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  * 服务（与 orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, submit_job, cancel_job,
@@ -99,6 +100,7 @@ function subscribeTopics() {
     prefix + '/held_object_state',
     prefix + '/object_pose',
     prefix + '/place_pose',
+    prefix + '/perception_state',
     prefix + '/joint_states',
     '/joint_states',
   ];
@@ -119,6 +121,7 @@ function inferType(topic) {
   if (topic.includes('job_event')) return 'orion_mtc_msgs/msg/JobEvent';
   if (topic.includes('task_stage')) return 'orion_mtc_msgs/msg/TaskStage';
   if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
+  if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
   if (topic.includes('object_pose') || topic.includes('place_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
   return 'std_msgs/msg/String';
@@ -159,6 +162,10 @@ function handleMessage(data) {
     const names = data.msg.name || [];
     const pos = data.msg.position || [];
     stateStore.setJointState(names, pos);
+    return;
+  }
+  if (data.topic && data.topic.endsWith('/perception_state') && data.msg) {
+    stateStore.setPerceptionState(data.msg);
     return;
   }
 }
@@ -245,6 +252,22 @@ function getRobotState(callback) {
   callService(getTopicPrefix() + '/get_robot_state', {}, callback);
 }
 
+function checkPick(objectPose, callback) {
+  const pose = objectPose && objectPose.pose
+    ? objectPose
+    : { header: { frame_id: 'base_link' }, pose: objectPose || { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } };
+  if (!pose.header) pose.header = { frame_id: 'base_link' };
+  callService(getTopicPrefix() + '/check_pick', { object_pose: pose }, callback, { timeout_ms: 5000 });
+}
+
+function checkPlace(placePose, hasHeldObject, callback) {
+  const pose = placePose && placePose.pose
+    ? placePose
+    : { header: { frame_id: 'base_link' }, pose: placePose || { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } };
+  if (!pose.header) pose.header = { frame_id: 'base_link' };
+  callService(getTopicPrefix() + '/check_place', { place_pose: pose, has_held_object: !!hasHeldObject }, callback, { timeout_ms: 5000 });
+}
+
 function disconnect() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
@@ -270,4 +293,6 @@ export default {
   submitJob,
   getQueueState,
   getRobotState,
+  checkPick,
+  checkPlace,
 };

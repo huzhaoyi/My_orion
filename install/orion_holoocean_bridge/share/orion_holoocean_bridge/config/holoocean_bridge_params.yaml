@@ -15,16 +15,18 @@ trajectory_to_agent_bridge:
     agent_frame_id: "rov0"
     publish_rate_hz: 50.0
 
-# TargetSensor 世界系 xyz + direction → base_link 下 object_pose 与 target_set（多目标供 MTC 选择+抓取）
+# TargetSensor 世界系 xyz + direction → base_link 下 object_pose（MTC 抓取）+ perception_state（网页感知状态：物体+ROV+多目标）
 # 若机械臂规划“不在要抓的地方”，可调以下参数校准：
 #   - left/right_arm_base_in_rov_*：机械臂基座在 ROV 系下位置 [m]，与仿真/实机一致
 #   - position_offset_*：在 base_link 下对目标位置的微调 [m]，如抓高一点则 position_offset_z: 0.02
 target_sensor_to_object_pose:
   ros__parameters:
     target_sensor_topic: "/holoocean/rov0/TargetSensor"
-    rov_odom_topic: "/holoocean/rov0/DynamicsSensorOdom"
+    rov_pose_topic: "/holoocean/rov0/PoseSensor"
     object_pose_topic: "/manipulator/object_pose"
-    target_set_topic: "/manipulator/target_set"
+    perception_state_topic: "/manipulator/perception_state"
+    world_frame_id: "map"
+    publish_tf: true
     output_frame_id: "base_link"
     target_index: 1
     use_left_arm: true

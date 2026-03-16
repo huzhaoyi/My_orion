@@ -1,0 +1,9 @@
+# 抓取审批：不执行，仅返回可达性与风险诊断
+geometry_msgs/PoseStamped object_pose   # base_link 下物体位姿
+string frame_id                         # 期望 object_pose.frame_id，通常 base_link
+---
+bool approved                           # 是否允许执行（无硬拒绝即 true，有 warning 仍可为 true）
+int32 severity                          # 0=pass 1=pass_with_warning 2=reject
+string summary                          # 一句话总结
+orion_mtc_msgs/DiagnosticItem[] items   # 详细诊断项
+geometry_msgs/PoseStamped best_candidate_pose   # 可选：推荐抓取位姿（当前可与 object_pose 一致）

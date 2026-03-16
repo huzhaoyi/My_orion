@@ -1,10 +1,11 @@
 /**
- * 右侧栏：工业机械臂控制区
+ * 右侧栏：工业机械臂控制区 + 审批
  * Tab = 任务(Task) | 机器人(Robot) | 调试(Debug) | 配置(Config)
  * 主操作 = primary，次操作 = btn-secondary
  */
 
 import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
+import ApprovalCard from '../panels/ApprovalCard.js';
 
 function mount(containerId) {
   const el = document.getElementById(containerId);
@@ -79,16 +80,14 @@ function renderTaskTab(container) {
         <button type="button" id="btn-place-send" class="primary btn-action">发送放置</button>
         <button type="button" id="btn-place-queue" class="btn-secondary">加入队列</button>
       </div>
-      <div class="form-row form-row--xyz">
-        <label>X</label><input type="number" id="place-x" value="0.45" step="0.01">
-        <label>Y</label><input type="number" id="place-y" value="0" step="0.01">
-        <label>Z</label><input type="number" id="place-z" value="0.4" step="0.01">
-      </div>
-      <div class="form-row form-row--quat">
-        <label>qx</label><input type="number" id="place-qx" value="0" step="0.01">
-        <label>qy</label><input type="number" id="place-qy" value="0" step="0.01">
-        <label>qz</label><input type="number" id="place-qz" value="0" step="0.01">
-        <label>qw</label><input type="number" id="place-qw" value="1" step="0.01">
+      <div class="form-row form-row--pose">
+        <div class="form-num-item"><label>X</label><input type="number" id="place-x" value="0.45" step="0.01"></div>
+        <div class="form-num-item"><label>Y</label><input type="number" id="place-y" value="0" step="0.01"></div>
+        <div class="form-num-item"><label>Z</label><input type="number" id="place-z" value="0.4" step="0.01"></div>
+        <div class="form-num-item"><label>qx</label><input type="number" id="place-qx" value="0" step="0.01"></div>
+        <div class="form-num-item"><label>qy</label><input type="number" id="place-qy" value="0" step="0.01"></div>
+        <div class="form-num-item"><label>qz</label><input type="number" id="place-qz" value="0" step="0.01"></div>
+        <div class="form-num-item"><label>qw</label><input type="number" id="place-qw" value="1" step="0.01"></div>
       </div>
     </div>
     <div class="card">
@@ -131,6 +130,7 @@ function renderTaskTab(container) {
 }
 
 function renderRobotTab(container) {
+  // 与夹爪/运动相同：一次 innerHTML，再对每个按钮直接 addEventListener（不依赖子组件重绘）
   container.innerHTML = `
     <div class="card">
       <div class="card-title">夹爪</div>
@@ -147,10 +147,23 @@ function renderRobotTab(container) {
       </div>
       <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">停止：仅前端拦截入队；清空队列见顶部栏</p>
     </div>
+    <div class="card approval-card">
+      <div class="card-title">审批结果</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">默认使用第 2 个目标点，无感知数据时仅提示</p>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-approval-pick" class="primary btn-action">审批抓取</button>
+        <button type="button" id="btn-approval-place" class="btn-secondary">审批放置</button>
+      </div>
+      <div id="approval-result-container"></div>
+    </div>
   `;
   container.querySelector('#btn-open-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:open-gripper')));
   container.querySelector('#btn-close-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:close-gripper')));
   container.querySelector('#btn-stop-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:stop-queue')));
+  container.querySelector('#btn-approval-pick')?.addEventListener('click', (e) => ApprovalCard.handlePickClick(e));
+  container.querySelector('#btn-approval-place')?.addEventListener('click', (e) => ApprovalCard.handlePlaceClick(e));
+
+  ApprovalCard.renderResult(container.querySelector('#approval-result-container'));
 }
 
 function renderDebugTab(container) {
