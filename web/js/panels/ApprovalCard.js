@@ -9,30 +9,6 @@ const SEV_PASS = 0;
 const SEV_WARNING = 1;
 const SEV_REJECT = 2;
 
-/** 审批抓取默认使用第几个目标点（0-based），与桥接 target_index=1 一致 */
-const DEFAULT_PICK_TARGET_INDEX = 1;
-
-/**
- * 从 targetSet 取第 index 个目标的位姿（仅位置，姿态用默认竖直向下）
- * 若有 object_pose 且来自同一目标，可优先用 object_pose 以保留姿态
- */
-function getPoseForTargetIndex(state, index) {
-  const ts = state.targetSet;
-  if (!ts || !ts.positions || (ts.num_targets || 0) <= index) return null;
-  const i = index * 3;
-  const x = ts.positions[i];
-  const y = ts.positions[i + 1];
-  const z = ts.positions[i + 2];
-  if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') return null;
-  return {
-    header: { frame_id: 'base_link' },
-    pose: {
-      position: { x, y, z },
-      orientation: { x: 0, y: 0, z: 0, w: 1 },
-    },
-  };
-}
-
 function levelLabel(level) {
   if (level === 0) return '信息';
   if (level === 1) return '警告';
@@ -71,20 +47,17 @@ function handlePickClick(e) {
     return;
   }
   const s = stateStore.getState();
-  const targetIndex = DEFAULT_PICK_TARGET_INDEX;
-  const totalTargets = (s.targetSet && s.targetSet.num_targets) || 0;
-  let objectPose = getPoseForTargetIndex(s, targetIndex);
-  if (!objectPose && s.objectPoseValid && s.objectPose) {
-    objectPose = { header: { frame_id: 'base_link' }, pose: s.objectPose };
-  }
+  const objectPose = s.objectPoseValid && s.objectPose
+    ? { header: { frame_id: 'base_link' }, pose: s.objectPose }
+    : null;
   if (!objectPose) {
-    stateStore.pushSystemLog('warn', '无感知数据，无法审批抓取');
+    stateStore.pushSystemLog('warn', '无缆绳位姿 (object_pose)，无法审批抓取');
     return;
   }
   stateStore.setState({
     approvalLoading: true,
-    approvalTargetIndex: targetIndex,
-    approvalTargetTotal: totalTargets,
+    approvalTargetIndex: 0,
+    approvalTargetTotal: 1,
   });
   wsClient.checkPick(objectPose, (raw) => {
     stateStore.setState({ approvalLoading: false });
@@ -170,7 +143,7 @@ function renderResult(resultContainerEl) {
     const res = state.approvalResult;
     const loading = state.approvalLoading || false;
     const targetIndex = (state.approvalTargetIndex != null ? state.approvalTargetIndex : DEFAULT_PICK_TARGET_INDEX) + 1;
-    const targetTotal = state.approvalTargetTotal != null ? state.approvalTargetTotal : (state.targetSet && state.targetSet.num_targets) || 0;
+    const targetTotal = state.approvalTargetTotal != null ? state.approvalTargetTotal : 1;
     const targetLabel = targetTotal > 0 ? `第 ${targetIndex} 个（共 ${targetTotal} 个）` : '';
 
     const stepsHtml = `

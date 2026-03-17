@@ -50,12 +50,9 @@ const initialState = {
   objectPoseValid: false,
   placePoseValid: false,
   perceptionUpdatedAt: null,
-  targetCount: 0,
   objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
   placePose: null,
-  // 桥接坐标系显示：TargetSet（多目标 base_link 下）、世界系多目标、ROV 在 base_link 下位姿
-  targetSet: null,       // { num_targets, positions: [x,y,z,...], directions } 机械臂系
-  targetSetWorld: null,  // { num_targets, positions, directions } 世界系 (map)
+  // 单缆绳：仅 object_pose / place_pose，无多目标集合
   rovPoseInBaseLink: null,  // ROV 在 base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
 
@@ -245,22 +242,6 @@ function setTrajectoryPoints(points) {
   setState({ trajectoryPoints: points || [] });
 }
 
-function setTargetSet(msgOrNull) {
-  if (!msgOrNull || !msgOrNull.positions) {
-    setState({ targetSet: null, targetCount: 0 });
-    return;
-  }
-  const n = msgOrNull.num_targets || 0;
-  setState({
-    targetSet: {
-      num_targets: n,
-      positions: msgOrNull.positions || [],
-      directions: msgOrNull.directions || [],
-    },
-    targetCount: n,
-  });
-}
-
 function setRovPoseInBaseLink(poseStampedOrNull) {
   if (!poseStampedOrNull) {
     setState({ rovPoseInBaseLink: null });
@@ -318,28 +299,6 @@ function setPerceptionState(msg) {
   } else {
     patch.rovPoseInWorld = null;
   }
-  /* 仅在有目标数据时更新 targetSet / targetSetWorld，避免“仅 ROV”消息把表格清空导致闪烁 */
-  if (msg.target_set && msg.target_set.positions && (msg.target_set.num_targets || 0) > 0) {
-    const n = msg.target_set.num_targets || 0;
-    patch.targetSet = {
-      num_targets: n,
-      positions: msg.target_set.positions || [],
-      directions: msg.target_set.directions || [],
-    };
-    patch.targetCount = n;
-  }
-  const tw = msg.target_set_world; /* 世界系：TargetSensor 原始坐标 */
-  if (tw && (tw.num_targets || 0) > 0) {
-    const n = tw.num_targets || 0;
-    const pos = Array.isArray(tw.positions) ? tw.positions : [];
-    if (pos.length >= n * 3) {
-      patch.targetSetWorld = {
-        num_targets: n,
-        positions: pos,
-        directions: Array.isArray(tw.directions) ? tw.directions : [],
-      };
-    }
-  }
   setState(patch);
 }
 
@@ -377,7 +336,6 @@ export default {
   setPlacePose,
   setJointState,
   setTrajectoryPoints,
-  setTargetSet,
   setRovPoseInBaseLink,
   setPerceptionState,
   setAcceptNewJobs,

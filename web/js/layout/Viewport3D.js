@@ -28,6 +28,16 @@ function rosToThreePosition(pos) {
   return { x, y, z };
 }
 
+function rosToThreeQuaternion(q) {
+  if (!q) return null;
+  return new THREE.Quaternion(
+    q.x ?? 0,
+    q.y ?? 0,
+    q.z ?? 0,
+    (q.w ?? 1)
+  );
+}
+
 function createLayerToggles(containerEl, sceneApiRef) {
   const panel = document.createElement('div');
   panel.className = 'viewport-3d__layer-panel';
@@ -83,7 +93,6 @@ function createLayerToggles(containerEl, sceneApiRef) {
         }
         if (t.key === 'showCoordFrames') {
           if (sceneApiRef.rovAxesGroup) sceneApiRef.rovAxesGroup.visible = cb.checked;
-          if (sceneApiRef.targetSetMarkersGroup) sceneApiRef.targetSetMarkersGroup.visible = cb.checked;
         }
       }
     });
@@ -210,27 +219,24 @@ function mount(containerId) {
       sceneApi.rovAxesGroup.position.set(rovPos.x, rovPos.y, rovPos.z);
       sceneApi.rovAxesGroup.visible = layerToggles.showCoordFrames && !!s.rovPoseInBaseLink;
     }
-    if (sceneApi.targetSetMarkersGroup && s.targetSet && Array.isArray(s.targetSet.positions)) {
-      const posArr = s.targetSet.positions;
-      const n = Math.min(Math.floor(posArr.length / 3), sceneApi.targetSetMarkersGroup.children.length);
-      for (let i = 0; i < n; i++) {
-        const child = sceneApi.targetSetMarkersGroup.children[i];
-        child.position.set(posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2]);
-        child.visible = true;
-      }
-      for (let i = n; i < sceneApi.targetSetMarkersGroup.children.length; i++) {
-        sceneApi.targetSetMarkersGroup.children[i].visible = false;
-      }
-      sceneApi.targetSetMarkersGroup.visible = layerToggles.showCoordFrames && n > 0;
-    } else if (sceneApi.targetSetMarkersGroup) {
-      sceneApi.targetSetMarkersGroup.children.forEach((c) => { c.visible = false; });
-      sceneApi.targetSetMarkersGroup.visible = false;
-    }
     const wo = sceneApi.targets.getObjectByName('world_object');
     if (wo) {
       wo.position.set(t.x, t.y, t.z);
       wo.userData.valid = !!s.objectPoseValid;
-      wo.visible = layerToggles.showWorldObject && !!s.objectPoseValid;
+      wo.visible = false;
+    }
+    const composed = sceneApi.targetObjectComposed;
+    if (composed) {
+      composed.position.set(t.x, t.y, t.z);
+      const orient = s.objectPose?.pose?.orientation || s.objectPose?.orientation;
+      if (orient) {
+        const quat = rosToThreeQuaternion(orient);
+        if (quat) composed.quaternion.copy(quat);
+      } else {
+        composed.quaternion.identity();
+      }
+      composed.userData.valid = !!s.objectPoseValid;
+      composed.visible = layerToggles.showWorldObject && !!s.objectPoseValid;
     }
     const heldPos = rosToThreePosition(s.heldObjectPoseAtGrasp?.position || s.heldObjectPoseAtGrasp);
     const ao = sceneApi.targets.getObjectByName('attached_object');

@@ -279,6 +279,18 @@ label {
   word-break: break-all;
 }
 
+/* 感知状态卡片：目标物/ROV 位姿块（位置+姿态） */
+.perception-card__pose-block {
+  margin-bottom: 6px;
+}
+.perception-card__pose-block .card-row--indent .card-label {
+  padding-left: 12px;
+}
+.perception-card__quat {
+  font-size: 10px;
+  word-break: break-all;
+}
+
 /* 感知状态卡片内多目标表格 */
 .perception-card__targets {
   margin: 4px 0 8px 0;

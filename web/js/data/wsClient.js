@@ -5,7 +5,7 @@
  *   /manipulator/job_event        (JobEvent)   — 注意单数
  *   /manipulator/task_stage       (TaskStage)  — 注意单数
  *   /manipulator/held_object_state (HeldObjectState)
- *   /manipulator/object_pose, /manipulator/place_pose (PoseStamped)
+ *   /manipulator/object_pose, /manipulator/place_pose (PoseStamped，来自 CableSensor 缆绳单目标)
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  * 服务（与 orion_mtc_node 一致）：

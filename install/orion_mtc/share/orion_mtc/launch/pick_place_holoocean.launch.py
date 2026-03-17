@@ -110,6 +110,9 @@ def generate_launch_description():
         if isinstance(traj_section, dict):
             traj_bridge_params = traj_section.get("ros__parameters", traj_section) or {}
 
+    # 安全干净退出：延长 SIGINT 后等待时间再升级 SIGTERM/SIGKILL（launch 要求为可迭代/字符串）
+    shutdown_timeouts = {"sigterm_timeout": "15", "sigkill_timeout": "5"}
+
     bridge_node = Node(
         package="orion_holoocean_bridge",
         executable="arm_sensor_to_joint_state",
@@ -117,6 +120,7 @@ def generate_launch_description():
         output="screen",
         parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        **shutdown_timeouts,
     )
     trajectory_bridge_node = Node(
         package="orion_holoocean_bridge",
@@ -125,21 +129,26 @@ def generate_launch_description():
         output="screen",
         parameters=[traj_bridge_params] if traj_bridge_params else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        **shutdown_timeouts,
     )
-    target_sensor_to_pose_node = Node(
+    cable_sensor_to_pose_node = Node(
         package="orion_holoocean_bridge",
-        executable="target_sensor_to_object_pose",
-        name="target_sensor_to_object_pose",
+        executable="cable_sensor_to_object_pose",
+        name="cable_sensor_to_object_pose",
         output="screen",
         parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        **shutdown_timeouts,
     )
+    # prefix 使用 stdbuf 无缓冲(0)，确保 MTC 任务树与 Failing stage(s) 等全部实时输出
     mtc_node = Node(
         package="orion_mtc",
         executable="mtc_node",
         name="orion_mtc_node",
         output="screen",
         parameters=[move_group_params],
+        prefix="stdbuf -o 0 -e 0",
+        **shutdown_timeouts,
     )
 
     actions = [
@@ -152,7 +161,7 @@ def generate_launch_description():
         ),
         bridge_node,
         trajectory_bridge_node,
-        target_sensor_to_pose_node,
+        cable_sensor_to_pose_node,
         mtc_node,
     ]
 

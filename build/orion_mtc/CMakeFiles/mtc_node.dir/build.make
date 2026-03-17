@@ -279,52 +279,10 @@ CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/pose_cache.cpp -o CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s
 
-CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp
-CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp
-
-CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp > CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i
-
-CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp -o CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s
-
-CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/target_selector.cpp
-CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/target_selector.cpp
-
-CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/perception/target_selector.cpp > CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.i
-
-CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/target_selector.cpp -o CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.s
-
-CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/grasp_generator.cpp
-CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/grasp_generator.cpp
-
-CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/perception/grasp_generator.cpp > CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.i
-
-CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/grasp_generator.cpp -o CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.s
-
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_queue.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_queue.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.i: cmake_force
@@ -338,7 +296,7 @@ CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/recovery_actions.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/recovery_actions.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.i: cmake_force
@@ -352,7 +310,7 @@ CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_manager.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_manager.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.i: cmake_force
@@ -380,9 +338,6 @@ mtc_node_OBJECTS = \
 "CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
@@ -405,9 +360,6 @@ mtc_node: CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/perception/target_selector.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/perception/grasp_generator.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o
@@ -699,7 +651,7 @@ mtc_node: /opt/ros/humble/lib/librosidl_runtime_c.so
 mtc_node: /opt/ros/humble/lib/librcpputils.so
 mtc_node: /opt/ros/humble/lib/librcutils.so
 mtc_node: CMakeFiles/mtc_node.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Linking CXX executable mtc_node"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Linking CXX executable mtc_node"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/mtc_node.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

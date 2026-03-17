@@ -40,9 +40,6 @@ set(ORION_MTC_SOURCES
   src/execution/trajectory_executor.cpp
   src/execution/solution_executor.cpp
   src/perception/pose_cache.cpp
-  src/perception/target_cache.cpp
-  src/perception/target_selector.cpp
-  src/perception/grasp_generator.cpp
   src/orchestration/task_queue.cpp
   src/orchestration/recovery_actions.cpp
   src/orchestration/task_manager.cpp

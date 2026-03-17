@@ -247,21 +247,12 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   geometry_msgs::msg::Pose rod_local;
   rod_local.position.x = 0.0;
   rod_local.position.y = 0.0;
-  rod_local.position.z = -0.10;
+  rod_local.position.z = 0.0;
   rod_local.orientation.w = 1.0;
   rod_local.orientation.x = 0.0;
   rod_local.orientation.y = 0.0;
   rod_local.orientation.z = 0.0;
-  geometry_msgs::msg::Pose handle_local;
-  handle_local.position.x = 0.0;
-  handle_local.position.y = 0.0;
-  handle_local.position.z = 0.08;
-  handle_local.orientation.w = 1.0;
-  handle_local.orientation.x = 0.0;
-  handle_local.orientation.y = 0.0;
-  handle_local.orientation.z = 0.0;
   geometry_msgs::msg::Pose rod_in_link6 = composePose(tcp_object_pose, rod_local);
-  geometry_msgs::msg::Pose handle_in_link6 = composePose(tcp_object_pose, handle_local);
 
   moveit_msgs::msg::AttachedCollisionObject att;
   att.link_name = "Link6";
@@ -277,14 +268,10 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   att.object.pose.orientation.z = 0.0;
   shape_msgs::msg::SolidPrimitive rod;
   rod.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-  rod.dimensions = { 0.30f, 0.015f };
-  shape_msgs::msg::SolidPrimitive handle;
-  handle.type = shape_msgs::msg::SolidPrimitive::BOX;
-  handle.dimensions = { 0.15f, 0.03f, 0.10f };
+  // 缆绳建模：3m 长、直径 5cm 的圆柱体（MoveIt SolidPrimitive::CYLINDER: [height, radius]）
+  rod.dimensions = { 3.0f, 0.025f };
   att.object.primitives.push_back(rod);
   att.object.primitive_poses.push_back(rod_in_link6);
-  att.object.primitives.push_back(handle);
-  att.object.primitive_poses.push_back(handle_in_link6);
   att.object.operation = moveit_msgs::msg::CollisionObject::ADD;
   att.touch_links = { "Link6", "Link7", "Link8" };
 

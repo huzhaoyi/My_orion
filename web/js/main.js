@@ -148,7 +148,7 @@ function registerGlobalHandlers() {
       const s = stateStore.getState();
       const objPose = s.objectPose;
       if (!objPose) {
-        stateStore.pushSystemLog('warn', '无 object_pose，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据');
+        stateStore.pushSystemLog('warn', '无缆绳目标 (object_pose)，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据（CableSensor 桥接）');
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);

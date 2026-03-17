@@ -13,7 +13,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped
 from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
-from orion_mtc_msgs.msg import TargetSet, PerceptionState
+from orion_mtc_msgs.msg import PerceptionState
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
@@ -184,8 +184,6 @@ class TargetSensorToObjectPoseNode(Node):
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
         self._last_rov_in_base: Optional[PoseStamped] = None
         self._last_rov_pose_in_world: Optional[PoseStamped] = None
-        self._last_target_set: Optional[TargetSet] = None
-        self._last_target_set_world: Optional[TargetSet] = None
         self._last_object_pose: Optional[PoseStamped] = None
 
         self._sub_target = self.create_subscription(
@@ -266,7 +264,7 @@ class TargetSensorToObjectPoseNode(Node):
         rov_in_world.pose.orientation.w = o.w
         self._last_rov_pose_in_world = rov_in_world
         # 仅在已有物体/目标数据时发布感知状态，避免网页收到“空 object_pose”与“有数据”交替导致 0↔有数据 闪烁
-        if self._last_object_pose is None or self._last_target_set is None:
+        if self._last_object_pose is None:
             return
         ps = PerceptionState()
         ps.header.stamp = msg.header.stamp
@@ -274,8 +272,6 @@ class TargetSensorToObjectPoseNode(Node):
         ps.object_pose = self._last_object_pose
         ps.rov_pose_in_base_link = rov_in_base
         ps.rov_pose_in_world = rov_in_world
-        ps.target_set = self._last_target_set
-        ps.target_set_world = self._last_target_set_world if self._last_target_set_world is not None else TargetSet()
         self._pub_perception_state.publish(ps)
         if not hasattr(self, "_rov_pose_logged"):
             self._rov_pose_logged = True
@@ -344,20 +340,6 @@ class TargetSensorToObjectPoseNode(Node):
             d_base = d_base / np.linalg.norm(d_base)
             positions_base.extend([float(p_base[0]), float(p_base[1]), float(p_base[2])])
             directions_base.extend([float(d_base[0]), float(d_base[1]), float(d_base[2])])
-        target_set = TargetSet()
-        target_set.header = Header(stamp=stamp, frame_id=self._output_frame_id)
-        target_set.num_targets = n
-        target_set.positions = positions_base
-        target_set.directions = directions_base
-
-        # 世界系多目标：直接来自 TargetSensor 原始 positions/directions（世界坐标），供网页“目标→世界坐标”表格
-        target_set_world = TargetSet()
-        target_set_world.header = Header(stamp=stamp, frame_id=self._world_frame_id)
-        target_set_world.num_targets = n
-        pos_world = list(msg.positions)[: n * 3]
-        target_set_world.positions = [float(pos_world[k]) for k in range(len(pos_world))]
-        dir_world = list(msg.directions)[: n * 3]
-        target_set_world.directions = [float(dir_world[k]) for k in range(len(dir_world))]
 
         # 单目标 object_pose（选定 target_index）：位置为物体中心，姿态为侧向抓取系（y=闭合方向，z=接近方向，均垂直于圆柱轴）
         idx = max(0, min(self._target_index, n - 1))
@@ -395,10 +377,8 @@ class TargetSensorToObjectPoseNode(Node):
         out.pose.orientation.w = q_grasp[3]
         self._pub_pose.publish(out)
         self._last_object_pose = out
-        self._last_target_set = target_set
-        self._last_target_set_world = target_set_world
 
-        # 感知状态：物体位姿 + ROV 世界系/基座系位姿 + 多目标（世界系+机械臂系），单话题供网页显示
+        # 感知状态：物体位姿 + ROV 世界系/基座系位姿，单话题供网页显示
         ps = PerceptionState()
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
@@ -411,8 +391,6 @@ class TargetSensorToObjectPoseNode(Node):
         if ps.rov_pose_in_world.header.stamp.sec == 0 and ps.rov_pose_in_world.header.stamp.nanosec == 0:
             ps.rov_pose_in_world.header.stamp = stamp
             ps.rov_pose_in_world.header.frame_id = self._world_frame_id
-        ps.target_set = target_set
-        ps.target_set_world = target_set_world
         self._pub_perception_state.publish(ps)
 
 

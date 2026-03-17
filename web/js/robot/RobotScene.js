@@ -179,7 +179,7 @@ function createScene(containerEl) {
   workspaceBox.visible = false;
   world.add(workspaceBox);
 
-  /* 场景物体（感知到的世界物体，位置由 object_pose 更新） */
+  /* 场景物体（缆绳目标，位置由 object_pose 更新，来自 CableSensor）- 小方块作后备 */
   const worldObject = new THREE.Mesh(
     new THREE.BoxGeometry(0.04, 0.04, 0.04),
     new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.85 })
@@ -189,7 +189,38 @@ function createScene(containerEl) {
   worldObject.userData.valid = false;
   targets.add(worldObject);
 
-  /* 附着物体（持物，位置由 held 状态更新） */
+  /* 缆绳模型：3m 长、直径 5cm 圆柱体（与后端 planning scene 一致） */
+  const CABLE_LENGTH = 3.0;
+  const CABLE_RADIUS = 0.025;
+  const GRASP_SPHERE_RADIUS = 0.012;
+
+  const targetObjectComposed = new THREE.Group();
+  targetObjectComposed.name = 'target_object_composed';
+  targetObjectComposed.visible = false;
+  targetObjectComposed.userData.valid = false;
+
+  const cableGeo = new THREE.CylinderGeometry(CABLE_RADIUS, CABLE_RADIUS, CABLE_LENGTH, 24);
+  /* THREE 的 Cylinder 默认沿 Y 轴，旋转到 Z 轴以匹配 ROS/MoveIt 的圆柱轴定义 */
+  cableGeo.rotateX(-Math.PI / 2);
+  const cableMesh = new THREE.Mesh(
+    cableGeo,
+    new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.85 })
+  );
+  cableMesh.position.set(0, 0, 0);
+  cableMesh.name = 'target_cable';
+  targetObjectComposed.add(cableMesh);
+
+  const graspPointMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(GRASP_SPHERE_RADIUS, 20, 20),
+    new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+  );
+  graspPointMesh.position.set(0, 0, 0);
+  graspPointMesh.name = 'grasp_point';
+  targetObjectComposed.add(graspPointMesh);
+
+  targets.add(targetObjectComposed);
+
+  /* 附着物体（持物，位置由 held 状态更新）- 仅做提示用，不做精确建模 */
   const attachedObject = new THREE.Mesh(
     new THREE.BoxGeometry(0.035, 0.035, 0.035),
     new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.9 })
@@ -224,23 +255,6 @@ function createScene(containerEl) {
   rovAxesGroup.add(rovAxes);
   rovAxesGroup.visible = false;
   world.add(rovAxesGroup);
-
-  /* TargetSet 多目标球（base_link 下，由 target_set 更新，最多 10 个） */
-  const targetSetMarkersGroup = new THREE.Group();
-  targetSetMarkersGroup.name = 'target_set_markers';
-  const MAX_TARGET_MARKERS = 10;
-  const targetMarkerRadius = 0.03;
-  for (let i = 0; i < MAX_TARGET_MARKERS; i++) {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(targetMarkerRadius, 12, 12),
-      new THREE.MeshBasicMaterial({ color: i === 0 ? 0x22d3ee : 0x64748b, transparent: true, opacity: 0.9 })
-    );
-    m.name = 'target_set_' + i;
-    m.visible = false;
-    targetSetMarkersGroup.add(m);
-  }
-  targetSetMarkersGroup.visible = false;
-  targets.add(targetSetMarkersGroup);
 
   /* 轨迹线（空） */
   const trajectoryLine = new THREE.Line(
@@ -309,8 +323,8 @@ function createScene(containerEl) {
     overlays,
     pickMarker,
     placeMarker,
+    targetObjectComposed,
     rovAxesGroup,
-    targetSetMarkersGroup,
     trajectoryLine,
     setRobotJointValues,
     setFollowTcp,

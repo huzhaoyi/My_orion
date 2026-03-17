@@ -130,6 +130,8 @@ def generate_launch_description():
                 parameters=[move_group_params],
                 remappings=remappings_tf,
                 condition=IfCondition(tf_under_manipulator),
+                sigterm_timeout="15",
+                sigkill_timeout="5",
             ),
             Node(
                 package="moveit_ros_move_group",
@@ -138,6 +140,8 @@ def generate_launch_description():
                 output="screen",
                 parameters=[move_group_params],
                 condition=UnlessCondition(tf_under_manipulator),
+                sigterm_timeout="15",
+                sigkill_timeout="5",
             ),
             Node(
                 package="rviz2",
@@ -152,6 +156,8 @@ def generate_launch_description():
                 ],
                 remappings=remappings_tf,
                 condition=IfCondition(tf_under_manipulator),
+                sigterm_timeout="15",
+                sigkill_timeout="5",
             ),
             Node(
                 package="rviz2",
@@ -165,6 +171,8 @@ def generate_launch_description():
                     {"robot_description_kinematics": kinematics_config},
                 ],
                 condition=UnlessCondition(tf_under_manipulator),
+                sigterm_timeout="15",
+                sigkill_timeout="5",
             ),
         ]
     )

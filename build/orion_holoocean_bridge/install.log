@@ -1,7 +1,9 @@
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/cable_sensor_to_object_pose_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/trajectory_to_agent_bridge_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/target_sensor_to_object_pose_node.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__init__.py
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/arm_sensor_to_joint_state_node.py
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/cable_sensor_to_object_pose_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/trajectory_to_agent_bridge_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/target_sensor_to_object_pose_node.cpython-310.pyc
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge/__pycache__/__init__.cpython-310.pyc
@@ -18,5 +20,6 @@
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge-0.0.1-py3.10.egg-info/dependency_links.txt
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/python3.10/site-packages/orion_holoocean_bridge-0.0.1-py3.10.egg-info/top_level.txt
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/arm_sensor_to_joint_state
+/home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/cable_sensor_to_object_pose
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/target_sensor_to_object_pose
 /home/huzy/My_orion/install/orion_holoocean_bridge/lib/orion_holoocean_bridge/trajectory_to_agent_bridge

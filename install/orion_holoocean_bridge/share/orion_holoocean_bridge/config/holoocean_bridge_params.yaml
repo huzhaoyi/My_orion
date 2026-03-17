@@ -15,10 +15,7 @@ trajectory_to_agent_bridge:
     agent_frame_id: "rov0"
     publish_rate_hz: 50.0
 
-# TargetSensor 世界系 xyz + direction → base_link 下 object_pose（MTC 抓取）+ perception_state（网页感知状态：物体+ROV+多目标）
-# 若机械臂规划“不在要抓的地方”，可调以下参数校准：
-#   - left/right_arm_base_in_rov_*：机械臂基座在 ROV 系下位置 [m]，与仿真/实机一致
-#   - position_offset_*：在 base_link 下对目标位置的微调 [m]，如抓高一点则 position_offset_z: 0.02
+# TargetSensor 世界系 xyz + direction → base_link 下 object_pose（MTC 抓取）+ perception_state（旧多目标逻辑，可选）
 target_sensor_to_object_pose:
   ros__parameters:
     target_sensor_topic: "/holoocean/rov0/TargetSensor"
@@ -30,15 +27,41 @@ target_sensor_to_object_pose:
     output_frame_id: "base_link"
     target_index: 1
     use_left_arm: true
-    # 左臂 base 在 ROV 系下 [m]
     left_arm_base_in_rov_x: 1.55
     left_arm_base_in_rov_y: 0.5653
     left_arm_base_in_rov_z: -0.283628
-    # 右臂 base 在 ROV 系下 [m]
     right_arm_base_in_rov_x: 1.55
     right_arm_base_in_rov_y: -0.5653
     right_arm_base_in_rov_z: -0.283628
-    # 目标位置在 base_link 下的微调 [m]，规划偏了可改这里
     position_offset_x: 0.0
     position_offset_y: 0.0
     position_offset_z: 0.0
+
+# CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + place_pose（同源）+ TF base_link→cable
+# 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1
+# 注意：部分数据源虽然 header.frame_id=COM，但 positions 实际给的是 map/world 坐标（接近 ROV(map)）。
+cable_sensor_to_object_pose:
+  ros__parameters:
+    cable_sensor_topic: "/holoocean/rov0/CableSensor"
+    rov_pose_topic: "/holoocean/rov0/PoseSensor"
+    object_pose_topic: "/manipulator/object_pose"
+    place_pose_topic: "/manipulator/place_pose"
+    perception_state_topic: "/manipulator/perception_state"
+    world_frame_id: "map"
+    publish_tf: true
+    output_frame_id: "base_link"
+    use_left_arm: true
+    left_arm_base_in_rov_x: 1.55
+    left_arm_base_in_rov_y: 0.5653
+    left_arm_base_in_rov_z: -0.283628
+    right_arm_base_in_rov_x: 1.55
+    right_arm_base_in_rov_y: -0.5653
+    right_arm_base_in_rov_z: -0.283628
+    position_offset_x: 0.0
+    position_offset_y: 0.0
+    position_offset_z: 0.0
+    # 缆绳传感器数据：全部为 world/map 坐标系（与 ROV(map) 接近）
+    cable_frame_is_com: false
+    cable_positions_frame: "world"
+    cable_direction_frame: "world"
+    cable_euler_frame: "world"

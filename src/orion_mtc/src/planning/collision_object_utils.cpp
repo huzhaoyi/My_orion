@@ -33,40 +33,16 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
                                                             const geometry_msgs::msg::Pose& object_pose,
                                                             uint8_t operation)
 {
-  geometry_msgs::msg::Pose rod_local;
-  rod_local.position.x = 0.0;
-  rod_local.position.y = 0.0;
-  rod_local.position.z = -0.10;
-  rod_local.orientation.w = 1.0;
-  rod_local.orientation.x = 0.0;
-  rod_local.orientation.y = 0.0;
-  rod_local.orientation.z = 0.0;
-  geometry_msgs::msg::Pose handle_local;
-  handle_local.position.x = 0.0;
-  handle_local.position.y = 0.0;
-  handle_local.position.z = 0.08;
-  handle_local.orientation.w = 1.0;
-  handle_local.orientation.x = 0.0;
-  handle_local.orientation.y = 0.0;
-  handle_local.orientation.z = 0.0;
-
-  geometry_msgs::msg::Pose rod_world = composePose(object_pose, rod_local);
-  geometry_msgs::msg::Pose handle_world = composePose(object_pose, handle_local);
-
   moveit_msgs::msg::CollisionObject object;
   object.id = object_id;
   object.header.frame_id = "base_link";
-  shape_msgs::msg::SolidPrimitive rod;
-  rod.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-  rod.dimensions = { 0.30f, 0.015f };
-  shape_msgs::msg::SolidPrimitive handle;
-  handle.type = shape_msgs::msg::SolidPrimitive::BOX;
-  handle.dimensions = { 0.15f, 0.03f, 0.10f };
 
-  object.primitives.push_back(rod);
-  object.primitive_poses.push_back(rod_world);
-  object.primitives.push_back(handle);
-  object.primitive_poses.push_back(handle_world);
+  // 缆绳建模：3m 长、直径 5cm 的圆柱体（MoveIt SolidPrimitive::CYLINDER: [height, radius]）
+  shape_msgs::msg::SolidPrimitive cable;
+  cable.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
+  cable.dimensions = { 3.0f, 0.025f };
+  object.primitives.push_back(cable);
+  object.primitive_poses.push_back(object_pose);
   object.operation = operation;
   return object;
 }
