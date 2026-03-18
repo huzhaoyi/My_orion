@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="orion">
+  <!-- ROV + 左臂模型（来自 rov_urdf/orion_left.urdf），mesh 路径相对本 urdf：../meshes/stl/ -->
+  <!-- 规划用碰撞体与 visual 一致；需在 orion_description/meshes/stl/ 下放置 base_link_left.stl 与 Link1..Link8.stl -->
+  <!-- KDL 要求根 link 无惯性，故增加虚拟根 world，base_link 为其固定子 link -->
 
   <!-- ==================== LINKS ==================== -->
-  <!-- mesh path relative to this urdf when installed: ../meshes/stl/ -->
+
+  <link name="world">
+    <!-- 虚拟根，无几何无惯性，仅用于满足 KDL 对根 link 的要求 -->
+  </link>
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+  </joint>
 
   <link name="base_link">
     <visual>
-      <geometry><mesh filename="../meshes/stl/base_link.stl"/></geometry>
+      <geometry><mesh filename="../meshes/stl/base_link_left.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
     <collision>
-      <geometry><mesh filename="../meshes/stl/base_link.stl"/></geometry>
+      <geometry><mesh filename="../meshes/stl/base_link_left.stl"/></geometry>
     </collision>
     <inertial>
       <mass value="1.0"/>

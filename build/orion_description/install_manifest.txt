@@ -1,4 +1,6 @@
 /home/huzy/My_orion/install/orion_description/share/orion_description/urdf/orion.urdf
+/home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/.gitkeep
+/home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/base_link_left.stl
 /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/base_link.stl
 /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link7.stl
 /home/huzy/My_orion/install/orion_description/share/orion_description/meshes/stl/Link1.stl

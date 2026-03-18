@@ -99,15 +99,19 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   const double approach_dist = approach_max + gripper_z_offset;
 
   /* 抓取姿态由 object_orientation 给出（侧向抓取系：z=接近方向，y=闭合方向，均垂直于圆柱轴）。
-   * 从四元数得到 base_link 下 z 轴方向，pregrasp 放在物体中心沿 z 方向偏移 approach_dist，approach 段沿 -z 接近。 */
+   * 夹持点 = 几何中心 + grasp_offset_along_axis * 物体 Z；pregrasp 放在夹持点上方 approach_dist。 */
   Eigen::Quaterniond q_obj(object_orientation.w, object_orientation.x, object_orientation.y, object_orientation.z);
   Eigen::Vector3d approach_axis = q_obj * Eigen::Vector3d::UnitZ();
+  const double go = config_.grasp_offset_along_axis;
+  const double gx = obj_x + go * approach_axis.x();
+  const double gy = obj_y + go * approach_axis.y();
+  const double gz = obj_z + go * approach_axis.z();
 
   geometry_msgs::msg::PoseStamped pregrasp;
   pregrasp.header.frame_id = "base_link";
-  pregrasp.pose.position.x = obj_x + approach_dist * approach_axis.x();
-  pregrasp.pose.position.y = obj_y + approach_dist * approach_axis.y();
-  pregrasp.pose.position.z = obj_z + approach_dist * approach_axis.z();
+  pregrasp.pose.position.x = gx + approach_dist * approach_axis.x();
+  pregrasp.pose.position.y = gy + approach_dist * approach_axis.y();
+  pregrasp.pose.position.z = gz + approach_dist * approach_axis.z();
   pregrasp.pose.orientation = object_orientation;
 
   auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
@@ -122,14 +126,15 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     grasp->insert(std::move(stage));
   }
 
-  /* 接近段：沿抓取系 -z 方向（即 base_link 下 -approach_axis）平动，末端姿态保持与 pregrasp 一致 */
+  /* 接近段：沿 -approach_axis 平动到夹持点，距离取 approach_dist（允许小范围） */
   auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
   stage_approach->properties().set("marker_ns", "approach_object");
   stage_approach->properties().set("link", hand_frame);
   stage_approach->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
   stage_approach->properties().set("min_fraction", config_.approach_min_fraction);
-  stage_approach->setMinMaxDistance(static_cast<float>(config_.approach_object_min_dist),
-                                   static_cast<float>(config_.approach_object_max_dist));
+  const float approach_to_grasp_lo = static_cast<float>(std::max(0.01, approach_dist - 0.02f));
+  const float approach_to_grasp_hi = static_cast<float>(approach_dist + 0.02f);
+  stage_approach->setMinMaxDistance(approach_to_grasp_lo, approach_to_grasp_hi);
   stage_approach->setIKFrame(hand_frame);
   geometry_msgs::msg::Vector3Stamped vec;
   vec.header.frame_id = "base_link";

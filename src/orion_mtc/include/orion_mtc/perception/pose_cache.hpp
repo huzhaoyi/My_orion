@@ -24,8 +24,8 @@ public:
   /** 阻塞等待直到有数据或超时；out 仅在返回 true 时有效 */
   bool waitForPose(std::chrono::milliseconds timeout,
                    geometry_msgs::msg::PoseStamped& out) const;
-  /** 阻塞直到发生一次 update 或超时，便于调用方在取 latest() 前等到“更新后”的位姿 */
-  void waitForNextUpdate(std::chrono::milliseconds timeout) const;
+  /** 阻塞直到发生一次 update 或超时；返回是否在超时前收到新 update（便于调用方打日志） */
+  bool waitForNextUpdate(std::chrono::milliseconds timeout) const;
 
 private:
   std::string expected_frame_id_;

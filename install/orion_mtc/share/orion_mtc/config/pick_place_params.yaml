@@ -32,8 +32,16 @@ place_pose_qy: 0.0
 place_pose_qz: 0.0
 place_pose_qw: 1.0
 
-# Retreat 退离距离范围 [m]
-retreat_min_dist: 0.12
+# 长杆夹持点沿物体 Z 相对几何中心的偏移 [m]，正=物体+Z 方向；0=中心
+grasp_offset_along_axis: 0.0
+# 放置前运输姿态：SRDF 中 arm 的 group_state 名，非空则在 pre-place 前先移到此姿态；长杆建议 "transport"
+place_transport_pose: "transport"
+
+# Retreat 第一段（short clear）[m]，先脱离释放区；第二段用 retreat_min/max_dist
+retreat_short_min_dist: 0.03
+retreat_short_max_dist: 0.05
+# Retreat 第二段（long leave）[m]
+retreat_min_dist: 0.07
 retreat_max_dist: 0.25
 
 # 放置前下降距离范围 [m]

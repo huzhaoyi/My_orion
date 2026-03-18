@@ -26,7 +26,7 @@ struct MTCConfig
   double lift_object_min_dist = 0.05f;
   double lift_object_max_dist = 0.25f;
   /* place retreat / lower */
-  double retreat_min_dist = 0.12f;
+  double retreat_min_dist = 0.05f;
   double retreat_max_dist = 0.25f;
   double lower_to_place_min_dist = 0.05f;
   double lower_to_place_max_dist = 0.12f;
@@ -40,6 +40,14 @@ struct MTCConfig
   double default_place_qw = 1.0f;
   /* 支撑面 link，空则不加 allow/forbid collision */
   std::string support_surface_link;
+  /* 长杆夹持点沿物体轴相对几何中心的偏移 [m]，正=物体 +Z 方向；0=几何中心，attach 与 pick 目标均用此 */
+  double grasp_offset_along_axis = 0.0f;
+  /* 放置前运输姿态：SRDF 中 arm 的 group_state 名，非空则在 move to pre-place 前先 move to 此姿态以减小扫掠 */
+  std::string place_transport_pose = "transport";
+  /* 退离第一段（short clear）距离范围 [m]，先脱离释放区 */
+  double retreat_short_min_dist = 0.03f;
+  double retreat_short_max_dist = 0.05f;
+  /* 退离第二段（long leave）使用 retreat_min_dist / retreat_max_dist */
 };
 
 /* 在 node 上声明参数（若已声明则跳过，避免 ParameterAlreadyDeclaredException） */

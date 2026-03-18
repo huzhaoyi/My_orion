@@ -4,7 +4,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <future>
+#include <string>
 #include <thread>
 
 namespace orion_mtc
@@ -24,8 +26,26 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
     RCLCPP_DEBUG(LOGGER, "sendJointTrajectory: empty trajectory for %s", controller_name.c_str());
     return true;
   }
-  RCLCPP_DEBUG(LOGGER, "sendJointTrajectory: %s joints=%zu points=%zu",
-               controller_name.c_str(), jt.joint_names.size(), jt.points.size());
+  constexpr double RAD_TO_DEG = 180.0 / 3.141592653589793;
+  RCLCPP_INFO(LOGGER, "sendJointTrajectory: %s joints=%zu points=%zu (角度°)",
+              controller_name.c_str(), jt.joint_names.size(), jt.points.size());
+  for (size_t i = 0; i < jt.joint_names.size(); ++i)
+  {
+    RCLCPP_INFO(LOGGER, "  [%zu] %s", i, jt.joint_names[i].c_str());
+  }
+  for (size_t p = 0; p < jt.points.size(); ++p)
+  {
+    const auto& pt = jt.points[p];
+    std::string buf = "  point[" + std::to_string(p) + "]";
+    if (pt.positions.size() >= jt.joint_names.size())
+    {
+      for (size_t j = 0; j < jt.joint_names.size(); ++j)
+      {
+        buf += " " + std::to_string(static_cast<float>(pt.positions[j] * RAD_TO_DEG));
+      }
+    }
+    RCLCPP_INFO(LOGGER, "%s", buf.c_str());
+  }
 
   rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr client;
   bool need_wait_server = false;

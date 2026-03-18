@@ -48,18 +48,19 @@ static const std::vector<std::string> PICK_STAGE_NAMES = {
     "forbid_collision_object_support",
 };
 
-/* PLACE 任务 MTC 阶段名（与 place_task_builder 顺序对应） */
+/* PLACE 任务 MTC 阶段名（与 place_task_builder 顺序对应；place_transport_pose 非空时含 move_to_transport） */
 static const std::vector<std::string> PLACE_STAGE_NAMES = {
-    "allow_collision_hand_object", "move_to_pre_place", "allow_collision_object_support",
-    "lower_to_place", "open_hand", "detach_object", "retreat",
-    "forbid_collision_hand_object", "forbid_collision_object_support",
+    "allow_collision_hand_object", "move_to_transport", "move_to_pre_place", "allow_collision_object_support",
+    "lower_to_place", "open_hand", "detach_object", "allow_collision_object_arm_retreat",
+    "retreat_short_clear", "retreat_long_leave", "forbid_collision_hand_object", "forbid_collision_object_support",
     "allow_collision_object_arm", "move_to_ready", "open_hand_ready"
 };
 
 /* PLACE_RELEASE 任务 MTC 阶段名（与 place_release_task_builder 顺序对应） */
 static const std::vector<std::string> PLACE_RELEASE_STAGE_NAMES = {
     "allow_collision_hand_object", "move_to_pre_place_release", "lower_to_place",
-    "open_hand", "detach_object", "retreat", "forbid_collision_hand_object",
+    "open_hand", "detach_object", "allow_collision_object_arm_retreat",
+    "retreat_short_clear", "retreat_long_leave", "forbid_collision_hand_object",
     "allow_collision_object_arm", "move_to_ready", "open_hand_ready"
 };
 
@@ -270,9 +271,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   }
   double pregrasp_z = obj_z + config_.approach_object_max_dist + config_.gripper_tip_offset_from_link6_z;
   RCLCPP_INFO(LOGGER,
-              "handlePick: object (base_link) x=%.3f y=%.3f z=%.3f, pregrasp z=%.3f (with gripper offset); if GOAL_STATE_INVALID adjust "
-              "holoocean_bridge position_offset_* or left_arm_base_in_rov_*",
-              obj_x, obj_y, obj_z, pregrasp_z);
+              "handlePick: 规划目标 (base_link) 缆绳中心 x=%.3f y=%.3f z=%.3f, pregrasp z=%.3f；approach 后 Link6 原点将到达 (%.3f,%.3f,%.3f)。"
+              "若末端未到此点请检查: 1) TF/执行系与规划 base_link 是否一致 2) joint_states 是否来自执行侧",
+              obj_x, obj_y, obj_z, pregrasp_z, obj_x, obj_y, obj_z);
 
   mtc::Task task = pick_builder_->build(obj_x, obj_y, obj_z, object_orientation, object_id);
   try
@@ -914,7 +915,9 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
     scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
     scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
   }
-  if (need_attach_tracked && scene_manager_ && !scene_manager_->applyAttachedTrackedObjectToScene(tcp_to_object_for_attach))
+  if (need_attach_tracked && scene_manager_
+      && !scene_manager_->applyAttachedTrackedObjectToScene(tcp_to_object_for_attach,
+                                                            config_.grasp_offset_along_axis))
   {
     RCLCPP_WARN(LOGGER, "sync_held_object: applyAttachedTrackedObjectToScene failed");
   }
@@ -1344,35 +1347,29 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   {
     case JobType::PICK:
     {
-      geometry_msgs::msg::PoseStamped pose_to_use;
-      if (job.source == "topic_pick_trigger" && get_latest_object_pose_fn_)
+      /* 目标点仅来自话题：没有话题更新则不规划（无当前目标） */
+      if (!get_latest_object_pose_fn_)
       {
-        std::optional<geometry_msgs::msg::PoseStamped> latest = get_latest_object_pose_fn_();
-        if (latest.has_value())
-        {
-          pose_to_use = latest.value();
-          RCLCPP_DEBUG(LOGGER, "executeJob PICK: using latest object_pose from topic");
-        }
-        else if (job.object_pose.has_value())
-        {
-          pose_to_use = job.object_pose.value();
-        }
-        else
-        {
-          RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose and no latest from topic");
-          return false;
-        }
-      }
-      else if (job.object_pose.has_value())
-      {
-        pose_to_use = job.object_pose.value();
-      }
-      else
-      {
-        RCLCPP_ERROR(LOGGER, "executeJob PICK: missing object_pose");
+        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose topic callback, cannot plan");
         return false;
       }
-      return handlePick(pose_to_use, job.object_id);
+      std::optional<geometry_msgs::msg::PoseStamped> latest = get_latest_object_pose_fn_();
+      if (!latest.has_value())
+      {
+        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose from topic (no target), skip plan");
+        return false;
+      }
+      double lx = latest->pose.position.x;
+      double ly = latest->pose.position.y;
+      double lz = latest->pose.position.z;
+      RCLCPP_INFO(LOGGER,
+                  "executeJob PICK: 感知状态目标点 frame_id=%s x=%.3f y=%.3f z=%.3f (缆绳中心，approach 后 Link6 将到此点)",
+                  latest->header.frame_id.c_str(), lx, ly, lz);
+      if (std::abs(lx) < 1e-6 && std::abs(ly) < 1e-6 && std::abs(lz) < 1e-6)
+      {
+        RCLCPP_WARN(LOGGER, "executeJob PICK: 目标点接近 (0,0,0)，请检查 bridge 是否发布有效 object_pose");
+      }
+      return handlePick(latest.value(), job.object_id);
     }
     case JobType::PLACE:
     {

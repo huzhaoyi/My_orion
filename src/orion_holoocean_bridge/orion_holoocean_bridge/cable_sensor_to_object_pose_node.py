@@ -87,6 +87,31 @@ def _quat_from_rotation_matrix(R: np.ndarray) -> Tuple[float, float, float, floa
     return (float(qx), float(qy), float(qz), float(qw))
 
 
+def _quat_from_direction(dx: float, dy: float, dz: float) -> Tuple[float, float, float, float]:
+    """
+    由缆绳轴向（单位向量）得到四元数，使圆柱体局部 Z 轴与该方向一致。
+    MoveIt/ROS 的 CYLINDER 沿局部 Z 轴，故用此姿态后圆柱会沿缆绳方向（平躺时方向为水平）。
+    """
+    z = np.array([float(dx), float(dy), float(dz)], dtype=float)
+    n = np.linalg.norm(z)
+    if n < 1e-9:
+        z = np.array([1.0, 0.0, 0.0])
+    else:
+        z = z / n
+    if z[2] < -0.9999:
+        x = np.cross(np.array([0.0, 0.0, 1.0]), z)
+    else:
+        x = np.cross(np.array([0.0, 1.0, 0.0]), z)
+    xn = np.linalg.norm(x)
+    if xn < 1e-9:
+        x = np.array([1.0, 0.0, 0.0]) if abs(z[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    else:
+        x = x / xn
+    y = np.cross(z, x)
+    R = np.column_stack([x, y, z])
+    return _quat_from_rotation_matrix(R)
+
+
 def _rotation_matrix_from_rpy(roll: float, pitch: float, yaw: float) -> np.ndarray:
     """RPY 弧度 -> 3x3 旋转矩阵（内旋 ZYX）。"""
     cx = math.cos(roll)
@@ -335,23 +360,15 @@ class CableSensorToObjectPoseNode(Node):
             [self._offset_x, self._offset_y, self._offset_z], dtype=float
         )
 
-        roll = msg.euler_angles[0]
-        pitch = msg.euler_angles[1]
-        yaw = msg.euler_angles[2]
-        q_com = _euler_rad_to_quat(roll, pitch, yaw)
-        # euler -> base_link：
-        # - 若欧拉角在 world：需要从 world 转到 base_link（base_link 与 rov0 同向，world->rov 再平移到 base）
-        # - 若欧拉角在 com/rov：先转到 world，再转到 base_link
-        R_euler = _quat_to_rotation_matrix(*q_com)
-        if self._rov_orientation_xyzw is None:
-            q_base = q_com
-        elif self._cable_euler_frame == "world":
-            q_base = _quat_from_rotation_matrix(R_rov.T @ R_euler)
-        elif self._cable_euler_frame == "rov" or self._cable_euler_frame == "com":
-            R_world = R_rov @ R_euler
-            q_base = _quat_from_rotation_matrix(R_rov.T @ R_world)
+        # 缆绳姿态：用轴向 direction 得到四元数，使圆柱体沿缆绳方向（与网页“平躺”一致）
+        # MoveIt CYLINDER 沿局部 Z 轴，故 orientation 需满足 local Z = 缆绳方向
+        d_base = R_rov.T @ d_world
+        dn_base = np.linalg.norm(d_base)
+        if dn_base < 1e-9:
+            d_base = np.array([1.0, 0.0, 0.0])
         else:
-            q_base = q_com
+            d_base = d_base / dn_base
+        q_base = _quat_from_direction(float(d_base[0]), float(d_base[1]), float(d_base[2]))
 
         out = PoseStamped()
         out.header.stamp = stamp
@@ -388,11 +405,11 @@ class CableSensorToObjectPoseNode(Node):
             self.get_logger().info(
                 "cable_sensor_to_object_pose: 已收到 CableSensor，发布 object_pose / place_pose（缆绳单目标）"
             )
-        self.get_logger().info(
-            "cable_sensor_to_object_pose: 缆绳 base_link 位姿 x=%.3f y=%.3f z=%.3f（供 MTC 抓取目标）"
-            % (float(p_base[0]), float(p_base[1]), float(p_base[2])),
-            throttle_duration_sec=2.0,
-        )
+        # self.get_logger().info(
+        #     "cable_sensor_to_object_pose: 缆绳 base_link 位姿 x=%.3f y=%.3f z=%.3f（供 MTC 抓取目标）"
+        #     % (float(p_base[0]), float(p_base[1]), float(p_base[2])),
+        #     throttle_duration_sec=2.0,
+        # )
 
 
 def main(args=None):

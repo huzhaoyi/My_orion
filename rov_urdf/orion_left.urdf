@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="orion">
+
+  <!-- ==================== LINKS ==================== -->
+
+  <link name="base_link">
+    <visual>
+      <geometry><mesh filename="meshes/stl/base_link_left.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link1">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link1.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link2">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link2.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link3">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link3.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial> 
+  </link>
+
+  <link name="LinkVirtual">
+    <!-- Virtual/intermediate link, no geometry -->
+    <inertial>
+      <mass value="0.001"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+  </link>
+
+  <link name="Link4">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link4.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link5">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link5.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link6">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link6.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link7">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link7.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <link name="Link8">
+    <visual>
+      <geometry><mesh filename="meshes/stl/Link8.stl"/></geometry>
+      <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <!-- ==================== JOINTS ==================== -->
+
+  <!-- base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
+  <joint name="joint_base_link_Link1" type="revolute">
+    <parent link="base_link"/>
+    <child link="Link1"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link1 -> Link2 : revolute, axis Y, origin (-0.0105, 0, 0.0699) -->
+  <joint name="joint_Link1_Link2" type="revolute">
+    <parent link="Link1"/>
+    <child link="Link2"/>
+    <origin xyz="-0.0105 0.0 0.0699" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link2 -> Link3 : revolute, axis Y, origin (-0.2247, 0, 0.8662) -->
+  <joint name="joint_Link2_Link3" type="revolute">
+    <parent link="Link2"/>
+    <child link="Link3"/>
+    <origin xyz="-0.2247 0.0 0.8662" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link3 -> LinkVirtual : fixed, origin (0.1835, 0, 0.0157), rotation y=-227.578deg -->
+  <!-- -227.578 deg = -227.578 * pi/180 = -3.97248 rad -->
+  <joint name="joint_Link3_LinkVirtual" type="fixed">
+    <parent link="Link3"/>
+    <child link="LinkVirtual"/>
+    <origin xyz="0.1835 0.0 0.0157" rpy="0.0 -3.97248 0.0"/>
+  </joint>
+
+  <!-- LinkVirtual -> Link4 : revolute, axis Z, origin (0,0,0) -->
+  <joint name="joint_LinkVirtual_Link4" type="revolute">
+    <parent link="LinkVirtual"/>
+    <child link="Link4"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link4 -> Link5 : revolute, axis Y, origin (0, -0.0091, 0.3784) -->
+  <joint name="joint_Link4_Link5" type="revolute">
+    <parent link="Link4"/>
+    <child link="Link5"/>
+    <origin xyz="0.0 -0.0091 0.3784" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link5 -> Link6 : revolute, axis Z, origin (-0.0113, 0.0091, 0.2516) -->
+  <joint name="joint_Link5_Link6" type="revolute">
+    <parent link="Link5"/>
+    <child link="Link6"/>
+    <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link6 -> Link7 : revolute, axis Y, origin (0.0363, 0, 0.0499) -->
+  <joint name="joint_Link6_Link7" type="revolute">
+    <parent link="Link6"/>
+    <child link="Link7"/>
+    <origin xyz="0.0363 0.0 0.0499" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <!-- Link6 -> Link8 : revolute, axis Y, origin (-0.0363, 0, 0.047) -->
+  <joint name="joint_Link6_Link8" type="revolute">
+    <parent link="Link6"/>
+    <child link="Link8"/>
+    <origin xyz="-0.0363 0.0 0.047" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+</robot>

@@ -144,6 +144,21 @@ class TrajectoryToAgentBridgeNode(Node):
         msg.command = cmd
         self._command_pub.publish(msg)
 
+    def _log_trajectory_deg(self, joint_names, points, label: str) -> None:
+        """打印轨迹点（角度°），便于与 MTC 发送端对照。"""
+        if not joint_names or not points:
+            return
+        self.get_logger().info(
+            "%s: joints=%d points=%d (角度°)" % (label, len(joint_names), len(points))
+        )
+        for i, name in enumerate(joint_names):
+            self.get_logger().info("  [%d] %s" % (i, name))
+        for p, pt in enumerate(points):
+            if not pt.positions:
+                continue
+            deg_str = " ".join("%.2f" % (float(x) * RAD_TO_DEG) for x in pt.positions[: len(joint_names)])
+            self.get_logger().info("  point[%d] %s" % (p, deg_str))
+
     def _execute_arm_callback(self, goal_handle):
         """执行 arm 轨迹：按 joint_names 取位置，按 ARM_JOINT_NAMES 顺序写入 left_arm[0:6]，夹爪保持当前。"""
         result = FollowJointTrajectory.Result()
@@ -152,6 +167,7 @@ class TrajectoryToAgentBridgeNode(Node):
             joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
             name_to_idx = {name: i for i, name in enumerate(joint_names)}
             points = list(trajectory.points)
+            self._log_trajectory_deg(joint_names, points, "arm_controller")
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
                 goal_handle.succeed()
@@ -203,6 +219,7 @@ class TrajectoryToAgentBridgeNode(Node):
             points = list(trajectory.points)
             joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
             name_to_idx = {name: i for i, name in enumerate(joint_names)}
+            self._log_trajectory_deg(joint_names, points, "hand_controller")
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
                 goal_handle.succeed()

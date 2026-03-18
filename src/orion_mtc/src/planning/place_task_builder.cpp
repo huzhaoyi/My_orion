@@ -75,6 +75,14 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(0.01);
 
+  if (!config_.place_transport_pose.empty())
+  {
+    auto stage_transport = std::make_unique<mtc::stages::MoveTo>("move to transport", ptp_planner);
+    stage_transport->setGroup(arm_group_name);
+    stage_transport->setGoal(config_.place_transport_pose);
+    task.add(std::move(stage_transport));
+  }
+
   geometry_msgs::msg::PoseStamped pre_place_stamped;
   pre_place_stamped.header.frame_id = "base_link";
   pre_place_stamped.pose = pre_place_pose;
@@ -96,18 +104,22 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
     place->insert(std::move(stage));
   }
 
+  /* lower 沿 hand_frame -Z；retreat 与 lower 成对，用 +Z（反向） */
+  const geometry_msgs::msg::Vector3Stamped lower_dir = []() {
+    geometry_msgs::msg::Vector3Stamped v;
+    v.header.frame_id = "Link6";
+    v.vector.x = 0.0;
+    v.vector.y = 0.0;
+    v.vector.z = -1.0;
+    return v;
+  }();
   auto stage_lower = std::make_unique<mtc::stages::MoveRelative>("lower to place", cartesian_planner);
   stage_lower->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
   stage_lower->setMinMaxDistance(static_cast<float>(config_.lower_to_place_min_dist),
                                 static_cast<float>(config_.lower_to_place_max_dist));
   stage_lower->setIKFrame(hand_frame);
   stage_lower->properties().set("marker_ns", "lower_place");
-  geometry_msgs::msg::Vector3Stamped vec;
-  vec.header.frame_id = hand_frame;
-  vec.vector.x = 0.0;
-  vec.vector.y = 0.0;
-  vec.vector.z = -1.0;
-  stage_lower->setDirection(vec);
+  stage_lower->setDirection(lower_dir);
   place->insert(std::move(stage_lower));
 
   {
@@ -123,20 +135,41 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
     place->insert(std::move(stage));
   }
 
+  /* 退离时允许整臂与已放置物体碰撞；退离方向与 lower 成对（hand_frame +Z） */
   {
-    auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
-    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-    stage->setMinMaxDistance(static_cast<float>(config_.retreat_min_dist),
-                            static_cast<float>(config_.retreat_max_dist));
-    stage->setIKFrame(hand_frame);
-    stage->properties().set("marker_ns", "retreat");
-    geometry_msgs::msg::Vector3Stamped v;
-    v.header.frame_id = hand_frame;
-    v.vector.x = 0.0;
-    v.vector.y = 0.0;
-    v.vector.z = -1.0;
-    stage->setDirection(v);
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,arm) for retreat");
+    stage->allowCollisions(scene_attach_id, RETREAT_OBJECT_ALLOWED_LINKS, true);
     place->insert(std::move(stage));
+  }
+  {
+    geometry_msgs::msg::Vector3Stamped retreat_dir;
+    retreat_dir.header.frame_id = hand_frame;
+    retreat_dir.vector.x = 0.0;
+    retreat_dir.vector.y = 0.0;
+    retreat_dir.vector.z = 1.0;
+    auto stage_short = std::make_unique<mtc::stages::MoveRelative>("retreat (short clear)", cartesian_planner);
+    stage_short->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    stage_short->setMinMaxDistance(static_cast<float>(config_.retreat_short_min_dist),
+                                 static_cast<float>(config_.retreat_short_max_dist));
+    stage_short->setIKFrame(hand_frame);
+    stage_short->properties().set("marker_ns", "retreat_short");
+    stage_short->setDirection(retreat_dir);
+    place->insert(std::move(stage_short));
+  }
+  {
+    geometry_msgs::msg::Vector3Stamped retreat_dir;
+    retreat_dir.header.frame_id = hand_frame;
+    retreat_dir.vector.x = 0.0;
+    retreat_dir.vector.y = 0.0;
+    retreat_dir.vector.z = 1.0;
+    auto stage_long = std::make_unique<mtc::stages::MoveRelative>("retreat (long leave)", cartesian_planner);
+    stage_long->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    stage_long->setMinMaxDistance(static_cast<float>(config_.retreat_min_dist),
+                                 static_cast<float>(config_.retreat_max_dist));
+    stage_long->setIKFrame(hand_frame);
+    stage_long->properties().set("marker_ns", "retreat_long");
+    stage_long->setDirection(retreat_dir);
+    place->insert(std::move(stage_long));
   }
   /* 退离完成后立即恢复：hand 与 object 不再允许碰撞 */
   {

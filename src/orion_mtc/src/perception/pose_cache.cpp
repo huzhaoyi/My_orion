@@ -64,7 +64,7 @@ bool PoseCache::waitForPose(std::chrono::milliseconds timeout,
   return false;
 }
 
-void PoseCache::waitForNextUpdate(std::chrono::milliseconds timeout) const
+bool PoseCache::waitForNextUpdate(std::chrono::milliseconds timeout) const
 {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   std::unique_lock<std::mutex> lock(mutex_);
@@ -75,6 +75,7 @@ void PoseCache::waitForNextUpdate(std::chrono::milliseconds timeout) const
                                                                                  std::chrono::steady_clock::now());
     cv_.wait_for(lock, std::min(remaining, std::chrono::milliseconds(50)));
   }
+  return update_count_ != count_at_start;
 }
 
 }  // namespace orion_mtc

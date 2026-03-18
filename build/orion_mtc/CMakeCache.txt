@@ -96,7 +96,7 @@ CMAKE_AR:FILEPATH=/usr/bin/ar
 
 //Choose the type of build, options are: None Debug Release RelWithDebInfo
 // MinSizeRel ...
-CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_BUILD_TYPE:STRING=
 
 //Enable/Disable color output during build.
 CMAKE_COLOR_MAKEFILE:BOOL=ON
@@ -516,9 +516,6 @@ moveit_core_DIR:PATH=/opt/ros/humble/share/moveit_core/cmake
 
 //The directory containing a CMake configuration file for moveit_msgs.
 moveit_msgs_DIR:PATH=/opt/ros/humble/share/moveit_msgs/cmake
-
-//The directory containing a CMake configuration file for moveit_robot_model_loader.
-moveit_robot_model_loader_DIR:PATH=moveit_robot_model_loader_DIR-NOTFOUND
 
 //The directory containing a CMake configuration file for moveit_ros_move_group.
 moveit_ros_move_group_DIR:PATH=/opt/ros/humble/share/moveit_ros_move_group/cmake

@@ -44,10 +44,14 @@ void declareParameters(rclcpp::Node* node)
   declare_if_not_set("place_pose_qy", 0.0);
   declare_if_not_set("place_pose_qz", 0.0);
   declare_if_not_set("place_pose_qw", 1.0);
-  declare_if_not_set("retreat_min_dist", 0.12);
+  declare_if_not_set("retreat_min_dist", 0.07);
   declare_if_not_set("retreat_max_dist", 0.25);
+  declare_if_not_set("retreat_short_min_dist", 0.03);
+  declare_if_not_set("retreat_short_max_dist", 0.05);
   declare_if_not_set("lower_to_place_min_dist", 0.05);
   declare_if_not_set("lower_to_place_max_dist", 0.12);
+  declare_if_not_set("grasp_offset_along_axis", 0.0);
+  declare_str_if_not_set("place_transport_pose", "transport");
 }
 
 void loadFromNode(rclcpp::Node* node, MTCConfig& config)
@@ -64,6 +68,8 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("lift_object_max_dist", config.lift_object_max_dist);
   node->get_parameter("retreat_min_dist", config.retreat_min_dist);
   node->get_parameter("retreat_max_dist", config.retreat_max_dist);
+  node->get_parameter("retreat_short_min_dist", config.retreat_short_min_dist);
+  node->get_parameter("retreat_short_max_dist", config.retreat_short_max_dist);
   node->get_parameter("lower_to_place_min_dist", config.lower_to_place_min_dist);
   node->get_parameter("lower_to_place_max_dist", config.lower_to_place_max_dist);
   node->get_parameter("place_pose_x", config.default_place_x);
@@ -74,6 +80,8 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("place_pose_qz", config.default_place_qz);
   node->get_parameter("place_pose_qw", config.default_place_qw);
   node->get_parameter("support_surface_link", config.support_surface_link);
+  node->get_parameter("grasp_offset_along_axis", config.grasp_offset_along_axis);
+  node->get_parameter("place_transport_pose", config.place_transport_pose);
 }
 
 }  // namespace orion_mtc

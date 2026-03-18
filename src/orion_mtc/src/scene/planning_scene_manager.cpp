@@ -228,17 +228,25 @@ bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
   return true;
 }
 
-bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object)
+bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object,
+                                                             double grasp_offset_along_axis)
 {
   if (!ensureClient())
   {
     RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: apply_planning_scene not available");
     return false;
   }
+  /* 圆柱中心在 Link6 下：原 tcp_to_object 再沿物体 Z 反向偏移 grasp_offset，使 Link6 对应夹持点 */
+  Eigen::Vector3d center_in_link6 = tcp_to_object.translation();
+  if (std::abs(grasp_offset_along_axis) > 1e-6)
+  {
+    Eigen::Vector3d cable_axis_in_link6 = tcp_to_object.rotation().inverse() * Eigen::Vector3d::UnitZ();
+    center_in_link6 += (-grasp_offset_along_axis) * cable_axis_in_link6;
+  }
   geometry_msgs::msg::Pose tcp_object_pose;
-  tcp_object_pose.position.x = tcp_to_object.translation().x();
-  tcp_object_pose.position.y = tcp_to_object.translation().y();
-  tcp_object_pose.position.z = tcp_to_object.translation().z();
+  tcp_object_pose.position.x = center_in_link6.x();
+  tcp_object_pose.position.y = center_in_link6.y();
+  tcp_object_pose.position.z = center_in_link6.z();
   Eigen::Quaterniond q_rot(tcp_to_object.rotation());
   tcp_object_pose.orientation.x = q_rot.x();
   tcp_object_pose.orientation.y = q_rot.y();

@@ -9,6 +9,12 @@ const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS = { "Link2", "Link3
 
 const std::vector<std::string> RETURN_HOME_OBJECT_ALLOWED_LINKS = { "Link5", "Link6", "Link7", "Link8" };
 
+const std::vector<std::string> PREPLACE_ATTACHED_OBJECT_ALLOWED_LINKS = { "base_link", "Link1" };
+
+const std::vector<std::string> RETREAT_OBJECT_ALLOWED_LINKS = {
+    "Link1", "Link2", "Link3", "Link4", "Link5", "Link6", "Link7", "Link8"
+};
+
 const std::vector<std::string> ARM_JOINTS = {
     "joint_base_link_Link1", "joint_Link1_Link2", "joint_Link2_Link3",
     "joint_LinkVirtual_Link4", "joint_Link4_Link5", "joint_Link5_Link6"
