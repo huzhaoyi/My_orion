@@ -81,11 +81,15 @@ class TrajectoryToAgentBridgeNode(Node):
         self.declare_parameter("agent_command_topic", "/holoocean/command/agent/arm")
         self.declare_parameter("agent_frame_id", "rov0")
         self.declare_parameter("publish_rate_hz", PUBLISH_RATE_HZ)
+        self.declare_parameter("enable_trajectory_debug_log", False)
 
         topic = self.get_parameter("agent_command_topic").get_parameter_value().string_value
         self._frame_id = self.get_parameter("agent_frame_id").get_parameter_value().string_value
         rate_hz = self.get_parameter("publish_rate_hz").get_parameter_value().double_value
         self._dt = 1.0 / rate_hz if rate_hz > 0.0 else 0.02
+        self._enable_trajectory_debug_log = (
+            self.get_parameter("enable_trajectory_debug_log").get_parameter_value().bool_value
+        )
 
         self._command_pub = self.create_publisher(AgentCommand, topic, 10)
         # 当前左臂 7 维（度）：6 关节 + 1 夹爪（合并），对应 command[0:7]
@@ -146,18 +150,20 @@ class TrajectoryToAgentBridgeNode(Node):
 
     def _log_trajectory_deg(self, joint_names, points, label: str) -> None:
         """打印轨迹点（角度°），便于与 MTC 发送端对照。"""
+        if not self._enable_trajectory_debug_log:
+            return
         if not joint_names or not points:
             return
-        self.get_logger().info(
+        self.get_logger().debug(
             "%s: joints=%d points=%d (角度°)" % (label, len(joint_names), len(points))
         )
         for i, name in enumerate(joint_names):
-            self.get_logger().info("  [%d] %s" % (i, name))
+            self.get_logger().debug("  [%d] %s" % (i, name))
         for p, pt in enumerate(points):
             if not pt.positions:
                 continue
             deg_str = " ".join("%.2f" % (float(x) * RAD_TO_DEG) for x in pt.positions[: len(joint_names)])
-            self.get_logger().info("  point[%d] %s" % (p, deg_str))
+            self.get_logger().debug("  point[%d] %s" % (p, deg_str))
 
     def _execute_arm_callback(self, goal_handle):
         """执行 arm 轨迹：按 joint_names 取位置，按 ARM_JOINT_NAMES 顺序写入 left_arm[0:6]，夹爪保持当前。"""
@@ -167,11 +173,11 @@ class TrajectoryToAgentBridgeNode(Node):
             joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
             name_to_idx = {name: i for i, name in enumerate(joint_names)}
             points = list(trajectory.points)
-            self._log_trajectory_deg(joint_names, points, "arm_controller")
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
                 goal_handle.succeed()
                 return result
+            self._log_trajectory_deg(joint_names, points, "arm_controller")
             start_time = time.monotonic()
             while rclpy.ok():
                 if goal_handle.is_cancel_requested:
@@ -219,11 +225,11 @@ class TrajectoryToAgentBridgeNode(Node):
             points = list(trajectory.points)
             joint_names = list(trajectory.joint_names) if trajectory.joint_names else []
             name_to_idx = {name: i for i, name in enumerate(joint_names)}
-            self._log_trajectory_deg(joint_names, points, "hand_controller")
             if not points:
                 result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
                 goal_handle.succeed()
                 return result
+            self._log_trajectory_deg(joint_names, points, "hand_controller")
             start_time = time.monotonic()
             while rclpy.ok():
                 if goal_handle.is_cancel_requested:

@@ -27,9 +27,12 @@
 #include <rclcpp/timer.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/trigger.hpp>
+
+#include "orion_mtc/perception/vector3_cache.hpp"
 #include <atomic>
 #include <memory>
 #include <string>
@@ -120,6 +123,7 @@ private:
   MTCConfig config_;
   RuntimePolicy runtime_policy_;
   std::shared_ptr<PoseCache> object_pose_cache_;
+  std::shared_ptr<Vector3Cache> object_axis_cache_;
   std::shared_ptr<PoseCache> place_pose_cache_;
   std::shared_ptr<PlaceGenerator> place_generator_;
   std::shared_ptr<PlanningSceneManager> scene_manager_;
@@ -132,6 +136,7 @@ private:
   std::atomic<bool> do_task_running_{ false };
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
+  rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_place_pose_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_place_trigger_;

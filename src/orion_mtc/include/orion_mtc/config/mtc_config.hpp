@@ -20,9 +20,6 @@ struct MTCConfig
   double approach_object_max_dist = 0.15f;
   /* approach 段最少走满距离的比例 [0,1]，越大越容易“夹到”（末端更贴近物体再闭合） */
   double approach_min_fraction = 0.85f;
-  /* 夹爪中心相对 Link6 在 Link6 +Z 方向的偏移 [m]。IK 目标为 Link6，实际夹取为 Link7/Link8，
-   * 竖直朝下接近时需将 pregrasp/grasp 的 Z 抬高此值，使到位时是夹爪而非手腕碰到物体。URDF 中 Link7/8 约 0.048m */
-  double gripper_tip_offset_from_link6_z = 0.048f;
   double lift_object_min_dist = 0.05f;
   double lift_object_max_dist = 0.25f;
   /* place retreat / lower */
@@ -48,6 +45,12 @@ struct MTCConfig
   double retreat_short_min_dist = 0.03f;
   double retreat_short_max_dist = 0.05f;
   /* 退离第二段（long leave）使用 retreat_min_dist / retreat_max_dist */
+
+  /* base_link 下的“上方向”定义（单位向量）：用于 TOP_DOWN（正上方下压）抓取。
+   * 若你的 base_link +Z 在仿真里实际指向“下”（常见于水下/ENU-NED 约定差异），把该向量设为 (0,0,-1)。 */
+  double up_dir_x = 0.0;
+  double up_dir_y = 0.0;
+  double up_dir_z = 1.0;
 };
 
 /* 在 node 上声明参数（若已声明则跳过，避免 ParameterAlreadyDeclaredException） */

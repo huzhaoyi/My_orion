@@ -21,6 +21,7 @@ target_sensor_to_object_pose:
     target_sensor_topic: "/holoocean/rov0/TargetSensor"
     rov_pose_topic: "/holoocean/rov0/PoseSensor"
     object_pose_topic: "/manipulator/object_pose"
+    object_axis_topic: "/manipulator/object_axis"
     perception_state_topic: "/manipulator/perception_state"
     world_frame_id: "map"
     publish_tf: true
@@ -46,6 +47,7 @@ cable_sensor_to_object_pose:
     rov_pose_topic: "/holoocean/rov0/PoseSensor"
     object_pose_topic: "/manipulator/object_pose"
     place_pose_topic: "/manipulator/place_pose"
+    object_axis_topic: "/manipulator/object_axis"
     perception_state_topic: "/manipulator/perception_state"
     world_frame_id: "map"
     publish_tf: true

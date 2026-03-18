@@ -13,6 +13,8 @@
 #include "orion_mtc/execution/solution_executor.hpp"
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <atomic>
 #include <cstdint>
 #include <deque>
@@ -74,6 +76,10 @@ public:
   /** 话题触发的 PICK 执行时用此回调取最新物体位姿，使物体移动后仍夹当前话题位置；未设置或返回空则用 job 入队时的 object_pose */
   void setGetLatestObjectPoseCallback(
       std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn);
+
+  /** 话题侧可选提供物体轴向（圆柱轴 direction，frame_id=base_link）。用于规划前重建稳定抓取姿态。 */
+  void setGetLatestObjectAxisCallback(
+      std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn);
 
   /** 分层状态话题回调：由 Node 设置，在对应事件时调用并发布 */
   using JobEventFn = std::function<void(const std::string& job_id, const std::string& job_type,
@@ -168,6 +174,11 @@ private:
   WaitForGrippedFn wait_for_gripped_fn_;
   std::function<bool()> is_gripper_locked_fn_;
   std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fn_;
+  std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fn_;
+
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_reconstructed_object_pose_;
+  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_reconstructed_approach_axis_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_grasp_markers_;
   JobEventFn job_event_fn_;
   HeldObjectStateFn held_object_state_fn_;
   RecoveryEventFn recovery_event_fn_;

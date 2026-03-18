@@ -363,9 +363,8 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
   double qz = req->object_pose.pose.orientation.z;
   double qw = req->object_pose.pose.orientation.w;
 
-  /* Link6 目标：物体位置 + 夹爪偏移（与 pick_task_builder 一致） */
-  double gripper_z = mtc_config_ ? mtc_config_->gripper_tip_offset_from_link6_z : 0.028;
-  double grasp_z = pz + gripper_z;
+  /* 规划 IK frame 已切换为 gripper_tcp（夹爪 TCP），不再需要 Link6->夹爪的固定偏移补偿 */
+  double grasp_z = pz;
 
   double r = std::sqrt(px * px + py * py + grasp_z * grasp_z);
   if (r > params_.max_reach_hard)
@@ -479,9 +478,8 @@ void FeasibilityChecker::checkPlace(const orion_mtc_msgs::srv::CheckPlace::Reque
   double qz = req->place_pose.pose.orientation.z;
   double qw = req->place_pose.pose.orientation.w;
 
-  /* 放置时 Link6 目标 z 抬高（与 place 任务一致） */
-  double gripper_z = mtc_config_ ? mtc_config_->gripper_tip_offset_from_link6_z : 0.028;
-  double place_link6_z = pz + gripper_z;
+  /* 规划 IK frame 已切换为 gripper_tcp（夹爪 TCP），不再需要 Link6->夹爪的固定偏移补偿 */
+  double place_link6_z = pz;
 
   double r = std::sqrt(px * px + py * py + place_link6_z * place_link6_z);
   if (r > params_.max_reach_hard)

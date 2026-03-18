@@ -53,7 +53,7 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
   task.loadRobotModel(node_);
   const auto& arm_group_name = "arm";
   const auto& hand_group_name = "hand";
-  const auto& hand_frame = "Link6";
+  const auto& hand_frame = "gripper_tcp";
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
@@ -107,7 +107,7 @@ mtc::Task PlaceTaskBuilder::build(double place_x, double place_y, double place_z
   /* lower 沿 hand_frame -Z；retreat 与 lower 成对，用 +Z（反向） */
   const geometry_msgs::msg::Vector3Stamped lower_dir = []() {
     geometry_msgs::msg::Vector3Stamped v;
-    v.header.frame_id = "Link6";
+    v.header.frame_id = "gripper_tcp";
     v.vector.x = 0.0;
     v.vector.y = 0.0;
     v.vector.z = -1.0;

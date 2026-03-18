@@ -10,9 +10,8 @@ import stateStore from '../data/stateStore.js';
 let sceneApi = null;
 let unsubscribeState = null;
 
-/* 与 RobotModelLoader 一致：base_link 为 Z-up（ROS），场景为 Y-up（Three.js），整机用 rotateX(-π/2) */
+/* base_link 为 Z-up（ROS），场景为 Y-up（Three.js），坐标变换：rotateX(-π/2) */
 const Z_UP_TO_Y_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
-
 const layerToggles = {
   showTargets: true,
   showTrajectory: true,
@@ -209,15 +208,15 @@ function mount(containerId) {
   const { panel: joystickPanel, tbody: joystickTbody } = createJoystickTable(el);
   el.appendChild(joystickPanel);
 
-  function applyBaseLinkToScene(pos) {
-    const v = new THREE.Vector3(pos.x, pos.y, pos.z);
-    v.applyQuaternion(Z_UP_TO_Y_UP);
-    return v;
-  }
-
   function updateFromState(s) {
     if (!sceneApi) return;
     updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions);
+    function applyBaseLinkToScene(pos) {
+      const v = new THREE.Vector3(pos.x, pos.y, pos.z);
+      v.applyQuaternion(Z_UP_TO_Y_UP);
+      return v;
+    }
+
     const t = rosToThreePosition(s.objectPose?.position);
     const tScene = applyBaseLinkToScene(t);
     sceneApi.pickMarker.position.copy(tScene);
@@ -243,12 +242,11 @@ function mount(containerId) {
       if (orient) {
         const quat = rosToThreeQuaternion(orient);
         if (quat) {
-          composed.quaternion.copy(Z_UP_TO_Y_UP).multiply(quat);
-        } else {
-          composed.quaternion.copy(Z_UP_TO_Y_UP);
+          const qScene = new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(quat);
+          composed.quaternion.copy(qScene);
         }
       } else {
-        composed.quaternion.copy(Z_UP_TO_Y_UP);
+        composed.quaternion.identity();
       }
       composed.userData.valid = !!s.objectPoseValid;
       composed.visible = layerToggles.showWorldObject && !!s.objectPoseValid;

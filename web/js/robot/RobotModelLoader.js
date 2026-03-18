@@ -159,10 +159,8 @@ const ROBOT_METALNESS = 0.4;
 const ROBOT_ROUGHNESS = 0.6;
 const COLLISION_DEBUG_COLOR = 0xef4444;
 
-// meshFileName: 可选，与 linkName 不同时使用（如 base_link 用 base_link_left.stl）
-function addMesh(group, linkName, meshFileName) {
-  const stlName = (meshFileName !== undefined && meshFileName !== null) ? meshFileName : linkName;
-  return loadSTL(MESH_DIR + stlName + '.stl').then((geometry) => {
+function addMesh(group, linkName) {
+  return loadSTL(MESH_DIR + linkName + '.stl').then((geometry) => {
     const mat = new THREE.MeshStandardMaterial({
       color: ROBOT_MATERIAL_COLOR,
       metalness: ROBOT_METALNESS,
@@ -181,7 +179,7 @@ function addMesh(group, linkName, meshFileName) {
     line.visible = false;
     group.add(line);
   }).catch((err) => {
-    console.warn('RobotModelLoader: ' + (stlName || linkName) + ' 加载失败', err);
+    console.warn('RobotModelLoader: ' + linkName + ' 加载失败', err);
   });
 }
 
@@ -206,8 +204,7 @@ export function loadRobotModel() {
   root.name = 'orion';
   const jointTransforms = [];
 
-  // ROV+左臂：base_link 使用 base_link_left.stl
-  return addMesh(root, 'base_link', 'base_link_left').then(() => {
+  return addMesh(root, 'base_link').then(() => {
     let parent = root;
     let ji = 0;
 

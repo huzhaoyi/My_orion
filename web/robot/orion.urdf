@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="orion">
-  <!-- ROV + 左臂模型（来自 rov_urdf/orion_left.urdf），mesh 路径相对本 urdf：meshes/stl/ -->
-  <!-- 规划用碰撞体与 visual 一致；需在 orion_descriptimeshes/stl/ 下放置 base_link_left.stl 与 Link1..Link8.stl -->
 
   <!-- ==================== LINKS ==================== -->
+  <!-- mesh path relative to this urdf when installed: meshes/stl/ -->
 
   <link name="base_link">
     <visual>
-      <geometry><mesh filename="meshes/stl/base_link_left.stl"/></geometry>
+      <geometry><mesh filename="meshes/stl/base_link.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
     <collision>
-      <geometry><mesh filename="meshes/stl/base_link_left.stl"/></geometry>
+      <geometry><mesh filename="meshes/stl/base_link.stl"/></geometry>
     </collision>
     <inertial>
       <mass value="1.0"/>

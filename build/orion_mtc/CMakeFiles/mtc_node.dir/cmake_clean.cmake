@@ -23,6 +23,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o.d"
   "CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o"
   "CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o.d"
+  "CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o"
+  "CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o.d"
   "CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o"
   "CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o.d"
   "CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o"
@@ -35,6 +37,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o.d"
   "CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o"
   "CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o.d"
+  "CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o"
+  "CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o.d"
   "mtc_node"
   "mtc_node.pdb"
 )

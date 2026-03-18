@@ -21,8 +21,10 @@
       <geometry><mesh filename="../meshes/stl/base_link_left.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
+    <!-- 碰撞用简单 box，避免 ROV mesh 顶点过多导致 PlanningScene 超时；尺寸可依实机调整 -->
     <collision>
-      <geometry><mesh filename="../meshes/stl/base_link_left.stl"/></geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry><box size="0.6 0.4 0.35"/></geometry>
     </collision>
     <inertial>
       <mass value="1.0"/>
@@ -121,6 +123,9 @@
     </inertial>
   </link>
 
+  <!-- 夹爪 TCP：用于规划/IK 的末端参考点（Link6 +Z 方向的接触点附近） -->
+  <link name="gripper_tcp"/>
+
   <link name="Link7">
     <visual>
       <geometry><mesh filename="../meshes/stl/Link7.stl"/></geometry>
@@ -203,6 +208,13 @@
     <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+  </joint>
+
+  <joint name="joint_Link6_gripper_tcp" type="fixed">
+    <parent link="Link6"/>
+    <child link="gripper_tcp"/>
+    <!-- 参考 joint_Link6_Link7 的 origin z≈0.0499，将 TCP 放在夹爪接触区域附近 -->
+    <origin xyz="0.0 0.0 0.0499" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">

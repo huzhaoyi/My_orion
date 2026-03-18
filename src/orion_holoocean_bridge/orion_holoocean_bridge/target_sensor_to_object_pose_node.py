@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped, Vector3Stamped
 from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
 from orion_mtc_msgs.msg import PerceptionState
@@ -147,6 +147,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
         self.declare_parameter("output_frame_id", "base_link")
+        self.declare_parameter("object_axis_topic", "object_axis")
         self.declare_parameter("target_index", 1)
         self.declare_parameter("use_left_arm", True)
         self.declare_parameter("left_arm_base_in_rov_x", DEFAULT_LEFT_ARM_BASE_IN_ROV[0])
@@ -166,6 +167,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._publish_tf = self.get_parameter("publish_tf").get_parameter_value().bool_value
         self._perception_state_topic = self.get_parameter("perception_state_topic").get_parameter_value().string_value
         self._output_frame_id = self.get_parameter("output_frame_id").get_parameter_value().string_value
+        self._object_axis_topic = self.get_parameter("object_axis_topic").get_parameter_value().string_value
         self._target_index = self.get_parameter("target_index").get_parameter_value().integer_value
         self._use_left_arm = self.get_parameter("use_left_arm").get_parameter_value().bool_value
         if self._use_left_arm:
@@ -199,6 +201,7 @@ class TargetSensorToObjectPoseNode(Node):
             10,
         )
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
+        self._pub_axis = self.create_publisher(Vector3Stamped, self._object_axis_topic, 10)
         self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
         if self._publish_tf:
             self._tf_broadcaster = TransformBroadcaster(self)
@@ -377,12 +380,23 @@ class TargetSensorToObjectPoseNode(Node):
         out.pose.orientation.w = q_grasp[3]
         self._pub_pose.publish(out)
         self._last_object_pose = out
+        axis_msg = Vector3Stamped()
+        axis_msg.header.stamp = stamp
+        axis_msg.header.frame_id = self._output_frame_id
+        axis_msg.vector.x = float(d_base[0])
+        axis_msg.vector.y = float(d_base[1])
+        axis_msg.vector.z = float(d_base[2])
+        self._pub_axis.publish(axis_msg)
 
         # 感知状态：物体位姿 + ROV 世界系/基座系位姿，单话题供网页显示
         ps = PerceptionState()
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
         ps.object_pose = out
+        ps.object_axis_direction.x = float(d_base[0])
+        ps.object_axis_direction.y = float(d_base[1])
+        ps.object_axis_direction.z = float(d_base[2])
+        ps.object_confidence = 1.0
         ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base is not None else PoseStamped()
         if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
             ps.rov_pose_in_base_link.header.stamp = stamp

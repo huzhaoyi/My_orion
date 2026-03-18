@@ -10,9 +10,6 @@ approach_object_min_dist: 0.08
 approach_object_max_dist: 0.15
 # approach 段最少走满距离的比例 [0,1]，越大越易夹到（末端更贴近再闭合），实机没夹到可试 0.9 或 1.0
 approach_min_fraction: 0.95
-# 夹爪中心相对 Link6 在 Link6 +Z 方向偏移 [m]。IK 目标为 Link6，实际夹取为 Link7/Link8，竖直朝下时需将 pregrasp z 抬高此值（与 URDF joint_Link6_Link7/Link8 的 origin z 约 0.048 一致）
-gripper_tip_offset_from_link6_z: 0.028
-
 # Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
 lift_object_min_dist: 0.05
 lift_object_max_dist: 0.25
@@ -36,6 +33,12 @@ place_pose_qw: 1.0
 grasp_offset_along_axis: 0.0
 # 放置前运输姿态：SRDF 中 arm 的 group_state 名，非空则在 pre-place 前先移到此姿态；长杆建议 "transport"
 place_transport_pose: "transport"
+
+# base_link 下“上方向”定义（单位向量）：用于 TOP_DOWN（正上方下压）抓取。
+# 若你观察到“上方预抓取点”跑到了下面，说明 base_link 的“上”与预期相反，把 z 设为 -1.0。
+up_dir_x: 0.0
+up_dir_y: 0.0
+up_dir_z: 1.0
 
 # Retreat 第一段（short clear）[m]，先脱离释放区；第二段用 retreat_min/max_dist
 retreat_short_min_dist: 0.03

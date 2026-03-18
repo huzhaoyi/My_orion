@@ -9,6 +9,7 @@
 #include "orion_mtc/core/runtime_status.hpp"
 #include "orion_mtc/core/task_state.hpp"
 #include "orion_mtc/perception/pose_cache.hpp"
+#include "orion_mtc/perception/vector3_cache.hpp"
 #include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
@@ -45,6 +46,7 @@ OrionMTCNode::OrionMTCNode(const rclcpp::NodeOptions& options)
 void OrionMTCNode::initModules()
 {
   object_pose_cache_ = std::make_shared<PoseCache>("base_link");
+  object_axis_cache_ = std::make_shared<Vector3Cache>("base_link");
   place_pose_cache_ = std::make_shared<PoseCache>("base_link");
   place_generator_ = std::make_shared<PlaceGenerator>(PlaceGeneratorParams());
   scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_.get());
@@ -84,6 +86,7 @@ void OrionMTCNode::initModules()
   task_manager_->setGripperLockedCallback([this]() { return isGripperLocked(); });
   /* 执行 PICK 时取当前缓存的 latest：object_pose 由订阅持续接收并更新，规划时直接用最新一帧 */
   task_manager_->setGetLatestObjectPoseCallback([this]() { return object_pose_cache_->latest(); });
+  task_manager_->setGetLatestObjectAxisCallback([this]() { return object_axis_cache_->latest(); });
   feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
   feasibility_checker_->setMTCConfig(&config_);
 }
@@ -111,6 +114,10 @@ void OrionMTCNode::initInterfaces()
   sub_object_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       ns + "/object_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
         object_pose_cache_->update(*msg);
+      });
+  sub_object_axis_ = action_client_node_->create_subscription<geometry_msgs::msg::Vector3Stamped>(
+      ns + "/object_axis", 10, [this](const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) {
+        object_axis_cache_->update(*msg);
       });
   sub_place_pose_ = action_client_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       ns + "/place_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {

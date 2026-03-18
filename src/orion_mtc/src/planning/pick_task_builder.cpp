@@ -20,7 +20,9 @@ PickTaskBuilder::PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCC
 }
 
 mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
-                                 const geometry_msgs::msg::Quaternion& object_orientation,
+                                 const geometry_msgs::msg::Quaternion& object_collision_orientation,
+                                 const geometry_msgs::msg::Quaternion& grasp_orientation,
+                                 const geometry_msgs::msg::Vector3* approach_axis,
                                  const std::string& /*object_id*/)
 {
   mtc::Task task;
@@ -28,7 +30,7 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   task.loadRobotModel(node_);
   const auto& arm_group_name = "arm";
   const auto& hand_group_name = "hand";
-  const auto& hand_frame = "Link6";
+  const auto& hand_frame = "gripper_tcp";
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
@@ -40,6 +42,8 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
 
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
+  auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  lin_planner->setPlannerId("LIN");
   /* move to pregrasp 使用 OMPL：可采样多组 IK，比 Pilz 单次 IK 更易在目标点找到解，缓解 NO_IK_SOLUTION */
   auto ompl_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "move_group");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
@@ -59,7 +63,8 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     obj_pose.position.x = obj_x;
     obj_pose.position.y = obj_y;
     obj_pose.position.z = obj_z;
-    obj_pose.orientation = object_orientation;
+    /* 碰撞体姿态只表达物体本身（圆柱 local Z=轴向），不要用抓取姿态，否则 RViz/PlanningScene 会把“水平放置”看成“竖直”。 */
+    obj_pose.orientation = object_collision_orientation;
     moveit_msgs::msg::CollisionObject object =
         makeTargetCollisionObject("object", obj_pose, moveit_msgs::msg::CollisionObject::ADD);
     object.header.stamp = node_->now();
@@ -95,24 +100,51 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   }
 
   const double approach_max = config_.approach_object_max_dist;
-  const double gripper_z_offset = config_.gripper_tip_offset_from_link6_z;
-  const double approach_dist = approach_max + gripper_z_offset;
+  const double approach_dist = approach_max;
 
-  /* 抓取姿态由 object_orientation 给出（侧向抓取系：z=接近方向，y=闭合方向，均垂直于圆柱轴）。
-   * 夹持点 = 几何中心 + grasp_offset_along_axis * 物体 Z；pregrasp 放在夹持点上方 approach_dist。 */
-  Eigen::Quaterniond q_obj(object_orientation.w, object_orientation.x, object_orientation.y, object_orientation.z);
-  Eigen::Vector3d approach_axis = q_obj * Eigen::Vector3d::UnitZ();
+  /* 抓取姿态由 grasp_orientation 给出（侧向抓取系：z=接近方向，y=闭合方向，均垂直于圆柱轴）。
+   * 注意：IK frame 使用 gripper_tcp（夹爪 TCP），grasp 点直接按语义定义在夹爪接触点处。 */
+  Eigen::Quaterniond q_obj(grasp_orientation.w, grasp_orientation.x, grasp_orientation.y, grasp_orientation.z);
+  Eigen::Vector3d approach_axis_v;
+  if (approach_axis != nullptr)
+  {
+    approach_axis_v = Eigen::Vector3d(approach_axis->x, approach_axis->y, approach_axis->z);
+    const double an = approach_axis_v.norm();
+    if (an > 1e-9)
+    {
+      approach_axis_v = approach_axis_v / an;
+    }
+    else
+    {
+      approach_axis_v = q_obj * Eigen::Vector3d::UnitZ();
+    }
+  }
+  else
+  {
+    approach_axis_v = q_obj * Eigen::Vector3d::UnitZ();
+  }
+  /* 安全规则：禁止下半空间接近（避免 pregrasp 落到目标下方导致“从地下往上抓”）。
+   * 若接近轴朝下，则将抓取姿态绕局部 X 轴旋转 180°（翻转 Z/Y），保证 grasp 的局部 Z 指向上半空间。 */
+  if (approach_axis_v.z() < 0.0)
+  {
+    const Eigen::Quaterniond q_flip_x_180(0.0, 1.0, 0.0, 0.0);
+    q_obj = q_obj * q_flip_x_180;
+    approach_axis_v = -approach_axis_v;
+  }
   const double go = config_.grasp_offset_along_axis;
-  const double gx = obj_x + go * approach_axis.x();
-  const double gy = obj_y + go * approach_axis.y();
-  const double gz = obj_z + go * approach_axis.z();
+  const double gx = obj_x + go * approach_axis_v.x();
+  const double gy = obj_y + go * approach_axis_v.y();
+  const double gz = obj_z + go * approach_axis_v.z();
 
   geometry_msgs::msg::PoseStamped pregrasp;
   pregrasp.header.frame_id = "base_link";
-  pregrasp.pose.position.x = gx + approach_dist * approach_axis.x();
-  pregrasp.pose.position.y = gy + approach_dist * approach_axis.y();
-  pregrasp.pose.position.z = gz + approach_dist * approach_axis.z();
-  pregrasp.pose.orientation = object_orientation;
+  pregrasp.pose.position.x = gx + approach_dist * approach_axis_v.x();
+  pregrasp.pose.position.y = gy + approach_dist * approach_axis_v.y();
+  pregrasp.pose.position.z = gz + approach_dist * approach_axis_v.z();
+  pregrasp.pose.orientation.x = q_obj.x();
+  pregrasp.pose.orientation.y = q_obj.y();
+  pregrasp.pose.orientation.z = q_obj.z();
+  pregrasp.pose.orientation.w = q_obj.w();
 
   auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
   stage_pregrasp->setGroup(arm_group_name);
@@ -126,23 +158,22 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     grasp->insert(std::move(stage));
   }
 
-  /* 接近段：沿 -approach_axis 平动到夹持点，距离取 approach_dist（允许小范围） */
-  auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
-  stage_approach->properties().set("marker_ns", "approach_object");
-  stage_approach->properties().set("link", hand_frame);
-  stage_approach->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  stage_approach->properties().set("min_fraction", config_.approach_min_fraction);
-  const float approach_to_grasp_lo = static_cast<float>(std::max(0.01, approach_dist - 0.02f));
-  const float approach_to_grasp_hi = static_cast<float>(approach_dist + 0.02f);
-  stage_approach->setMinMaxDistance(approach_to_grasp_lo, approach_to_grasp_hi);
-  stage_approach->setIKFrame(hand_frame);
-  geometry_msgs::msg::Vector3Stamped vec;
-  vec.header.frame_id = "base_link";
-  vec.vector.x = static_cast<float>(-approach_axis.x());
-  vec.vector.y = static_cast<float>(-approach_axis.y());
-  vec.vector.z = static_cast<float>(-approach_axis.z());
-  stage_approach->setDirection(vec);
-  grasp->insert(std::move(stage_approach));
+  /* 下压段：使用 Pilz LIN，严格直线从 pregrasp 下压到 grasp 点（姿态保持为 q_obj）。 */
+  geometry_msgs::msg::PoseStamped grasp_pose;
+  grasp_pose.header.frame_id = "base_link";
+  grasp_pose.pose.position.x = gx;
+  grasp_pose.pose.position.y = gy;
+  grasp_pose.pose.position.z = gz;
+  grasp_pose.pose.orientation.x = q_obj.x();
+  grasp_pose.pose.orientation.y = q_obj.y();
+  grasp_pose.pose.orientation.z = q_obj.z();
+  grasp_pose.pose.orientation.w = q_obj.w();
+
+  auto stage_down = std::make_unique<mtc::stages::MoveTo>("down to grasp (LIN)", lin_planner);
+  stage_down->setGroup(arm_group_name);
+  stage_down->setGoal(grasp_pose);
+  stage_down->setIKFrame(hand_frame);
+  grasp->insert(std::move(stage_down));
 
   {
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision before close");

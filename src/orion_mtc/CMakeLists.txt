@@ -23,6 +23,7 @@ find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 set(ORION_MTC_SOURCES
   src/main.cpp
@@ -40,6 +41,8 @@ set(ORION_MTC_SOURCES
   src/execution/trajectory_executor.cpp
   src/execution/solution_executor.cpp
   src/perception/pose_cache.cpp
+  src/perception/vector3_cache.cpp
+  src/strategy/cylinder_side_grasp.cpp
   src/orchestration/task_queue.cpp
   src/orchestration/recovery_actions.cpp
   src/orchestration/task_manager.cpp
@@ -68,6 +71,7 @@ ament_target_dependencies(mtc_node
   std_msgs
   std_srvs
   orion_mtc_msgs
+  visualization_msgs
 )
 
 install(TARGETS mtc_node

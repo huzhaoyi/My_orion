@@ -498,6 +498,30 @@ src/perception/pose_cache.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s
 .PHONY : src/perception/pose_cache.cpp.s
 
+src/perception/vector3_cache.o: src/perception/vector3_cache.cpp.o
+.PHONY : src/perception/vector3_cache.o
+
+# target to build an object file
+src/perception/vector3_cache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o
+.PHONY : src/perception/vector3_cache.cpp.o
+
+src/perception/vector3_cache.i: src/perception/vector3_cache.cpp.i
+.PHONY : src/perception/vector3_cache.i
+
+# target to preprocess a source file
+src/perception/vector3_cache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.i
+.PHONY : src/perception/vector3_cache.cpp.i
+
+src/perception/vector3_cache.s: src/perception/vector3_cache.cpp.s
+.PHONY : src/perception/vector3_cache.s
+
+# target to generate assembly for a file
+src/perception/vector3_cache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.s
+.PHONY : src/perception/vector3_cache.cpp.s
+
 src/planning/collision_object_utils.o: src/planning/collision_object_utils.cpp.o
 .PHONY : src/planning/collision_object_utils.o
 
@@ -642,6 +666,30 @@ src/scene/planning_scene_manager.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.s
 .PHONY : src/scene/planning_scene_manager.cpp.s
 
+src/strategy/cylinder_side_grasp.o: src/strategy/cylinder_side_grasp.cpp.o
+.PHONY : src/strategy/cylinder_side_grasp.o
+
+# target to build an object file
+src/strategy/cylinder_side_grasp.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o
+.PHONY : src/strategy/cylinder_side_grasp.cpp.o
+
+src/strategy/cylinder_side_grasp.i: src/strategy/cylinder_side_grasp.cpp.i
+.PHONY : src/strategy/cylinder_side_grasp.i
+
+# target to preprocess a source file
+src/strategy/cylinder_side_grasp.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.i
+.PHONY : src/strategy/cylinder_side_grasp.cpp.i
+
+src/strategy/cylinder_side_grasp.s: src/strategy/cylinder_side_grasp.cpp.s
+.PHONY : src/strategy/cylinder_side_grasp.s
+
+# target to generate assembly for a file
+src/strategy/cylinder_side_grasp.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.s
+.PHONY : src/strategy/cylinder_side_grasp.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -694,6 +742,9 @@ help:
 	@echo "... src/perception/pose_cache.o"
 	@echo "... src/perception/pose_cache.i"
 	@echo "... src/perception/pose_cache.s"
+	@echo "... src/perception/vector3_cache.o"
+	@echo "... src/perception/vector3_cache.i"
+	@echo "... src/perception/vector3_cache.s"
 	@echo "... src/planning/collision_object_utils.o"
 	@echo "... src/planning/collision_object_utils.i"
 	@echo "... src/planning/collision_object_utils.s"
@@ -712,6 +763,9 @@ help:
 	@echo "... src/scene/planning_scene_manager.o"
 	@echo "... src/scene/planning_scene_manager.i"
 	@echo "... src/scene/planning_scene_manager.s"
+	@echo "... src/strategy/cylinder_side_grasp.o"
+	@echo "... src/strategy/cylinder_side_grasp.i"
+	@echo "... src/strategy/cylinder_side_grasp.s"
 .PHONY : help
 
 

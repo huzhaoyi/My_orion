@@ -3,16 +3,18 @@
 namespace orion_mtc
 {
 
-const std::vector<std::string> OBJECT_GRASP_ALLOWED_LINKS = { "Link6", "Link7", "Link8" };
+const std::vector<std::string> OBJECT_GRASP_ALLOWED_LINKS = { "gripper_tcp", "Link6", "Link7", "Link8" };
 
-const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS = { "Link2", "Link3", "Link4", "Link5", "Link6", "Link7", "Link8" };
+const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS = {
+    "Link2", "Link3", "Link4", "Link5", "gripper_tcp", "Link6", "Link7", "Link8"
+};
 
-const std::vector<std::string> RETURN_HOME_OBJECT_ALLOWED_LINKS = { "Link5", "Link6", "Link7", "Link8" };
+const std::vector<std::string> RETURN_HOME_OBJECT_ALLOWED_LINKS = { "Link5", "gripper_tcp", "Link6", "Link7", "Link8" };
 
 const std::vector<std::string> PREPLACE_ATTACHED_OBJECT_ALLOWED_LINKS = { "base_link", "Link1" };
 
 const std::vector<std::string> RETREAT_OBJECT_ALLOWED_LINKS = {
-    "Link1", "Link2", "Link3", "Link4", "Link5", "Link6", "Link7", "Link8"
+    "Link1", "Link2", "Link3", "Link4", "Link5", "gripper_tcp", "Link6", "Link7", "Link8"
 };
 
 const std::vector<std::string> ARM_JOINTS = {

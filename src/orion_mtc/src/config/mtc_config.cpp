@@ -33,7 +33,6 @@ void declareParameters(rclcpp::Node* node)
   declare_if_not_set("approach_object_min_dist", 0.08);
   declare_if_not_set("approach_object_max_dist", 0.15);
   declare_if_not_set("approach_min_fraction", 0.85);
-  declare_if_not_set("gripper_tip_offset_from_link6_z", 0.048);
   declare_if_not_set("lift_object_min_dist", 0.05);
   declare_if_not_set("lift_object_max_dist", 0.25);
   declare_str_if_not_set("support_surface_link", "");
@@ -52,6 +51,9 @@ void declareParameters(rclcpp::Node* node)
   declare_if_not_set("lower_to_place_max_dist", 0.12);
   declare_if_not_set("grasp_offset_along_axis", 0.0);
   declare_str_if_not_set("place_transport_pose", "transport");
+  declare_if_not_set("up_dir_x", 0.0);
+  declare_if_not_set("up_dir_y", 0.0);
+  declare_if_not_set("up_dir_z", 1.0);
 }
 
 void loadFromNode(rclcpp::Node* node, MTCConfig& config)
@@ -63,7 +65,6 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("approach_object_min_dist", config.approach_object_min_dist);
   node->get_parameter("approach_object_max_dist", config.approach_object_max_dist);
   node->get_parameter("approach_min_fraction", config.approach_min_fraction);
-  node->get_parameter("gripper_tip_offset_from_link6_z", config.gripper_tip_offset_from_link6_z);
   node->get_parameter("lift_object_min_dist", config.lift_object_min_dist);
   node->get_parameter("lift_object_max_dist", config.lift_object_max_dist);
   node->get_parameter("retreat_min_dist", config.retreat_min_dist);
@@ -82,6 +83,9 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("support_surface_link", config.support_surface_link);
   node->get_parameter("grasp_offset_along_axis", config.grasp_offset_along_axis);
   node->get_parameter("place_transport_pose", config.place_transport_pose);
+  node->get_parameter("up_dir_x", config.up_dir_x);
+  node->get_parameter("up_dir_y", config.up_dir_y);
+  node->get_parameter("up_dir_z", config.up_dir_z);
 }
 
 }  // namespace orion_mtc

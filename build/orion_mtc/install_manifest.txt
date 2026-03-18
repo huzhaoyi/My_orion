@@ -3,8 +3,10 @@
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/task_manager.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/recovery_actions.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/task_queue.hpp
+/home/huzy/My_orion/install/orion_mtc/include/orion_mtc/strategy/cylinder_side_grasp.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/perception/pose_cache.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/perception/target_cache.hpp
+/home/huzy/My_orion/install/orion_mtc/include/orion_mtc/perception/vector3_cache.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/perception/grasp_generator.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/perception/target_selector.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/planning/pick_task_builder.hpp
