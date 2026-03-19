@@ -372,6 +372,25 @@ class CableSensorToObjectPoseNode(Node):
         p_base = p_rov - self._t_arm_in_rov + np.array(
             [self._offset_x, self._offset_y, self._offset_z], dtype=float
         )
+        self.get_logger().info(
+            (
+                "cable_sensor_to_object_pose: 坐标系诊断 "
+                "world=(%.3f,%.3f,%.3f) ROV=(%.3f,%.3f,%.3f) base_link=(%.3f,%.3f,%.3f) "
+                "[object_pose 应为 base_link 即机械臂根]"
+            )
+            % (
+                float(p_world[0]),
+                float(p_world[1]),
+                float(p_world[2]),
+                float(t_rov[0]),
+                float(t_rov[1]),
+                float(t_rov[2]),
+                float(p_base[0]),
+                float(p_base[1]),
+                float(p_base[2]),
+            ),
+            throttle_duration_sec=2.0,
+        )
 
         # 缆绳姿态：用轴向 direction 得到四元数，使圆柱体沿缆绳方向（与网页“平躺”一致）
         # MoveIt CYLINDER 沿局部 Z 轴，故 orientation 需满足 local Z = 缆绳方向

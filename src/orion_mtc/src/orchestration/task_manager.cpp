@@ -9,14 +9,21 @@
 #include "orion_mtc/execution/solution_executor.hpp"
 #include "orion_mtc/core/job_result_code.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
+#include "orion_mtc/core/constants.hpp"
 #include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/core/place_types.hpp"
 #include "orion_mtc/strategy/cylinder_side_grasp.hpp"
 #include "orion_mtc/planning/cable_side_grasp.hpp"
 #include "orion_mtc/planning/cable_segments.hpp"
+#include "orion_mtc/planning/collision_object_utils.hpp"
 #include <moveit/task_constructor/task.h>
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/collision_detection/collision_common.h>
+#include <moveit_msgs/srv/get_planning_scene.hpp>
+#include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Geometry>
@@ -36,6 +43,9 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration
 /* 候选失败原因（用于诊断统计） */
 enum class CablePickFailReason
 {
+  NO_IK,
+  OUT_OF_BOUNDS,
+  PREGRASP_IN_COLLISION,
   INIT_FAILED,
   PLAN_FAILED,
   EXECUTION_FAILED,
@@ -280,7 +290,11 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     current_task_id_ = genTaskId("pick");
   }
 
-  /* 支持世界系输入：变换到 base_link 后再规划 */
+  /* 支持世界系输入：变换到 base_link 后再规划。规划系必须与机械臂 base_link 一致（URDF 改加 ROV 后根为 world，但 base_link 仍为臂根）。 */
+  RCLCPP_INFO(LOGGER,
+              "handlePick: 收到 object_pose frame_id=%s pos=(%.4f, %.4f, %.4f) [规划系应为机械臂 base_link]",
+              object_pose.header.frame_id.c_str(),
+              object_pose.pose.position.x, object_pose.pose.position.y, object_pose.pose.position.z);
   geometry_msgs::msg::PoseStamped pose_base = object_pose;
   std::optional<geometry_msgs::msg::Vector3Stamped> axis_stamped =
       get_latest_object_axis_fn_ ? get_latest_object_axis_fn_() : std::nullopt;
@@ -301,6 +315,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s'，规划使用 base_link 系；若不一致请设置 setTransformToBaseLinkCallback",
                 pose_base.header.frame_id.c_str());
   }
+  RCLCPP_INFO(LOGGER,
+              "handlePick: 规划使用 frame=%s 缆绳中心 pos=(%.4f, %.4f, %.4f)",
+              pose_base.header.frame_id.c_str(),
+              pose_base.pose.position.x, pose_base.pose.position.y, pose_base.pose.position.z);
 
   double obj_x = pose_base.pose.position.x;
   double obj_y = pose_base.pose.position.y;
@@ -354,10 +372,122 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     const std::string plan_frame = "base_link";
     const std::string held_id = object_id.empty() ? "cable" : object_id;
     std::vector<CablePickFailReason> fail_reasons;
+    moveit::core::RobotModelConstPtr robot_model;
+    moveit_msgs::msg::PlanningScene scene_base_msg;
+    bool has_scene_base_msg = false;
+    const std::string arm_group_name = "arm";
+    const std::string hand_frame = "gripper_tcp";
+    try
+    {
+      robot_model_loader::RobotModelLoader loader(node_);
+      robot_model = loader.getModel();
+      if (robot_model)
+      {
+        auto client = node_->create_client<moveit_msgs::srv::GetPlanningScene>("/get_planning_scene");
+        if (client->wait_for_service(std::chrono::milliseconds(300)))
+        {
+          auto req = std::make_shared<moveit_msgs::srv::GetPlanningScene::Request>();
+          req->components.components = moveit_msgs::msg::PlanningSceneComponents::SCENE_SETTINGS |
+                                       moveit_msgs::msg::PlanningSceneComponents::ROBOT_STATE |
+                                       moveit_msgs::msg::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY |
+                                       moveit_msgs::msg::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
+          auto fut = client->async_send_request(req);
+          if (rclcpp::spin_until_future_complete(node_, fut, std::chrono::milliseconds(600)) ==
+              rclcpp::FutureReturnCode::SUCCESS)
+          {
+            auto resp = fut.get();
+            if (resp)
+            {
+              scene_base_msg = resp->scene;
+              has_scene_base_msg = true;
+            }
+          }
+        }
+      }
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_WARN(LOGGER, "handlePick: pregrasp validator init failed: %s", e.what());
+    }
+    if (robot_model)
+    {
+      const std::string model_frame = robot_model->getModelFrame();
+      RCLCPP_INFO(LOGGER,
+                  "handlePick: MoveIt 模型根系=%s，规划/碰撞体使用 plan_frame=%s（应与机械臂 base_link 一致）",
+                  model_frame.c_str(), plan_frame.c_str());
+      if (model_frame != plan_frame)
+      {
+        RCLCPP_WARN(LOGGER,
+                    "handlePick: 模型根系 %s 与 plan_frame %s 不同；若 URDF 为 world->base_link 则 base_link 与 world 同原点",
+                    model_frame.c_str(), plan_frame.c_str());
+      }
+    }
 
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
       const CableGraspCandidate& cand = candidates[i];
+      const Eigen::Vector3d p = cand.pregrasp_pose.translation();
+      const Eigen::Quaterniond q(cand.pregrasp_pose.linear());
+      RCLCPP_INFO(LOGGER,
+                  "handlePick: candidate %zu pregrasp frame=%s pos=[%.4f %.4f %.4f] quat=[%.4f %.4f %.4f %.4f]",
+                  i, plan_frame.c_str(), p.x(), p.y(), p.z(), q.x(), q.y(), q.z(), q.w());
+      if (robot_model)
+      {
+        const moveit::core::JointModelGroup* jmg = robot_model->getJointModelGroup(arm_group_name);
+        moveit::core::RobotState state(robot_model);
+        state.setToDefaultValues();
+        bool ik_ok = false;
+        if (jmg)
+        {
+          ik_ok = state.setFromIK(jmg, cand.pregrasp_pose, hand_frame, 0.15);
+        }
+        RCLCPP_INFO(LOGGER, "handlePick: candidate %zu IK %s", i, ik_ok ? "success" : "fail");
+        if (!ik_ok)
+        {
+          fail_reasons.push_back(CablePickFailReason::NO_IK);
+          continue;
+        }
+        state.update();
+        if (jmg && !state.satisfiesBounds(jmg))
+        {
+          RCLCPP_WARN(LOGGER, "handlePick: candidate %zu OUT_OF_BOUNDS", i);
+          fail_reasons.push_back(CablePickFailReason::OUT_OF_BOUNDS);
+          continue;
+        }
+        if (has_scene_base_msg)
+        {
+          planning_scene::PlanningScenePtr scene = std::make_shared<planning_scene::PlanningScene>(robot_model);
+          scene->setPlanningSceneMsg(scene_base_msg);
+          for (const auto& seg : segments)
+          {
+            moveit_msgs::msg::CollisionObject obj =
+                makeSegmentCollisionObject(seg, plan_frame, moveit_msgs::msg::CollisionObject::ADD);
+            scene->processCollisionObjectMsg(obj);
+          }
+          collision_detection::AllowedCollisionMatrix& acm = scene->getAllowedCollisionMatrixNonConst();
+          for (int idx : cand.local_segment_indices)
+          {
+            if (idx >= 0 && idx < static_cast<int>(segments.size()))
+            {
+              for (const auto& link : CABLE_LOCAL_PREGRASP_ALLOWED_LINKS)
+              {
+                acm.setEntry(segments[idx].id, link, true);
+              }
+            }
+          }
+          collision_detection::CollisionRequest req;
+          req.contacts = true;
+          req.max_contacts = 1;
+          collision_detection::CollisionResult res;
+          scene->checkCollision(req, res, state, acm);
+          RCLCPP_INFO(LOGGER, "handlePick: candidate %zu collision %s", i, res.collision ? "yes" : "no");
+          if (res.collision)
+          {
+            fail_reasons.push_back(CablePickFailReason::PREGRASP_IN_COLLISION);
+            continue;
+          }
+        }
+      }
       mtc::Task task = pick_builder_->buildFromCableCandidate(segments, cand, plan_frame);
       try
       {
@@ -417,17 +547,28 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     std::ostringstream summary;
     summary << "CABLE_SIDE_GRASP: 所有侧抓候选失败 (共 " << fail_reasons.size() << " 次失败). ";
-    int n_init = 0, n_plan = 0, n_exec = 0;
+    int n_ik = 0, n_bound = 0, n_coll = 0, n_init = 0, n_plan = 0, n_exec = 0;
     for (CablePickFailReason r : fail_reasons)
     {
-      if (r == CablePickFailReason::INIT_FAILED)
+      if (r == CablePickFailReason::NO_IK)
+        ++n_ik;
+      else if (r == CablePickFailReason::OUT_OF_BOUNDS)
+        ++n_bound;
+      else if (r == CablePickFailReason::PREGRASP_IN_COLLISION)
+        ++n_coll;
+      else if (r == CablePickFailReason::INIT_FAILED)
         ++n_init;
       else if (r == CablePickFailReason::PLAN_FAILED)
         ++n_plan;
       else
         ++n_exec;
     }
-    summary << "INIT_FAILED=" << n_init << " PLAN_FAILED=" << n_plan << " EXECUTION_FAILED=" << n_exec;
+    summary << "NO_IK=" << n_ik
+            << " OUT_OF_BOUNDS=" << n_bound
+            << " PREGRASP_IN_COLLISION=" << n_coll
+            << " INIT_FAILED=" << n_init
+            << " PLAN_FAILED=" << n_plan
+            << " EXECUTION_FAILED=" << n_exec;
     RCLCPP_ERROR(LOGGER, "handlePick: %s", summary.str().c_str());
     setStateError(summary.str());
   }

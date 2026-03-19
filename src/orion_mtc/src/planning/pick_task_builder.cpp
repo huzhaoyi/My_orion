@@ -142,11 +142,7 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
     auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("remove_cable_segments");
     for (const auto& seg : segments)
     {
-      moveit_msgs::msg::CollisionObject remove_obj;
-      remove_obj.id = seg.id;
-      remove_obj.header.frame_id = plan_frame;
-      remove_obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
-      stage->addObject(remove_obj);
+      stage->removeObject(seg.id);
     }
     grasp->insert(std::move(stage));
   }
