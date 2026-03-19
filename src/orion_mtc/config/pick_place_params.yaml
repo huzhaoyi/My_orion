@@ -34,11 +34,16 @@ grasp_offset_along_axis: 0.0
 # 放置前运输姿态：SRDF 中 arm 的 group_state 名，非空则在 pre-place 前先移到此姿态；长杆建议 "transport"
 place_transport_pose: "transport"
 
-# base_link 下“上方向”定义（单位向量）：用于 TOP_DOWN（正上方下压）抓取。
-# 若你观察到“上方预抓取点”跑到了下面，说明 base_link 的“上”与预期相反，把 z 设为 -1.0。
-up_dir_x: 0.0
-up_dir_y: 0.0
-up_dir_z: 1.0
+# 缆绳侧向抓取候选参数（5cm 缆绳推荐）+ 分段碰撞
+cable_side_grasp:
+  approach_dist_candidates: [0.10, 0.08, 0.06, 0.04]
+  retreat_dist: 0.05
+  axial_shift_candidates: [-0.05, 0.0, 0.05]
+  roll_candidates_deg: [0.0, 180.0]
+  cable_total_length: 3.0
+  cable_segment_length: 0.25
+  cable_radius: 0.025
+  grasp_neighbor_segments: 1
 
 # Retreat 第一段（short clear）[m]，先脱离释放区；第二段用 retreat_min/max_dist
 retreat_short_min_dist: 0.03

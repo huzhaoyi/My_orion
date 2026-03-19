@@ -1,5 +1,6 @@
 #include "orion_mtc/planning/pick_task_builder.hpp"
 #include "orion_mtc/planning/collision_object_utils.hpp"
+#include "orion_mtc/planning/cable_side_grasp.hpp"
 #include "orion_mtc/core/constants.hpp"
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
@@ -19,14 +20,13 @@ PickTaskBuilder::PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCC
 {
 }
 
-mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
-                                 const geometry_msgs::msg::Quaternion& object_collision_orientation,
-                                 const geometry_msgs::msg::Quaternion& grasp_orientation,
-                                 const geometry_msgs::msg::Vector3* approach_axis,
-                                 const std::string& /*object_id*/)
+mtc::Task PickTaskBuilder::buildFromCableCandidate(
+    const std::vector<CableSegment>& segments,
+    const CableGraspCandidate& candidate,
+    const std::string& plan_frame)
 {
   mtc::Task task;
-  task.stages()->setName("orion pick");
+  task.stages()->setName("orion pick (cable side, segmented)");
   task.loadRobotModel(node_);
   const auto& arm_group_name = "arm";
   const auto& hand_group_name = "hand";
@@ -44,7 +44,6 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   ptp_planner->setPlannerId("PTP");
   auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   lin_planner->setPlannerId("LIN");
-  /* move to pregrasp 使用 OMPL：可采样多组 IK，比 Pilz 单次 IK 更易在目标点找到解，缓解 NO_IK_SOLUTION */
   auto ompl_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "move_group");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
@@ -52,24 +51,20 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
   cartesian_planner->setStepSize(0.01);
 
-  /* 先 move to ready 再 add object：避免到 ready 的 PTP 路径与物体碰撞（object 尚未在 scene 中） */
   auto stage_ready = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
   stage_ready->setGroup(arm_group_name);
   stage_ready->setGoal("ready");
   task.add(std::move(stage_ready));
 
   {
-    geometry_msgs::msg::Pose obj_pose;
-    obj_pose.position.x = obj_x;
-    obj_pose.position.y = obj_y;
-    obj_pose.position.z = obj_z;
-    /* 碰撞体姿态只表达物体本身（圆柱 local Z=轴向），不要用抓取姿态，否则 RViz/PlanningScene 会把“水平放置”看成“竖直”。 */
-    obj_pose.orientation = object_collision_orientation;
-    moveit_msgs::msg::CollisionObject object =
-        makeTargetCollisionObject("object", obj_pose, moveit_msgs::msg::CollisionObject::ADD);
-    object.header.stamp = node_->now();
-    auto stage_add = std::make_unique<mtc::stages::ModifyPlanningScene>("add object");
-    stage_add->addObject(object);
+    auto stage_add = std::make_unique<mtc::stages::ModifyPlanningScene>("add_cable_segments");
+    for (const auto& seg : segments)
+    {
+      moveit_msgs::msg::CollisionObject obj =
+          makeSegmentCollisionObject(seg, plan_frame, moveit_msgs::msg::CollisionObject::ADD);
+      obj.header.stamp = node_->now();
+      stage_add->addObject(obj);
+    }
     task.add(std::move(stage_add));
   }
 
@@ -83,7 +78,7 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link6", "Link7", "Link8" }, true);
     stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
     stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
-    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "Link2" }, true);  // PTP to pregrasp 路径可能 Link7-Link2 贴近
+    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "Link2" }, true);
     stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
     task.add(std::move(stage_acm));
   }
@@ -92,94 +87,48 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
   task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
   grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
-  /* 允许 arm 与 object 碰撞后再 move to pregrasp，否则 PTP 路径到物体上方时易报 Link4~7 与 object 碰撞 */
+  /* 仅对抓取局部段放宽末端碰撞（Link1/Link2 不放开） */
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (arm,object) for pregrasp");
-    stage->allowCollisions("object", PREGRASP_OBJECT_ALLOWED_LINKS, true);
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (cable local) for pregrasp");
+    for (int idx : candidate.local_segment_indices)
+    {
+      if (idx >= 0 && idx < static_cast<int>(segments.size()))
+      {
+        stage->allowCollisions(segments[idx].id, CABLE_LOCAL_PREGRASP_ALLOWED_LINKS, true);
+      }
+    }
     grasp->insert(std::move(stage));
   }
 
-  const double approach_max = config_.approach_object_max_dist;
-  const double approach_dist = approach_max;
-
-  /* 抓取姿态由 grasp_orientation 给出（侧向抓取系：z=接近方向，y=闭合方向，均垂直于圆柱轴）。
-   * 注意：IK frame 使用 gripper_tcp（夹爪 TCP），grasp 点直接按语义定义在夹爪接触点处。 */
-  Eigen::Quaterniond q_obj(grasp_orientation.w, grasp_orientation.x, grasp_orientation.y, grasp_orientation.z);
-  Eigen::Vector3d approach_axis_v;
-  if (approach_axis != nullptr)
-  {
-    approach_axis_v = Eigen::Vector3d(approach_axis->x, approach_axis->y, approach_axis->z);
-    const double an = approach_axis_v.norm();
-    if (an > 1e-9)
-    {
-      approach_axis_v = approach_axis_v / an;
-    }
-    else
-    {
-      approach_axis_v = q_obj * Eigen::Vector3d::UnitZ();
-    }
-  }
-  else
-  {
-    approach_axis_v = q_obj * Eigen::Vector3d::UnitZ();
-  }
-  /* 安全规则：禁止下半空间接近（避免 pregrasp 落到目标下方导致“从地下往上抓”）。
-   * 若接近轴朝下，则将抓取姿态绕局部 X 轴旋转 180°（翻转 Z/Y），保证 grasp 的局部 Z 指向上半空间。 */
-  if (approach_axis_v.z() < 0.0)
-  {
-    const Eigen::Quaterniond q_flip_x_180(0.0, 1.0, 0.0, 0.0);
-    q_obj = q_obj * q_flip_x_180;
-    approach_axis_v = -approach_axis_v;
-  }
-  const double go = config_.grasp_offset_along_axis;
-  const double gx = obj_x + go * approach_axis_v.x();
-  const double gy = obj_y + go * approach_axis_v.y();
-  const double gz = obj_z + go * approach_axis_v.z();
-
-  geometry_msgs::msg::PoseStamped pregrasp;
-  pregrasp.header.frame_id = "base_link";
-  pregrasp.pose.position.x = gx + approach_dist * approach_axis_v.x();
-  pregrasp.pose.position.y = gy + approach_dist * approach_axis_v.y();
-  pregrasp.pose.position.z = gz + approach_dist * approach_axis_v.z();
-  pregrasp.pose.orientation.x = q_obj.x();
-  pregrasp.pose.orientation.y = q_obj.y();
-  pregrasp.pose.orientation.z = q_obj.z();
-  pregrasp.pose.orientation.w = q_obj.w();
-
+  const rclcpp::Time now = node_->now();
+  geometry_msgs::msg::PoseStamped pregrasp_ps = toPoseStamped(candidate.pregrasp_pose, plan_frame, now);
   auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
   stage_pregrasp->setGroup(arm_group_name);
-  stage_pregrasp->setGoal(pregrasp);
+  stage_pregrasp->setGoal(pregrasp_ps);
   stage_pregrasp->setIKFrame(hand_frame);
   grasp->insert(std::move(stage_pregrasp));
 
+  /* approach 阶段继续使用局部段 ACM（同上） */
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
-    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (cable local) for approach");
+    for (int idx : candidate.local_segment_indices)
+    {
+      if (idx >= 0 && idx < static_cast<int>(segments.size()))
+      {
+        stage->allowCollisions(segments[idx].id, CABLE_LOCAL_APPROACH_ALLOWED_LINKS, true);
+      }
+    }
     grasp->insert(std::move(stage));
   }
 
-  /* 下压段：使用 Pilz LIN，严格直线从 pregrasp 下压到 grasp 点（姿态保持为 q_obj）。 */
-  geometry_msgs::msg::PoseStamped grasp_pose;
-  grasp_pose.header.frame_id = "base_link";
-  grasp_pose.pose.position.x = gx;
-  grasp_pose.pose.position.y = gy;
-  grasp_pose.pose.position.z = gz;
-  grasp_pose.pose.orientation.x = q_obj.x();
-  grasp_pose.pose.orientation.y = q_obj.y();
-  grasp_pose.pose.orientation.z = q_obj.z();
-  grasp_pose.pose.orientation.w = q_obj.w();
-
-  auto stage_down = std::make_unique<mtc::stages::MoveTo>("down to grasp (LIN)", lin_planner);
-  stage_down->setGroup(arm_group_name);
-  stage_down->setGoal(grasp_pose);
-  stage_down->setIKFrame(hand_frame);
-  grasp->insert(std::move(stage_down));
-
-  {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision before close");
-    stage->allowCollisions("object", OBJECT_GRASP_ALLOWED_LINKS, true);
-    grasp->insert(std::move(stage));
-  }
+  geometry_msgs::msg::Vector3Stamped approach_v = toVector3Stamped(candidate.approach_dir, plan_frame, now);
+  auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach to grasp (LIN)", lin_planner);
+  stage_approach->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  stage_approach->setMinMaxDistance(static_cast<float>(candidate.approach_dist),
+                                    static_cast<float>(candidate.approach_dist));
+  stage_approach->setIKFrame(hand_frame);
+  stage_approach->setDirection(approach_v);
+  grasp->insert(std::move(stage_approach));
 
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("close hand", interpolation_planner);
@@ -188,18 +137,28 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     grasp->insert(std::move(stage));
   }
 
+  /* 简化版：删除全部缆绳段并标记抓取，不 attach 几何体；executor 根据本阶段设置 held 状态 */
   {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("attach object");
-    stage->attachObject("object", hand_frame);
+    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("remove_cable_segments");
+    for (const auto& seg : segments)
+    {
+      moveit_msgs::msg::CollisionObject remove_obj;
+      remove_obj.id = seg.id;
+      remove_obj.header.frame_id = plan_frame;
+      remove_obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+      stage->addObject(remove_obj);
+    }
     grasp->insert(std::move(stage));
   }
 
-  if (!config_.support_surface_link.empty())
-  {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (object,support)");
-    stage->allowCollisions("object", std::vector<std::string>{ config_.support_surface_link }, true);
-    grasp->insert(std::move(stage));
-  }
+  geometry_msgs::msg::Vector3Stamped retreat_v = toVector3Stamped(candidate.retreat_dir, plan_frame, now);
+  auto stage_retreat = std::make_unique<mtc::stages::MoveRelative>("retreat short", cartesian_planner);
+  stage_retreat->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  stage_retreat->setMinMaxDistance(static_cast<float>(candidate.retreat_dist),
+                                  static_cast<float>(candidate.retreat_dist));
+  stage_retreat->setIKFrame(hand_frame);
+  stage_retreat->setDirection(retreat_v);
+  grasp->insert(std::move(stage_retreat));
 
   {
     auto stage = std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
@@ -209,18 +168,12 @@ mtc::Task PickTaskBuilder::build(double obj_x, double obj_y, double obj_z,
     stage->setIKFrame(hand_frame);
     stage->properties().set("marker_ns", "lift_object");
     geometry_msgs::msg::Vector3Stamped v;
-    v.header.frame_id = "base_link";
+    v.header.frame_id = plan_frame;
+    v.header.stamp = now;
     v.vector.x = 0.0;
     v.vector.y = 0.0;
     v.vector.z = 1.0;
     stage->setDirection(v);
-    grasp->insert(std::move(stage));
-  }
-
-  if (!config_.support_surface_link.empty())
-  {
-    auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (object,surface)");
-    stage->allowCollisions("object", std::vector<std::string>{ config_.support_surface_link }, false);
     grasp->insert(std::move(stage));
   }
 

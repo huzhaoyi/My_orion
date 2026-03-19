@@ -23,7 +23,7 @@ find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(visualization_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 set(ORION_MTC_SOURCES
   src/main.cpp
@@ -33,6 +33,8 @@ set(ORION_MTC_SOURCES
   src/config/runtime_policy_loader.cpp
   src/feasibility/feasibility_checker.cpp
   src/planning/collision_object_utils.cpp
+  src/planning/cable_segments.cpp
+  src/planning/cable_side_grasp.cpp
   src/planning/pick_task_builder.cpp
   src/planning/place_task_builder.cpp
   src/planning/place_release_task_builder.cpp
@@ -71,7 +73,7 @@ ament_target_dependencies(mtc_node
   std_msgs
   std_srvs
   orion_mtc_msgs
-  visualization_msgs
+  tf2_ros
 )
 
 install(TARGETS mtc_node

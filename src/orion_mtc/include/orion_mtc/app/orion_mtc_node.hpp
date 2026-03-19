@@ -31,6 +31,8 @@
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include "orion_mtc/perception/vector3_cache.hpp"
 #include <atomic>
@@ -131,6 +133,8 @@ private:
   std::shared_ptr<SolutionExecutor> solution_executor_;
   std::shared_ptr<TaskManager> task_manager_;
   std::shared_ptr<FeasibilityChecker> feasibility_checker_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   std::atomic<double> left_arm_gripped_{ 0.0 };
   std::atomic<bool> do_task_running_{ false };

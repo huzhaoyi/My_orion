@@ -522,6 +522,54 @@ src/perception/vector3_cache.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.s
 .PHONY : src/perception/vector3_cache.cpp.s
 
+src/planning/cable_segments.o: src/planning/cable_segments.cpp.o
+.PHONY : src/planning/cable_segments.o
+
+# target to build an object file
+src/planning/cable_segments.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o
+.PHONY : src/planning/cable_segments.cpp.o
+
+src/planning/cable_segments.i: src/planning/cable_segments.cpp.i
+.PHONY : src/planning/cable_segments.i
+
+# target to preprocess a source file
+src/planning/cable_segments.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.i
+.PHONY : src/planning/cable_segments.cpp.i
+
+src/planning/cable_segments.s: src/planning/cable_segments.cpp.s
+.PHONY : src/planning/cable_segments.s
+
+# target to generate assembly for a file
+src/planning/cable_segments.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.s
+.PHONY : src/planning/cable_segments.cpp.s
+
+src/planning/cable_side_grasp.o: src/planning/cable_side_grasp.cpp.o
+.PHONY : src/planning/cable_side_grasp.o
+
+# target to build an object file
+src/planning/cable_side_grasp.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o
+.PHONY : src/planning/cable_side_grasp.cpp.o
+
+src/planning/cable_side_grasp.i: src/planning/cable_side_grasp.cpp.i
+.PHONY : src/planning/cable_side_grasp.i
+
+# target to preprocess a source file
+src/planning/cable_side_grasp.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.i
+.PHONY : src/planning/cable_side_grasp.cpp.i
+
+src/planning/cable_side_grasp.s: src/planning/cable_side_grasp.cpp.s
+.PHONY : src/planning/cable_side_grasp.s
+
+# target to generate assembly for a file
+src/planning/cable_side_grasp.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.s
+.PHONY : src/planning/cable_side_grasp.cpp.s
+
 src/planning/collision_object_utils.o: src/planning/collision_object_utils.cpp.o
 .PHONY : src/planning/collision_object_utils.o
 
@@ -745,6 +793,12 @@ help:
 	@echo "... src/perception/vector3_cache.o"
 	@echo "... src/perception/vector3_cache.i"
 	@echo "... src/perception/vector3_cache.s"
+	@echo "... src/planning/cable_segments.o"
+	@echo "... src/planning/cable_segments.i"
+	@echo "... src/planning/cable_segments.s"
+	@echo "... src/planning/cable_side_grasp.o"
+	@echo "... src/planning/cable_side_grasp.i"
+	@echo "... src/planning/cable_side_grasp.s"
 	@echo "... src/planning/collision_object_utils.o"
 	@echo "... src/planning/collision_object_utils.i"
 	@echo "... src/planning/collision_object_utils.s"

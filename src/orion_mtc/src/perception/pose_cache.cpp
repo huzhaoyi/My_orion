@@ -13,7 +13,7 @@ PoseCache::PoseCache(const std::string& expected_frame_id) : expected_frame_id_(
 
 void PoseCache::update(const geometry_msgs::msg::PoseStamped& msg)
 {
-  if (msg.header.frame_id != expected_frame_id_)
+  if (!expected_frame_id_.empty() && msg.header.frame_id != expected_frame_id_)
   {
     RCLCPP_WARN(LOGGER, "pose frame_id is '%s', expected %s; ignore",
                 msg.header.frame_id.c_str(), expected_frame_id_.c_str());

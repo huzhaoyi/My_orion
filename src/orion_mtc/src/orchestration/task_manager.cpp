@@ -12,6 +12,8 @@
 #include "orion_mtc/planning/place_generator.hpp"
 #include "orion_mtc/core/place_types.hpp"
 #include "orion_mtc/strategy/cylinder_side_grasp.hpp"
+#include "orion_mtc/planning/cable_side_grasp.hpp"
+#include "orion_mtc/planning/cable_segments.hpp"
 #include <moveit/task_constructor/task.h>
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
@@ -23,7 +25,6 @@
 #include <cmath>
 #include <sstream>
 #include <vector>
-#include <visualization_msgs/msg/marker_array.hpp>
 
 namespace mtc = moveit::task_constructor;
 
@@ -32,22 +33,28 @@ namespace orion_mtc
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
 
-/* PICK 任务 MTC 阶段名（与 pick_task_builder 顺序对应，含 ModifyPlanningScene 等，不足时前端显示 segment_N） */
-static const std::vector<std::string> PICK_STAGE_NAMES = {
-    "move_to_ready",
-    "add_object",
-    "open_hand",
-    "allow_self_collision_pregrasp",
-    "allow_collision_arm_object_pregrasp",
-    "move_to_pregrasp",
-    "allow_collision_hand_object",
-    "approach_object",
-    "allow_collision_before_close",
-    "close_hand",
-    "attach_object",
-    "allow_collision_object_support",
-    "lift_object",
-    "forbid_collision_object_support",
+/* 候选失败原因（用于诊断统计） */
+enum class CablePickFailReason
+{
+  INIT_FAILED,
+  PLAN_FAILED,
+  EXECUTION_FAILED,
+};
+
+/* PICK 任务 MTC 阶段名（缆绳分段侧抓：add_cable_segments、局部 ACM、remove_cable_segments） */
+static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
+    "move to ready",
+    "add_cable_segments",
+    "open hand",
+    "allow self-collision (pregrasp)",
+    "allow collision (cable local) for pregrasp",
+    "move to pregrasp",
+    "allow collision (cable local) for approach",
+    "approach to grasp (LIN)",
+    "close hand",
+    "remove_cable_segments",
+    "retreat short",
+    "lift object",
 };
 
 /* PLACE 任务 MTC 阶段名（与 place_task_builder 顺序对应；place_transport_pose 非空时含 move_to_transport） */
@@ -75,92 +82,6 @@ namespace
 {
 static constexpr const char* RECON_POSE_TOPIC = "reconstructed_object_pose";
 static constexpr const char* RECON_APPROACH_TOPIC = "reconstructed_approach_axis";
-static constexpr const char* GRASP_MARKERS_TOPIC = "grasp_strategy_markers";
-}  // namespace
-
-namespace
-{
-visualization_msgs::msg::Marker makeArrow(
-    const std::string& frame_id,
-    const rclcpp::Time& stamp,
-    const std::string& ns,
-    int id,
-    double sx,
-    double sy,
-    double sz,
-    double ex,
-    double ey,
-    double ez,
-    float r,
-    float g,
-    float b,
-    float a,
-    float shaft_d = 0.01f,
-    float head_d = 0.02f,
-    float head_l = 0.03f)
-{
-  visualization_msgs::msg::Marker m;
-  m.header.frame_id = frame_id;
-  m.header.stamp = stamp;
-  m.ns = ns;
-  m.id = id;
-  m.type = visualization_msgs::msg::Marker::ARROW;
-  m.action = visualization_msgs::msg::Marker::ADD;
-  geometry_msgs::msg::Point p0;
-  p0.x = sx;
-  p0.y = sy;
-  p0.z = sz;
-  geometry_msgs::msg::Point p1;
-  p1.x = ex;
-  p1.y = ey;
-  p1.z = ez;
-  m.points = { p0, p1 };
-  m.scale.x = shaft_d;
-  m.scale.y = head_d;
-  m.scale.z = head_l;
-  m.color.r = r;
-  m.color.g = g;
-  m.color.b = b;
-  m.color.a = a;
-  m.lifetime = rclcpp::Duration(0, 0);
-  return m;
-}
-
-visualization_msgs::msg::Marker makeSphere(
-    const std::string& frame_id,
-    const rclcpp::Time& stamp,
-    const std::string& ns,
-    int id,
-    double x,
-    double y,
-    double z,
-    float r,
-    float g,
-    float b,
-    float a,
-    float s = 0.03f)
-{
-  visualization_msgs::msg::Marker m;
-  m.header.frame_id = frame_id;
-  m.header.stamp = stamp;
-  m.ns = ns;
-  m.id = id;
-  m.type = visualization_msgs::msg::Marker::SPHERE;
-  m.action = visualization_msgs::msg::Marker::ADD;
-  m.pose.position.x = x;
-  m.pose.position.y = y;
-  m.pose.position.z = z;
-  m.pose.orientation.w = 1.0;
-  m.scale.x = s;
-  m.scale.y = s;
-  m.scale.z = s;
-  m.color.r = r;
-  m.color.g = g;
-  m.color.b = b;
-  m.color.a = a;
-  m.lifetime = rclcpp::Duration(0, 0);
-  return m;
-}
 }  // namespace
 
 bool TaskManager::getJobPoseForDedup(const ManipulationJob& job, geometry_msgs::msg::Pose* out)
@@ -299,8 +220,6 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
       node_->create_publisher<geometry_msgs::msg::PoseStamped>(RECON_POSE_TOPIC, 10);
   pub_reconstructed_approach_axis_ =
       node_->create_publisher<geometry_msgs::msg::Vector3Stamped>(RECON_APPROACH_TOPIC, 10);
-  pub_grasp_markers_ =
-      node_->create_publisher<visualization_msgs::msg::MarkerArray>(GRASP_MARKERS_TOPIC, 10);
 }
 
 TaskManager::~TaskManager()
@@ -361,228 +280,158 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     current_task_id_ = genTaskId("pick");
   }
 
-  double obj_x = object_pose.pose.position.x;
-  double obj_y = object_pose.pose.position.y;
-  double obj_z = object_pose.pose.position.z;
-  auto object_orientation = object_pose.pose.orientation;
-  if (object_pose.header.frame_id != "base_link")
+  /* 支持世界系输入：变换到 base_link 后再规划 */
+  geometry_msgs::msg::PoseStamped pose_base = object_pose;
+  std::optional<geometry_msgs::msg::Vector3Stamped> axis_stamped =
+      get_latest_object_axis_fn_ ? get_latest_object_axis_fn_() : std::nullopt;
+  if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
   {
-    RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s', expected base_link", object_pose.header.frame_id.c_str());
+    geometry_msgs::msg::Vector3Stamped* axis_ptr = axis_stamped.has_value() ? &(*axis_stamped) : nullptr;
+    if (transform_to_base_link_fn_(pose_base, axis_ptr))
+    {
+      RCLCPP_INFO(LOGGER, "handlePick: 已将目标从 %s 变换到 base_link", object_pose.header.frame_id.c_str());
+    }
+    else
+    {
+      RCLCPP_WARN(LOGGER, "handlePick: 变换到 base_link 失败，按原 frame_id 使用（可能规划异常）");
+    }
   }
-  RCLCPP_INFO(LOGGER,
-              "handlePick: 规划目标 (base_link) 缆绳中心 x=%.3f y=%.3f z=%.3f；approach 后 gripper_tcp 将到达该中心点。"
-              "若末端未到此点请检查: 1) TF/执行系与规划 base_link 是否一致 2) joint_states 是否来自执行侧",
-              obj_x, obj_y, obj_z);
+  if (pose_base.header.frame_id != "base_link")
+  {
+    RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s'，规划使用 base_link 系；若不一致请设置 setTransformToBaseLinkCallback",
+                pose_base.header.frame_id.c_str());
+  }
 
-  geometry_msgs::msg::Vector3 up_dir;
-  up_dir.x = config_.up_dir_x;
-  up_dir.y = config_.up_dir_y;
-  up_dir.z = config_.up_dir_z;
-  geometry_msgs::msg::Point obj_p;
-  obj_p.x = obj_x;
-  obj_p.y = obj_y;
-  obj_p.z = obj_z;
+  double obj_x = pose_base.pose.position.x;
+  double obj_y = pose_base.pose.position.y;
+  double obj_z = pose_base.pose.position.z;
 
-  /* 只使用正上方下压（TOP_DOWN）抓取：单语义，不保留侧抓候选结构 */
   geometry_msgs::msg::Vector3 axis_v;
   axis_v.x = 1.0;
   axis_v.y = 0.0;
   axis_v.z = 0.0;
-  if (get_latest_object_axis_fn_)
+  if (axis_stamped.has_value())
   {
-    std::optional<geometry_msgs::msg::Vector3Stamped> axis_msg = get_latest_object_axis_fn_();
-    if (axis_msg.has_value())
+    axis_v = axis_stamped->vector;
+  }
+  else if (get_latest_object_axis_fn_)
+  {
+    std::optional<geometry_msgs::msg::Vector3Stamped> opt = get_latest_object_axis_fn_();
+    if (opt.has_value())
     {
-      axis_v = axis_msg->vector;
+      axis_v = opt->vector;
     }
   }
-  if (!get_latest_object_axis_fn_)
+  if (!get_latest_object_axis_fn_ && !axis_stamped.has_value())
   {
-    RCLCPP_WARN(LOGGER, "handlePick: no object_axis callback, TOP_DOWN will use default axis (1,0,0)");
+    RCLCPP_WARN(LOGGER, "handlePick: no object_axis callback, need cable direction for side grasp");
   }
 
-  auto semantic = buildTopDownCylinderGrasp(axis_v, up_dir);
-  if (!semantic.has_value())
+  const double axis_norm = std::sqrt(axis_v.x * axis_v.x + axis_v.y * axis_v.y + axis_v.z * axis_v.z);
+  const bool direction_valid = axis_norm > 0.9;
+  if (!direction_valid)
   {
-    setStateError("TOP_DOWN semantic build failed (bad axis/up_dir)");
+    setStateError("CABLE_SIDE_GRASP: 缆绳轴向无效 (norm <= 0.9)，需提供 object_axis");
     return false;
   }
-  const CylinderSideGraspSemantic grasp_semantic = semantic.value();
 
-  const double approach_dist = config_.approach_object_max_dist;
-  const rclcpp::Time now = node_->now();
-  if (pub_grasp_markers_)
+  /* 缆绳侧向包夹 + 分段碰撞：生成段、多候选逐个尝试，成功即返回 */
   {
-    visualization_msgs::msg::MarkerArray ma;
-    int id = 0;
+    CableDetection cable;
+    cable.position = Eigen::Vector3d(obj_x, obj_y, obj_z);
+    cable.direction = Eigen::Vector3d(axis_v.x, axis_v.y, axis_v.z);
+    if (cable.direction.norm() > 1e-9)
     {
-      const std::string ns = "candidate_TOP_DOWN";
-      const double ax = grasp_semantic.approach_axis.x;
-      const double ay = grasp_semantic.approach_axis.y;
-      const double az = grasp_semantic.approach_axis.z;
-
-      const double go = config_.grasp_offset_along_axis;
-      const double gx = obj_x + go * ax;
-      const double gy = obj_y + go * ay;
-      const double gz = obj_z + go * az;
-      const double px = gx + approach_dist * ax;
-      const double py = gy + approach_dist * ay;
-      const double pz = gz + approach_dist * az;
-
-      Eigen::Quaterniond q(
-          grasp_semantic.grasp_orientation.w,
-          grasp_semantic.grasp_orientation.x,
-          grasp_semantic.grasp_orientation.y,
-          grasp_semantic.grasp_orientation.z);
-      q.normalize();
-      Eigen::Matrix3d R = q.toRotationMatrix();
-      const Eigen::Vector3d x_axis = R.col(0);
-      const Eigen::Vector3d y_axis = R.col(1);
-      const Eigen::Vector3d z_axis = R.col(2);
-      const double axis_len = 0.08;
-
-      /* grasp -> pregrasp 箭头（蓝色） */
-      ma.markers.push_back(makeArrow("base_link", now, ns, id++,
-                                     gx, gy, gz,
-                                     px, py, pz,
-                                     0.0f, 0.0f, 1.0f, 0.8f));
-
-      /* pregrasp -> grasp 短箭头（紫色） */
-      ma.markers.push_back(makeArrow("base_link", now, ns, id++,
-                                     px, py, pz,
-                                     gx, gy, gz,
-                                     0.8f, 0.0f, 0.8f, 0.8f, 0.006f, 0.012f, 0.02f));
-
-      /* grasp frame 三轴：X红 Y绿 Z蓝 */
-      ma.markers.push_back(makeArrow("base_link", now, ns, id++,
-                                     gx, gy, gz,
-                                     gx + axis_len * x_axis.x(), gy + axis_len * x_axis.y(), gz + axis_len * x_axis.z(),
-                                     1.0f, 0.0f, 0.0f, 0.9f, 0.004f, 0.008f, 0.015f));
-      ma.markers.push_back(makeArrow("base_link", now, ns, id++,
-                                     gx, gy, gz,
-                                     gx + axis_len * y_axis.x(), gy + axis_len * y_axis.y(), gz + axis_len * y_axis.z(),
-                                     0.0f, 1.0f, 0.0f, 0.9f, 0.004f, 0.008f, 0.015f));
-      ma.markers.push_back(makeArrow("base_link", now, ns, id++,
-                                     gx, gy, gz,
-                                     gx + axis_len * z_axis.x(), gy + axis_len * z_axis.y(), gz + axis_len * z_axis.z(),
-                                     0.0f, 0.2f, 1.0f, 0.9f, 0.004f, 0.008f, 0.015f));
-
-      ma.markers.push_back(makeSphere("base_link", now, ns, id++,
-                                      gx, gy, gz, 1.0f, 1.0f, 1.0f, 0.8f, 0.02f));
-      ma.markers.push_back(makeSphere("base_link", now, ns, id++,
-                                      px, py, pz, 1.0f, 0.6f, 0.0f, 0.8f, 0.03f));
+      cable.direction.normalize();
     }
-    pub_grasp_markers_->publish(ma);
-  }
+    std::vector<CableSegment> segments = buildCableSegments(
+        cable.position, cable.direction,
+        config_.cable_grasp.cable_total_length,
+        config_.cable_grasp.cable_segment_length,
+        config_.cable_grasp.cable_radius);
+    std::vector<CableGraspCandidate> candidates =
+        generateCableSideGrasps(cable, config_.cable_grasp);
+    const std::string plan_frame = "base_link";
+    const std::string held_id = object_id.empty() ? "cable" : object_id;
+    std::vector<CablePickFailReason> fail_reasons;
 
-  geometry_msgs::msg::Vector3 approach_axis_msg = grasp_semantic.approach_axis;
-  object_orientation = grasp_semantic.grasp_orientation;
-
-  RCLCPP_INFO(LOGGER, "handlePick: TOP_DOWN approach=(%.3f,%.3f,%.3f)",
-              approach_axis_msg.x, approach_axis_msg.y, approach_axis_msg.z);
-
-  auto classify_plan_failure = [](const std::string& detail) -> std::string {
-    std::string s = detail;
-    for (auto& ch : s)
+    for (std::size_t i = 0; i < candidates.size(); ++i)
     {
-      if (ch >= 'a' && ch <= 'z')
+      const CableGraspCandidate& cand = candidates[i];
+      mtc::Task task = pick_builder_->buildFromCableCandidate(segments, cand, plan_frame);
+      try
       {
-        ch = static_cast<char>(ch - 'a' + 'A');
+        task.init();
+        task.enableIntrospection(true);
+        task.introspection().publishTaskDescription();
       }
-    }
-    if (s.find("NO_IK") != std::string::npos || s.find("IK") != std::string::npos)
-    {
-      return "NO_IK";
-    }
-    if (s.find("COLLISION") != std::string::npos)
-    {
-      return "IN_COLLISION";
-    }
-    return "PLAN_FAILED";
-  };
-
-  geometry_msgs::msg::Quaternion collision_q = buildCylinderCollisionOrientationFromAxis(axis_v);
-  mtc::Task task = pick_builder_->build(obj_x, obj_y, obj_z, collision_q, object_orientation, &approach_axis_msg, object_id);
-  try
-  {
-    task.init();
-    task.enableIntrospection(true);
-    task.introspection().publishTaskDescription();
-  }
-  catch (mtc::InitStageException& e)
-  {
-    setStateError(std::string("INIT_FAILED: ") + e.what());
-    RCLCPP_ERROR_STREAM(LOGGER, "TOP_DOWN init failed: " << e);
-    return false;
-  }
-
-  moveit::core::MoveItErrorCode plan_result = task.plan(5);
-  if (!plan_result || task.solutions().empty())
-  {
-    std::ostringstream os;
-    task.explainFailure(os);
-    const std::string detail = os.str().empty() ? "pick plan failed" : os.str();
-    const std::string reason = classify_plan_failure(detail);
-    setStateError(reason + ": " + detail);
-    RCLCPP_WARN_STREAM(LOGGER, "TOP_DOWN plan failed (code " << plan_result.val << ") reason=" << reason
-                                                            << " detail=" << detail);
-    return false;
-  }
-
-  geometry_msgs::msg::Pose object_pose_at_grasp;
-  object_pose_at_grasp.position.x = obj_x;
-  object_pose_at_grasp.position.y = obj_y;
-  object_pose_at_grasp.position.z = obj_z;
-    object_pose_at_grasp.orientation = object_orientation;
-
-  moveit_task_constructor_msgs::msg::Solution solution_msg;
-    task.solutions().front()->toMsg(solution_msg, &task.introspection());
-  HeldObjectContext new_held;
-  StageReportFn stage_report = nullptr;
-  if (stage_report_fn_)
-  {
-    stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
-                         const std::string& name, const std::string& state, const std::string& detail) {
+      catch (mtc::InitStageException& e)
+      {
+        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu INIT_FAILED: %s", i, e.what());
+        fail_reasons.push_back(CablePickFailReason::INIT_FAILED);
+        continue;
+      }
+      moveit::core::MoveItErrorCode plan_result = task.plan(5);
+      if (!plan_result || task.solutions().empty())
+      {
+        std::ostringstream os;
+        task.explainFailure(os);
+        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu PLAN_FAILED: %s", i, os.str().c_str());
+        fail_reasons.push_back(CablePickFailReason::PLAN_FAILED);
+        continue;
+      }
+      geometry_msgs::msg::Pose object_pose_at_grasp;
+      isometryToPose(cand.grasp_pose, object_pose_at_grasp);
+      moveit_task_constructor_msgs::msg::Solution solution_msg;
+      task.solutions().front()->toMsg(solution_msg, &task.introspection());
+      StageReportFn stage_report = nullptr;
       if (stage_report_fn_)
       {
-        stage_report_fn_(jid, tt, ix, name, state, detail);
+        stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                             const std::string& name, const std::string& state, const std::string& detail) {
+          if (stage_report_fn_)
+          {
+            stage_report_fn_(jid, tt, ix, name, state, detail);
+          }
+        };
       }
-    };
+      HeldObjectContext new_held;
+      if (solution_executor_->executePickSolution(
+              solution_msg, object_pose_at_grasp,
+              held_id,
+              task.getRobotModel(), new_held, wait_for_gripped_fn_,
+              stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_CABLE_SIDE))
+      {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        held_object_ = new_held;
+        setState(RobotTaskMode::HOLDING_TRACKED);
+        if (held_object_state_fn_)
+        {
+          held_object_state_fn_(getHeldObject());
+        }
+        RCLCPP_INFO(LOGGER, "handlePick: 缆绳侧抓候选 %zu 成功", i);
+        return true;
+      }
+      RCLCPP_WARN(LOGGER, "handlePick: candidate %zu EXECUTION_FAILED", i);
+      fail_reasons.push_back(CablePickFailReason::EXECUTION_FAILED);
+    }
+    std::ostringstream summary;
+    summary << "CABLE_SIDE_GRASP: 所有侧抓候选失败 (共 " << fail_reasons.size() << " 次失败). ";
+    int n_init = 0, n_plan = 0, n_exec = 0;
+    for (CablePickFailReason r : fail_reasons)
+    {
+      if (r == CablePickFailReason::INIT_FAILED)
+        ++n_init;
+      else if (r == CablePickFailReason::PLAN_FAILED)
+        ++n_plan;
+      else
+        ++n_exec;
+    }
+    summary << "INIT_FAILED=" << n_init << " PLAN_FAILED=" << n_plan << " EXECUTION_FAILED=" << n_exec;
+    RCLCPP_ERROR(LOGGER, "handlePick: %s", summary.str().c_str());
+    setStateError(summary.str());
   }
-  if (!solution_executor_->executePickSolution(
-            solution_msg, object_pose_at_grasp,
-            object_id.empty() ? "object" : object_id,
-            task.getRobotModel(), new_held, wait_for_gripped_fn_,
-            stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES))
-  {
-    setStateError("EXEC_FAILED: pick execution failed");
-    RCLCPP_ERROR(LOGGER, "TOP_DOWN execution failed reason=EXEC_FAILED");
-    retreatToReady();
-    return false;
-  }
-
-  {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    held_object_ = new_held;
-  }
-  setState(RobotTaskMode::HOLDING_TRACKED);
-  if (held_object_state_fn_)
-  {
-    held_object_state_fn_(getHeldObject());
-  }
-  const double go = config_.grasp_offset_along_axis;
-  const double gx = obj_x + go * approach_axis_msg.x;
-  const double gy = obj_y + go * approach_axis_msg.y;
-  const double gz = obj_z + go * approach_axis_msg.z;
-  const double px = gx + approach_dist * approach_axis_msg.x;
-  const double py = gy + approach_dist * approach_axis_msg.y;
-  const double pz = gz + approach_dist * approach_axis_msg.z;
-  RCLCPP_INFO(LOGGER,
-              "pick selected: strategy=TOP_DOWN approach=(%.3f,%.3f,%.3f) pregrasp=(%.3f,%.3f,%.3f)",
-              approach_axis_msg.x, approach_axis_msg.y, approach_axis_msg.z,
-              px, py, pz);
-  RCLCPP_INFO(LOGGER, "Pick finished successfully, state=HOLDING_TRACKED");
-  return true;
+  return false;
 }
 
 bool TaskManager::retreatToReady()
@@ -768,6 +617,11 @@ void TaskManager::setGetLatestObjectAxisCallback(
     std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn)
 {
   get_latest_object_axis_fn_ = std::move(fn);
+}
+
+void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
+{
+  transform_to_base_link_fn_ = std::move(fn);
 }
 
 void TaskManager::setJobEventCallback(JobEventFn fn)
@@ -1595,7 +1449,7 @@ bool TaskManager::executeJob(const ManipulationJob& job)
         return false;
       }
 
-      /* 仅使用正上方下压（TOP_DOWN）抓取：不在 executeJob 阶段重写 object_pose.orientation。 */
+      /* 缆绳侧向抓取：object_pose/object_axis 由话题提供，规划时用侧抓候选。 */
       double lx = latest->pose.position.x;
       double ly = latest->pose.position.y;
       double lz = latest->pose.position.z;

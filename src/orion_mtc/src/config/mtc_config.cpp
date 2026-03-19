@@ -51,9 +51,68 @@ void declareParameters(rclcpp::Node* node)
   declare_if_not_set("lower_to_place_max_dist", 0.12);
   declare_if_not_set("grasp_offset_along_axis", 0.0);
   declare_str_if_not_set("place_transport_pose", "transport");
-  declare_if_not_set("up_dir_x", 0.0);
-  declare_if_not_set("up_dir_y", 0.0);
-  declare_if_not_set("up_dir_z", 1.0);
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "cable_side_grasp.approach_dist_candidates",
+        std::vector<double>{ 0.10, 0.08, 0.06, 0.04 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "cable_side_grasp.axial_shift_candidates",
+        std::vector<double>{ -0.05, 0.0, 0.05 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "cable_side_grasp.roll_candidates_deg",
+        std::vector<double>{ 0.0, 180.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("cable_side_grasp.retreat_dist", 0.05);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("cable_side_grasp.cable_total_length", 3.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("cable_side_grasp.cable_segment_length", 0.25);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("cable_side_grasp.cable_radius", 0.025);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<int>("cable_side_grasp.grasp_neighbor_segments", 1);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 void loadFromNode(rclcpp::Node* node, MTCConfig& config)
@@ -83,9 +142,17 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("support_surface_link", config.support_surface_link);
   node->get_parameter("grasp_offset_along_axis", config.grasp_offset_along_axis);
   node->get_parameter("place_transport_pose", config.place_transport_pose);
-  node->get_parameter("up_dir_x", config.up_dir_x);
-  node->get_parameter("up_dir_y", config.up_dir_y);
-  node->get_parameter("up_dir_z", config.up_dir_z);
+  node->get_parameter("cable_side_grasp.approach_dist_candidates",
+                      config.cable_grasp.approach_dist_candidates);
+  node->get_parameter("cable_side_grasp.axial_shift_candidates",
+                      config.cable_grasp.axial_shift_candidates);
+  node->get_parameter("cable_side_grasp.roll_candidates_deg",
+                      config.cable_grasp.roll_candidates_deg);
+  node->get_parameter("cable_side_grasp.retreat_dist", config.cable_grasp.retreat_dist);
+  node->get_parameter("cable_side_grasp.cable_total_length", config.cable_grasp.cable_total_length);
+  node->get_parameter("cable_side_grasp.cable_segment_length", config.cable_grasp.cable_segment_length);
+  node->get_parameter("cable_side_grasp.cable_radius", config.cable_grasp.cable_radius);
+  node->get_parameter("cable_side_grasp.grasp_neighbor_segments", config.cable_grasp.grasp_neighbor_segments);
 }
 
 }  // namespace orion_mtc

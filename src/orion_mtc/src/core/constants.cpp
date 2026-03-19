@@ -9,6 +9,13 @@ const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS = {
     "Link2", "Link3", "Link4", "Link5", "gripper_tcp", "Link6", "Link7", "Link8"
 };
 
+const std::vector<std::string> CABLE_LOCAL_PREGRASP_ALLOWED_LINKS = {
+    "gripper_tcp", "Link6", "Link7", "Link8"
+};
+const std::vector<std::string> CABLE_LOCAL_APPROACH_ALLOWED_LINKS = {
+    "gripper_tcp", "Link6", "Link7", "Link8"
+};
+
 const std::vector<std::string> RETURN_HOME_OBJECT_ALLOWED_LINKS = { "Link5", "gripper_tcp", "Link6", "Link7", "Link8" };
 
 const std::vector<std::string> PREPLACE_ATTACHED_OBJECT_ALLOWED_LINKS = { "base_link", "Link1" };

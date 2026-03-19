@@ -4,11 +4,11 @@
 #define ORION_MTC_PLANNING_PICK_TASK_BUILDER_HPP
 
 #include "orion_mtc/config/mtc_config.hpp"
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <geometry_msgs/msg/quaternion.hpp>
-#include <geometry_msgs/msg/vector3.hpp>
+#include "orion_mtc/planning/cable_segments.hpp"
+#include "orion_mtc/planning/cable_side_grasp.hpp"
 #include <moveit/task_constructor/task.h>
 #include <string>
+#include <vector>
 
 #include <rclcpp/node.hpp>
 
@@ -19,11 +19,12 @@ class PickTaskBuilder
 {
 public:
   PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCConfig& config);
-  moveit::task_constructor::Task build(double obj_x, double obj_y, double obj_z,
-                                       const geometry_msgs::msg::Quaternion& object_collision_orientation,
-                                       const geometry_msgs::msg::Quaternion& grasp_orientation,
-                                       const geometry_msgs::msg::Vector3* approach_axis,
-                                       const std::string& object_id);
+
+  /* 缆绳侧向包夹 + 分段碰撞：加入多段缆绳、仅对 local 段放宽 ACM、闭爪后删除全部段并 retreat/lift */
+  moveit::task_constructor::Task buildFromCableCandidate(
+      const std::vector<CableSegment>& segments,
+      const CableGraspCandidate& candidate,
+      const std::string& plan_frame);
 
 private:
   rclcpp::Node::SharedPtr node_;

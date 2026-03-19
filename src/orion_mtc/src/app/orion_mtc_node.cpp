@@ -21,6 +21,9 @@
 #include <builtin_interfaces/msg/time.hpp>
 #include <orion_mtc_msgs/msg/job_execution_record.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <cstdint>
 #include <std_srvs/srv/trigger.hpp>
 #include <chrono>
@@ -45,8 +48,9 @@ OrionMTCNode::OrionMTCNode(const rclcpp::NodeOptions& options)
 
 void OrionMTCNode::initModules()
 {
-  object_pose_cache_ = std::make_shared<PoseCache>("base_link");
-  object_axis_cache_ = std::make_shared<Vector3Cache>("base_link");
+  /* 接受任意 frame_id，handlePick 内将世界系变换到 base_link */
+  object_pose_cache_ = std::make_shared<PoseCache>("");
+  object_axis_cache_ = std::make_shared<Vector3Cache>("");
   place_pose_cache_ = std::make_shared<PoseCache>("base_link");
   place_generator_ = std::make_shared<PlaceGenerator>(PlaceGeneratorParams());
   scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_.get());
@@ -87,6 +91,34 @@ void OrionMTCNode::initModules()
   /* 执行 PICK 时取当前缓存的 latest：object_pose 由订阅持续接收并更新，规划时直接用最新一帧 */
   task_manager_->setGetLatestObjectPoseCallback([this]() { return object_pose_cache_->latest(); });
   task_manager_->setGetLatestObjectAxisCallback([this]() { return object_axis_cache_->latest(); });
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(action_client_node_->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, false);
+  task_manager_->setTransformToBaseLinkCallback(
+      [this](geometry_msgs::msg::PoseStamped& pose, geometry_msgs::msg::Vector3Stamped* axis) {
+        try
+        {
+          rclcpp::Time t(pose.header.stamp.sec, pose.header.stamp.nanosec);
+          geometry_msgs::msg::TransformStamped T = tf_buffer_->lookupTransform(
+              "base_link", pose.header.frame_id, t);
+          geometry_msgs::msg::PoseStamped out;
+          tf2::doTransform(pose, out, T);
+          pose = out;
+          pose.header.frame_id = "base_link";
+          if (axis != nullptr)
+          {
+            geometry_msgs::msg::Vector3Stamped axis_out;
+            tf2::doTransform(*axis, axis_out, T);
+            axis->vector = axis_out.vector;
+            axis->header.frame_id = "base_link";
+          }
+          return true;
+        }
+        catch (const std::exception& e)
+        {
+          RCLCPP_WARN(LOGGER, "transform to base_link failed: %s", e.what());
+          return false;
+        }
+      });
   feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
   feasibility_checker_->setMTCConfig(&config_);
 }

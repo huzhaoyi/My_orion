@@ -1,4 +1,5 @@
 #include "orion_mtc/planning/collision_object_utils.hpp"
+#include "orion_mtc/strategy/cylinder_side_grasp.hpp"
 #include <shape_msgs/msg/solid_primitive.hpp>
 #include <Eigen/Geometry>
 
@@ -45,6 +46,35 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
   object.primitive_poses.push_back(object_pose);
   object.operation = operation;
   return object;
+}
+
+moveit_msgs::msg::CollisionObject makeSegmentCollisionObject(const CableSegment& segment,
+                                                             const std::string& frame_id,
+                                                             uint8_t operation)
+{
+  moveit_msgs::msg::CollisionObject obj;
+  obj.id = segment.id;
+  obj.header.frame_id = frame_id;
+
+  shape_msgs::msg::SolidPrimitive prim;
+  prim.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
+  prim.dimensions.resize(2);
+  prim.dimensions[0] = static_cast<double>(segment.length);
+  prim.dimensions[1] = static_cast<double>(segment.radius);
+  obj.primitives.push_back(prim);
+
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = segment.center.x();
+  pose.position.y = segment.center.y();
+  pose.position.z = segment.center.z();
+  geometry_msgs::msg::Vector3 axis_msg;
+  axis_msg.x = segment.axis.x();
+  axis_msg.y = segment.axis.y();
+  axis_msg.z = segment.axis.z();
+  pose.orientation = buildCylinderCollisionOrientationFromAxis(axis_msg);
+  obj.primitive_poses.push_back(pose);
+  obj.operation = operation;
+  return obj;
 }
 
 }  // namespace orion_mtc

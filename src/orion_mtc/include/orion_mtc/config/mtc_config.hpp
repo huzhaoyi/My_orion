@@ -4,6 +4,7 @@
 #define ORION_MTC_CONFIG_MTC_CONFIG_HPP
 
 #include <string>
+#include <vector>
 
 namespace rclcpp
 {
@@ -12,6 +13,20 @@ class Node;
 
 namespace orion_mtc
 {
+
+/** 缆绳侧向抓取候选参数（approach/axial/roll 多候选）+ 分段碰撞参数 */
+struct CableGraspConfig
+{
+  std::vector<double> approach_dist_candidates{ 0.10, 0.08, 0.06, 0.04 };
+  std::vector<double> axial_shift_candidates{ -0.05, 0.0, 0.05 };
+  std::vector<double> roll_candidates_deg{ 0.0, 180.0 };
+  double retreat_dist = 0.05;
+  /* 缆绳分段碰撞：总长、每段长、半径、抓取邻域段数（局部 ACM 的邻域） */
+  double cable_total_length = 3.0;
+  double cable_segment_length = 0.25;
+  double cable_radius = 0.025;
+  int grasp_neighbor_segments = 1;
+};
 
 struct MTCConfig
 {
@@ -46,11 +61,8 @@ struct MTCConfig
   double retreat_short_max_dist = 0.05f;
   /* 退离第二段（long leave）使用 retreat_min_dist / retreat_max_dist */
 
-  /* base_link 下的“上方向”定义（单位向量）：用于 TOP_DOWN（正上方下压）抓取。
-   * 若你的 base_link +Z 在仿真里实际指向“下”（常见于水下/ENU-NED 约定差异），把该向量设为 (0,0,-1)。 */
-  double up_dir_x = 0.0;
-  double up_dir_y = 0.0;
-  double up_dir_z = 1.0;
+  /* 缆绳侧向抓取候选参数 */
+  CableGraspConfig cable_grasp;
 };
 
 /* 在 node 上声明参数（若已声明则跳过，避免 ParameterAlreadyDeclaredException） */

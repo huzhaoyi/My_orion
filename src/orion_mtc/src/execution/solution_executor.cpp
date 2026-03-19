@@ -223,19 +223,28 @@ bool SolutionExecutor::executePickSolution(
     {
       last_trajectory = sub.trajectory.joint_trajectory;
     }
-    if (sceneDiffHasAttach(sub) && !last_trajectory.points.empty())
+    const bool has_attach = sceneDiffHasAttach(sub);
+    const bool is_remove_cable_segments = (name == "remove_cable_segments");
+    if ((has_attach || is_remove_cable_segments) && !last_trajectory.points.empty())
     {
-      /* attach 已通过 executeSubTrajectory 应用，兜底移除 world 中同名物体，避免 scene 双份导致规划碰撞 */
-      if (scene_manager_)
+      if (has_attach && scene_manager_)
       {
         scene_manager_->removeWorldObject("object");
+      }
+      if (is_remove_cable_segments && scene_manager_)
+      {
+        for (int k = 0; k < 16; ++k)
+        {
+          std::string seg_id = "cable_seg_" + std::to_string(k);
+          scene_manager_->removeWorldObject(seg_id);
+        }
       }
       geometry_msgs::msg::Pose tcp_pose;
       if (computeTcpPoseFromTrajectoryEnd(robot_model, last_trajectory, hand_frame, tcp_pose))
       {
         held_context_out.valid = true;
         held_context_out.object_id = object_id.empty() ? "object" : object_id;
-        held_context_out.scene_attach_id = "object";
+        held_context_out.scene_attach_id = has_attach ? "object" : "";
         held_context_out.attach_link = hand_frame;
         held_context_out.object_pose_at_grasp = object_pose_at_grasp;
         held_context_out.tcp_pose_at_grasp = tcp_pose;
@@ -251,8 +260,8 @@ bool SolutionExecutor::executePickSolution(
                                              object_pose_at_grasp.orientation.y,
                                              object_pose_at_grasp.orientation.z));
         held_context_out.tcp_to_object = T_base_tcp.inverse() * T_base_obj;
-        RCLCPP_INFO(LOGGER, "executePickSolution: saved held context object_id=%s",
-                    held_context_out.object_id.c_str());
+        RCLCPP_INFO(LOGGER, "executePickSolution: saved held context object_id=%s (attach=%d)",
+                    held_context_out.object_id.c_str(), static_cast<int>(has_attach));
       }
       else
       {
