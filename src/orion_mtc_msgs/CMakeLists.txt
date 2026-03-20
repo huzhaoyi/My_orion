@@ -14,7 +14,6 @@ find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/JobExecutionRecord.msg"
-  "msg/TargetSet.msg"
   "msg/PerceptionState.msg"
   "msg/RuntimeStatus.msg"
   "msg/JobEvent.msg"

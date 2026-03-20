@@ -36,10 +36,6 @@ public:
   std::vector<PlaceCandidate> generate(const geometry_msgs::msg::PoseStamped& target_pose,
                                        const HeldObjectContext& held) const;
 
-  /** 从 PlaceTarget 生成候选（区域内有 axis 时用 axis_direction 补足姿态） */
-  std::vector<PlaceCandidate> generateFromTarget(const PlaceTarget& target,
-                                                  const HeldObjectContext& held) const;
-
   void setParams(const PlaceGeneratorParams& params);
 
 private:

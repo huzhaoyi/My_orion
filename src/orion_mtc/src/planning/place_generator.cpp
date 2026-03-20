@@ -97,62 +97,6 @@ std::vector<PlaceCandidate> PlaceGenerator::generate(
   return out;
 }
 
-std::vector<PlaceCandidate> PlaceGenerator::generateFromTarget(const PlaceTarget& target,
-                                                               const HeldObjectContext& held) const
-{
-  geometry_msgs::msg::PoseStamped ps;
-  ps.header.frame_id = params_.frame_id;
-  ps.pose.position.x = target.position.x;
-  ps.pose.position.y = target.position.y;
-  ps.pose.position.z = target.position.z;
-  if (target.has_axis_direction)
-  {
-    double dx = target.axis_direction.x;
-    double dy = target.axis_direction.y;
-    double dz = target.axis_direction.z;
-    double n = std::sqrt(dx * dx + dy * dy + dz * dz);
-    if (n < 1e-9)
-    {
-      ps.pose.orientation.w = 1.0;
-      ps.pose.orientation.x = ps.pose.orientation.y = ps.pose.orientation.z = 0.0;
-    }
-    else
-    {
-      dx /= n;
-      dy /= n;
-      dz /= n;
-      Eigen::Vector3d z(dx, dy, dz);
-      Eigen::Vector3d up(0.0, 0.0, 1.0);
-      Eigen::Vector3d x = up.cross(z);
-      double xn = x.norm();
-      if (xn < 1e-9)
-      {
-        x = Eigen::Vector3d(1.0, 0.0, 0.0);
-      }
-      else
-      {
-        x /= xn;
-      }
-      Eigen::Vector3d y = z.cross(x);
-      Eigen::Matrix3d R;
-      R.col(0) = x;
-      R.col(1) = y;
-      R.col(2) = z;
-      Eigen::Quaterniond q(R);
-      ps.pose.orientation.x = q.x();
-      ps.pose.orientation.y = q.y();
-      ps.pose.orientation.z = q.z();
-      ps.pose.orientation.w = q.w();
-    }
-  }
-  else
-  {
-    ps.pose.orientation.w = 1.0;
-    ps.pose.orientation.x = ps.pose.orientation.y = ps.pose.orientation.z = 0.0;
-  }
-  return generate(ps, held);
-}
-
 void PlaceGenerator::setParams(const PlaceGeneratorParams& params)
 {
   params_ = params;

@@ -3,14 +3,7 @@
 # 2) 在 orion_moveit_config/config/joint_limits.yaml 为各关节加 has_position_limits/min_position/max_position（实机限位），避免规划到不可达姿态；
 # 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
 
-# Approach: 沿末端 z 接近物体的距离范围 [m]
-# 没夹到时可调：1) 增大 approach_object_min_dist（如 0.12）让 approach 至少走够远；
-# 2) 略减 approach_object_max_dist（如 0.12）让预抓取更低、更贴近物体；3) 增大 approach_min_fraction（如 0.9~1.0）
-approach_object_min_dist: 0.08
-approach_object_max_dist: 0.15
-# approach 段最少走满距离的比例 [0,1]，越大越易夹到（末端更贴近再闭合），实机没夹到可试 0.9 或 1.0
-approach_min_fraction: 0.95
-# Lift: 抬升距离范围 [m]，min 过大会在自碰/限位时整段失败
+# Lift: 缆绳 pick 抬升段距离范围 [m]（见 pick_task_builder）；min 过大会在自碰/限位时整段失败
 lift_object_min_dist: 0.05
 lift_object_max_dist: 0.25
 
@@ -36,14 +29,23 @@ place_transport_pose: "transport"
 
 # 缆绳侧向抓取候选参数（5cm 缆绳推荐）+ 分段碰撞
 cable_side_grasp:
+  # 预抓距闭合准备位沿接近方向 n 的位移 [m]；浅预抓利于 IK
+  pregrasp_offset_candidates: [0.030, 0.040, 0.050]
+  grasp_depth_candidates: [0.010, 0.015, 0.020]
+  # 未配置 pregrasp_offset_candidates 时回退使用 approach_dist_candidates
   approach_dist_candidates: [0.10, 0.08, 0.06, 0.04]
+  # gripper_tcp 相对抓取语义系（y=缆绳轴、z=接近方向）的固定安装补偿，ZYX 外旋，单位 °；标定后填入
+  tcp_bias_rpy_deg: [0.0, 0.0, 0.0]
   retreat_dist: 0.05
   axial_shift_candidates: [-0.05, 0.0, 0.05]
-  roll_candidates_deg: [0.0, 180.0]
+  roll_candidates_deg: [0.0]
   cable_total_length: 3.0
   cable_segment_length: 0.25
   cable_radius: 0.025
   grasp_neighbor_segments: 1
+  # Pilz LIN 预抓→闭合位：降低缩放避免超过 joint_limits max_acceleration（常见 0.5）；仍报超限再减小加速度项
+  approach_lin_velocity_scaling: 0.5
+  approach_lin_acceleration_scaling: 0.35
 
 # Retreat 第一段（short clear）[m]，先脱离释放区；第二段用 retreat_min/max_dist
 retreat_short_min_dist: 0.03
@@ -57,7 +59,6 @@ lower_to_place_min_dist: 0.05
 lower_to_place_max_dist: 0.12
 
 # 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped，frame_id=base_link），不在此配置
-# 预抓取位姿由物体位置计算：pregrasp = (obj_x, obj_y, obj_z + approach_object_max_dist)，夹爪朝下
 #
 # 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped（std_msgs/Float32）判断抓稳再抬升，
 # 放置“张开”段后根据 left_arm_gripped 从 lock 变为 unlock 再退离。left_arm_gripped 由 arm_sensor_to_joint_state 从 HoloOcean ArmSensor 发布。

@@ -56,7 +56,7 @@ private:
                const std::string& code, int32_t level, const std::string& message,
                const std::string& field, double value, double threshold,
                const std::string& suggestion);
-  /* 内部：对给定 Link6 位姿做 IK，返回是否可解及关节余量诊断 */
+  /* 内部：对给定末端参考 link（默认 gripper_tcp）位姿做 IK，返回是否可解及关节余量诊断 */
   bool runIkAndJointMargin(const std::string& group_name, const std::string& link_name,
                           double px, double py, double pz,
                           double qx, double qy, double qz, double qw,

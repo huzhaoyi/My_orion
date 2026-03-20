@@ -177,14 +177,15 @@ bool SolutionExecutor::executePickSolution(
     StageReportFn stage_report,
     const std::string& job_id,
     const std::string& task_type,
-    const std::vector<std::string>& stage_names)
+    const std::vector<std::string>& stage_names,
+    const std::vector<std::string>& cable_world_object_ids)
 {
   if (solution_msg.sub_trajectory.empty())
   {
     RCLCPP_WARN(LOGGER, "executePickSolution: no sub_trajectory");
     return false;
   }
-  const std::string hand_frame = "Link6";
+  const std::string hand_frame = "gripper_tcp";
   trajectory_msgs::msg::JointTrajectory last_trajectory;
   bool have_waited_gripped = false;
 
@@ -231,11 +232,10 @@ bool SolutionExecutor::executePickSolution(
       {
         scene_manager_->removeWorldObject("object");
       }
-      if (is_remove_cable_segments && scene_manager_)
+      if (is_remove_cable_segments && scene_manager_ && !cable_world_object_ids.empty())
       {
-        for (int k = 0; k < 16; ++k)
+        for (const std::string& seg_id : cable_world_object_ids)
         {
-          std::string seg_id = "cable_seg_" + std::to_string(k);
           scene_manager_->removeWorldObject(seg_id);
         }
       }

@@ -13,40 +13,49 @@ constexpr double MIN_NORMAL_PROJECTION = 1e-6;
 constexpr double M_PI_D = 3.14159265358979323846;
 }
 
-/* 在垂直于缆绳轴 d 的平面内构造侧向法向候选：优先 world Z/Y/X 投影，得到 ±n */
-static std::vector<Eigen::Vector3d> makeSideNormals(const Eigen::Vector3d& d)
+/* 在垂直于缆绳轴 d 的平面内构造绕轴方向旋转的侧向法向候选 */
+static std::vector<Eigen::Vector3d> makeSideNormals(
+    const Eigen::Vector3d& d,
+    const std::vector<double>& around_axis_deg)
 {
-  std::vector<Eigen::Vector3d> refs = {
-      Eigen::Vector3d::UnitZ(),
-      Eigen::Vector3d::UnitY(),
-      Eigen::Vector3d::UnitX(),
-  };
-
-  for (const auto& ref : refs)
+  Eigen::Vector3d axis = d.normalized();
+  Eigen::Vector3d base = Eigen::Vector3d::UnitZ().cross(axis);
+  if (base.norm() < MIN_NORMAL_PROJECTION)
   {
-    Eigen::Vector3d proj = ref - ref.dot(d) * d;
-    if (proj.norm() > MIN_NORMAL_PROJECTION)
-    {
-      Eigen::Vector3d n = proj.normalized();
-      return { n, -n };
-    }
+    base = Eigen::Vector3d::UnitY().cross(axis);
   }
-  return {};
+  if (base.norm() < MIN_NORMAL_PROJECTION)
+  {
+    base = Eigen::Vector3d::UnitX().cross(axis);
+  }
+  if (base.norm() < MIN_NORMAL_PROJECTION)
+  {
+    return {};
+  }
+  base.normalize();
+
+  std::vector<Eigen::Vector3d> normals;
+  for (double deg : around_axis_deg)
+  {
+    double rad = deg * M_PI_D / 180.0;
+    Eigen::Quaterniond rot(Eigen::AngleAxisd(rad, axis));
+    normals.push_back((rot * base).normalized());
+  }
+  return normals;
 }
 
-/* 抓取系：x=缆绳轴，z=接近方向，y=z×x */
+/* 抓取系与 URDF gripper_tcp 一致：y=缆绳轴，z=接近方向，x=y×z（右手系） */
 static Eigen::Matrix3d makeBaseRotation(const Eigen::Vector3d& axis_d,
                                        const Eigen::Vector3d& approach_n)
 {
-  Eigen::Vector3d x = axis_d.normalized();
-  Eigen::Vector3d z = approach_n.normalized();
-  Eigen::Vector3d y = z.cross(x).normalized();
-  x = y.cross(z).normalized();
+  Eigen::Vector3d y_axis = axis_d.normalized();
+  Eigen::Vector3d z_axis = approach_n.normalized();
+  Eigen::Vector3d x_axis = y_axis.cross(z_axis).normalized();
 
   Eigen::Matrix3d R;
-  R.col(0) = x;
-  R.col(1) = y;
-  R.col(2) = z;
+  R.col(0) = x_axis;
+  R.col(1) = y_axis;
+  R.col(2) = z_axis;
   return R;
 }
 
@@ -55,6 +64,21 @@ static Eigen::Matrix3d rotateAboutAxis(const Eigen::Vector3d& axis, double angle
 {
   Eigen::AngleAxisd aa(angle_rad, axis.normalized());
   return aa.toRotationMatrix();
+}
+
+static Eigen::Matrix3d tcpBiasFromRpyDeg(const std::vector<double>& rpy_deg)
+{
+  if (rpy_deg.size() < 3U)
+  {
+    return Eigen::Matrix3d::Identity();
+  }
+  double rx = rpy_deg[0] * M_PI_D / 180.0;
+  double ry = rpy_deg[1] * M_PI_D / 180.0;
+  double rz = rpy_deg[2] * M_PI_D / 180.0;
+  Eigen::Matrix3d R = Eigen::AngleAxisd(rz, Eigen::Vector3d::UnitZ()).toRotationMatrix() *
+                      Eigen::AngleAxisd(ry, Eigen::Vector3d::UnitY()).toRotationMatrix() *
+                      Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()).toRotationMatrix();
+  return R;
 }
 
 std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
@@ -68,7 +92,16 @@ std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& c
     return out;
   }
 
-  auto normals = makeSideNormals(d);
+  const std::vector<double>& pre_offsets =
+      !cfg.pregrasp_offset_candidates.empty() ? cfg.pregrasp_offset_candidates : cfg.approach_dist_candidates;
+  if (pre_offsets.empty())
+  {
+    return out;
+  }
+
+  Eigen::Matrix3d R_tcp_bias = tcpBiasFromRpyDeg(cfg.tcp_bias_rpy_deg);
+
+  auto normals = makeSideNormals(d, cfg.approach_around_axis_candidates_deg);
   if (normals.empty())
   {
     return out;
@@ -81,40 +114,46 @@ std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& c
   for (const auto& n : normals)
   {
     Eigen::Matrix3d R0 = makeBaseRotation(d, n);
+    Eigen::Matrix3d R_side_bias = R0 * R_tcp_bias;
 
     for (double shift : cfg.axial_shift_candidates)
     {
-      Eigen::Vector3d p_shift = cable.position + d * shift;
+      Eigen::Vector3d p_center = cable.position + d * shift;
 
       for (double roll_deg : cfg.roll_candidates_deg)
       {
         double roll_rad = roll_deg * M_PI_D / 180.0;
-        Eigen::Matrix3d R = R0 * rotateAboutAxis(d, roll_rad);
+        Eigen::Matrix3d R = R_side_bias * rotateAboutAxis(d, roll_rad);
 
-        for (double ad : cfg.approach_dist_candidates)
+        for (double grasp_depth : cfg.grasp_depth_candidates)
         {
-          CableGraspCandidate c;
-          c.grasp_pose = Eigen::Isometry3d::Identity();
-          c.grasp_pose.linear() = R;
-          c.grasp_pose.translation() = p_shift;
+          Eigen::Vector3d p_closure = p_center - n * grasp_depth;
 
-          c.pregrasp_pose = Eigen::Isometry3d::Identity();
-          c.pregrasp_pose.linear() = R;
-          c.pregrasp_pose.translation() = p_shift - n * ad;
-
-          c.approach_dir = n;
-          c.retreat_dir = -n;
-          c.approach_dist = ad;
-          c.retreat_dist = cfg.retreat_dist;
-
-          c.score = std::abs(shift) + 0.5 * ad + (roll_deg == 0.0 ? 0.0 : 0.1);
-          if (num_segments > 0)
+          for (double pre_off : pre_offsets)
           {
-            c.nearest_segment_index = nearestSegmentIndex(p_shift, segments);
-            c.local_segment_indices = localSegmentIndices(
-                c.nearest_segment_index, cfg.grasp_neighbor_segments, num_segments);
+            CableGraspCandidate c;
+            c.grasp_pose = Eigen::Isometry3d::Identity();
+            c.grasp_pose.linear() = R;
+            c.grasp_pose.translation() = p_closure;
+
+            c.pregrasp_pose = Eigen::Isometry3d::Identity();
+            c.pregrasp_pose.linear() = R;
+            c.pregrasp_pose.translation() = p_closure - n * pre_off;
+
+            c.approach_dir = n;
+            c.retreat_dir = -n;
+            c.approach_dist = pre_off;
+            c.retreat_dist = cfg.retreat_dist;
+
+            c.score = std::abs(shift) + 0.1 * grasp_depth + 0.5 * pre_off + (roll_deg == 0.0 ? 0.0 : 0.1);
+            if (num_segments > 0)
+            {
+              c.nearest_segment_index = nearestSegmentIndex(p_closure, segments);
+              c.local_segment_indices = localSegmentIndices(
+                  c.nearest_segment_index, cfg.grasp_neighbor_segments, num_segments);
+            }
+            out.push_back(c);
           }
-          out.push_back(c);
         }
       }
     }

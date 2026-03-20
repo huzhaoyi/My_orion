@@ -52,7 +52,8 @@ public:
                       const std::string& task_type = "",
                       const std::vector<std::string>& stage_names = {});
 
-  /* Pick 专用：执行中在 attach 段后根据末端 FK 填充 held_context_out。可选 stage_report 同上 */
+  /* Pick 专用：执行中在 attach 段后根据末端 FK 填充 held_context_out。可选 stage_report 同上。
+   * cable_world_object_ids：与 pick 任务中 add 的 world 缆绳段 id 一致，用于 remove 后同步 scene；空则不再额外扫 id */
   bool executePickSolution(const moveit_task_constructor_msgs::msg::Solution& solution_msg,
                           const geometry_msgs::msg::Pose& object_pose_at_grasp,
                           const std::string& object_id,
@@ -62,7 +63,8 @@ public:
                           StageReportFn stage_report = nullptr,
                           const std::string& job_id = "",
                           const std::string& task_type = "",
-                          const std::vector<std::string>& stage_names = {});
+                          const std::vector<std::string>& stage_names = {},
+                          const std::vector<std::string>& cable_world_object_ids = {});
 
 private:
   PlanningSceneManager* scene_manager_;

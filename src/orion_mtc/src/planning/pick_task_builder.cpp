@@ -44,6 +44,8 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
   ptp_planner->setPlannerId("PTP");
   auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   lin_planner->setPlannerId("LIN");
+  lin_planner->setMaxVelocityScalingFactor(config_.cable_grasp.approach_lin_velocity_scaling);
+  lin_planner->setMaxAccelerationScalingFactor(config_.cable_grasp.approach_lin_acceleration_scaling);
   auto ompl_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "move_group");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();

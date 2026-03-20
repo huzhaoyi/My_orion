@@ -1,4 +1,4 @@
-/* 缆绳侧向包夹抓取：基于缆绳中点 + 切线方向生成候选（tool_x=缆绳轴，tool_z=接近方向） */
+/* 缆绳侧向包夹抓取：tool_y=缆绳轴、tool_z=接近方向（与 orion gripper_tcp / Link6 一致） */
 
 #ifndef ORION_MTC_PLANNING_CABLE_SIDE_GRASP_HPP
 #define ORION_MTC_PLANNING_CABLE_SIDE_GRASP_HPP

@@ -51,8 +51,9 @@ enum class CablePickFailReason
   EXECUTION_FAILED,
 };
 
-/* PICK 任务 MTC 阶段名（缆绳分段侧抓：add_cable_segments、局部 ACM、remove_cable_segments） */
+/* PICK 任务 MTC 阶段名（与 MTC 子轨迹顺序对齐：首段为 CurrentState） */
 static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
+    "current",
     "move to ready",
     "add_cable_segments",
     "open hand",
@@ -367,6 +368,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         config_.cable_grasp.cable_total_length,
         config_.cable_grasp.cable_segment_length,
         config_.cable_grasp.cable_radius);
+    std::vector<std::string> cable_world_ids;
+    cable_world_ids.reserve(segments.size());
+    for (const auto& seg : segments)
+    {
+      cable_world_ids.push_back(seg.id);
+    }
     std::vector<CableGraspCandidate> candidates =
         generateCableSideGrasps(cable, config_.cable_grasp);
     const std::string plan_frame = "base_link";
@@ -423,30 +430,77 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
 
+    planning_scene::PlanningScenePtr scene_for_ik_seed;
+    if (robot_model && has_scene_base_msg)
+    {
+      scene_for_ik_seed = std::make_shared<planning_scene::PlanningScene>(robot_model);
+      scene_for_ik_seed->setPlanningSceneMsg(scene_base_msg);
+    }
+
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
       const CableGraspCandidate& cand = candidates[i];
-      const Eigen::Vector3d p = cand.pregrasp_pose.translation();
-      const Eigen::Quaterniond q(cand.pregrasp_pose.linear());
+      const Eigen::Vector3d p_grasp = cand.grasp_pose.translation();
+      const Eigen::Quaterniond q_grasp(cand.grasp_pose.linear());
+      const Eigen::Vector3d p_pregrasp = cand.pregrasp_pose.translation();
+      const Eigen::Quaterniond q_pregrasp(cand.pregrasp_pose.linear());
+
+      RCLCPP_INFO(LOGGER,
+                  "handlePick: candidate %zu grasp frame=%s pos=[%.4f %.4f %.4f] quat=[%.4f %.4f %.4f %.4f]",
+                  i, plan_frame.c_str(), p_grasp.x(), p_grasp.y(), p_grasp.z(), q_grasp.x(), q_grasp.y(),
+                  q_grasp.z(), q_grasp.w());
       RCLCPP_INFO(LOGGER,
                   "handlePick: candidate %zu pregrasp frame=%s pos=[%.4f %.4f %.4f] quat=[%.4f %.4f %.4f %.4f]",
-                  i, plan_frame.c_str(), p.x(), p.y(), p.z(), q.x(), q.y(), q.z(), q.w());
+                  i, plan_frame.c_str(), p_pregrasp.x(), p_pregrasp.y(), p_pregrasp.z(), q_pregrasp.x(),
+                  q_pregrasp.y(), q_pregrasp.z(), q_pregrasp.w());
+
       if (robot_model)
       {
         const moveit::core::JointModelGroup* jmg = robot_model->getJointModelGroup(arm_group_name);
         moveit::core::RobotState state(robot_model);
-        state.setToDefaultValues();
-        bool ik_ok = false;
+        if (scene_for_ik_seed)
+        {
+          state = scene_for_ik_seed->getCurrentState();
+        }
+        else
+        {
+          state.setToDefaultValues();
+        }
+
+        bool grasp_ik_ok = false;
         if (jmg)
         {
-          ik_ok = state.setFromIK(jmg, cand.pregrasp_pose, hand_frame, 0.15);
+          grasp_ik_ok = state.setFromIK(jmg, cand.grasp_pose, hand_frame, 0.15);
         }
-        RCLCPP_INFO(LOGGER, "handlePick: candidate %zu IK %s", i, ik_ok ? "success" : "fail");
-        if (!ik_ok)
+        RCLCPP_INFO(LOGGER, "handlePick: candidate %zu grasp IK %s", i,
+                    grasp_ik_ok ? "success" : "fail");
+        if (!grasp_ik_ok)
         {
           fail_reasons.push_back(CablePickFailReason::NO_IK);
           continue;
         }
+
+        bool pregrasp_ik_ok = false;
+        if (scene_for_ik_seed)
+        {
+          state = scene_for_ik_seed->getCurrentState();
+        }
+        else
+        {
+          state.setToDefaultValues();
+        }
+        if (jmg)
+        {
+          pregrasp_ik_ok = state.setFromIK(jmg, cand.pregrasp_pose, hand_frame, 0.15);
+        }
+        RCLCPP_INFO(LOGGER, "handlePick: candidate %zu pregrasp IK %s", i,
+                    pregrasp_ik_ok ? "success" : "fail");
+        if (!pregrasp_ik_ok)
+        {
+          fail_reasons.push_back(CablePickFailReason::NO_IK);
+          continue;
+        }
+
         state.update();
         if (jmg && !state.satisfiesBounds(jmg))
         {
@@ -530,7 +584,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               solution_msg, object_pose_at_grasp,
               held_id,
               task.getRobotModel(), new_held, wait_for_gripped_fn_,
-              stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_CABLE_SIDE))
+              stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_CABLE_SIDE,
+              cable_world_ids))
       {
         std::lock_guard<std::mutex> lock(state_mutex_);
         held_object_ = new_held;
@@ -1112,7 +1167,7 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
       held_object_.valid = true;
       held_object_.object_id = object_id.empty() ? "object" : object_id;
       held_object_.scene_attach_id = "held_tracked";
-      held_object_.attach_link = "Link6";
+      held_object_.attach_link = "gripper_tcp";
       held_object_.object_pose_at_grasp = object_pose;
       held_object_.tcp_pose_at_grasp = tcp_pose;
       held_object_.tcp_to_object = tcp_to_obj;
@@ -1127,7 +1182,7 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
       held_object_.valid = true;
       held_object_.object_id = object_id.empty() ? "unknown" : object_id;
       held_object_.scene_attach_id = "held_unknown";
-      held_object_.attach_link = "Link6";
+      held_object_.attach_link = "gripper_tcp";
       held_object_.tcp_to_object = Eigen::Isometry3d::Identity();
       task_mode_ = RobotTaskMode::HOLDING_UNTRACKED;
       out_message = "HOLDING_UNTRACKED (only place_release allowed)";

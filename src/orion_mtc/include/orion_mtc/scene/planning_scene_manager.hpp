@@ -38,8 +38,8 @@ public:
   /* 从 world 中移除指定 id 的碰撞体（抓取 attach 后兜底清理，避免 scene 双份物体） */
   bool removeWorldObject(const std::string& object_id);
 
-  /* sync(tracked=true) 时把 target 几何 attach 到 Link6，id=held_tracked。
-   * grasp_offset_along_axis [m]：夹持点沿物体 Z 相对几何中心的偏移，圆柱中心在 Link6 下再沿轴偏移 -grasp_offset */
+  /* sync(tracked=true) 时把 target 几何 attach 到 gripper_tcp（与 tcp_to_object 同系），id=held_tracked。
+   * grasp_offset_along_axis [m]：夹持点沿物体 Z 相对几何中心的偏移，圆柱中心在 TCP 下再沿轴偏移 -grasp_offset */
   bool applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object,
                                          double grasp_offset_along_axis = 0.0);
 

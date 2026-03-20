@@ -174,7 +174,8 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
     return false;
   }
   moveit_msgs::msg::AttachedCollisionObject att;
-  att.link_name = "Link6";
+  /* held_unknown 包络在 Link6；held_tracked / object 与规划 TCP 一致，挂在 gripper_tcp */
+  att.link_name = (object_id == "held_unknown") ? "Link6" : "gripper_tcp";
   att.object.id = object_id;
   att.object.header.frame_id = "base_link";
   att.object.operation = moveit_msgs::msg::CollisionObject::REMOVE;
@@ -236,17 +237,17 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
     RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: apply_planning_scene not available");
     return false;
   }
-  /* 圆柱中心在 Link6 下：原 tcp_to_object 再沿物体 Z 反向偏移 grasp_offset，使 Link6 对应夹持点 */
-  Eigen::Vector3d center_in_link6 = tcp_to_object.translation();
+  /* tcp_to_object = T_tcp_obj：位姿在 gripper_tcp 系；附加重载也用 gripper_tcp，避免漏乘 T_link6_tcp */
+  Eigen::Vector3d center_in_tcp = tcp_to_object.translation();
   if (std::abs(grasp_offset_along_axis) > 1e-6)
   {
-    Eigen::Vector3d cable_axis_in_link6 = tcp_to_object.rotation().inverse() * Eigen::Vector3d::UnitZ();
-    center_in_link6 += (-grasp_offset_along_axis) * cable_axis_in_link6;
+    Eigen::Vector3d cable_axis_in_tcp = tcp_to_object.rotation().inverse() * Eigen::Vector3d::UnitZ();
+    center_in_tcp += (-grasp_offset_along_axis) * cable_axis_in_tcp;
   }
   geometry_msgs::msg::Pose tcp_object_pose;
-  tcp_object_pose.position.x = center_in_link6.x();
-  tcp_object_pose.position.y = center_in_link6.y();
-  tcp_object_pose.position.z = center_in_link6.z();
+  tcp_object_pose.position.x = center_in_tcp.x();
+  tcp_object_pose.position.y = center_in_tcp.y();
+  tcp_object_pose.position.z = center_in_tcp.z();
   Eigen::Quaterniond q_rot(tcp_to_object.rotation());
   tcp_object_pose.orientation.x = q_rot.x();
   tcp_object_pose.orientation.y = q_rot.y();
@@ -260,12 +261,12 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   rod_local.orientation.x = 0.0;
   rod_local.orientation.y = 0.0;
   rod_local.orientation.z = 0.0;
-  geometry_msgs::msg::Pose rod_in_link6 = composePose(tcp_object_pose, rod_local);
+  geometry_msgs::msg::Pose rod_in_tcp = composePose(tcp_object_pose, rod_local);
 
   moveit_msgs::msg::AttachedCollisionObject att;
-  att.link_name = "Link6";
+  att.link_name = "gripper_tcp";
   att.object.id = "held_tracked";
-  att.object.header.frame_id = "Link6";
+  att.object.header.frame_id = "gripper_tcp";
   att.object.header.stamp = node_->now();
   att.object.pose.position.x = 0.0;
   att.object.pose.position.y = 0.0;
@@ -279,9 +280,9 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   // 缆绳建模：3m 长、直径 5cm 的圆柱体（MoveIt SolidPrimitive::CYLINDER: [height, radius]）
   rod.dimensions = { 3.0f, 0.025f };
   att.object.primitives.push_back(rod);
-  att.object.primitive_poses.push_back(rod_in_link6);
+  att.object.primitive_poses.push_back(rod_in_tcp);
   att.object.operation = moveit_msgs::msg::CollisionObject::ADD;
-  att.touch_links = { "Link6", "Link7", "Link8" };
+  att.touch_links = { "gripper_tcp", "Link6", "Link7", "Link8" };
 
   moveit_msgs::msg::PlanningScene scene;
   scene.is_diff = true;
@@ -301,7 +302,7 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
     RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: apply returned false");
     return false;
   }
-  RCLCPP_INFO(LOGGER, "applyAttachedTrackedObjectToScene: attached held_tracked to Link6");
+  RCLCPP_INFO(LOGGER, "applyAttachedTrackedObjectToScene: attached held_tracked to gripper_tcp");
   return true;
 }
 

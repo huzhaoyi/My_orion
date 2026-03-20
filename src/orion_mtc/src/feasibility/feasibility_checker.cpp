@@ -37,7 +37,7 @@ struct FeasibilityChecker::Impl
   robot_model_loader::RobotModelLoaderPtr loader;
   moveit::core::RobotModelConstPtr robot_model;
   std::string arm_group_name = "arm";
-  std::string hand_frame = "Link6";
+  std::string hand_frame = "gripper_tcp";
   std::mutex joint_state_mutex;
   sensor_msgs::msg::JointState::SharedPtr last_joint_state;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr sub_joint_state;
