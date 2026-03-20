@@ -35,6 +35,7 @@ cable_side_grasp:
   # 未配置 pregrasp_offset_candidates 时回退使用 approach_dist_candidates
   approach_dist_candidates: [0.10, 0.08, 0.06, 0.04]
   # gripper_tcp 相对抓取语义系（y=缆绳轴、z=接近方向）的固定安装补偿，ZYX 外旋，单位 °；标定后填入
+  # 若抓取成功但视觉上仍像「腕部贴缆绳」：优先增大 orion_description/urdf/orion.urdf 中 joint_Link6_gripper_tcp 的 z
   tcp_bias_rpy_deg: [0.0, 0.0, 0.0]
   retreat_dist: 0.05
   axial_shift_candidates: [-0.05, 0.0, 0.05]

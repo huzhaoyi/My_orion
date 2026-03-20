@@ -213,8 +213,8 @@
   <joint name="joint_Link6_gripper_tcp" type="fixed">
     <parent link="Link6"/>
     <child link="gripper_tcp"/>
-    <!-- 参考 joint_Link6_Link7 的 origin z≈0.0499，将 TCP 放在夹爪接触区域附近 -->
-    <origin xyz="0.0 0.0 0.0499" rpy="0.0 0.0 0.0"/>
+    <!-- 规划 TCP：Link6 +Z 朝夹爪前方。过小则 IK 把 TCP 对准缆绳时腕部(Link6)贴近目标；请按指间接触区相对 Link6 在 STL 中量测微调 z（常见 0.08～0.12） -->
+    <origin xyz="0.0 0.0 0.108" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">
