@@ -220,6 +220,8 @@ bool SolutionExecutor::executePickSolution(
     {
       stage_report(job_id, task_type, i, name, "DONE", "");
     }
+    RCLCPP_INFO(LOGGER, "executePickSolution: segment %zu DONE, entering post-process name=%s", i,
+                name.c_str());
     if (!sub.trajectory.joint_trajectory.points.empty())
     {
       last_trajectory = sub.trajectory.joint_trajectory;
@@ -287,7 +289,10 @@ bool SolutionExecutor::executePickSolution(
         }
       }
     }
+    RCLCPP_INFO(LOGGER, "executePickSolution: segment %zu post-process finished name=%s", i,
+                name.c_str());
   }
+  RCLCPP_INFO(LOGGER, "executePickSolution: all segments finished, return true");
   return true;
 }
 

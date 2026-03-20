@@ -587,12 +587,17 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_CABLE_SIDE,
               cable_world_ids))
       {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        held_object_ = new_held;
+        /* setState()/getHeldObject() 均会再锁 state_mutex_，禁止在持锁区内调用 */
+        HeldObjectContext held_copy;
+        {
+          std::lock_guard<std::mutex> lock(state_mutex_);
+          held_object_ = new_held;
+          held_copy = held_object_;
+        }
         setState(RobotTaskMode::HOLDING_TRACKED);
         if (held_object_state_fn_)
         {
-          held_object_state_fn_(getHeldObject());
+          held_object_state_fn_(held_copy);
         }
         RCLCPP_INFO(LOGGER, "handlePick: 缆绳侧抓候选 %zu 成功", i);
         return true;
