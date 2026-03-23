@@ -3,6 +3,7 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace orion_mtc
 {
@@ -81,7 +82,9 @@ static Eigen::Matrix3d tcpBiasFromRpyDeg(const std::vector<double>& rpy_deg)
   return R;
 }
 
-std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
+namespace
+{
+std::vector<CableGraspCandidate> enumerateCableSideGrasps(const CableDetection& cable,
                                                           const CableGraspConfig& cfg)
 {
   std::vector<CableGraspCandidate> out;
@@ -164,6 +167,24 @@ std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& c
               return a.score < b.score;
             });
   return out;
+}
+}  // namespace
+
+std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
+                                                         const CableGraspConfig& cfg)
+{
+  return enumerateCableSideGrasps(cable, cfg);
+}
+
+std::optional<CableGraspCandidate> generateBestCableSideGrasp(const CableDetection& cable,
+                                                               const CableGraspConfig& cfg)
+{
+  std::vector<CableGraspCandidate> v = enumerateCableSideGrasps(cable, cfg);
+  if (v.empty())
+  {
+    return std::nullopt;
+  }
+  return v.front();
 }
 
 void isometryToPose(const Eigen::Isometry3d& T, geometry_msgs::msg::Pose& out)

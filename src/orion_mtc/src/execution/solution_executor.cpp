@@ -200,8 +200,13 @@ bool SolutionExecutor::executePickSolution(
   const std::string& task_type,
   const std::vector<std::string>& stage_names,
   const std::vector<std::string>& cable_world_object_ids,
-  ShouldAbortFn should_abort)
+  ShouldAbortFn should_abort,
+  bool* failed_no_grip_out)
 {
+  if (failed_no_grip_out)
+  {
+    *failed_no_grip_out = false;
+  }
   if (solution_msg.sub_trajectory.empty())
   {
     RCLCPP_WARN(LOGGER, "executePickSolution: no sub_trajectory");
@@ -314,6 +319,10 @@ bool SolutionExecutor::executePickSolution(
         if (!wait_for_gripped(true, 5.0))
         {
           RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout, pick failed (no grip detected)");
+          if (failed_no_grip_out)
+          {
+            *failed_no_grip_out = true;
+          }
           return false;
         }
         have_waited_gripped = true;

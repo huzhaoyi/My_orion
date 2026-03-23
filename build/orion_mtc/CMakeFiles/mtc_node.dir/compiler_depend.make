@@ -3363,6 +3363,7 @@ CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o: /home/huzy/
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__type_support.hpp \
+  /usr/include/c++/11/optional \
   /opt/ros/humble/include/rclcpp/rclcpp/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__builder.hpp \
@@ -3778,7 +3779,6 @@ CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o: /home/huzy/
   /usr/include/c++/11/future \
   /usr/include/c++/11/bits/atomic_futex.h \
   /usr/include/c++/11/bits/std_thread.h \
-  /usr/include/c++/11/optional \
   /usr/include/c++/11/variant \
   /opt/ros/humble/include/rclcpp/rclcpp/detail/cpp_callback_trampoline.hpp \
   /opt/ros/humble/include/rclcpp/rclcpp/exceptions.hpp \
@@ -18044,6 +18044,7 @@ CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o: /home/huzy/My_orion
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__type_support.hpp \
+  /usr/include/c++/11/optional \
   /opt/ros/humble/include/rclcpp/rclcpp/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__builder.hpp \
@@ -19131,6 +19132,7 @@ CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o: /home/huzy/My_orio
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3__traits.hpp \
   /opt/ros/humble/include/geometry_msgs/geometry_msgs/msg/detail/vector3_stamped__type_support.hpp \
+  /usr/include/c++/11/optional \
   /opt/ros/humble/include/rclcpp/rclcpp/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/time.hpp \
   /opt/ros/humble/include/builtin_interfaces/builtin_interfaces/msg/detail/time__builder.hpp \
@@ -19479,7 +19481,6 @@ CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o: /home/huzy/My_orio
   /usr/include/c++/11/future \
   /usr/include/c++/11/bits/atomic_futex.h \
   /usr/include/c++/11/bits/std_thread.h \
-  /usr/include/c++/11/optional \
   /usr/include/c++/11/variant \
   /opt/ros/humble/include/rcl/rcl/client.h \
   /opt/ros/humble/include/rcl/rcl/event_callback.h \

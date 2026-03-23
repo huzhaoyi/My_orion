@@ -28,6 +28,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -210,7 +211,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     return false;
   }
 
-  /* 缆绳侧向包夹 + 分段碰撞：生成段、多候选逐个尝试，成功即返回 */
+  /* 缆绳侧向包夹 + 分段碰撞：多候选按 score 排序；预检/规划失败可换下一候选；夹紧超时则回 ready 不再试 */
   {
     CableDetection cable;
     cable.position = Eigen::Vector3d(obj_x, obj_y, obj_z);
@@ -230,11 +231,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       cable_world_ids.push_back(seg.id);
     }
-    std::vector<CableGraspCandidate> candidates =
-        generateCableSideGrasps(cable, config_.cable_grasp);
+    std::vector<CableGraspCandidate> candidates = generateCableSideGrasps(cable, config_.cable_grasp);
     const std::string plan_frame = "base_link";
     const std::string held_id = object_id.empty() ? "cable" : object_id;
-    std::vector<CablePickFailReason> fail_reasons;
     moveit::core::RobotModelConstPtr robot_model;
     moveit_msgs::msg::PlanningScene scene_base_msg;
     bool has_scene_base_msg = false;
@@ -293,6 +292,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       scene_for_ik_seed->setPlanningSceneMsg(scene_base_msg);
     }
 
+    if (candidates.empty())
+    {
+      RCLCPP_ERROR(LOGGER, "handlePick: 无侧抓候选");
+      setStateError("CABLE_SIDE_GRASP: 无侧抓候选");
+      return false;
+    }
+
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
       if (estop_requested_.load())
@@ -321,7 +327,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                                            scene_base_msg, segments, plan_frame, arm_group_name, hand_frame,
                                            &pre_reason))
       {
-        fail_reasons.push_back(pre_reason);
+        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu 预检失败 (%s)，试下一候选", i,
+                    cablePickFailReasonTag(pre_reason));
         continue;
       }
       mtc::Task task = pick_builder_->buildFromCableCandidate(segments, cand, plan_frame);
@@ -333,8 +340,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
       catch (mtc::InitStageException& e)
       {
-        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu INIT_FAILED: %s", i, e.what());
-        fail_reasons.push_back(CablePickFailReason::INIT_FAILED);
+        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu INIT_FAILED: %s，试下一候选", i, e.what());
         continue;
       }
       moveit::core::MoveItErrorCode plan_result = task.plan(5);
@@ -342,8 +348,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       {
         std::ostringstream os;
         task.explainFailure(os);
-        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu PLAN_FAILED: %s", i, os.str().c_str());
-        fail_reasons.push_back(CablePickFailReason::PLAN_FAILED);
+        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu PLAN_FAILED: %s，试下一候选", i, os.str().c_str());
         continue;
       }
       geometry_msgs::msg::Pose object_pose_at_grasp;
@@ -362,13 +367,15 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         };
       }
       HeldObjectContext new_held;
+      bool failed_no_grip = false;
       if (solution_executor_->executePickSolution(
               solution_msg, object_pose_at_grasp,
               held_id,
               task.getRobotModel(), new_held, wait_for_gripped_fn_,
               stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_CABLE_SIDE,
               cable_world_ids,
-              makeEstopAbortFn()))
+              makeEstopAbortFn(),
+              &failed_no_grip))
       {
         /* setState()/getHeldObject() 均会再锁 state_mutex_，禁止在持锁区内调用 */
         HeldObjectContext held_copy;
@@ -391,35 +398,28 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         estop_requested_.store(false);
         return false;
       }
-      RCLCPP_WARN(LOGGER, "handlePick: candidate %zu EXECUTION_FAILED", i);
-      fail_reasons.push_back(CablePickFailReason::EXECUTION_FAILED);
+      if (failed_no_grip)
+      {
+        RCLCPP_WARN(LOGGER, "handlePick: 未检测到夹持，回 ready 并结束任务 (candidate %zu)", i);
+        if (!retreatToReady())
+        {
+          setStateError("PICK: 未检测到夹持，且回 ready 失败");
+        }
+        else
+        {
+          {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            last_error_ = "PICK: 未检测到夹持，已回 ready";
+            task_mode_ = RobotTaskMode::IDLE;
+          }
+          RCLCPP_WARN(LOGGER, "handlePick: 已回 ready，任务结束");
+        }
+        return false;
+      }
+      RCLCPP_WARN(LOGGER, "handlePick: candidate %zu EXECUTION_FAILED，试下一候选", i);
     }
-    std::ostringstream summary;
-    summary << "CABLE_SIDE_GRASP: 所有侧抓候选失败 (共 " << fail_reasons.size() << " 次失败). ";
-    int n_ik = 0, n_bound = 0, n_coll = 0, n_init = 0, n_plan = 0, n_exec = 0;
-    for (CablePickFailReason r : fail_reasons)
-    {
-      if (r == CablePickFailReason::NO_IK)
-        ++n_ik;
-      else if (r == CablePickFailReason::OUT_OF_BOUNDS)
-        ++n_bound;
-      else if (r == CablePickFailReason::PREGRASP_IN_COLLISION)
-        ++n_coll;
-      else if (r == CablePickFailReason::INIT_FAILED)
-        ++n_init;
-      else if (r == CablePickFailReason::PLAN_FAILED)
-        ++n_plan;
-      else
-        ++n_exec;
-    }
-    summary << "NO_IK=" << n_ik
-            << " OUT_OF_BOUNDS=" << n_bound
-            << " PREGRASP_IN_COLLISION=" << n_coll
-            << " INIT_FAILED=" << n_init
-            << " PLAN_FAILED=" << n_plan
-            << " EXECUTION_FAILED=" << n_exec;
-    RCLCPP_ERROR(LOGGER, "handlePick: %s", summary.str().c_str());
-    setStateError(summary.str());
+    RCLCPP_ERROR(LOGGER, "handlePick: 所有侧抓候选均失败（预检/规划/执行）");
+    setStateError("CABLE_SIDE_GRASP: 所有侧抓候选均失败");
   }
   return false;
 }

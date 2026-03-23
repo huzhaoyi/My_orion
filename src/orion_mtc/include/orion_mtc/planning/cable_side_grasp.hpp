@@ -8,6 +8,7 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <optional>
 #include <rclcpp/time.hpp>
 #include <string>
 #include <vector>
@@ -39,12 +40,17 @@ struct CableGraspCandidate
 };
 
 /**
- * 生成侧向包夹抓取候选（±法向、多接近距离、轴向微移、滚转）。
+ * 生成侧向包夹抓取候选（±法向、多接近距离、轴向微移、滚转），按 score 升序排序。
  * 输入 cable 的 position/direction 必须在规划系（base_link）下。
- * 按 score 升序排序（优先中点、短接近）。
  */
 std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
                                                          const CableGraspConfig& cfg);
+
+/**
+ * 生成最优单条侧抓（全部候选排序后取 score 最小）。
+ */
+std::optional<CableGraspCandidate> generateBestCableSideGrasp(const CableDetection& cable,
+                                                              const CableGraspConfig& cfg);
 
 /** Eigen::Isometry3d -> geometry_msgs::Pose */
 void isometryToPose(const Eigen::Isometry3d& T,
