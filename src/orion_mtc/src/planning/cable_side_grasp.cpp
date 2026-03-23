@@ -114,8 +114,11 @@ std::vector<CableGraspCandidate> enumerateCableSideGrasps(const CableDetection& 
       cable.position, d, cfg.cable_total_length, cfg.cable_segment_length, cfg.cable_radius);
   const int num_segments = static_cast<int>(segments.size());
 
-  for (const auto& n : normals)
+  for (const auto& n_raw : normals)
   {
+    const double approach_sign = (cfg.approach_normal_sign < 0.0) ? -1.0 : 1.0;
+    Eigen::Vector3d n = n_raw * approach_sign;
+
     Eigen::Matrix3d R0 = makeBaseRotation(d, n);
     Eigen::Matrix3d R_side_bias = R0 * R_tcp_bias;
 

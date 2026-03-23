@@ -20,8 +20,6 @@ void declareParameters(rclcpp::Node* node)
     {
     }
   };
-  declare_if_not_set("lift_object_min_dist", 0.05);
-  declare_if_not_set("lift_object_max_dist", 0.25);
   declare_if_not_set("grasp_offset_along_axis", 0.0);
   try
   {
@@ -135,6 +133,13 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<double>("cable_side_grasp.approach_normal_sign", 1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 void loadFromNode(rclcpp::Node* node, MTCConfig& config)
@@ -143,8 +148,6 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     return;
   }
-  node->get_parameter("lift_object_min_dist", config.lift_object_min_dist);
-  node->get_parameter("lift_object_max_dist", config.lift_object_max_dist);
   node->get_parameter("grasp_offset_along_axis", config.grasp_offset_along_axis);
   node->get_parameter("cable_side_grasp.approach_dist_candidates",
                       config.cable_grasp.approach_dist_candidates);
@@ -168,6 +171,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                       config.cable_grasp.approach_lin_velocity_scaling);
   node->get_parameter("cable_side_grasp.approach_lin_acceleration_scaling",
                       config.cable_grasp.approach_lin_acceleration_scaling);
+  node->get_parameter("cable_side_grasp.approach_normal_sign", config.cable_grasp.approach_normal_sign);
 }
 
 }  // namespace orion_mtc

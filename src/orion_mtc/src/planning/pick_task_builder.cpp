@@ -158,23 +158,6 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
   stage_retreat->setDirection(retreat_v);
   grasp->insert(std::move(stage_retreat));
 
-  {
-    auto stage = std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
-    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-    stage->setMinMaxDistance(static_cast<float>(config_.lift_object_min_dist),
-                             static_cast<float>(config_.lift_object_max_dist));
-    stage->setIKFrame(hand_frame);
-    stage->properties().set("marker_ns", "lift_object");
-    geometry_msgs::msg::Vector3Stamped v;
-    v.header.frame_id = plan_frame;
-    v.header.stamp = now;
-    v.vector.x = 0.0;
-    v.vector.y = 0.0;
-    v.vector.z = 1.0;
-    stage->setDirection(v);
-    grasp->insert(std::move(stage));
-  }
-
   task.add(std::move(grasp));
   return task;
 }

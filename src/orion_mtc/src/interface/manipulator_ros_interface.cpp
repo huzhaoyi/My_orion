@@ -58,15 +58,14 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         ns + "/pick_trigger", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
             onPickTriggerReceived(msg);
         });
-    sub_emergency_stop_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
-        ns + "/emergency_stop", 10,
-        [this](const std_msgs::msg::Empty::SharedPtr msg) { onEmergencyStopReceived(msg); });
-    sub_go_to_ready_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
-        ns + "/go_to_ready", 10,
-        [this](const std_msgs::msg::Empty::SharedPtr msg) { onGoToReadyReceived(msg); });
     sub_left_arm_gripped_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Float32>(
         ns + "/left_arm_gripped", 10, [this](const std_msgs::msg::Float32::SharedPtr msg) {
-            ctx_.left_arm_gripped->store(static_cast<double>(msg->data));
+            const double v = static_cast<double>(msg->data);
+            ctx_.left_arm_gripped->store(v);
+            if (ctx_.task_manager)
+            {
+                ctx_.task_manager->applyGripperFeedbackFromTopic(v);
+            }
         });
 
     pick_action_server_ = rclcpp_action::create_server<orion_mtc_msgs::action::Pick>(
@@ -122,6 +121,18 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
             handleCloseGripper(req, res);
+        });
+    emergency_stop_srv_ = ctx_.action_client_node->create_service<std_srvs::srv::Trigger>(
+        ns + "/emergency_stop",
+        [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+               std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
+            handleEmergencyStopService(req, res);
+        });
+    go_to_ready_srv_ = ctx_.action_client_node->create_service<std_srvs::srv::Trigger>(
+        ns + "/go_to_ready",
+        [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+               std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
+            handleGoToReadyService(req, res);
         });
     reset_held_object_srv_ =
         ctx_.action_client_node->create_service<orion_mtc_msgs::srv::ResetHeldObject>(
@@ -287,27 +298,6 @@ void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::
         else
         {
             RCLCPP_INFO(ctx_.logger, "topic_pick_trigger: accepted job_id=%s", job_id.c_str());
-        }
-    }).detach();
-}
-
-void ManipulatorRosInterface::onEmergencyStopReceived(const std_msgs::msg::Empty::SharedPtr)
-{
-    ctx_.task_manager->requestEmergencyStop();
-    RCLCPP_WARN(ctx_.logger, "topic emergency_stop: cancel trajectories + clear queue");
-}
-
-void ManipulatorRosInterface::onGoToReadyReceived(const std_msgs::msg::Empty::SharedPtr)
-{
-    std::thread([this]() {
-        std::string msg_out;
-        if (!ctx_.task_manager->tryGoToReady(msg_out))
-        {
-            RCLCPP_WARN(ctx_.logger, "topic go_to_ready: %s", msg_out.c_str());
-        }
-        else
-        {
-            RCLCPP_INFO(ctx_.logger, "topic go_to_ready: %s", msg_out.c_str());
         }
     }).detach();
 }
@@ -537,6 +527,32 @@ void ManipulatorRosInterface::handleCloseGripper(const std::shared_ptr<std_srvs:
     std::string job_id = ctx_.task_manager->submitJob(job, &reject_reason);
     res->success = !job_id.empty();
     res->message = res->success ? job_id : ("rejected: " + reject_reason);
+}
+
+void ManipulatorRosInterface::handleEmergencyStopService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+                                                         std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+    ctx_.task_manager->requestEmergencyStop();
+    res->success = true;
+    res->message = "emergency_stop";
+    RCLCPP_WARN(ctx_.logger, "service emergency_stop: cancel trajectories + clear queue");
+}
+
+void ManipulatorRosInterface::handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+                                                     std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+    std::string msg_out;
+    bool ok = ctx_.task_manager->tryGoToReady(msg_out);
+    res->success = ok;
+    res->message = msg_out;
+    if (ok)
+    {
+        RCLCPP_INFO(ctx_.logger, "service go_to_ready: %s", msg_out.c_str());
+    }
+    else
+    {
+        RCLCPP_WARN(ctx_.logger, "service go_to_ready: %s", msg_out.c_str());
+    }
 }
 
 }  // namespace orion_mtc

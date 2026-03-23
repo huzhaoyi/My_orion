@@ -31,12 +31,12 @@ struct CableGraspConfig
   int grasp_neighbor_segments = 1;
   double approach_lin_velocity_scaling = 0.5;
   double approach_lin_acceleration_scaling = 0.35;
+  /** 侧向接近法向符号：+1 为默认几何；仿真/坐标系若表现为从下往上接近可置 -1 改为从另一侧（等效翻转 +Z/-Z 接近侧） */
+  double approach_normal_sign = 1.0;
 };
 
 struct MTCConfig
 {
-  double lift_object_min_dist = 0.05f;
-  double lift_object_max_dist = 0.25f;
   double grasp_offset_along_axis = 0.0f;
   CableGraspConfig cable_grasp;
 };

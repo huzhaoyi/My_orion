@@ -92,6 +92,13 @@ public:
   void setRecoveryEventCallback(RecoveryEventFn fn);
   void setStageReportCallback(StageReportFn fn);
 
+  /**
+   * 由 /left_arm_gripped 等话题回调：根据传感器判断夹爪是否夹住。
+   * 仅在反馈为「张开」时，若当前为持物态则清除 held_object、置 IDLE、清 scene 并发布 held_object_state；
+   * 不根据 open_gripper/close_gripper 服务推断持物。
+   */
+  void applyGripperFeedbackFromTopic(double gripped_value);
+
   std::string getNextJobType() const;
 
   RobotTaskMode getMode() const;

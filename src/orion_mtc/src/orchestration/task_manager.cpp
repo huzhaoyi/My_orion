@@ -8,6 +8,7 @@
 #include "orion_mtc/core/job_result_code.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
 #include "orion_mtc/core/constants.hpp"
+#include "orion_mtc/core/held_object.hpp"
 #include "orion_mtc/core/cable_pick_fail_reason.hpp"
 #include "orion_mtc/decision/cable_side_pick_precheck.hpp"
 #include "orion_mtc/decision/cylinder_side_grasp.hpp"
@@ -53,7 +54,6 @@ static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
     "close hand",
     "remove_cable_segments",
     "retreat short",
-    "lift object",
 };
 
 namespace
@@ -539,6 +539,48 @@ bool TaskManager::handleOpenGripper()
   }
   RCLCPP_INFO(LOGGER, "open gripper finished");
   return true;
+}
+
+void TaskManager::applyGripperFeedbackFromTopic(double gripped_value)
+{
+  static constexpr double k_locked_threshold = 0.5;
+  const bool locked = gripped_value >= k_locked_threshold;
+  if (locked)
+  {
+    return;
+  }
+  bool need_scene = false;
+  bool need_notify = false;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (task_mode_ == RobotTaskMode::PICKING)
+    {
+      return;
+    }
+    const bool semantically_holding = held_object_.valid || task_mode_ == RobotTaskMode::HOLDING_TRACKED ||
+                                      task_mode_ == RobotTaskMode::HOLDING_UNTRACKED;
+    if (!semantically_holding)
+    {
+      return;
+    }
+    clearHeldObject(held_object_);
+    task_mode_ = RobotTaskMode::IDLE;
+    need_scene = true;
+    need_notify = true;
+    RCLCPP_INFO(LOGGER,
+                "applyGripperFeedbackFromTopic: gripped=%.3f (unlocked), cleared held state from topic",
+                gripped_value);
+  }
+  if (need_scene && scene_manager_)
+  {
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
+    scene_manager_->clearAttachedObjectFromPlanningScene("object");
+  }
+  if (need_notify && held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
+  }
 }
 
 bool TaskManager::handleCloseGripper()
@@ -1251,7 +1293,7 @@ bool TaskManager::tryGoToReady(std::string& out_message)
       return false;
     }
   }
-  RCLCPP_INFO(LOGGER, "tryGoToReady: topic go_to_ready");
+  RCLCPP_INFO(LOGGER, "tryGoToReady: start");
   if (!retreatToReady())
   {
     {

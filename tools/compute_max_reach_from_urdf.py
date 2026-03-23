@@ -3,7 +3,7 @@
 与 orion_mtc reach_kinematics.cpp 一致：沿 base_link←…←gripper_tcp 累加各子连杆
 joint 的 origin xyz 范数（MoveIt LinkModel::getJointOriginTransform().translation().norm() 的 URDF 来源）。
 
-URDF 或规划模型变更后重跑本脚本，将输出的 feasibility 数值写回 pick_params.yaml。
+URDF 或规划模型变更后重跑本脚本，将输出的 feasibility 数值写回 orion_mtc/config/orion_mtc_params.yaml。
 """
 
 from __future__ import annotations

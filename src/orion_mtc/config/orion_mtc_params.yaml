@@ -1,0 +1,58 @@
+# orion_mtc 应用参数（抓取几何 + 运行策略），由 pick_holoocean.launch.py 合并到 orion_mtc_node。
+# 原 split：pick_params.yaml 与 runtime_policy.yaml 已合并为单文件。
+
+# ---------- 抓取规划（MTCConfig / cable_side_grasp）----------
+# 若机械臂姿态“扭曲”、不像真实机械臂：
+# 1) 核对 orion.urdf 各关节 origin/axis/limit 与实机一致，零位与 SRDF ready 一致；
+# 2) 在 orion_moveit_config/config/joint_limits.yaml 为各关节加 has_position_limits/min_position/max_position（实机限位），避免规划到不可达姿态；
+# 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
+
+# 长杆夹持点沿物体 Z 相对几何中心的偏移 [m]，正=物体+Z 方向；0=中心
+grasp_offset_along_axis: 0.0
+
+# 缆绳侧向抓取候选参数（5cm 缆绳推荐）+ 分段碰撞
+cable_side_grasp:
+  # 侧向接近法向符号：Holoocean/当前 URDF 下若表现为从缆绳下方向上夹，置 -1 改为从另一侧接近（翻转接近侧）
+  approach_normal_sign: -1.0
+  pregrasp_offset_candidates: [0.030, 0.040, 0.050]
+  grasp_depth_candidates: [0.010, 0.015, 0.020]
+  approach_dist_candidates: [0.10, 0.08, 0.06, 0.04]
+  tcp_bias_rpy_deg: [0.0, 0.0, 0.0]
+  retreat_dist: 0.05
+  axial_shift_candidates: [-0.05, 0.0, 0.05]
+  roll_candidates_deg: [0.0]
+  approach_around_axis_candidates_deg: [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+  cable_total_length: 3.0
+  cable_segment_length: 0.25
+  cable_radius: 0.025
+  grasp_neighbor_segments: 1
+  approach_lin_velocity_scaling: 0.5
+  approach_lin_acceleration_scaling: 0.35
+
+# 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped），不在此配置
+# 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped 判断抓稳。
+
+# ---------- 审批模式（CheckPick）工作空间与诊断阈值 ----------
+feasibility:
+  max_reach_hard: 1.20
+  max_reach_soft: 1.10
+  min_reach_safe: 0.12
+  z_min: -0.50
+  z_max: 0.80
+  joint_margin_warning_rad: 0.10
+  ik_timeout: 0.2
+  approach_angle_max_deg: 55.0
+  suggestion_perturb_xy: 0.02
+  suggestion_perturb_z: 0.03
+  suggestion_perturb_yaw_rad: 0.15
+  get_planning_scene_service: ""
+
+# ---------- 运行策略（worker / 恢复 / 入队）----------
+runtime_policy:
+  auto_start_worker: true
+  retry_on_plan_failure: false
+  max_retries: 1
+  auto_clear_scene_before_sync: true
+  auto_reset_after_execution_failure: true
+  auto_go_home_after_failure: false
+  reject_new_jobs_while_busy: false

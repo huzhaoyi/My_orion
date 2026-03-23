@@ -33,6 +33,8 @@
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/decision/target_selector.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/solution_executor.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/trajectory_executor.hpp
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_holoocean.launch.py
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/config/orion_mtc_params.yaml
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
 /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/environment/ament_prefix_path.sh

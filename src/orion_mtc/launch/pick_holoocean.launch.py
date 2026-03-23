@@ -84,20 +84,12 @@ def generate_launch_description():
     with open(controllers_path, "r") as f:
         move_group_params.update(yaml.safe_load(f))
 
-    pick_params_path = os.path.join(orion_mtc_share, "config", "pick_params.yaml")
-    if os.path.isfile(pick_params_path):
-        with open(pick_params_path, "r") as f:
-            pick_params = yaml.safe_load(f)
-        if pick_params:
-            move_group_params.update(pick_params)
-    runtime_policy_path = os.path.join(orion_mtc_share, "config", "runtime_policy.yaml")
-    if os.path.isfile(runtime_policy_path):
-        with open(runtime_policy_path, "r") as f:
-            rp = yaml.safe_load(f)
-        if rp and "orion_mtc_node" in rp and "ros__parameters" in rp:
-            move_group_params.update(rp["orion_mtc_node"]["ros__parameters"])
-        elif rp and "runtime_policy" in rp:
-            move_group_params["runtime_policy"] = rp["runtime_policy"]
+    mtc_app_params_path = os.path.join(orion_mtc_share, "config", "orion_mtc_params.yaml")
+    if os.path.isfile(mtc_app_params_path):
+        with open(mtc_app_params_path, "r") as f:
+            mtc_app = yaml.safe_load(f)
+        if mtc_app:
+            move_group_params.update(mtc_app)
 
     demo_launch = os.path.join(orion_moveit_share, "launch", "demo.launch.py")
     bridge_params = os.path.join(orion_holoocean_share, "config", "holoocean_bridge_params.yaml")

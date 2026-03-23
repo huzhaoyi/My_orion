@@ -1,9 +1,8 @@
 /**
- * 顶部状态栏：连接状态、机器人状态、当前任务、队列长度、急停/停止、当前模式
+ * 顶部状态栏：连接状态、机器人状态、当前任务、队列长度、入队控制、当前模式
  */
 
 import stateStore from '../data/stateStore.js';
-import wsClient from '../data/wsClient.js';
 
 function workerBadgeClass(workerStatus) {
   const s = (workerStatus || '').toUpperCase();
@@ -56,8 +55,6 @@ function render(el) {
     ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
     ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}
     <div class="top-bar__section top-bar__section--emergency" style="margin-left: auto;">
-      <button type="button" id="btn-emergency-stop" class="btn-secondary" style="background:#b91c1c;border-color:#991b1b;color:#fff;font-weight:600;" title="发布 /emergency_stop（取消当前轨迹并清空队列）">急停</button>
-      <button type="button" id="btn-go-ready" class="btn-secondary" title="发布 /go_to_ready（空闲时回 ready）">回 ready</button>
       <button type="button" id="btn-stop-queue" class="btn-secondary" title="仅前端拦截入队">${acceptNewJobs ? '停止入队' : '恢复入队'}</button>
       <button type="button" id="btn-clear-queue" class="btn-secondary" title="清空队列">清空</button>
       <button type="button" id="btn-reset-held" class="btn-secondary" title="重置持物状态">重置持物</button>
@@ -65,24 +62,6 @@ function render(el) {
     </div>
   `;
 
-  el.querySelector('#btn-emergency-stop')?.addEventListener('click', () => {
-    if (!wsClient.isConnected()) {
-      stateStore.pushSystemLog('warn', '未连接，无法发送急停');
-      return;
-    }
-    if (wsClient.publishEmergencyStop()) {
-      stateStore.pushSystemLog('warn', '已发布急停话题 ' + wsClient.getTopicPrefix() + '/emergency_stop');
-    }
-  });
-  el.querySelector('#btn-go-ready')?.addEventListener('click', () => {
-    if (!wsClient.isConnected()) {
-      stateStore.pushSystemLog('warn', '未连接，无法回 ready');
-      return;
-    }
-    if (wsClient.publishGoToReady()) {
-      stateStore.pushSystemLog('info', '已发布回 ready 话题 ' + wsClient.getTopicPrefix() + '/go_to_ready');
-    }
-  });
   el.querySelector('#btn-stop-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:stop-queue')));
   el.querySelector('#btn-clear-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-queue')));
   el.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));

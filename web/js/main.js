@@ -247,6 +247,35 @@ function registerGlobalHandlers() {
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
+    'orion:emergency-stop': () => {
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', '未连接，无法急停');
+        return;
+      }
+      wsClient.callEmergencyStop((res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const msg = (v && v.message) || (ok ? '急停已执行' : '急停失败');
+        stateStore.pushSystemLog(ok ? 'warn' : 'error', msg);
+        if (ok) toast.warn(msg);
+        else toast.error(msg);
+        if (ok) wsClient.getQueueState(applyQueueStateToStore);
+      });
+    },
+    'orion:go-to-ready': () => {
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', '未连接，无法回 ready');
+        return;
+      }
+      wsClient.callGoToReady((res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const msg = (v && v.message) || (ok ? '回 ready 成功' : '回 ready 失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
+        if (ok) wsClient.getQueueState(applyQueueStateToStore);
+      });
+    },
   };
 
   Object.entries(handlers).forEach(([event, fn]) => {

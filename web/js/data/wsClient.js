@@ -10,9 +10,8 @@
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  * 服务（与 orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, submit_job, cancel_job,
- *   open_gripper, close_gripper, reset_held_object, sync_held_object
- * 话题发布（std_msgs/Empty，rosbridge op: publish）：
- *   /manipulator/emergency_stop — 急停；/manipulator/go_to_ready — 回 SRDF ready + 张开手
+ *   open_gripper, close_gripper, emergency_stop, go_to_ready（std_srvs/Trigger）,
+ *   reset_held_object, sync_held_object
  */
 
 import stateStore from './stateStore.js';
@@ -183,12 +182,14 @@ function publish(topic, msg = {}) {
   return true;
 }
 
-function publishEmergencyStop() {
-  return publish(getTopicPrefix() + '/emergency_stop', {});
+/** 与 open_gripper 相同：std_srvs/Trigger，args 为空对象 */
+function callEmergencyStop(callback) {
+  callService(getTopicPrefix() + '/emergency_stop', {}, callback);
 }
 
-function publishGoToReady() {
-  return publish(getTopicPrefix() + '/go_to_ready', {});
+/** 回 ready 可能较久（规划+执行），延长超时 */
+function callGoToReady(callback) {
+  callService(getTopicPrefix() + '/go_to_ready', {}, callback, { timeout_ms: 120000 });
 }
 
 function callService(service, request = {}, callback, options = {}) {
@@ -299,8 +300,8 @@ export default {
   disconnect,
   send,
   publish,
-  publishEmergencyStop,
-  publishGoToReady,
+  callEmergencyStop,
+  callGoToReady,
   callService,
   getTopicPrefix,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,

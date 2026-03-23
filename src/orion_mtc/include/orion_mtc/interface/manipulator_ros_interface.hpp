@@ -67,8 +67,6 @@ public:
 private:
     void publishRuntimeStatus();
     void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
-    void onEmergencyStopReceived(const std_msgs::msg::Empty::SharedPtr msg);
-    void onGoToReadyReceived(const std_msgs::msg::Empty::SharedPtr msg);
 
     bool isGripperLocked() const;
 
@@ -99,6 +97,10 @@ private:
                            std::shared_ptr<std_srvs::srv::Trigger::Response> res);
     void handleCloseGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                             std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleEmergencyStopService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                    std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
     ManipulatorInterfaceContext ctx_;
 
@@ -106,8 +108,6 @@ private:
     rclcpp::Subscription<orion_mtc_msgs::msg::TargetSet>::SharedPtr sub_target_set_;
     rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
-    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_emergency_stop_;
-    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_go_to_ready_;
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
 
     rclcpp_action::Server<orion_mtc_msgs::action::Pick>::SharedPtr pick_action_server_;
@@ -121,6 +121,8 @@ private:
     rclcpp::Service<orion_mtc_msgs::srv::CheckPick>::SharedPtr check_pick_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr open_gripper_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr close_gripper_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr emergency_stop_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr go_to_ready_srv_;
 
     rclcpp::Publisher<orion_mtc_msgs::msg::RuntimeStatus>::SharedPtr pub_runtime_status_;
     rclcpp::Publisher<orion_mtc_msgs::msg::JobEvent>::SharedPtr pub_job_event_;

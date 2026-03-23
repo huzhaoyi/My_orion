@@ -27,7 +27,6 @@ const STAGE_NAME_ZH = {
   close_hand: '闭合手爪',
   attach_object: '附着物体',
   allow_collision_object_support: '允许物面碰撞',
-  lift_object: '抬升物体',
   forbid_collision_object_support: '禁止物面碰撞',
   detach_object: '脱离物体',
   retreat: '退离',

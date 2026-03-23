@@ -55,9 +55,10 @@ source install/setup.bash
 | 话题 | `/manipulator/pick_trigger` | 空消息：异步入队**抓取**（需有 `object_pose` 或 `target_set`，或等待 3s） |
 | 话题 | `/manipulator/emergency_stop` | `std_msgs/msg/Empty`：急停——取消当前 FollowJointTrajectory、清空待执行队列、中止后续 solution 段 |
 | 话题 | `/manipulator/go_to_ready` | `std_msgs/msg/Empty`：回到 SRDF ready 并张开手（**仅在非抓取且 worker 未执行 job 时**接受；否则拒绝并打日志） |
+| 话题 | `/manipulator/left_arm_gripped` | `std_msgs/Float32`：夹爪传感器反馈（如 0=张开、1=夹紧）；**持物态是否与物理一致以此为准**——当反馈为「张开」且当前为持物态（非 PICKING）时，节点会清除内部 `held_object`、置 `task_mode` 为 IDLE、清理 planning scene 中 attach，并发布 `held_object_state`（与 `reset_held_object` 的 scene 清理一致） |
 | 话题 | `/manipulator/tf`、`/manipulator/tf_static` | 机械臂 TF（HoloOcean 联调 launch 下由 robot_state_publisher / move_group 发布并订阅，与全局 `/tf` 隔离） |
 
-业务规则：已持物时禁止再次 pick；**夹爪 locked（有物，来自 /left_arm_gripped）时禁止 pick**，避免 object 在夹爪上导致规划失败，需先 reset_held_object 或 open_gripper。队列默认按优先级调度（RESET/SYNC 高于 PICK 等），同类型同目标短时间窗口内去重；配置见 `orion_mtc/config/runtime_policy.yaml`、`pick_params.yaml`。
+业务规则：已持物时禁止再次 pick；**夹爪 locked（有物，来自 /left_arm_gripped）时禁止 pick**，避免 object 在夹爪上导致规划失败，需先 reset_held_object 或 open_gripper。队列默认按优先级调度（RESET/SYNC 高于 PICK 等），同类型同目标短时间窗口内去重；配置见 `orion_mtc/config/orion_mtc_params.yaml`（抓取几何 `feasibility` / `cable_side_grasp` + `runtime_policy`）。
 
 ## 运行（HoloOcean 联调）
 
@@ -101,8 +102,8 @@ ros2 launch orion_mtc pick_holoocean.launch.py
 **配置：**
 
 - 桥接与目标索引：`orion_holoocean_bridge/config/holoocean_bridge_params.yaml`（如 `target_index`、`trajectory_to_agent_bridge`、`cable_sensor_to_object_pose` 的 `cable_sensor_topic` 等）
-- 抓取几何参数：`orion_mtc/config/pick_params.yaml`（lift、cable_side_grasp、feasibility 等）
-- 运行策略：`orion_mtc/config/runtime_policy.yaml`（auto_start_worker、reject_new_jobs_while_busy、失败后恢复等）
+- `orion_mtc` 抓取与运行策略（单文件）：`orion_mtc/config/orion_mtc_params.yaml`（`cable_side_grasp`、`feasibility`、`runtime_policy` 等）
+- **MoveIt**（规划器/限位/控制器等）仍使用 `orion_moveit_config/config/` 下多文件，与 `orion_mtc` 应用参数分离，符合 MoveIt 惯例
 - **工作空间限值**（水平/垂直 min～max，防止抓取目标配置超出）：见 [docs/workspace_limits.md](docs/workspace_limits.md)；**TF 与坐标系**（world/ROV/base_link）：见 [docs/tf_conversion.md](docs/tf_conversion.md)
 
 **仅查看机器人模型：**

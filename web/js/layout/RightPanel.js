@@ -74,10 +74,20 @@ function renderTaskTab(container) {
       <div class="form-row"><label>物体ID</label><input type="text" id="input-object-id" placeholder="可选" style="flex:1; max-width:140px;"></div>
       <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">使用当前物体位姿</p>
     </div>
+    <div class="card">
+      <div class="card-title">急停与回位</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">与「发送抓取」相同：全局事件 → main.js → wsClient 调用 Trigger 服务</p>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-task-emergency-stop" class="btn-secondary" style="background:#b91c1c;border-color:#991b1b;color:#fff;font-weight:600;">急停</button>
+        <button type="button" id="btn-task-go-ready" class="btn-secondary">回 ready</button>
+      </div>
+    </div>
   `;
   const getObjectId = () => (container.querySelector('#input-object-id')?.value || '').trim();
   container.querySelector('#btn-pick-send')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick', { detail: { immediate: true, object_id: getObjectId() } })));
   container.querySelector('#btn-pick-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick', { detail: { immediate: false, object_id: getObjectId() } })));
+  container.querySelector('#btn-task-emergency-stop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:emergency-stop')));
+  container.querySelector('#btn-task-go-ready')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-to-ready')));
 }
 
 function renderRobotTab(container) {
