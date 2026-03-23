@@ -3,7 +3,7 @@
 std_msgs/Header header
 
 string worker_status   # STOPPED / IDLE / RUNNING_JOB / RECOVERING / ERROR
-string task_mode       # IDLE / PICKING / HOLDING_TRACKED / HOLDING_UNTRACKED / PLACING / ERROR
+string task_mode       # IDLE / PICKING / HOLDING_TRACKED / HOLDING_UNTRACKED / ERROR
 
 string current_job_id
 string current_job_type

@@ -306,6 +306,126 @@ src/core/constants.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/core/constants.cpp.s
 .PHONY : src/core/constants.cpp.s
 
+src/decision/cable_side_pick_precheck.o: src/decision/cable_side_pick_precheck.cpp.o
+.PHONY : src/decision/cable_side_pick_precheck.o
+
+# target to build an object file
+src/decision/cable_side_pick_precheck.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o
+.PHONY : src/decision/cable_side_pick_precheck.cpp.o
+
+src/decision/cable_side_pick_precheck.i: src/decision/cable_side_pick_precheck.cpp.i
+.PHONY : src/decision/cable_side_pick_precheck.i
+
+# target to preprocess a source file
+src/decision/cable_side_pick_precheck.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.i
+.PHONY : src/decision/cable_side_pick_precheck.cpp.i
+
+src/decision/cable_side_pick_precheck.s: src/decision/cable_side_pick_precheck.cpp.s
+.PHONY : src/decision/cable_side_pick_precheck.s
+
+# target to generate assembly for a file
+src/decision/cable_side_pick_precheck.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.s
+.PHONY : src/decision/cable_side_pick_precheck.cpp.s
+
+src/decision/cylinder_side_grasp.o: src/decision/cylinder_side_grasp.cpp.o
+.PHONY : src/decision/cylinder_side_grasp.o
+
+# target to build an object file
+src/decision/cylinder_side_grasp.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o
+.PHONY : src/decision/cylinder_side_grasp.cpp.o
+
+src/decision/cylinder_side_grasp.i: src/decision/cylinder_side_grasp.cpp.i
+.PHONY : src/decision/cylinder_side_grasp.i
+
+# target to preprocess a source file
+src/decision/cylinder_side_grasp.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.i
+.PHONY : src/decision/cylinder_side_grasp.cpp.i
+
+src/decision/cylinder_side_grasp.s: src/decision/cylinder_side_grasp.cpp.s
+.PHONY : src/decision/cylinder_side_grasp.s
+
+# target to generate assembly for a file
+src/decision/cylinder_side_grasp.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.s
+.PHONY : src/decision/cylinder_side_grasp.cpp.s
+
+src/decision/feasibility_checker.o: src/decision/feasibility_checker.cpp.o
+.PHONY : src/decision/feasibility_checker.o
+
+# target to build an object file
+src/decision/feasibility_checker.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o
+.PHONY : src/decision/feasibility_checker.cpp.o
+
+src/decision/feasibility_checker.i: src/decision/feasibility_checker.cpp.i
+.PHONY : src/decision/feasibility_checker.i
+
+# target to preprocess a source file
+src/decision/feasibility_checker.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.i
+.PHONY : src/decision/feasibility_checker.cpp.i
+
+src/decision/feasibility_checker.s: src/decision/feasibility_checker.cpp.s
+.PHONY : src/decision/feasibility_checker.s
+
+# target to generate assembly for a file
+src/decision/feasibility_checker.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.s
+.PHONY : src/decision/feasibility_checker.cpp.s
+
+src/decision/reach_kinematics.o: src/decision/reach_kinematics.cpp.o
+.PHONY : src/decision/reach_kinematics.o
+
+# target to build an object file
+src/decision/reach_kinematics.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o
+.PHONY : src/decision/reach_kinematics.cpp.o
+
+src/decision/reach_kinematics.i: src/decision/reach_kinematics.cpp.i
+.PHONY : src/decision/reach_kinematics.i
+
+# target to preprocess a source file
+src/decision/reach_kinematics.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.i
+.PHONY : src/decision/reach_kinematics.cpp.i
+
+src/decision/reach_kinematics.s: src/decision/reach_kinematics.cpp.s
+.PHONY : src/decision/reach_kinematics.s
+
+# target to generate assembly for a file
+src/decision/reach_kinematics.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.s
+.PHONY : src/decision/reach_kinematics.cpp.s
+
+src/decision/target_selector.o: src/decision/target_selector.cpp.o
+.PHONY : src/decision/target_selector.o
+
+# target to build an object file
+src/decision/target_selector.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o
+.PHONY : src/decision/target_selector.cpp.o
+
+src/decision/target_selector.i: src/decision/target_selector.cpp.i
+.PHONY : src/decision/target_selector.i
+
+# target to preprocess a source file
+src/decision/target_selector.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.i
+.PHONY : src/decision/target_selector.cpp.i
+
+src/decision/target_selector.s: src/decision/target_selector.cpp.s
+.PHONY : src/decision/target_selector.s
+
+# target to generate assembly for a file
+src/decision/target_selector.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.s
+.PHONY : src/decision/target_selector.cpp.s
+
 src/execution/solution_executor.o: src/execution/solution_executor.cpp.o
 .PHONY : src/execution/solution_executor.o
 
@@ -354,29 +474,29 @@ src/execution/trajectory_executor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.s
 .PHONY : src/execution/trajectory_executor.cpp.s
 
-src/feasibility/feasibility_checker.o: src/feasibility/feasibility_checker.cpp.o
-.PHONY : src/feasibility/feasibility_checker.o
+src/interface/manipulator_ros_interface.o: src/interface/manipulator_ros_interface.cpp.o
+.PHONY : src/interface/manipulator_ros_interface.o
 
 # target to build an object file
-src/feasibility/feasibility_checker.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o
-.PHONY : src/feasibility/feasibility_checker.cpp.o
+src/interface/manipulator_ros_interface.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o
+.PHONY : src/interface/manipulator_ros_interface.cpp.o
 
-src/feasibility/feasibility_checker.i: src/feasibility/feasibility_checker.cpp.i
-.PHONY : src/feasibility/feasibility_checker.i
+src/interface/manipulator_ros_interface.i: src/interface/manipulator_ros_interface.cpp.i
+.PHONY : src/interface/manipulator_ros_interface.i
 
 # target to preprocess a source file
-src/feasibility/feasibility_checker.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.i
-.PHONY : src/feasibility/feasibility_checker.cpp.i
+src/interface/manipulator_ros_interface.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.i
+.PHONY : src/interface/manipulator_ros_interface.cpp.i
 
-src/feasibility/feasibility_checker.s: src/feasibility/feasibility_checker.cpp.s
-.PHONY : src/feasibility/feasibility_checker.s
+src/interface/manipulator_ros_interface.s: src/interface/manipulator_ros_interface.cpp.s
+.PHONY : src/interface/manipulator_ros_interface.s
 
 # target to generate assembly for a file
-src/feasibility/feasibility_checker.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.s
-.PHONY : src/feasibility/feasibility_checker.cpp.s
+src/interface/manipulator_ros_interface.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.s
+.PHONY : src/interface/manipulator_ros_interface.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -401,6 +521,30 @@ src/main.s: src/main.cpp.s
 src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
+
+src/orchestration/job_deduplicator.o: src/orchestration/job_deduplicator.cpp.o
+.PHONY : src/orchestration/job_deduplicator.o
+
+# target to build an object file
+src/orchestration/job_deduplicator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o
+.PHONY : src/orchestration/job_deduplicator.cpp.o
+
+src/orchestration/job_deduplicator.i: src/orchestration/job_deduplicator.cpp.i
+.PHONY : src/orchestration/job_deduplicator.i
+
+# target to preprocess a source file
+src/orchestration/job_deduplicator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.i
+.PHONY : src/orchestration/job_deduplicator.cpp.i
+
+src/orchestration/job_deduplicator.s: src/orchestration/job_deduplicator.cpp.s
+.PHONY : src/orchestration/job_deduplicator.s
+
+# target to generate assembly for a file
+src/orchestration/job_deduplicator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.s
+.PHONY : src/orchestration/job_deduplicator.cpp.s
 
 src/orchestration/recovery_actions.o: src/orchestration/recovery_actions.cpp.o
 .PHONY : src/orchestration/recovery_actions.o
@@ -474,6 +618,30 @@ src/orchestration/task_queue.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.s
 .PHONY : src/orchestration/task_queue.cpp.s
 
+src/perception/perception_snapshot_provider.o: src/perception/perception_snapshot_provider.cpp.o
+.PHONY : src/perception/perception_snapshot_provider.o
+
+# target to build an object file
+src/perception/perception_snapshot_provider.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o
+.PHONY : src/perception/perception_snapshot_provider.cpp.o
+
+src/perception/perception_snapshot_provider.i: src/perception/perception_snapshot_provider.cpp.i
+.PHONY : src/perception/perception_snapshot_provider.i
+
+# target to preprocess a source file
+src/perception/perception_snapshot_provider.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.i
+.PHONY : src/perception/perception_snapshot_provider.cpp.i
+
+src/perception/perception_snapshot_provider.s: src/perception/perception_snapshot_provider.cpp.s
+.PHONY : src/perception/perception_snapshot_provider.s
+
+# target to generate assembly for a file
+src/perception/perception_snapshot_provider.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.s
+.PHONY : src/perception/perception_snapshot_provider.cpp.s
+
 src/perception/pose_cache.o: src/perception/pose_cache.cpp.o
 .PHONY : src/perception/pose_cache.o
 
@@ -497,6 +665,30 @@ src/perception/pose_cache.s: src/perception/pose_cache.cpp.s
 src/perception/pose_cache.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s
 .PHONY : src/perception/pose_cache.cpp.s
+
+src/perception/target_cache.o: src/perception/target_cache.cpp.o
+.PHONY : src/perception/target_cache.o
+
+# target to build an object file
+src/perception/target_cache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o
+.PHONY : src/perception/target_cache.cpp.o
+
+src/perception/target_cache.i: src/perception/target_cache.cpp.i
+.PHONY : src/perception/target_cache.i
+
+# target to preprocess a source file
+src/perception/target_cache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i
+.PHONY : src/perception/target_cache.cpp.i
+
+src/perception/target_cache.s: src/perception/target_cache.cpp.s
+.PHONY : src/perception/target_cache.s
+
+# target to generate assembly for a file
+src/perception/target_cache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s
+.PHONY : src/perception/target_cache.cpp.s
 
 src/perception/vector3_cache.o: src/perception/vector3_cache.cpp.o
 .PHONY : src/perception/vector3_cache.o
@@ -618,78 +810,6 @@ src/planning/pick_task_builder.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s
 .PHONY : src/planning/pick_task_builder.cpp.s
 
-src/planning/place_generator.o: src/planning/place_generator.cpp.o
-.PHONY : src/planning/place_generator.o
-
-# target to build an object file
-src/planning/place_generator.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o
-.PHONY : src/planning/place_generator.cpp.o
-
-src/planning/place_generator.i: src/planning/place_generator.cpp.i
-.PHONY : src/planning/place_generator.i
-
-# target to preprocess a source file
-src/planning/place_generator.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.i
-.PHONY : src/planning/place_generator.cpp.i
-
-src/planning/place_generator.s: src/planning/place_generator.cpp.s
-.PHONY : src/planning/place_generator.s
-
-# target to generate assembly for a file
-src/planning/place_generator.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.s
-.PHONY : src/planning/place_generator.cpp.s
-
-src/planning/place_release_task_builder.o: src/planning/place_release_task_builder.cpp.o
-.PHONY : src/planning/place_release_task_builder.o
-
-# target to build an object file
-src/planning/place_release_task_builder.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o
-.PHONY : src/planning/place_release_task_builder.cpp.o
-
-src/planning/place_release_task_builder.i: src/planning/place_release_task_builder.cpp.i
-.PHONY : src/planning/place_release_task_builder.i
-
-# target to preprocess a source file
-src/planning/place_release_task_builder.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.i
-.PHONY : src/planning/place_release_task_builder.cpp.i
-
-src/planning/place_release_task_builder.s: src/planning/place_release_task_builder.cpp.s
-.PHONY : src/planning/place_release_task_builder.s
-
-# target to generate assembly for a file
-src/planning/place_release_task_builder.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.s
-.PHONY : src/planning/place_release_task_builder.cpp.s
-
-src/planning/place_task_builder.o: src/planning/place_task_builder.cpp.o
-.PHONY : src/planning/place_task_builder.o
-
-# target to build an object file
-src/planning/place_task_builder.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o
-.PHONY : src/planning/place_task_builder.cpp.o
-
-src/planning/place_task_builder.i: src/planning/place_task_builder.cpp.i
-.PHONY : src/planning/place_task_builder.i
-
-# target to preprocess a source file
-src/planning/place_task_builder.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.i
-.PHONY : src/planning/place_task_builder.cpp.i
-
-src/planning/place_task_builder.s: src/planning/place_task_builder.cpp.s
-.PHONY : src/planning/place_task_builder.s
-
-# target to generate assembly for a file
-src/planning/place_task_builder.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.s
-.PHONY : src/planning/place_task_builder.cpp.s
-
 src/scene/planning_scene_manager.o: src/scene/planning_scene_manager.cpp.o
 .PHONY : src/scene/planning_scene_manager.o
 
@@ -713,30 +833,6 @@ src/scene/planning_scene_manager.s: src/scene/planning_scene_manager.cpp.s
 src/scene/planning_scene_manager.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.s
 .PHONY : src/scene/planning_scene_manager.cpp.s
-
-src/strategy/cylinder_side_grasp.o: src/strategy/cylinder_side_grasp.cpp.o
-.PHONY : src/strategy/cylinder_side_grasp.o
-
-# target to build an object file
-src/strategy/cylinder_side_grasp.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o
-.PHONY : src/strategy/cylinder_side_grasp.cpp.o
-
-src/strategy/cylinder_side_grasp.i: src/strategy/cylinder_side_grasp.cpp.i
-.PHONY : src/strategy/cylinder_side_grasp.i
-
-# target to preprocess a source file
-src/strategy/cylinder_side_grasp.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.i
-.PHONY : src/strategy/cylinder_side_grasp.cpp.i
-
-src/strategy/cylinder_side_grasp.s: src/strategy/cylinder_side_grasp.cpp.s
-.PHONY : src/strategy/cylinder_side_grasp.s
-
-# target to generate assembly for a file
-src/strategy/cylinder_side_grasp.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.s
-.PHONY : src/strategy/cylinder_side_grasp.cpp.s
 
 # Help Target
 help:
@@ -766,18 +862,36 @@ help:
 	@echo "... src/core/constants.o"
 	@echo "... src/core/constants.i"
 	@echo "... src/core/constants.s"
+	@echo "... src/decision/cable_side_pick_precheck.o"
+	@echo "... src/decision/cable_side_pick_precheck.i"
+	@echo "... src/decision/cable_side_pick_precheck.s"
+	@echo "... src/decision/cylinder_side_grasp.o"
+	@echo "... src/decision/cylinder_side_grasp.i"
+	@echo "... src/decision/cylinder_side_grasp.s"
+	@echo "... src/decision/feasibility_checker.o"
+	@echo "... src/decision/feasibility_checker.i"
+	@echo "... src/decision/feasibility_checker.s"
+	@echo "... src/decision/reach_kinematics.o"
+	@echo "... src/decision/reach_kinematics.i"
+	@echo "... src/decision/reach_kinematics.s"
+	@echo "... src/decision/target_selector.o"
+	@echo "... src/decision/target_selector.i"
+	@echo "... src/decision/target_selector.s"
 	@echo "... src/execution/solution_executor.o"
 	@echo "... src/execution/solution_executor.i"
 	@echo "... src/execution/solution_executor.s"
 	@echo "... src/execution/trajectory_executor.o"
 	@echo "... src/execution/trajectory_executor.i"
 	@echo "... src/execution/trajectory_executor.s"
-	@echo "... src/feasibility/feasibility_checker.o"
-	@echo "... src/feasibility/feasibility_checker.i"
-	@echo "... src/feasibility/feasibility_checker.s"
+	@echo "... src/interface/manipulator_ros_interface.o"
+	@echo "... src/interface/manipulator_ros_interface.i"
+	@echo "... src/interface/manipulator_ros_interface.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/orchestration/job_deduplicator.o"
+	@echo "... src/orchestration/job_deduplicator.i"
+	@echo "... src/orchestration/job_deduplicator.s"
 	@echo "... src/orchestration/recovery_actions.o"
 	@echo "... src/orchestration/recovery_actions.i"
 	@echo "... src/orchestration/recovery_actions.s"
@@ -787,9 +901,15 @@ help:
 	@echo "... src/orchestration/task_queue.o"
 	@echo "... src/orchestration/task_queue.i"
 	@echo "... src/orchestration/task_queue.s"
+	@echo "... src/perception/perception_snapshot_provider.o"
+	@echo "... src/perception/perception_snapshot_provider.i"
+	@echo "... src/perception/perception_snapshot_provider.s"
 	@echo "... src/perception/pose_cache.o"
 	@echo "... src/perception/pose_cache.i"
 	@echo "... src/perception/pose_cache.s"
+	@echo "... src/perception/target_cache.o"
+	@echo "... src/perception/target_cache.i"
+	@echo "... src/perception/target_cache.s"
 	@echo "... src/perception/vector3_cache.o"
 	@echo "... src/perception/vector3_cache.i"
 	@echo "... src/perception/vector3_cache.s"
@@ -805,21 +925,9 @@ help:
 	@echo "... src/planning/pick_task_builder.o"
 	@echo "... src/planning/pick_task_builder.i"
 	@echo "... src/planning/pick_task_builder.s"
-	@echo "... src/planning/place_generator.o"
-	@echo "... src/planning/place_generator.i"
-	@echo "... src/planning/place_generator.s"
-	@echo "... src/planning/place_release_task_builder.o"
-	@echo "... src/planning/place_release_task_builder.i"
-	@echo "... src/planning/place_release_task_builder.s"
-	@echo "... src/planning/place_task_builder.o"
-	@echo "... src/planning/place_task_builder.i"
-	@echo "... src/planning/place_task_builder.s"
 	@echo "... src/scene/planning_scene_manager.o"
 	@echo "... src/scene/planning_scene_manager.i"
 	@echo "... src/scene/planning_scene_manager.s"
-	@echo "... src/strategy/cylinder_side_grasp.o"
-	@echo "... src/strategy/cylinder_side_grasp.i"
-	@echo "... src/strategy/cylinder_side_grasp.s"
 .PHONY : help
 
 

@@ -38,7 +38,7 @@ target_sensor_to_object_pose:
     position_offset_y: 0.0
     position_offset_z: 0.0
 
-# CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + place_pose（同源）+ TF base_link→cable
+# CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF base_link→cable
 # 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1
 # 注意：部分数据源虽然 header.frame_id=COM，但 positions 实际给的是 map/world 坐标（接近 ROV(map)）。
 cable_sensor_to_object_pose:
@@ -46,7 +46,6 @@ cable_sensor_to_object_pose:
     cable_sensor_topic: "/holoocean/rov0/CableSensor"
     rov_pose_topic: "/holoocean/rov0/PoseSensor"
     object_pose_topic: "/manipulator/object_pose"
-    place_pose_topic: "/manipulator/place_pose"
     object_axis_topic: "/manipulator/object_axis"
     perception_state_topic: "/manipulator/perception_state"
     world_frame_id: "map"

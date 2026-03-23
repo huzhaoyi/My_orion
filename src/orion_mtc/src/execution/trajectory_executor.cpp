@@ -1,6 +1,7 @@
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/core/constants.hpp"
+#include <control_msgs/action/follow_joint_trajectory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <algorithm>
 #include <chrono>
@@ -16,6 +17,58 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
 
 TrajectoryExecutor::TrajectoryExecutor(rclcpp::Node* node) : node_(node)
 {
+}
+
+void TrajectoryExecutor::registerActiveGoal(
+    const rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr& client,
+    const rclcpp_action::ClientGoalHandle<control_msgs::action::FollowJointTrajectory>::SharedPtr&
+        goal_handle)
+{
+  if (!client || !goal_handle)
+  {
+    return;
+  }
+  std::lock_guard<std::mutex> lk(active_goals_mutex_);
+  active_goals_.emplace_back(client, goal_handle);
+}
+
+void TrajectoryExecutor::unregisterActiveGoal(
+    const rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr& client,
+    const rclcpp_action::ClientGoalHandle<control_msgs::action::FollowJointTrajectory>::SharedPtr&
+        goal_handle)
+{
+  if (!client || !goal_handle)
+  {
+    return;
+  }
+  std::lock_guard<std::mutex> lk(active_goals_mutex_);
+  for (auto it = active_goals_.begin(); it != active_goals_.end(); ++it)
+  {
+    if (it->first == client && it->second == goal_handle)
+    {
+      active_goals_.erase(it);
+      return;
+    }
+  }
+}
+
+void TrajectoryExecutor::cancelOngoingGoals()
+{
+  std::vector<std::pair<rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr,
+                         rclcpp_action::ClientGoalHandle<control_msgs::action::FollowJointTrajectory>::SharedPtr>>
+      copy;
+  {
+    std::lock_guard<std::mutex> lk(active_goals_mutex_);
+    copy = active_goals_;
+  }
+  for (const auto& p : copy)
+  {
+    if (p.first && p.second)
+    {
+      p.first->async_cancel_goal(p.second);
+      RCLCPP_WARN(LOGGER, "cancelOngoingGoals: async_cancel_goal sent");
+    }
+  }
 }
 
 bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
@@ -89,14 +142,17 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
     RCLCPP_ERROR(LOGGER, "sendJointTrajectory: goal rejected for %s", controller_name.c_str());
     return false;
   }
+  registerActiveGoal(client, goal_handle);
   auto result_future = client->async_get_result(goal_handle);
   if (result_future.wait_for(std::chrono::seconds(60)) != std::future_status::ready)
   {
     RCLCPP_ERROR(LOGGER, "sendJointTrajectory: get_result timeout for %s", controller_name.c_str());
     client->async_cancel_goal(goal_handle);
+    unregisterActiveGoal(client, goal_handle);
     return false;
   }
   auto result = result_future.get();
+  unregisterActiveGoal(client, goal_handle);
   if (result.code != rclcpp_action::ResultCode::SUCCEEDED)
   {
     RCLCPP_ERROR(LOGGER, "sendJointTrajectory: %s failed result code %d",

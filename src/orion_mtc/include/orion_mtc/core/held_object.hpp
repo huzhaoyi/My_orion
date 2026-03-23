@@ -1,4 +1,4 @@
-/* 持物上下文：抓取成功后保存，place 时用 tcp_to_object 反推末端目标 */
+/* 持物上下文：抓取成功后保存；sync/detach 时与 scene 一致 */
 
 #ifndef ORION_MTC_CORE_HELD_OBJECT_HPP
 #define ORION_MTC_CORE_HELD_OBJECT_HPP
@@ -16,7 +16,7 @@ struct HeldObjectContext
   bool valid = false;
   std::string object_id;
   std::string attach_link;
-  /* "object" 来自 pick，"held_tracked" 来自 sync(tracked)，place/release 用此 id 做 allow/detach */
+  /* "object" 来自 pick，"held_tracked" 来自 sync(tracked)，detach 用此 id */
   std::string scene_attach_id;
   geometry_msgs::msg::Pose object_pose_at_grasp;
   geometry_msgs::msg::Pose tcp_pose_at_grasp;

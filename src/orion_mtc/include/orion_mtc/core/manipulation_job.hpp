@@ -14,8 +14,6 @@ namespace orion_mtc
 enum class JobType
 {
   PICK,
-  PLACE,
-  PLACE_RELEASE,
   RESET_HELD_OBJECT,
   SYNC_HELD_OBJECT,
   OPEN_GRIPPER,
@@ -27,7 +25,7 @@ struct ManipulationJob
   std::string job_id;
   JobType type = JobType::PICK;
 
-  /* PLACE / PLACE_RELEASE 用 target_pose；PICK 用 object_pose；SYNC 用 object_pose + tcp_pose */
+  /* PICK 用 object_pose；SYNC 用 object_pose + tcp_pose */
   std::optional<geometry_msgs::msg::PoseStamped> target_pose;
   std::optional<geometry_msgs::msg::PoseStamped> object_pose;
   std::optional<geometry_msgs::msg::Pose> tcp_pose;
@@ -38,11 +36,11 @@ struct ManipulationJob
   /**
    * 优先级：数值越大越先执行。
    * 约定：priority < 0 表示“未指定”，入队时用 getDefaultPriority(type) 填充；
-   * 0 为有效值（PICK/PLACE 的默认优先级）。恢复类 job 可显式覆盖默认，普通业务 job 不建议超过恢复类默认值（如 50）。
+   * 0 为有效值。恢复类 job 可显式覆盖默认，普通业务 job 不建议超过恢复类默认值（如 50）。
    */
   int priority = 0;
 
-  /** 任务来源，便于日志与调试：topic_pick_trigger, topic_place_trigger, submit_job_service, pick_action 等 */
+  /** 任务来源，便于日志与调试：topic_pick_trigger, submit_job_service, pick_action 等 */
   std::string source;
 
   /** 创建时间（纳秒，epoch），用于去重窗口、排队延迟、超时丢弃 */
@@ -55,10 +53,6 @@ inline const char* jobTypeToCString(JobType t)
   {
     case JobType::PICK:
       return "PICK";
-    case JobType::PLACE:
-      return "PLACE";
-    case JobType::PLACE_RELEASE:
-      return "PLACE_RELEASE";
     case JobType::RESET_HELD_OBJECT:
       return "RESET_HELD_OBJECT";
     case JobType::SYNC_HELD_OBJECT:
@@ -72,7 +66,7 @@ inline const char* jobTypeToCString(JobType t)
   }
 }
 
-/** 推荐默认优先级：数值越大越优先；恢复类优先于普通抓放。普通业务不建议超过 50，以免压过恢复类。 */
+/** 推荐默认优先级：数值越大越优先；恢复类优先于普通抓取。 */
 inline int getDefaultPriority(JobType t)
 {
   switch (t)
@@ -81,10 +75,7 @@ inline int getDefaultPriority(JobType t)
       return 100;
     case JobType::SYNC_HELD_OBJECT:
       return 80;
-    case JobType::PLACE_RELEASE:
-      return 70;
     case JobType::PICK:
-    case JobType::PLACE:
     case JobType::OPEN_GRIPPER:
     case JobType::CLOSE_GRIPPER:
     default:

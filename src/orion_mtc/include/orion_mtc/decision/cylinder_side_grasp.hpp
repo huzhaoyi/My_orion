@@ -1,7 +1,7 @@
 /* 圆柱碰撞体姿态构造：MoveIt CYLINDER 的局部 Z 对齐到 axis_direction */
 
-#ifndef ORION_MTC_STRATEGY_CYLINDER_SIDE_GRASP_HPP
-#define ORION_MTC_STRATEGY_CYLINDER_SIDE_GRASP_HPP
+#ifndef ORION_MTC_DECISION_CYLINDER_SIDE_GRASP_HPP
+#define ORION_MTC_DECISION_CYLINDER_SIDE_GRASP_HPP
 
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
@@ -15,5 +15,5 @@ geometry_msgs::msg::Quaternion buildCylinderCollisionOrientationFromAxis(
 
 }  // namespace orion_mtc
 
-#endif  // ORION_MTC_STRATEGY_CYLINDER_SIDE_GRASP_HPP
+#endif  // ORION_MTC_DECISION_CYLINDER_SIDE_GRASP_HPP
 

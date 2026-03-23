@@ -3,7 +3,7 @@
 std_msgs/Header header
 
 string job_id
-string task_type      # PICK / PLACE / PLACE_RELEASE / OPEN_GRIPPER / CLOSE_GRIPPER
+string task_type      # PICK / OPEN_GRIPPER / CLOSE_GRIPPER / …
 string stage_name
 string stage_state   # ENTER / RUNNING / DONE / FAILED / SKIPPED
 

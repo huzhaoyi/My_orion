@@ -10,12 +10,15 @@
 #include "orion_mtc/core/manipulation_job.hpp"
 #include "orion_mtc/core/runtime_status.hpp"
 #include "orion_mtc/core/task_state.hpp"
+#include "orion_mtc/orchestration/job_deduplicator.hpp"
+#include "orion_mtc/orchestration/manipulation_state_machine.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -31,11 +34,8 @@ namespace orion_mtc
 class PlanningSceneManager;
 class TrajectoryExecutor;
 class PickTaskBuilder;
-class PlaceTaskBuilder;
-class PlaceReleaseTaskBuilder;
 class TaskQueue;
 class RecoveryActions;
-class PlaceGenerator;
 }
 
 namespace orion_mtc
@@ -55,37 +55,26 @@ public:
 
   bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id);
 
-  bool handlePlace(const geometry_msgs::msg::PoseStamped& target_pose);
-  void setPlaceGenerator(PlaceGenerator* place_generator);
-  bool handlePlaceRelease(const geometry_msgs::msg::PoseStamped& target_tcp_pose);
-
-  /** sync_held_object 逻辑：tracked 时填 object_pose+tcp_pose，untracked 时仅 set_holding */
   bool handleSyncHeldObject(bool set_holding, bool tracked,
                            const std::string& object_id,
                            const geometry_msgs::msg::Pose& object_pose,
                            const geometry_msgs::msg::Pose& tcp_pose,
                            std::string& out_message);
 
-  /** reset_held_object：清空持物状态并清理 scene attach */
   bool handleResetHeldObject(std::string& out_message);
 
-  /** 设置夹爪“有物”查询：返回 true 时 pick 会被拒绝，避免 object 在夹爪上导致规划失败 */
   void setGripperLockedCallback(std::function<bool()> fn);
 
-  /** 话题触发的 PICK 执行时用此回调取最新物体位姿，使物体移动后仍夹当前话题位置；未设置或返回空则用 job 入队时的 object_pose */
   void setGetLatestObjectPoseCallback(
       std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn);
 
-  /** 话题侧可选提供物体轴向（圆柱轴 direction，frame_id=base_link）。用于规划前重建稳定抓取姿态。 */
   void setGetLatestObjectAxisCallback(
       std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn);
 
-  /** 当 object_pose/object_axis 为世界系（或非 base_link）时，用此回调变换到 base_link。pose 与 axis 可为同一源坐标系。 */
   using TransformToBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
   void setTransformToBaseLinkCallback(TransformToBaseLinkFn fn);
 
-  /** 分层状态话题回调：由 Node 设置，在对应事件时调用并发布 */
   using JobEventFn = std::function<void(const std::string& job_id, const std::string& job_type,
                                        const std::string& source, uint32_t priority,
                                        const std::string& event_type, bool success,
@@ -103,7 +92,6 @@ public:
   void setRecoveryEventCallback(RecoveryEventFn fn);
   void setStageReportCallback(StageReportFn fn);
 
-  /** 队首 job 类型（用于 runtime_status next_job_type）；空队列返回空串 */
   std::string getNextJobType() const;
 
   RobotTaskMode getMode() const;
@@ -111,7 +99,6 @@ public:
   std::string getLastError() const;
   HeldObjectContext getHeldObject() const;
 
-  /** 任务队列与 Worker：异步入队、后台消费；返回 job_id（空表示拒绝），拒绝时可选写入 out_reject_reason */
   std::string submitJob(const ManipulationJob& job, std::string* out_reject_reason = nullptr);
   void startWorker();
   void stopWorker();
@@ -123,10 +110,14 @@ public:
   void setPolicy(const RuntimePolicy& policy);
   const RuntimePolicy& getPolicy() const;
 
-  /** 仅取消队列中未执行的 job；正在执行返回 false 且 reason=cannot cancel running job；不存在返回 job not found */
   bool cancelJob(const std::string& job_id, std::string* out_message = nullptr);
 
-  /** 最近 N 条执行记录（含已执行、取消），从新到旧；供 GetRecentJobs 可回看 */
+  /** 急停：取消当前 FollowJointTrajectory、清空待执行队列、置位供执行循环中止 */
+  void requestEmergencyStop();
+
+  /** 规划并执行回 SRDF ready + 张开手；若正在抓取或 worker 执行 job 则拒绝 */
+  bool tryGoToReady(std::string& out_message);
+
   struct JobExecutionRecordEntry
   {
     std::string job_id;
@@ -147,23 +138,14 @@ private:
   void setStateError(const std::string& err);
   std::string genTaskId(const char* prefix);
 
-  /** 去重：同类型+同目标+短时间窗口内拒绝；与当前执行中同目标也拒绝 */
-  bool isDuplicateJob(const ManipulationJob& job, int64_t now_ns, std::string* out_reason) const;
-  static bool getJobPoseForDedup(const ManipulationJob& job, geometry_msgs::msg::Pose* out);
-  static bool posesNear(const geometry_msgs::msg::Pose& a, const geometry_msgs::msg::Pose& b,
-                        double pos_tol_m, double quat_dot_min);
-
   void pushExecutionRecordStart(const ManipulationJob& job, int64_t started_at_ns);
   void updateExecutionRecordFinish(JobResultCode code, const std::string& message, int64_t finished_at_ns);
   void pushExecutionRecordCancelled(const ManipulationJob& job, int64_t finished_at_ns);
 
-  /** 单次放置尝试（规划+执行）；成功时更新 scene、清 held、设 IDLE；失败仅返回 false，不改 state */
-  bool handlePlaceSingle(const geometry_msgs::msg::PoseStamped& target_pose);
-
-  /** 从当前状态规划并执行回到 ready（臂 + 手张开），失败只打日志不抛 */
   bool retreatToReady();
 
-  /** 仅动夹爪：从当前状态（joint_states/joystick）仅对手 group 做 MoveTo open/close，臂关节保持不变 */
+  std::function<bool()> makeEstopAbortFn() const;
+
   bool handleOpenGripper();
   bool handleCloseGripper();
 
@@ -188,12 +170,10 @@ private:
   RecoveryEventFn recovery_event_fn_;
   StageReportFn stage_report_fn_;
   std::unique_ptr<PickTaskBuilder> pick_builder_;
-  std::unique_ptr<PlaceTaskBuilder> place_builder_;
-  std::unique_ptr<PlaceReleaseTaskBuilder> place_release_builder_;
   std::shared_ptr<TaskQueue> queue_;
   std::unique_ptr<RecoveryActions> recovery_actions_;
-
-  PlaceGenerator* place_generator_ = nullptr;
+  JobDeduplicator job_deduplicator_;
+  ManipulationStateMachine manipulation_fsm_;
 
   mutable std::mutex state_mutex_;
   RobotTaskMode task_mode_ = RobotTaskMode::IDLE;
@@ -202,6 +182,7 @@ private:
   std::string last_error_;
 
   std::atomic<bool> worker_running_{ false };
+  std::atomic<bool> estop_requested_{ false };
   std::thread worker_thread_;
   mutable std::mutex worker_mutex_;
   WorkerStatus worker_status_ = WorkerStatus::STOPPED;

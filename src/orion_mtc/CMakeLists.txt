@@ -24,29 +24,34 @@ find_package(moveit_ros_planning REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(std_msgs REQUIRED)
 
 set(ORION_MTC_SOURCES
   src/main.cpp
   src/app/orion_mtc_node.cpp
+  src/interface/manipulator_ros_interface.cpp
   src/core/constants.cpp
   src/config/mtc_config.cpp
   src/config/runtime_policy_loader.cpp
-  src/feasibility/feasibility_checker.cpp
+  src/decision/feasibility_checker.cpp
+  src/decision/reach_kinematics.cpp
+  src/decision/cylinder_side_grasp.cpp
+  src/decision/cable_side_pick_precheck.cpp
+  src/decision/target_selector.cpp
   src/planning/collision_object_utils.cpp
   src/planning/cable_segments.cpp
   src/planning/cable_side_grasp.cpp
   src/planning/pick_task_builder.cpp
-  src/planning/place_task_builder.cpp
-  src/planning/place_release_task_builder.cpp
-  src/planning/place_generator.cpp
   src/scene/planning_scene_manager.cpp
   src/execution/trajectory_executor.cpp
   src/execution/solution_executor.cpp
   src/perception/pose_cache.cpp
   src/perception/vector3_cache.cpp
-  src/strategy/cylinder_side_grasp.cpp
+  src/perception/target_cache.cpp
+  src/perception/perception_snapshot_provider.cpp
   src/orchestration/task_queue.cpp
   src/orchestration/recovery_actions.cpp
+  src/orchestration/job_deduplicator.cpp
   src/orchestration/task_manager.cpp
 )
 

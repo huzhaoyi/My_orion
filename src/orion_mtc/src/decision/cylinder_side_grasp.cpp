@@ -1,4 +1,4 @@
-#include "orion_mtc/strategy/cylinder_side_grasp.hpp"
+#include "orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <Eigen/Geometry>
 #include <cmath>
 

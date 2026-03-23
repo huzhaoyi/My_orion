@@ -74,59 +74,10 @@ function renderTaskTab(container) {
       <div class="form-row"><label>物体ID</label><input type="text" id="input-object-id" placeholder="可选" style="flex:1; max-width:140px;"></div>
       <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">使用当前物体位姿</p>
     </div>
-    <div class="card">
-      <div class="card-title">放置</div>
-      <div class="form-actions form-actions--row">
-        <button type="button" id="btn-place-send" class="primary btn-action">发送放置</button>
-        <button type="button" id="btn-place-queue" class="btn-secondary">加入队列</button>
-      </div>
-      <div class="form-row form-row--pose">
-        <div class="form-num-item"><label>X</label><input type="number" id="place-x" value="0.45" step="0.01"></div>
-        <div class="form-num-item"><label>Y</label><input type="number" id="place-y" value="0" step="0.01"></div>
-        <div class="form-num-item"><label>Z</label><input type="number" id="place-z" value="0.4" step="0.01"></div>
-        <div class="form-num-item"><label>qx</label><input type="number" id="place-qx" value="0" step="0.01"></div>
-        <div class="form-num-item"><label>qy</label><input type="number" id="place-qy" value="0" step="0.01"></div>
-        <div class="form-num-item"><label>qz</label><input type="number" id="place-qz" value="0" step="0.01"></div>
-        <div class="form-num-item"><label>qw</label><input type="number" id="place-qw" value="1" step="0.01"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">放置释放</div>
-      <div class="form-actions form-actions--row">
-        <button type="button" id="btn-place-release-send" class="primary btn-action">发送放置释放</button>
-        <button type="button" id="btn-place-release-queue" class="btn-secondary">加入队列</button>
-      </div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">TCP 目标位姿（同放置输入框）</p>
-    </div>
   `;
   const getObjectId = () => (container.querySelector('#input-object-id')?.value || '').trim();
-  const getPlacePose = () => ({
-    x: parseFloat(container.querySelector('#place-x')?.value) || 0.45,
-    y: parseFloat(container.querySelector('#place-y')?.value) || 0,
-    z: parseFloat(container.querySelector('#place-z')?.value) || 0.4,
-    qx: parseFloat(container.querySelector('#place-qx')?.value) || 0,
-    qy: parseFloat(container.querySelector('#place-qy')?.value) || 0,
-    qz: parseFloat(container.querySelector('#place-qz')?.value) || 0,
-    qw: parseFloat(container.querySelector('#place-qw')?.value) || 1,
-  });
   container.querySelector('#btn-pick-send')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick', { detail: { immediate: true, object_id: getObjectId() } })));
   container.querySelector('#btn-pick-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick', { detail: { immediate: false, object_id: getObjectId() } })));
-  container.querySelector('#btn-place-send')?.addEventListener('click', () => {
-    const p = getPlacePose();
-    window.dispatchEvent(new CustomEvent('orion:place', { detail: { ...p, immediate: true } }));
-  });
-  container.querySelector('#btn-place-queue')?.addEventListener('click', () => {
-    const p = getPlacePose();
-    window.dispatchEvent(new CustomEvent('orion:place', { detail: { ...p, immediate: false } }));
-  });
-  container.querySelector('#btn-place-release-send')?.addEventListener('click', () => {
-    const p = getPlacePose();
-    window.dispatchEvent(new CustomEvent('orion:place-release', { detail: { ...p, immediate: true } }));
-  });
-  container.querySelector('#btn-place-release-queue')?.addEventListener('click', () => {
-    const p = getPlacePose();
-    window.dispatchEvent(new CustomEvent('orion:place-release', { detail: { ...p, immediate: false } }));
-  });
 }
 
 function renderRobotTab(container) {
@@ -152,7 +103,6 @@ function renderRobotTab(container) {
       <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">默认使用第 2 个目标点，无感知数据时仅提示</p>
       <div class="form-actions form-actions--row">
         <button type="button" id="btn-approval-pick" class="primary btn-action">审批抓取</button>
-        <button type="button" id="btn-approval-place" class="btn-secondary">审批放置</button>
       </div>
       <div id="approval-result-container"></div>
     </div>
@@ -161,7 +111,6 @@ function renderRobotTab(container) {
   container.querySelector('#btn-close-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:close-gripper')));
   container.querySelector('#btn-stop-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:stop-queue')));
   container.querySelector('#btn-approval-pick')?.addEventListener('click', (e) => ApprovalCard.handlePickClick(e));
-  container.querySelector('#btn-approval-place')?.addEventListener('click', (e) => ApprovalCard.handlePlaceClick(e));
 
   ApprovalCard.renderResult(container.querySelector('#approval-result-container'));
 }
@@ -209,8 +158,6 @@ function renderConfigTab(container) {
       <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">由后端 launch 与配置文件加载，当前无运行时修改接口。</p>
       <div class="form-row"><label>接近距离</label><input type="number" id="param-approach" value="0.05" step="0.01" readonly disabled></div>
       <div class="form-row"><label>抬升距离</label><input type="number" id="param-lift" value="0.05" step="0.01" readonly disabled></div>
-      <div class="form-row"><label>放置下压</label><input type="number" id="param-lower" value="0.02" step="0.01" readonly disabled></div>
-      <div class="form-row"><label>回退距离</label><input type="number" id="param-retreat" value="0.05" step="0.01" readonly disabled></div>
       <div class="form-row"><label>速度/加速度比例</label><input type="text" value="由 config 加载" readonly disabled style="flex:1;"></div>
     </div>
   `;

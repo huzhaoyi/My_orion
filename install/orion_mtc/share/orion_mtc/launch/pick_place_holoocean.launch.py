@@ -84,12 +84,12 @@ def generate_launch_description():
     with open(controllers_path, "r") as f:
         move_group_params.update(yaml.safe_load(f))
 
-    pick_place_params_path = os.path.join(orion_mtc_share, "config", "pick_place_params.yaml")
-    if os.path.isfile(pick_place_params_path):
-        with open(pick_place_params_path, "r") as f:
-            pick_place_params = yaml.safe_load(f)
-        if pick_place_params:
-            move_group_params.update(pick_place_params)
+    pick_params_path = os.path.join(orion_mtc_share, "config", "pick_params.yaml")
+    if os.path.isfile(pick_params_path):
+        with open(pick_params_path, "r") as f:
+            pick_params = yaml.safe_load(f)
+        if pick_params:
+            move_group_params.update(pick_params)
     runtime_policy_path = os.path.join(orion_mtc_share, "config", "runtime_policy.yaml")
     if os.path.isfile(runtime_policy_path):
         with open(runtime_policy_path, "r") as f:

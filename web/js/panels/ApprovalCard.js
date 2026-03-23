@@ -1,5 +1,5 @@
 /**
- * 审批结果卡片：审批抓取/审批放置，展示 approved、severity、summary、items、建议位姿
+ * 审批结果卡片：审批抓取，展示 approved、severity、summary、items、建议位姿
  */
 
 import stateStore from '../data/stateStore.js';
@@ -8,6 +8,7 @@ import wsClient from '../data/wsClient.js';
 const SEV_PASS = 0;
 const SEV_WARNING = 1;
 const SEV_REJECT = 2;
+const DEFAULT_PICK_TARGET_INDEX = 0;
 
 function levelLabel(level) {
   if (level === 0) return '信息';
@@ -70,7 +71,6 @@ function handlePickClick(e) {
         summary: r.summary,
         items: r.items || [],
         best_candidate_pose: r.best_candidate_pose || null,
-        adjusted_place_pose: null,
       });
       stateStore.pushSystemLog(
         'info',
@@ -81,55 +81,6 @@ function handlePickClick(e) {
     }
   });
   stateStore.pushSystemLog('info', '发起审批抓取…');
-}
-
-function handlePlaceClick(e) {
-  e.preventDefault();
-  const btn = e.currentTarget;
-  if (!btn) {
-    return;
-  }
-  if (btn.disabled) {
-    return;
-  }
-  if (!wsClient.isConnected()) {
-    stateStore.pushSystemLog('warn', '未连接 ROS，无法审批放置');
-    return;
-  }
-  stateStore.setState({ approvalLoading: true });
-  const s = stateStore.getState();
-  const placePose = s.placePoseValid && s.placePose
-    ? { header: { frame_id: 'base_link' }, pose: s.placePose }
-    : {
-        header: { frame_id: 'base_link' },
-        pose: {
-          position: { x: 0.35, y: 0.15, z: 0.4 },
-          orientation: { x: 0, y: 0, z: 0, w: 1 },
-        },
-      };
-  const hasHeld = s.hasHeldObject || s.heldValid;
-  wsClient.checkPlace(placePose, hasHeld, (raw) => {
-    stateStore.setState({ approvalLoading: false });
-    const r = raw && raw.values ? raw.values : raw;
-    if (r != null) {
-      stateStore.setApprovalResult({
-        type: 'place',
-        approved: r.approved,
-        severity: r.severity,
-        summary: r.summary,
-        items: r.items || [],
-        best_candidate_pose: null,
-        adjusted_place_pose: r.adjusted_place_pose || null,
-      });
-      stateStore.pushSystemLog(
-        'info',
-        `审批放置: ${r.summary || (r.approved ? '通过' : '未通过')}`,
-      );
-    } else {
-      stateStore.pushSystemLog('warn', '审批放置无响应');
-    }
-  });
-  stateStore.pushSystemLog('info', '发起审批放置…');
 }
 
 /**
@@ -156,7 +107,6 @@ function renderResult(resultContainerEl) {
 
     let resultHtml = '';
     if (loading && !res) {
-      // 仅有加载状态时，显示“审批中 + 步骤”
       resultHtml = `
         <div class="approval-loading">
           <div>审批中… ${targetLabel ? `(目标 ${targetLabel})` : ''}</div>
@@ -166,9 +116,8 @@ function renderResult(resultContainerEl) {
     } else if (res) {
       const badgeClass = severityClass(res.severity);
       const badgeTextBase = severityLabel(res.severity);
-      const actionLabel = res.type === 'place' ? '放置' : '抓取';
-      const badgeText = `${actionLabel}${badgeTextBase}`;
-      const summaryPrefix = res.type === 'place' ? '放置审批' : '抓取审批';
+      const badgeText = `抓取${badgeTextBase}`;
+      const summaryPrefix = '抓取审批';
       const summaryTextRaw = (res.summary || '').trim();
       const summaryText = summaryTextRaw || (res.approved ? `${summaryPrefix}：所有检查通过` : `${summaryPrefix}：完成（无摘要）`);
       const items = (res.items || []).map((it) => {
@@ -194,7 +143,7 @@ function renderResult(resultContainerEl) {
               </table>
             </div>
           ` : ''}
-          ${res.best_candidate_pose && res.type === 'pick' ? `
+          ${res.best_candidate_pose ? `
             <div class="approval-suggestion">
               <span class="approval-suggestion__label">推荐抓取位姿:</span>
               <span class="approval-suggestion__pos">x=${(res.best_candidate_pose.pose?.position?.x ?? 0).toFixed(3)} y=${(res.best_candidate_pose.pose?.position?.y ?? 0).toFixed(3)} z=${(res.best_candidate_pose.pose?.position?.z ?? 0).toFixed(3)}</span>
@@ -204,7 +153,7 @@ function renderResult(resultContainerEl) {
         </div>
       `;
     } else {
-      resultHtml = '<div class="approval-result approval-result--empty">点击「审批抓取」或「审批放置」获取结果</div>';
+      resultHtml = '<div class="approval-result approval-result--empty">点击「审批抓取」获取结果</div>';
     }
     resultContainerEl.innerHTML = resultHtml;
   }
@@ -216,5 +165,4 @@ export default {
   render: renderResult,
   renderResult,
   handlePickClick,
-  handlePlaceClick,
 };

@@ -36,7 +36,6 @@ void declareRuntimePolicyParameters(const std::shared_ptr<rclcpp::Node>& node)
   declare_bool(prefix + "auto_clear_scene_before_sync", true);
   declare_bool(prefix + "auto_reset_after_execution_failure", true);
   declare_bool(prefix + "auto_go_home_after_failure", false);
-  declare_bool(prefix + "allow_place_fallback_to_release", false);
   declare_bool(prefix + "reject_new_jobs_while_busy", false);
 }
 
@@ -54,8 +53,6 @@ void loadRuntimePolicyFromNode(const std::shared_ptr<rclcpp::Node>& node, Runtim
   node->get_parameter(prefix + "auto_reset_after_execution_failure",
                       policy.auto_reset_after_execution_failure);
   node->get_parameter(prefix + "auto_go_home_after_failure", policy.auto_go_home_after_failure);
-  node->get_parameter(prefix + "allow_place_fallback_to_release",
-                      policy.allow_place_fallback_to_release);
   node->get_parameter(prefix + "reject_new_jobs_while_busy", policy.reject_new_jobs_while_busy);
 }
 

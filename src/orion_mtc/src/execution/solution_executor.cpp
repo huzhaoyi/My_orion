@@ -107,7 +107,8 @@ bool SolutionExecutor::executeSolution(
     StageReportFn stage_report,
     const std::string& job_id,
     const std::string& task_type,
-    const std::vector<std::string>& stage_names)
+    const std::vector<std::string>& stage_names,
+    ShouldAbortFn should_abort)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -128,6 +129,16 @@ bool SolutionExecutor::executeSolution(
   bool have_waited_gripped = false;
   for (size_t i = 0; i < solution_msg.sub_trajectory.size(); ++i)
   {
+    if (should_abort && should_abort())
+    {
+      RCLCPP_WARN(LOGGER, "executeSolution: aborted before segment %zu (E_STOP)", i);
+      if (stage_report && i < solution_msg.sub_trajectory.size())
+      {
+        const std::string name = stage_name_at(i);
+        stage_report(job_id, task_type, i, name, "FAILED", "E_STOP");
+      }
+      return false;
+    }
     const std::string name = stage_name_at(i);
     if (stage_report)
     {
@@ -153,12 +164,22 @@ bool SolutionExecutor::executeSolution(
     {
       if (isGripperClosedInSegment(sub) && !have_waited_gripped)
       {
+        if (should_abort && should_abort())
+        {
+          RCLCPP_WARN(LOGGER, "executeSolution: aborted before wait gripped");
+          return false;
+        }
         if (!wait_for_gripped(true, 5.0))
           RCLCPP_WARN(LOGGER, "executeSolution: wait gripped timeout, continue anyway");
         have_waited_gripped = true;
       }
       else if (have_waited_gripped)
       {
+        if (should_abort && should_abort())
+        {
+          RCLCPP_WARN(LOGGER, "executeSolution: aborted before wait unlock");
+          return false;
+        }
         if (!wait_for_gripped(false, 5.0))
           RCLCPP_WARN(LOGGER, "executeSolution: wait unlock timeout, continue anyway");
       }
@@ -174,11 +195,12 @@ bool SolutionExecutor::executePickSolution(
     const moveit::core::RobotModelConstPtr& robot_model,
     HeldObjectContext& held_context_out,
     WaitForGrippedFn wait_for_gripped,
-    StageReportFn stage_report,
-    const std::string& job_id,
-    const std::string& task_type,
-    const std::vector<std::string>& stage_names,
-    const std::vector<std::string>& cable_world_object_ids)
+  StageReportFn stage_report,
+  const std::string& job_id,
+  const std::string& task_type,
+  const std::vector<std::string>& stage_names,
+  const std::vector<std::string>& cable_world_object_ids,
+  ShouldAbortFn should_abort)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -199,6 +221,16 @@ bool SolutionExecutor::executePickSolution(
 
   for (size_t i = 0; i < solution_msg.sub_trajectory.size(); ++i)
   {
+    if (should_abort && should_abort())
+    {
+      RCLCPP_WARN(LOGGER, "executePickSolution: aborted before segment %zu (E_STOP)", i);
+      if (stage_report)
+      {
+        const std::string name = stage_name_at(i);
+        stage_report(job_id, task_type, i, name, "FAILED", "E_STOP");
+      }
+      return false;
+    }
     const std::string name = stage_name_at(i);
     if (stage_report)
     {
@@ -274,6 +306,11 @@ bool SolutionExecutor::executePickSolution(
     {
       if (isGripperClosedInSegment(sub) && !have_waited_gripped)
       {
+        if (should_abort && should_abort())
+        {
+          RCLCPP_WARN(LOGGER, "executePickSolution: aborted before wait gripped");
+          return false;
+        }
         if (!wait_for_gripped(true, 5.0))
         {
           RCLCPP_WARN(LOGGER, "executePickSolution: wait gripped timeout, pick failed (no grip detected)");
@@ -283,6 +320,11 @@ bool SolutionExecutor::executePickSolution(
       }
       else if (have_waited_gripped)
       {
+        if (should_abort && should_abort())
+        {
+          RCLCPP_WARN(LOGGER, "executePickSolution: aborted before wait unlock");
+          return false;
+        }
         if (!wait_for_gripped(false, 5.0))
         {
           RCLCPP_WARN(LOGGER, "executePickSolution: wait unlock timeout");

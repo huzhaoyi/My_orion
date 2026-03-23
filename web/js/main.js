@@ -165,58 +165,6 @@ function registerGlobalHandlers() {
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
-    'orion:place': (e) => {
-      if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法提交 Place');
-        return;
-      }
-      if (!stateStore.getState().acceptNewJobs && e.detail?.immediate === false) {
-        stateStore.pushSystemLog('warn', '已停止入队（前端拦截），不会提交新任务');
-        return;
-      }
-      const x = parseFloat(e.detail?.x) || 0.45;
-      const y = parseFloat(e.detail?.y) || 0;
-      const z = parseFloat(e.detail?.z) || 0.4;
-      const qx = parseFloat(e.detail?.qx) || 0;
-      const qy = parseFloat(e.detail?.qy) || 0;
-      const qz = parseFloat(e.detail?.qz) || 0;
-      const qw = parseFloat(e.detail?.qw) || 1.0;
-      const target_pose = wsClient.buildPoseStamped({ x, y, z }, { x: qx, y: qy, z: qz, w: qw });
-      wsClient.submitJob({ job_type: wsClient.JOB_TYPE.PLACE, target_pose }, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? `放置已提交 ${(v && v.job_id) || ''}` : '放置提交失败');
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
-    },
-    'orion:place-release': (e) => {
-      if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法提交 PlaceRelease');
-        return;
-      }
-      if (!stateStore.getState().acceptNewJobs && e.detail?.immediate === false) {
-        stateStore.pushSystemLog('warn', '已停止入队（前端拦截），不会提交新任务');
-        return;
-      }
-      const x = parseFloat(e.detail?.x) ?? parseFloat(e.detail?.place_x) ?? 0.45;
-      const y = parseFloat(e.detail?.y) ?? parseFloat(e.detail?.place_y) ?? 0;
-      const z = parseFloat(e.detail?.z) ?? parseFloat(e.detail?.place_z) ?? 0.4;
-      const qx = parseFloat(e.detail?.qx) ?? 0;
-      const qy = parseFloat(e.detail?.qy) ?? 0;
-      const qz = parseFloat(e.detail?.qz) ?? 0;
-      const qw = parseFloat(e.detail?.qw) ?? parseFloat(e.detail?.place_qw) ?? 1.0;
-      const target_pose = wsClient.buildPoseStamped({ x, y, z }, { x: qx, y: qy, z: qz, w: qw });
-      wsClient.submitJob({ job_type: wsClient.JOB_TYPE.PLACE_RELEASE, target_pose }, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? `放置释放已提交 ${(v && v.job_id) || ''}` : '放置释放提交失败');
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
-    },
     'orion:sync-held': (e) => {
       const tracked = e.detail?.tracked ?? true;
       if (!wsClient.isConnected()) {

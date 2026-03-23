@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-将 HoloOcean CableSensor（COM 系下 位置 + 轴向 + 欧拉角）转换为 MTC 所需的 object_pose / place_pose（base_link 下）。
-单目标：3m 长、直径 5cm 缆绳，抓取与放置共用同一目标位姿。
+将 HoloOcean CableSensor（COM 系下 位置 + 轴向 + 欧拉角）转换为 MTC 所需的 object_pose（base_link 下）。
+单目标：3m 长、直径 5cm 缆绳。
 """
 
 import math
@@ -130,7 +130,7 @@ def _rotation_matrix_from_rpy(roll: float, pitch: float, yaw: float) -> np.ndarr
 class CableSensorToObjectPoseNode(Node):
     """
     订阅 CableSensor（COM 系：位置 + 轴向 + 欧拉角）和 ROV 位姿，
-    将缆绳目标变换到 base_link，发布 object_pose、place_pose（同源）与 perception_state。
+    将缆绳目标变换到 base_link，发布 object_pose 与 perception_state。
     """
 
     def __init__(self) -> None:
@@ -138,7 +138,6 @@ class CableSensorToObjectPoseNode(Node):
         self.declare_parameter("cable_sensor_topic", "/holoocean/rov0/CableSensor")
         self.declare_parameter("rov_pose_topic", "/holoocean/rov0/PoseSensor")
         self.declare_parameter("object_pose_topic", "object_pose")
-        self.declare_parameter("place_pose_topic", "place_pose")
         self.declare_parameter("world_frame_id", "map")
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
@@ -166,7 +165,6 @@ class CableSensorToObjectPoseNode(Node):
         self._cable_sensor_topic = self.get_parameter("cable_sensor_topic").get_parameter_value().string_value
         self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
         self._object_pose_topic = self.get_parameter("object_pose_topic").get_parameter_value().string_value
-        self._place_pose_topic = self.get_parameter("place_pose_topic").get_parameter_value().string_value
         self._world_frame_id = self.get_parameter("world_frame_id").get_parameter_value().string_value
         self._publish_tf = self.get_parameter("publish_tf").get_parameter_value().bool_value
         self._perception_state_topic = self.get_parameter("perception_state_topic").get_parameter_value().string_value
@@ -216,7 +214,6 @@ class CableSensorToObjectPoseNode(Node):
             10,
         )
         self._pub_object_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
-        self._pub_place_pose = self.create_publisher(PoseStamped, self._place_pose_topic, 10)
         self._pub_axis = self.create_publisher(Vector3Stamped, self._object_axis_topic, 10)
         self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
         if self._publish_tf:
@@ -396,7 +393,6 @@ class CableSensorToObjectPoseNode(Node):
         out.pose.orientation.w = q_base[3]
 
         self._pub_object_pose.publish(out)
-        self._pub_place_pose.publish(out)
         self._last_object_pose = out
         axis_msg = Vector3Stamped()
         axis_msg.header.stamp = stamp
@@ -424,7 +420,7 @@ class CableSensorToObjectPoseNode(Node):
         if not hasattr(self, "_cable_logged"):
             self._cable_logged = True
             self.get_logger().info(
-                "cable_sensor_to_object_pose: 已收到 CableSensor，发布 object_pose / place_pose（缆绳单目标）"
+                "cable_sensor_to_object_pose: 已收到 CableSensor，发布 object_pose（缆绳单目标）"
             )
         # self.get_logger().info(
         #     "cable_sensor_to_object_pose: 缆绳 base_link 位姿 x=%.3f y=%.3f z=%.3f（供 MTC 抓取目标）"

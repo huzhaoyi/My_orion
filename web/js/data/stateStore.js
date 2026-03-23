@@ -46,13 +46,11 @@ const initialState = {
   heldObjectPoseAtGrasp: null,
   heldTcpPoseAtGrasp: null,
 
-  // 感知状态（来自话题 object_pose / place_pose）
+  // 感知状态（来自话题 object_pose）
   objectPoseValid: false,
-  placePoseValid: false,
   perceptionUpdatedAt: null,
   objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
-  placePose: null,
-  // 单缆绳：仅 object_pose / place_pose，无多目标集合
+  // 单缆绳：object_pose，无多目标集合
   rovPoseInBaseLink: null,  // ROV 在 base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
 
@@ -88,8 +86,8 @@ const initialState = {
   systemLogs: [],
   maxSystemLogs: 200,
 
-  // 审批结果（CheckPick / CheckPlace 最后一次结果）
-  approvalResult: null,  // { type: 'pick'|'place', approved, severity, summary, items: [], best_candidate_pose?, adjusted_place_pose?, at }
+  // 审批结果（CheckPick 最后一次结果）
+  approvalResult: null,  // { type: 'pick', approved, severity, summary, items: [], best_candidate_pose?, at }
   approvalLoading: false,
   approvalTargetIndex: 1,   // 本次审批用的目标索引（0-based），默认第 2 个
   approvalTargetTotal: 0,   // 当前目标总数，用于显示「第 N 个（共 M 个）」
@@ -218,22 +216,6 @@ function setObjectPose(poseStampedOrNull) {
   });
 }
 
-function setPlacePose(poseStampedOrNull) {
-  if (!poseStampedOrNull) {
-    setState({ placePose: null, placePoseValid: false });
-    return;
-  }
-  const pose = poseStampedOrNull.pose || poseStampedOrNull;
-  setState({
-    placePose: {
-      position: pose.position || { x: 0, y: 0, z: 0 },
-      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
-    },
-    placePoseValid: true,
-    perceptionUpdatedAt: Date.now(),
-  });
-}
-
 function setJointState(names, positions) {
   setState({ jointNames: names || [], jointPositions: positions || [] });
 }
@@ -315,7 +297,6 @@ function setApprovalResult(payload) {
       summary: payload.summary || '',
       items: Array.isArray(payload.items) ? payload.items : [],
       best_candidate_pose: payload.best_candidate_pose || null,
-      adjusted_place_pose: payload.adjusted_place_pose || null,
       at: Date.now(),
     },
   });
@@ -333,7 +314,6 @@ export default {
   setQueueList,
   setConnection,
   setObjectPose,
-  setPlacePose,
   setJointState,
   setTrajectoryPoints,
   setRovPoseInBaseLink,

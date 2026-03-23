@@ -16,7 +16,6 @@ struct RuntimePolicy
   bool auto_reset_after_execution_failure = true;
   bool auto_go_home_after_failure = false;
 
-  bool allow_place_fallback_to_release = false;
   bool reject_new_jobs_while_busy = false;
 };
 

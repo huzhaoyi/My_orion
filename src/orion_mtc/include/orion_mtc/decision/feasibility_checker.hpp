@@ -1,11 +1,10 @@
-/* 审批模式：抓取/放置可达性与风险诊断，独立于执行接口 */
+/* 审批模式：抓取可达性与风险诊断，独立于执行接口 */
 
-#ifndef ORION_MTC_FEASIBILITY_FEASIBILITY_CHECKER_HPP
-#define ORION_MTC_FEASIBILITY_FEASIBILITY_CHECKER_HPP
+#ifndef ORION_MTC_DECISION_FEASIBILITY_CHECKER_HPP
+#define ORION_MTC_DECISION_FEASIBILITY_CHECKER_HPP
 
 #include <orion_mtc_msgs/msg/diagnostic_item.hpp>
 #include <orion_mtc_msgs/srv/check_pick.hpp>
-#include <orion_mtc_msgs/srv/check_place.hpp>
 #include <rclcpp/node.hpp>
 #include <memory>
 #include <string>
@@ -26,10 +25,6 @@ public:
   /** 抓取审批：几何范围 + IK + 关节余量，不执行规划/执行 */
   void checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
                  orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res);
-
-  /** 放置审批：业务合法性 + 几何范围 + IK + 关节余量 */
-  void checkPlace(const orion_mtc_msgs::srv::CheckPlace::Request::SharedPtr req,
-                  orion_mtc_msgs::srv::CheckPlace::Response::SharedPtr res);
 
   /** 注入 MTC 配置（gripper 偏移等），可选；未设置则用节点参数 */
   void setMTCConfig(const MTCConfig* config);
@@ -81,4 +76,4 @@ private:
 
 }  // namespace orion_mtc
 
-#endif  // ORION_MTC_FEASIBILITY_FEASIBILITY_CHECKER_HPP
+#endif  // ORION_MTC_DECISION_FEASIBILITY_CHECKER_HPP

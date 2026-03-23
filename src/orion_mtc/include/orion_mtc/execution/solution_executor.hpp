@@ -29,6 +29,9 @@ class TrajectoryExecutor;
 namespace orion_mtc
 {
 
+/** 返回 true 时中止当前 solution 执行（与急停话题配合） */
+using ShouldAbortFn = std::function<bool()>;
+
 /* expect_gripped: true=等待夹紧, false=等待松开；timeout_sec；返回是否在超时内满足 */
 using WaitForGrippedFn = std::function<bool(bool expect_gripped, double timeout_sec)>;
 
@@ -50,7 +53,8 @@ public:
                       StageReportFn stage_report = nullptr,
                       const std::string& job_id = "",
                       const std::string& task_type = "",
-                      const std::vector<std::string>& stage_names = {});
+                      const std::vector<std::string>& stage_names = {},
+                      ShouldAbortFn should_abort = nullptr);
 
   /* Pick 专用：执行中在 attach 段后根据末端 FK 填充 held_context_out。可选 stage_report 同上。
    * cable_world_object_ids：与 pick 任务中 add 的 world 缆绳段 id 一致，用于 remove 后同步 scene；空则不再额外扫 id */
@@ -64,7 +68,8 @@ public:
                           const std::string& job_id = "",
                           const std::string& task_type = "",
                           const std::vector<std::string>& stage_names = {},
-                          const std::vector<std::string>& cable_world_object_ids = {});
+                          const std::vector<std::string>& cable_world_object_ids = {},
+                          ShouldAbortFn should_abort = nullptr);
 
 private:
   PlanningSceneManager* scene_manager_;

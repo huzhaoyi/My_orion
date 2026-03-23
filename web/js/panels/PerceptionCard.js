@@ -1,5 +1,5 @@
 /**
- * 左侧 - 感知状态卡片（来自 perception_state：单缆绳位姿、放置、ROV 位姿）
+ * 左侧 - 感知状态卡片（来自 perception_state：单缆绳位姿、ROV 位姿）
  */
 
 import stateStore from '../data/stateStore.js';
@@ -33,7 +33,6 @@ function render(parentEl) {
     const objPose = state.objectPoseValid && state.objectPose ? state.objectPose : null;
     const objPos = objPose ? objPose.position : null;
     const objQuat = objPose ? objPose.orientation : null;
-    const placePos = state.placePoseValid && state.placePose ? state.placePose.position : null;
     const rovBase = state.rovPoseInBaseLink || null;
     const rovWorld = state.rovPoseInWorld || null;
     const rovPosBase = rovBase ? rovBase.position : null;
@@ -63,7 +62,6 @@ function render(parentEl) {
           <span class="card-value" style="font-size:10px;color:var(--text-secondary);">base_link=机械臂基座坐标系</span>
         </div>
       </div>
-      <div class="card-row"><span class="card-label">放置 (同缆绳目标 base_link)</span><span class="card-value">${state.placePoseValid ? fmtPos(placePos) : '无效'}</span></div>
       <div class="perception-card__pose-block">
         <div class="card-row"><span class="card-label">ROV位姿 (map)</span></div>
         <div class="card-row card-row--indent"><span class="card-label">位置</span><span class="card-value">${rovPosWorld ? fmtPos(rovPosWorld) : '—'}</span></div>

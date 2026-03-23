@@ -15,7 +15,7 @@ function render(parentEl) {
   function statusLabel(s) {
     if (!s) return '—';
     const u = (s + '').toUpperCase();
-    if (u.includes('RUNNING') || u.includes('PICKING') || u.includes('PLACING')) return '运行中';
+    if (u.includes('RUNNING') || u.includes('PICKING')) return '运行中';
     if (u.includes('HOLDING')) return '持物中';
     if (u.includes('ERROR') || u.includes('DISCONNECTED')) return '异常';
     if (u.includes('RECOVERING') || u.includes('WARNING')) return '恢复中';

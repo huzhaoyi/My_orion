@@ -1,6 +1,6 @@
 /* 审批模式：几何 + IK + 关节余量，不执行规划 */
 
-#include "orion_mtc/feasibility/feasibility_checker.hpp"
+#include "orion_mtc/decision/feasibility_checker.hpp"
 #include "orion_mtc/config/mtc_config.hpp"
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_state/robot_state.h>
@@ -19,7 +19,7 @@
 namespace orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.feasibility");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.decision");
 
 /* 诊断 level：0=info 1=warning 2=error(硬拒绝) */
 static const int32_t LEVEL_INFO = 0;
@@ -450,78 +450,6 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
     trySuggestCorrectionPick(req, res, pz, grasp_z);
   if (res->best_candidate_pose.header.frame_id.empty())
     res->best_candidate_pose = req->object_pose;
-}
-
-void FeasibilityChecker::checkPlace(const orion_mtc_msgs::srv::CheckPlace::Request::SharedPtr req,
-                                   orion_mtc_msgs::srv::CheckPlace::Response::SharedPtr res)
-{
-  res->items.clear();
-  res->approved = true;
-  res->severity = SEV_PASS;
-  res->summary = "可执行";
-
-  if (!req->has_held_object)
-  {
-    addItem(res->items, "NO_HELD_OBJECT", LEVEL_ERROR,
-            "当前未持物，不允许执行放置", "", 0.0, 0.0, "请先执行抓取");
-    res->approved = false;
-    res->severity = SEV_REJECT;
-    res->summary = "禁止执行：未持物";
-    return;
-  }
-
-  double px = req->place_pose.pose.position.x;
-  double py = req->place_pose.pose.position.y;
-  double pz = req->place_pose.pose.position.z;
-  double qx = req->place_pose.pose.orientation.x;
-  double qy = req->place_pose.pose.orientation.y;
-  double qz = req->place_pose.pose.orientation.z;
-  double qw = req->place_pose.pose.orientation.w;
-
-  /* 规划 IK frame 已切换为 gripper_tcp（夹爪 TCP），不再需要 Link6->夹爪的固定偏移补偿 */
-  double place_link6_z = pz;
-
-  double r = std::sqrt(px * px + py * py + place_link6_z * place_link6_z);
-  if (r > params_.max_reach_hard)
-  {
-    addItem(res->items, "TARGET_OUT_OF_SAFE_RANGE", LEVEL_ERROR,
-            "放置点距离基座 " + std::to_string(r) + " m，超过硬上限 " + std::to_string(params_.max_reach_hard) + " m",
-            "place_pose.position", r, params_.max_reach_hard, "请将放置点移近");
-    res->approved = false;
-    res->severity = SEV_REJECT;
-  }
-  else if (r > params_.max_reach_soft)
-  {
-    addItem(res->items, "TARGET_NEAR_REACH_LIMIT", LEVEL_WARNING,
-            "放置点距离 " + std::to_string(r) + " m，超过推荐范围", "place_pose.position", r,
-            params_.max_reach_soft, "");
-    if (res->severity < SEV_WARNING)
-      res->severity = SEV_WARNING;
-  }
-  if (place_link6_z < params_.z_min || place_link6_z > params_.z_max)
-  {
-    addItem(res->items, "Z_OUT_OF_RANGE", LEVEL_ERROR,
-            "放置高度 " + std::to_string(place_link6_z) + " 超出范围 [" +
-                std::to_string(params_.z_min) + ", " + std::to_string(params_.z_max) + "]",
-            "place_pose.position.z", place_link6_z, params_.z_max, "");
-    res->approved = false;
-    res->severity = SEV_REJECT;
-  }
-
-  bool ik_ok = runIkAndJointMargin(impl_->arm_group_name, impl_->hand_frame,
-                                  px, py, place_link6_z, qx, qy, qz, qw, res->items);
-  if (!ik_ok)
-  {
-    res->approved = false;
-    res->severity = SEV_REJECT;
-  }
-
-  if (res->severity == SEV_REJECT)
-    res->summary = "禁止执行：存在硬拒绝项";
-  else if (res->severity == SEV_WARNING)
-    res->summary = "可执行，但存在风险提示";
-
-  res->adjusted_place_pose = req->place_pose;
 }
 
 bool FeasibilityChecker::checkTargetCollision(double px, double py, double pz,

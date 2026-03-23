@@ -23,7 +23,6 @@ const AXIS_SIZE = 0.28;
 const AXIS_LABEL_SCALE = 0.06;
 const PICK_MARKER_COLOR = 0x22d3ee;
 const PICK_MARKER_RADIUS = 0.04;
-const PLACE_MARKER_RADIUS = 0.04;
 const OUTLINE_COLOR = 0x64748b;
 const AXIS_COLOR_X = 0xe53935;
 const AXIS_COLOR_Y = 0x43a047;
@@ -230,7 +229,7 @@ function createScene(containerEl) {
   attachedObject.userData.valid = false;
   targets.add(attachedObject);
 
-  /* 目标点：pick 青 #22D3EE 稍大，place 紫 */
+  /* 目标点：抓取缆绳目标 青 #22D3EE */
   const pickMarker = new THREE.Mesh(
     new THREE.SphereGeometry(PICK_MARKER_RADIUS, 20, 20),
     new THREE.MeshBasicMaterial({ color: PICK_MARKER_COLOR })
@@ -238,14 +237,6 @@ function createScene(containerEl) {
   pickMarker.name = 'pick_target';
   pickMarker.visible = false;
   targets.add(pickMarker);
-
-  const placeMarker = new THREE.Mesh(
-    new THREE.SphereGeometry(PLACE_MARKER_RADIUS, 20, 20),
-    new THREE.MeshBasicMaterial({ color: PICK_MARKER_COLOR })
-  );
-  placeMarker.name = 'place_target';
-  placeMarker.visible = false;
-  targets.add(placeMarker);
 
   /* ROV 坐标系（base_link 下，由 rov_pose_in_base_link 更新） */
   const ROV_AXIS_SIZE = 0.12;
@@ -322,7 +313,6 @@ function createScene(containerEl) {
     targets,
     overlays,
     pickMarker,
-    placeMarker,
     targetObjectComposed,
     rovAxesGroup,
     trajectoryLine,

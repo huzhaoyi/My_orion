@@ -8,14 +8,12 @@
 namespace orion_mtc
 {
 
-/* HOLDING_TRACKED 可精准放置，HOLDING_UNTRACKED 仅可 release 放置 */
 enum class RobotTaskMode
 {
   IDLE,
   PICKING,
-  HOLDING_TRACKED,   /* 有完整 held_object（来自 pick），可 place_precise */
-  HOLDING_UNTRACKED, /* 手里可能有物但无 tcp_to_object，仅可 place_release */
-  PLACING,
+  HOLDING_TRACKED,
+  HOLDING_UNTRACKED,
   ERROR
 };
 
@@ -46,8 +44,6 @@ inline std::string toStateString(RobotTaskMode m)
       return "HOLDING_TRACKED";
     case RobotTaskMode::HOLDING_UNTRACKED:
       return "HOLDING_UNTRACKED";
-    case RobotTaskMode::PLACING:
-      return "PLACING";
     case RobotTaskMode::ERROR:
       return "ERROR";
     default:

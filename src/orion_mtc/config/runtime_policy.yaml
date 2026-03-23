@@ -1,5 +1,5 @@
 # 运行策略：与 MTCConfig 几何参数分离，控制 worker/恢复/重试等行为
-# 可通过 launch 的 additional_params_file 或 params_file 与 pick_place_params 一起加载
+# 可通过 launch 的 additional_params_file 或 params_file 与 pick_params 一起加载
 # 加载时需保证节点名为 orion_mtc_node（与上述 ros__parameters 一致）
 orion_mtc_node:
   ros__parameters:
@@ -10,5 +10,4 @@ orion_mtc_node:
       auto_clear_scene_before_sync: true
       auto_reset_after_execution_failure: true
       auto_go_home_after_failure: false
-      allow_place_fallback_to_release: false
       reject_new_jobs_while_busy: false

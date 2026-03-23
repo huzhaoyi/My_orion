@@ -13,6 +13,7 @@ find_package(action_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/TargetSet.msg"
   "msg/JobExecutionRecord.msg"
   "msg/PerceptionState.msg"
   "msg/RuntimeStatus.msg"
@@ -22,8 +23,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RecoveryEvent.msg"
   "msg/DiagnosticItem.msg"
   "action/Pick.action"
-  "action/Place.action"
-  "action/PlaceRelease.action"
   "srv/GetRobotState.srv"
   "srv/GetQueueState.srv"
   "srv/GetRecentJobs.srv"
@@ -32,7 +31,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SubmitJob.srv"
   "srv/SyncHeldObject.srv"
   "srv/CheckPick.srv"
-  "srv/CheckPlace.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs action_msgs std_msgs
 )
 

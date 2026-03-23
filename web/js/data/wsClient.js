@@ -5,12 +5,14 @@
  *   /manipulator/job_event        (JobEvent)   — 注意单数
  *   /manipulator/task_stage       (TaskStage)  — 注意单数
  *   /manipulator/held_object_state (HeldObjectState)
- *   /manipulator/object_pose, /manipulator/place_pose (PoseStamped，来自 CableSensor 缆绳单目标)
+ *   /manipulator/object_pose (PoseStamped，来自 CableSensor 缆绳单目标)
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  * 服务（与 orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, submit_job, cancel_job,
  *   open_gripper, close_gripper, reset_held_object, sync_held_object
+ * 话题发布（std_msgs/Empty，rosbridge op: publish）：
+ *   /manipulator/emergency_stop — 急停；/manipulator/go_to_ready — 回 SRDF ready + 张开手
  */
 
 import stateStore from './stateStore.js';
@@ -99,7 +101,6 @@ function subscribeTopics() {
     prefix + '/task_stage',
     prefix + '/held_object_state',
     prefix + '/object_pose',
-    prefix + '/place_pose',
     prefix + '/perception_state',
     prefix + '/joint_states',
     '/joint_states',
@@ -122,7 +123,7 @@ function inferType(topic) {
   if (topic.includes('task_stage')) return 'orion_mtc_msgs/msg/TaskStage';
   if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
-  if (topic.includes('object_pose') || topic.includes('place_pose')) return 'geometry_msgs/msg/PoseStamped';
+  if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
   return 'std_msgs/msg/String';
 }
@@ -154,10 +155,6 @@ function handleMessage(data) {
     stateStore.setObjectPose(data.msg);
     return;
   }
-  if (data.topic && data.topic.endsWith('/place_pose') && data.msg) {
-    stateStore.setPlacePose(data.msg);
-    return;
-  }
   if (data.topic && data.topic.endsWith('/joint_states') && data.msg) {
     const names = data.msg.name || [];
     const pos = data.msg.position || [];
@@ -174,6 +171,24 @@ function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(obj));
   }
+}
+
+/** rosbridge：发布到 topic（msg 与话题类型一致，如 std_msgs/Empty 用 {}） */
+function publish(topic, msg = {}) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    stateStore.pushSystemLog('warn', '未连接，无法发布话题');
+    return false;
+  }
+  send({ op: 'publish', topic, msg });
+  return true;
+}
+
+function publishEmergencyStop() {
+  return publish(getTopicPrefix() + '/emergency_stop', {});
+}
+
+function publishGoToReady() {
+  return publish(getTopicPrefix() + '/go_to_ready', {});
 }
 
 function callService(service, request = {}, callback, options = {}) {
@@ -208,7 +223,13 @@ function callService(service, request = {}, callback, options = {}) {
   });
 }
 
-const JOB_TYPE = { PICK: 0, PLACE: 1, PLACE_RELEASE: 2, RESET_HELD_OBJECT: 3, SYNC_HELD_OBJECT: 4 };
+const JOB_TYPE = {
+  PICK: 0,
+  RESET_HELD_OBJECT: 1,
+  SYNC_HELD_OBJECT: 2,
+  OPEN_GRIPPER: 3,
+  CLOSE_GRIPPER: 4,
+};
 
 function buildPoseStamped(position, orientation, frameId = 'base_link') {
   return {
@@ -260,14 +281,6 @@ function checkPick(objectPose, callback) {
   callService(getTopicPrefix() + '/check_pick', { object_pose: pose }, callback, { timeout_ms: 5000 });
 }
 
-function checkPlace(placePose, hasHeldObject, callback) {
-  const pose = placePose && placePose.pose
-    ? placePose
-    : { header: { frame_id: 'base_link' }, pose: placePose || { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } };
-  if (!pose.header) pose.header = { frame_id: 'base_link' };
-  callService(getTopicPrefix() + '/check_place', { place_pose: pose, has_held_object: !!hasHeldObject }, callback, { timeout_ms: 5000 });
-}
-
 function disconnect() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
@@ -285,6 +298,9 @@ export default {
   connect,
   disconnect,
   send,
+  publish,
+  publishEmergencyStop,
+  publishGoToReady,
   callService,
   getTopicPrefix,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
@@ -294,5 +310,4 @@ export default {
   getQueueState,
   getRobotState,
   checkPick,
-  checkPlace,
 };

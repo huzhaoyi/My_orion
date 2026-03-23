@@ -1,9 +1,0 @@
-# 放置审批：不执行，仅返回可达性与风险诊断
-geometry_msgs/PoseStamped place_pose    # base_link 下放置目标位姿
-bool has_held_object                     # 当前是否持物（无持物时 place 业务非法）
----
-bool approved
-int32 severity
-string summary
-orion_mtc_msgs/DiagnosticItem[] items
-geometry_msgs/PoseStamped adjusted_place_pose   # 可选：调整后放置位姿

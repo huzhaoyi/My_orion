@@ -25,7 +25,7 @@ public:
   explicit PlanningSceneManager(rclcpp::Node* node);
   ~PlanningSceneManager() = default;
 
-  /* 放置成功后把 planning scene 中物体更新到目标位姿，供 move to ready 及后续规划使用 */
+  /* 将物体位姿更新到 planning scene（world 几何），供后续规划使用 */
   bool applyObjectPoseToPlanningScene(double px, double py, double pz,
                                       double qx, double qy, double qz, double qw);
 

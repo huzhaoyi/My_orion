@@ -6,8 +6,6 @@ export function jobTypeLabel(t) {
   if (!t) return '—';
   const u = (String(t)).toUpperCase();
   if (u === 'PICK') return '抓取';
-  if (u === 'PLACE') return '放置';
-  if (u === 'PLACE_RELEASE') return '放置释放';
   if (u === 'OPEN_GRIPPER') return '打开夹爪';
   if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
   if (u === 'RESET_HELD_OBJECT') return '重置持物';
@@ -15,7 +13,7 @@ export function jobTypeLabel(t) {
   return t;
 }
 
-/** MTC 阶段名 -> 中文（与后端 PICK_STAGE_NAMES / PLACE_STAGE_NAMES / PLACE_RELEASE_STAGE_NAMES 对应） */
+/** MTC 阶段名 -> 中文（与后端 PICK 流程阶段名对应） */
 const STAGE_NAME_ZH = {
   move_to_ready: '回到就绪',
   add_object: '添加物体',
@@ -31,15 +29,11 @@ const STAGE_NAME_ZH = {
   allow_collision_object_support: '允许物面碰撞',
   lift_object: '抬升物体',
   forbid_collision_object_support: '禁止物面碰撞',
-  move_to_pre_place: '移至预放',
-  lower_to_place: '下放至放置',
   detach_object: '脱离物体',
   retreat: '退离',
   forbid_collision_hand_object: '禁止手物碰撞',
-  forbid_collision_object_support: '禁止物面碰撞',
   allow_collision_object_arm: '允许物臂碰撞',
   open_hand_ready: '张开手爪(就绪)',
-  move_to_pre_place_release: '移至预放(释放)',
 };
 
 export function stageNameLabel(name) {

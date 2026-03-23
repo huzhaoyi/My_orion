@@ -1,6 +1,6 @@
 /**
  * 中间主区域：Three.js 3D 视图 + 图层开关浮层 + 视角快捷按钮
- * 根据 stateStore 的 objectPose / placePose / jointPositions 更新 marker 与机械臂
+ * 根据 stateStore 的 objectPose / jointPositions 更新 marker 与机械臂
  */
 
 import * as THREE from 'three';
@@ -88,7 +88,6 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
         if (t.key === 'showTargets') {
           sceneApiRef.pickMarker.visible = cb.checked;
-          sceneApiRef.placeMarker.visible = cb.checked;
         }
         if (t.key === 'showWorkspace') {
           const ws = sceneApiRef.world.getObjectByName('workspace_box');
@@ -221,9 +220,6 @@ function mount(containerId) {
     const tScene = applyBaseLinkToScene(t);
     sceneApi.pickMarker.position.copy(tScene);
     sceneApi.pickMarker.visible = layerToggles.showTargets && !!s.objectPoseValid;
-    const p = rosToThreePosition(s.placePose?.position);
-    sceneApi.placeMarker.position.copy(applyBaseLinkToScene(p));
-    sceneApi.placeMarker.visible = layerToggles.showTargets && !!s.placePoseValid;
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {
       sceneApi.rovAxesGroup.position.copy(applyBaseLinkToScene(rovPos));

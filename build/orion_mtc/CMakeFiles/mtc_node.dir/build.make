@@ -97,10 +97,24 @@ CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/app/orion_mtc_node.cpp -o CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.s
 
+CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/interface/manipulator_ros_interface.cpp
+CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o -MF CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o.d -o CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/interface/manipulator_ros_interface.cpp
+
+CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/interface/manipulator_ros_interface.cpp > CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.i
+
+CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/interface/manipulator_ros_interface.cpp -o CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.s
+
 CMakeFiles/mtc_node.dir/src/core/constants.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/core/constants.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/core/constants.cpp
 CMakeFiles/mtc_node.dir/src/core/constants.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/mtc_node.dir/src/core/constants.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/mtc_node.dir/src/core/constants.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/core/constants.cpp.o -MF CMakeFiles/mtc_node.dir/src/core/constants.cpp.o.d -o CMakeFiles/mtc_node.dir/src/core/constants.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/core/constants.cpp
 
 CMakeFiles/mtc_node.dir/src/core/constants.cpp.i: cmake_force
@@ -114,7 +128,7 @@ CMakeFiles/mtc_node.dir/src/core/constants.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/config/mtc_config.cpp
 CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o -MF CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o.d -o CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/config/mtc_config.cpp
 
 CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.i: cmake_force
@@ -128,7 +142,7 @@ CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/config/runtime_policy_loader.cpp
 CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o -MF CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o.d -o CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/config/runtime_policy_loader.cpp
 
 CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.i: cmake_force
@@ -139,24 +153,80 @@ CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/config/runtime_policy_loader.cpp -o CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.s
 
-CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/feasibility/feasibility_checker.cpp
-CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o -MF CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o.d -o CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/feasibility/feasibility_checker.cpp
+CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/decision/feasibility_checker.cpp
+CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o -MF CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o.d -o CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/decision/feasibility_checker.cpp
 
-CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/feasibility/feasibility_checker.cpp > CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.i
+CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/decision/feasibility_checker.cpp > CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.i
 
-CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/feasibility/feasibility_checker.cpp -o CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.s
+CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/decision/feasibility_checker.cpp -o CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.s
+
+CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/decision/reach_kinematics.cpp
+CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o -MF CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o.d -o CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/decision/reach_kinematics.cpp
+
+CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/decision/reach_kinematics.cpp > CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.i
+
+CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/decision/reach_kinematics.cpp -o CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.s
+
+CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/decision/cylinder_side_grasp.cpp
+CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o -MF CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o.d -o CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/decision/cylinder_side_grasp.cpp
+
+CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/decision/cylinder_side_grasp.cpp > CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.i
+
+CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/decision/cylinder_side_grasp.cpp -o CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.s
+
+CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/decision/cable_side_pick_precheck.cpp
+CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o -MF CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o.d -o CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/decision/cable_side_pick_precheck.cpp
+
+CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/decision/cable_side_pick_precheck.cpp > CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.i
+
+CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/decision/cable_side_pick_precheck.cpp -o CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.s
+
+CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/decision/target_selector.cpp
+CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o -MF CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o.d -o CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/decision/target_selector.cpp
+
+CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/decision/target_selector.cpp > CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.i
+
+CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/decision/target_selector.cpp -o CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.s
 
 CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/collision_object_utils.cpp
 CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/collision_object_utils.cpp
 
 CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.i: cmake_force
@@ -170,7 +240,7 @@ CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/cable_segments.cpp
 CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/cable_segments.cpp
 
 CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.i: cmake_force
@@ -184,7 +254,7 @@ CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/cable_side_grasp.cpp
 CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/cable_side_grasp.cpp
 
 CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.i: cmake_force
@@ -198,7 +268,7 @@ CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/pick_task_builder.cpp
 CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/pick_task_builder.cpp
 
 CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.i: cmake_force
@@ -209,52 +279,10 @@ CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/planning/pick_task_builder.cpp -o CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.s
 
-CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/place_task_builder.cpp
-CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/place_task_builder.cpp
-
-CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/planning/place_task_builder.cpp > CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.i
-
-CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/planning/place_task_builder.cpp -o CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.s
-
-CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/place_release_task_builder.cpp
-CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/place_release_task_builder.cpp
-
-CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/planning/place_release_task_builder.cpp > CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.i
-
-CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/planning/place_release_task_builder.cpp -o CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.s
-
-CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/planning/place_generator.cpp
-CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o -MF CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o.d -o CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/planning/place_generator.cpp
-
-CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/planning/place_generator.cpp > CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.i
-
-CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/planning/place_generator.cpp -o CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.s
-
 CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/scene/planning_scene_manager.cpp
 CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o -MF CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o.d -o CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/scene/planning_scene_manager.cpp
 
 CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.i: cmake_force
@@ -268,7 +296,7 @@ CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/execution/trajectory_executor.cpp
 CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o -MF CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o.d -o CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/execution/trajectory_executor.cpp
 
 CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.i: cmake_force
@@ -282,7 +310,7 @@ CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/execution/solution_executor.cpp
 CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o -MF CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o.d -o CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/execution/solution_executor.cpp
 
 CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.i: cmake_force
@@ -296,7 +324,7 @@ CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/pose_cache.cpp
 CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/pose_cache.cpp
 
 CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.i: cmake_force
@@ -310,7 +338,7 @@ CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/vector3_cache.cpp
 CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/vector3_cache.cpp
 
 CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.i: cmake_force
@@ -321,24 +349,38 @@ CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/vector3_cache.cpp -o CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.s
 
-CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/flags.make
-CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/strategy/cylinder_side_grasp.cpp
-CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o -MF CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o.d -o CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/strategy/cylinder_side_grasp.cpp
+CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp
+CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp
 
-CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/strategy/cylinder_side_grasp.cpp > CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.i
+CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp > CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.i
 
-CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/strategy/cylinder_side_grasp.cpp -o CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.s
+CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/target_cache.cpp -o CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.s
+
+CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/perception/perception_snapshot_provider.cpp
+CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o -MF CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o.d -o CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/perception/perception_snapshot_provider.cpp
+
+CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/perception/perception_snapshot_provider.cpp > CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.i
+
+CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/perception/perception_snapshot_provider.cpp -o CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.s
 
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_queue.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_queue.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.i: cmake_force
@@ -352,7 +394,7 @@ CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.s: cmake_force
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/recovery_actions.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/recovery_actions.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.i: cmake_force
@@ -363,10 +405,24 @@ CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/orchestration/recovery_actions.cpp -o CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.s
 
+CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o: CMakeFiles/mtc_node.dir/flags.make
+CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/job_deduplicator.cpp
+CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/job_deduplicator.cpp
+
+CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huzy/My_orion/src/orion_mtc/src/orchestration/job_deduplicator.cpp > CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.i
+
+CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huzy/My_orion/src/orion_mtc/src/orchestration/job_deduplicator.cpp -o CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.s
+
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: CMakeFiles/mtc_node.dir/flags.make
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_manager.cpp
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o: CMakeFiles/mtc_node.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o -MF CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o.d -o CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o -c /home/huzy/My_orion/src/orion_mtc/src/orchestration/task_manager.cpp
 
 CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.i: cmake_force
@@ -381,25 +437,29 @@ CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.s: cmake_force
 mtc_node_OBJECTS = \
 "CMakeFiles/mtc_node.dir/src/main.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/core/constants.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o" \
-"CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o" \
+"CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o" \
 "CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o"
 
 # External object files for target mtc_node
@@ -407,25 +467,29 @@ mtc_node_EXTERNAL_OBJECTS =
 
 mtc_node: CMakeFiles/mtc_node.dir/src/main.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/app/orion_mtc_node.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/core/constants.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/config/mtc_config.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/config/runtime_policy_loader.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/feasibility/feasibility_checker.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/decision/feasibility_checker.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/decision/reach_kinematics.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/decision/cylinder_side_grasp.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/decision/cable_side_pick_precheck.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/decision/target_selector.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/planning/collision_object_utils.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/planning/cable_segments.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/planning/cable_side_grasp.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/planning/pick_task_builder.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/planning/place_task_builder.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/planning/place_release_task_builder.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/planning/place_generator.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/scene/planning_scene_manager.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/execution/trajectory_executor.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/execution/solution_executor.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/perception/pose_cache.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/perception/vector3_cache.cpp.o
-mtc_node: CMakeFiles/mtc_node.dir/src/strategy/cylinder_side_grasp.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/perception/target_cache.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/perception/perception_snapshot_provider.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/task_queue.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/recovery_actions.cpp.o
+mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/job_deduplicator.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/src/orchestration/task_manager.cpp.o
 mtc_node: CMakeFiles/mtc_node.dir/build.make
 mtc_node: /opt/ros/humble/lib/libmoveit_task_constructor_core_stage_plugins.so
@@ -715,7 +779,7 @@ mtc_node: /opt/ros/humble/lib/librosidl_runtime_c.so
 mtc_node: /opt/ros/humble/lib/librcpputils.so
 mtc_node: /opt/ros/humble/lib/librcutils.so
 mtc_node: CMakeFiles/mtc_node.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Linking CXX executable mtc_node"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huzy/My_orion/build/orion_mtc/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Linking CXX executable mtc_node"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/mtc_node.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
