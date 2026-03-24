@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 import wsClient from '../data/wsClient.js';
+import toast from '../ui/toast.js';
 
 const SEV_PASS = 0;
 const SEV_WARNING = 1;
@@ -45,6 +46,7 @@ function handlePickClick(e) {
   }
   if (!wsClient.isConnected()) {
     stateStore.pushSystemLog('warn', '未连接 ROS，无法审批抓取');
+    toast.warn('未连接，无法审批抓取');
     return;
   }
   const s = stateStore.getState();
@@ -53,6 +55,7 @@ function handlePickClick(e) {
     : null;
   if (!objectPose) {
     stateStore.pushSystemLog('warn', '无缆绳位姿 (object_pose)，无法审批抓取');
+    toast.warn('无物体位姿，无法审批抓取');
     return;
   }
   stateStore.setState({
@@ -72,15 +75,22 @@ function handlePickClick(e) {
         items: r.items || [],
         best_candidate_pose: r.best_candidate_pose || null,
       });
-      stateStore.pushSystemLog(
-        'info',
-        `审批抓取: ${r.summary || (r.approved ? '通过' : '未通过')}`,
-      );
+      const line = r.summary || (r.approved ? '通过' : '未通过');
+      stateStore.pushSystemLog('info', `审批抓取: ${line}`);
+      if (r.approved) {
+        toast.success(`审批完成：${line}`);
+      } else if (r.severity === SEV_REJECT) {
+        toast.warn(`审批未通过：${line}`);
+      } else {
+        toast.info(`审批完成：${line}`);
+      }
     } else {
       stateStore.pushSystemLog('warn', '审批抓取无响应');
+      toast.warn('审批抓取无响应');
     }
   });
   stateStore.pushSystemLog('info', '发起审批抓取…');
+  toast.info('已发送审批请求…');
 }
 
 /**

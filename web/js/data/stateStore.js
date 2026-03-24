@@ -9,9 +9,6 @@ const initialState = {
   wsConnected: false,
   backendConnected: false,
 
-  // 前端本地策略：停止入队时仅在前端拦截 submit_job
-  acceptNewJobs: true,
-
   // RuntimeStatus 对应字段
   workerStatus: '',
   taskMode: '',
@@ -112,10 +109,24 @@ function subscribe(fn) {
 
 /* 与 orion_mtc_msgs/msg/RuntimeStatus.msg 字段一一对应（ROS 为 snake_case） */
 function applyRuntimeStatus(msg) {
+  const prev_job_id = state.currentJobId || '';
+  const next_job_id =
+    msg.current_job_id !== undefined && msg.current_job_id !== null
+      ? String(msg.current_job_id)
+      : prev_job_id;
+  let next_stage = state.currentStageName;
+  if (!next_job_id)
+  {
+    next_stage = '';
+  }
+  else if (prev_job_id && next_job_id && prev_job_id !== next_job_id)
+  {
+    next_stage = '';
+  }
   setState({
     workerStatus: msg.worker_status ?? state.workerStatus,
     taskMode: msg.task_mode ?? state.taskMode,
-    currentJobId: msg.current_job_id ?? state.currentJobId,
+    currentJobId: next_job_id,
     currentJobType: msg.current_job_type ?? state.currentJobType,
     nextJobType: msg.next_job_type ?? state.nextJobType,
     workerRunning: msg.worker_running ?? state.workerRunning,
@@ -125,6 +136,32 @@ function applyRuntimeStatus(msg) {
     heldObjectId: msg.held_object_id ?? state.heldObjectId,
     heldSceneAttachId: msg.held_scene_attach_id ?? state.heldSceneAttachId,
     lastError: msg.last_error ?? state.lastError,
+    currentStageName: next_stage,
+  });
+}
+
+/* 与 orion_mtc_msgs/srv/GetQueueState.srv 响应用于同步 queueList / nextJobId */
+function applyQueueStateResponse(res) {
+  if (!res)
+  {
+    return;
+  }
+  const v = res.values || res;
+  const list = [];
+  if (v.current_job_id)
+  {
+    list.push({ job_id: v.current_job_id, job_type: v.current_job_type || '—', is_current: true });
+  }
+  if (v.next_job_id && v.next_job_id !== v.current_job_id)
+  {
+    list.push({ job_id: v.next_job_id, job_type: v.next_job_type || '—', is_current: false });
+  }
+  setState({
+    queueList: list,
+    nextJobId: v.next_job_id != null ? v.next_job_id : '',
+    nextJobType: v.next_job_type != null ? v.next_job_type : '',
+    queueSize: v.queue_size != null ? v.queue_size : 0,
+    queueEmpty: v.queue_empty != null ? v.queue_empty : true,
   });
 }
 
@@ -284,10 +321,6 @@ function setPerceptionState(msg) {
   setState(patch);
 }
 
-function setAcceptNewJobs(accept) {
-  setState({ acceptNewJobs: !!accept });
-}
-
 function setApprovalResult(payload) {
   setState({
     approvalResult: payload == null ? null : {
@@ -307,6 +340,7 @@ export default {
   setState,
   subscribe,
   applyRuntimeStatus,
+  applyQueueStateResponse,
   applyHeldObjectState,
   pushJobEvent,
   pushTaskStage,
@@ -318,7 +352,6 @@ export default {
   setTrajectoryPoints,
   setRovPoseInBaseLink,
   setPerceptionState,
-  setAcceptNewJobs,
   applyRecoveryEvent,
   setRecentJobs,
   applyGetRobotStateResponse,

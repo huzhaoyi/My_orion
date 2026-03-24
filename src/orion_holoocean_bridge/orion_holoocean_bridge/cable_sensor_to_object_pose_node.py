@@ -161,6 +161,8 @@ class CableSensorToObjectPoseNode(Node):
         self.declare_parameter("cable_positions_frame", "")
         self.declare_parameter("cable_direction_frame", "")
         self.declare_parameter("cable_euler_frame", "")
+        # false：map→rov0 TF 等使用节点时钟，避免 HoloOcean 重启后仿真时间回退引发 TF_OLD_DATA；true：沿用 PoseSensor 头时间戳
+        self.declare_parameter("use_pose_sensor_stamp_for_rov_tf", False)
 
         self._cable_sensor_topic = self.get_parameter("cable_sensor_topic").get_parameter_value().string_value
         self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
@@ -193,6 +195,9 @@ class CableSensorToObjectPoseNode(Node):
             self._cable_direction_frame = "com" if self._cable_frame_is_com else "world"
         if not self._cable_euler_frame:
             self._cable_euler_frame = "com" if self._cable_frame_is_com else "world"
+        self._use_pose_sensor_stamp_for_rov_tf = (
+            self.get_parameter("use_pose_sensor_stamp_for_rov_tf").get_parameter_value().bool_value
+        )
 
         self._rov_position: Optional[np.ndarray] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
@@ -243,9 +248,13 @@ class CableSensorToObjectPoseNode(Node):
         o = msg.pose.pose.orientation
         self._rov_position = np.array([p.x, p.y, p.z], dtype=float)
         self._rov_orientation_xyzw = (o.x, o.y, o.z, o.w)
+        if self._use_pose_sensor_stamp_for_rov_tf:
+            stamp = msg.header.stamp
+        else:
+            stamp = self.get_clock().now().to_msg()
         if self._publish_tf and self._tf_broadcaster is not None:
             t = TransformStamped()
-            t.header.stamp = msg.header.stamp
+            t.header.stamp = stamp
             t.header.frame_id = self._world_frame_id
             t.child_frame_id = "rov0"
             t.transform.translation.x = p.x
@@ -257,7 +266,7 @@ class CableSensorToObjectPoseNode(Node):
             t.transform.rotation.w = o.w
             self._tf_broadcaster.sendTransform(t)
         rov_in_base = PoseStamped()
-        rov_in_base.header.stamp = msg.header.stamp
+        rov_in_base.header.stamp = stamp
         rov_in_base.header.frame_id = self._output_frame_id
         rov_in_base.pose.position.x = float(-self._t_arm_in_rov[0])
         rov_in_base.pose.position.y = float(-self._t_arm_in_rov[1])
@@ -268,7 +277,7 @@ class CableSensorToObjectPoseNode(Node):
         rov_in_base.pose.orientation.w = 1.0
         self._last_rov_in_base = rov_in_base
         rov_in_world = PoseStamped()
-        rov_in_world.header.stamp = msg.header.stamp
+        rov_in_world.header.stamp = stamp
         rov_in_world.header.frame_id = self._world_frame_id
         rov_in_world.pose.position.x = p.x
         rov_in_world.pose.position.y = p.y
@@ -280,7 +289,7 @@ class CableSensorToObjectPoseNode(Node):
         self._last_rov_pose_in_world = rov_in_world
         if self._last_object_pose is None:
             return
-        self._publish_perception_state(msg.header.stamp)
+        self._publish_perception_state(stamp)
 
     def _publish_perception_state(self, stamp) -> None:
         ps = PerceptionState()

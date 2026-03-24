@@ -159,6 +159,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("position_offset_x", 0.0)
         self.declare_parameter("position_offset_y", 0.0)
         self.declare_parameter("position_offset_z", 0.0)
+        self.declare_parameter("use_pose_sensor_stamp_for_rov_tf", False)
 
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
         self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
@@ -182,6 +183,9 @@ class TargetSensorToObjectPoseNode(Node):
         self._offset_x = self.get_parameter("position_offset_x").get_parameter_value().double_value
         self._offset_y = self.get_parameter("position_offset_y").get_parameter_value().double_value
         self._offset_z = self.get_parameter("position_offset_z").get_parameter_value().double_value
+        self._use_pose_sensor_stamp_for_rov_tf = (
+            self.get_parameter("use_pose_sensor_stamp_for_rov_tf").get_parameter_value().bool_value
+        )
         self._rov_position: Optional[np.ndarray] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
         self._last_rov_in_base: Optional[PoseStamped] = None
@@ -231,9 +235,13 @@ class TargetSensorToObjectPoseNode(Node):
         o = msg.pose.pose.orientation
         self._rov_position = np.array([p.x, p.y, p.z], dtype=float)
         self._rov_orientation_xyzw = (o.x, o.y, o.z, o.w)
+        if self._use_pose_sensor_stamp_for_rov_tf:
+            stamp = msg.header.stamp
+        else:
+            stamp = self.get_clock().now().to_msg()
         if self._publish_tf and self._tf_broadcaster is not None:
             t = TransformStamped()
-            t.header.stamp = msg.header.stamp
+            t.header.stamp = stamp
             t.header.frame_id = self._world_frame_id
             t.child_frame_id = "rov0"
             t.transform.translation.x = p.x
@@ -245,7 +253,7 @@ class TargetSensorToObjectPoseNode(Node):
             t.transform.rotation.w = o.w
             self._tf_broadcaster.sendTransform(t)
         rov_in_base = PoseStamped()
-        rov_in_base.header.stamp = msg.header.stamp
+        rov_in_base.header.stamp = stamp
         rov_in_base.header.frame_id = self._output_frame_id
         rov_in_base.pose.position.x = float(-self._t_arm_in_rov[0])
         rov_in_base.pose.position.y = float(-self._t_arm_in_rov[1])
@@ -256,7 +264,7 @@ class TargetSensorToObjectPoseNode(Node):
         rov_in_base.pose.orientation.w = 1.0
         self._last_rov_in_base = rov_in_base
         rov_in_world = PoseStamped()
-        rov_in_world.header.stamp = msg.header.stamp
+        rov_in_world.header.stamp = stamp
         rov_in_world.header.frame_id = self._world_frame_id
         rov_in_world.pose.position.x = p.x
         rov_in_world.pose.position.y = p.y
@@ -270,7 +278,7 @@ class TargetSensorToObjectPoseNode(Node):
         if self._last_object_pose is None:
             return
         ps = PerceptionState()
-        ps.header.stamp = msg.header.stamp
+        ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
         ps.object_pose = self._last_object_pose
         ps.rov_pose_in_base_link = rov_in_base

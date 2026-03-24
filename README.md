@@ -75,6 +75,8 @@ ros2 launch orion_mtc pick_holoocean.launch.py
 
 **前置条件（抓取）**：需有 `/manipulator/object_pose` 或 `/manipulator/target_set` 中有效目标（或等待 3s），否则 pick_trigger 不入队。若 HoloOcean 未跑或暂无目标，可：① 先启动 HoloOcean 并确保有目标；或 ② 手动发布 object_pose 再 pick_trigger；或 ③ 用 Action `/manipulator/pick` 并在 Goal 里带 `object_pose`。
 
+**HoloOcean 重启**：仿真时间回退时，若 `map→rov0` TF 仍用 PoseSensor 头时间戳，tf2 会报 `TF_OLD_DATA`。桥接默认 `use_pose_sensor_stamp_for_rov_tf:=false`，对 ROV 相关 TF/感知消息使用 ROS 节点时钟，与 `joint_states` 桥接一致，无需重连 ROS 节点即可恢复；若全栈 `use_sim_time` 且 `/clock` 随仿真重置，可改回 `true`。
+
 **触发方式：**
 
 - 仅抓取（需已存在 `/manipulator/object_pose`，例如由桥接 target_sensor_to_object_pose 发布）：

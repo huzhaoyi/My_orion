@@ -1,5 +1,5 @@
 /**
- * 顶部状态栏：连接状态、机器人状态、当前任务、队列长度、入队控制、当前模式
+ * 顶部状态栏：连接状态、机器人状态、队列长度、快捷操作（与后端服务一致）
  */
 
 import stateStore from '../data/stateStore.js';
@@ -43,7 +43,6 @@ function render(el) {
   const workerBadge = workerBadgeClass(conn.workerStatus);
   const taskBadge = taskModeBadgeClass(conn.taskMode);
   const queueCount = conn.queueSize ?? 0;
-  const acceptNewJobs = conn.acceptNewJobs !== false;
 
   el.innerHTML = `
     <div class="top-bar__brand">
@@ -55,17 +54,13 @@ function render(el) {
     ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
     ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}
     <div class="top-bar__section top-bar__section--emergency" style="margin-left: auto;">
-      <button type="button" id="btn-stop-queue" class="btn-secondary" title="仅前端拦截入队">${acceptNewJobs ? '停止入队' : '恢复入队'}</button>
-      <button type="button" id="btn-clear-queue" class="btn-secondary" title="清空队列">清空</button>
-      <button type="button" id="btn-reset-held" class="btn-secondary" title="重置持物状态">重置持物</button>
-      <button type="button" id="btn-recover" class="btn-secondary" title="恢复">恢复</button>
+      <button type="button" id="btn-clear-queue" class="btn-secondary" title="cancel_job 清空待执行任务">清空队列</button>
+      <button type="button" id="btn-reset-held" class="btn-secondary" title="reset_held_object">重置持物</button>
     </div>
   `;
 
-  el.querySelector('#btn-stop-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:stop-queue')));
   el.querySelector('#btn-clear-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-queue')));
   el.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
-  el.querySelector('#btn-recover')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:recover')));
 }
 
 function mount(containerId) {

@@ -9,9 +9,9 @@
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  * 服务（与 orion_mtc_node 一致）：
- *   /manipulator/get_robot_state, get_queue_state, submit_job, cancel_job,
+ *   /manipulator/get_robot_state, get_queue_state, get_recent_jobs, submit_job, cancel_job,
  *   open_gripper, close_gripper, emergency_stop, go_to_ready（std_srvs/Trigger）,
- *   reset_held_object, sync_held_object
+ *   reset_held_object, sync_held_object, check_pick
  */
 
 import stateStore from './stateStore.js';
@@ -130,11 +130,25 @@ function inferType(topic) {
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
   if (data.topic.endsWith('/runtime_status')) {
+    const prev_job = stateStore.getState().currentJobId || '';
     stateStore.applyRuntimeStatus(data.msg);
+    const next_job = stateStore.getState().currentJobId || '';
+    if (prev_job !== next_job) {
+      getQueueState((res) => {
+        stateStore.applyQueueStateResponse(res);
+      });
+    }
     return;
   }
   if (data.topic.endsWith('/job_event')) {
     stateStore.pushJobEvent({ ...data.msg, _ts: Date.now() });
+    const et = ((data.msg && data.msg.event_type) || '').toUpperCase();
+    if (['SUCCEEDED', 'FAILED', 'CANCELLED', 'REJECTED'].includes(et)) {
+      stateStore.setState({ currentStageName: '' });
+      getQueueState((res) => {
+        stateStore.applyQueueStateResponse(res);
+      });
+    }
     return;
   }
   if (data.topic && data.topic.endsWith('/task_stage') && data.msg) {
@@ -274,6 +288,11 @@ function getRobotState(callback) {
   callService(getTopicPrefix() + '/get_robot_state', {}, callback);
 }
 
+function getRecentJobs(maxCount, callback) {
+  const n = Math.max(1, Math.min(200, Number(maxCount) || 50));
+  callService(getTopicPrefix() + '/get_recent_jobs', { max_count: n }, callback, { timeout_ms: 5000 });
+}
+
 function checkPick(objectPose, callback) {
   const pose = objectPose && objectPose.pose
     ? objectPose
@@ -310,5 +329,6 @@ export default {
   submitJob,
   getQueueState,
   getRobotState,
+  getRecentJobs,
   checkPick,
 };

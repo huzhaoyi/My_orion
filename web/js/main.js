@@ -24,38 +24,19 @@ function init() {
   registerGlobalHandlers();
 }
 
-/* 与 orion_mtc_msgs/srv/GetQueueState.srv 响应字段一一对应 */
 function applyQueueStateToStore(res) {
-  if (!res) return;
-  const v = res.values || res;
-  const list = [];
-  if (v.current_job_id) {
-    list.push({ job_id: v.current_job_id, job_type: v.current_job_type || '—', is_current: true });
-  }
-  if (v.next_job_id && v.next_job_id !== v.current_job_id) {
-    list.push({ job_id: v.next_job_id, job_type: v.next_job_type || '—', is_current: false });
-  }
-  stateStore.setQueueList(list);
-  stateStore.setState({
-    nextJobId: v.next_job_id != null ? v.next_job_id : '',
-    nextJobType: v.next_job_type != null ? v.next_job_type : '',
-    queueSize: v.queue_size != null ? v.queue_size : 0,
-    queueEmpty: v.queue_empty != null ? v.queue_empty : true,
-  });
+  stateStore.applyQueueStateResponse(res);
 }
 
 function registerGlobalHandlers() {
   const handlers = {
-    'orion:stop-queue': () => {
-      const s = stateStore.getState();
-      stateStore.setAcceptNewJobs(!s.acceptNewJobs);
-      stateStore.pushSystemLog('info', `停止入队(前端拦截): ${!s.acceptNewJobs ? '已开启' : '已关闭'}`);
-    },
     'orion:clear-queue': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法清空队列');
+        toast.warn('未连接，无法清空队列');
         return;
       }
+      toast.info('正在清空队列…');
 
       const MAX_CANCEL = 20;
       let cancelCount = 0;
@@ -93,6 +74,7 @@ function registerGlobalHandlers() {
     'orion:reset-held': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法调用 ResetHeldObject');
+        toast.warn('未连接，无法重置持物');
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
@@ -103,26 +85,12 @@ function registerGlobalHandlers() {
         if (ok) toast.success(msg); else toast.error(msg);
       });
     },
-    'orion:recover': () => {
-      if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法 Recover');
-        return;
-      }
-      stateStore.pushSystemLog('info', 'Recover: 执行 ResetHeldObject（后端 goHomeIfSafe 目前未实现）');
-      wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? 'Recover 成功' : 'Recover 失败');
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
-    },
     'orion:cancel-job': (e) => {
       const jobId = e.detail?.job_id;
       if (!jobId) return;
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法取消');
+        toast.warn('未连接，无法取消任务');
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/cancel_job', { job_id: jobId }, (res) => {
@@ -134,28 +102,24 @@ function registerGlobalHandlers() {
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
-    'orion:pick': (e) => {
-      const immediate = e.detail?.immediate ?? true;
-      const objectId = (e.detail?.object_id || '').trim();
+    'orion:pick': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法提交 Pick');
-        return;
-      }
-      if (!stateStore.getState().acceptNewJobs && immediate === false) {
-        stateStore.pushSystemLog('warn', '已停止入队（前端拦截），不会提交新任务');
+        toast.warn('未连接，无法提交抓取');
         return;
       }
       const s = stateStore.getState();
       const objPose = s.objectPose;
       if (!objPose) {
         stateStore.pushSystemLog('warn', '无缆绳目标 (object_pose)，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据（CableSensor 桥接）');
+        toast.warn('无物体位姿，无法提交抓取');
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
       wsClient.submitJob({
         job_type: wsClient.JOB_TYPE.PICK,
         object_pose,
-        object_id: objectId,
+        object_id: '',
       }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
@@ -169,6 +133,7 @@ function registerGlobalHandlers() {
       const tracked = e.detail?.tracked ?? true;
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法调用 SyncHeldObject');
+        toast.warn('未连接，无法同步持物');
         return;
       }
       const s = stateStore.getState();
@@ -201,27 +166,10 @@ function registerGlobalHandlers() {
         if (ok) toast.success(msg); else toast.error(msg);
       });
     },
-    'orion:clear-attached': () => {
-      if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法 Clear attached');
-        return;
-      }
-      stateStore.pushSystemLog('info', 'Clear attached: 调用 ResetHeldObject');
-      wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? '清除附着成功' : '清除附着失败');
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
-    },
-    'orion:reload-model': () => {
-      window.dispatchEvent(new CustomEvent('orion:viewport-reload-model'));
-    },
     'orion:open-gripper': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法调用打开夹爪');
+        toast.warn('未连接，无法打开夹爪');
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/open_gripper', {}, (res) => {
@@ -236,6 +184,7 @@ function registerGlobalHandlers() {
     'orion:close-gripper': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法调用关闭夹爪');
+        toast.warn('未连接，无法关闭夹爪');
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/close_gripper', {}, (res) => {
@@ -250,6 +199,7 @@ function registerGlobalHandlers() {
     'orion:emergency-stop': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法急停');
+        toast.warn('未连接，无法急停');
         return;
       }
       wsClient.callEmergencyStop((res) => {
@@ -265,6 +215,7 @@ function registerGlobalHandlers() {
     'orion:go-to-ready': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', '未连接，无法回 ready');
+        toast.warn('未连接，无法回 ready');
         return;
       }
       wsClient.callGoToReady((res) => {
@@ -284,7 +235,7 @@ function registerGlobalHandlers() {
 
   setInterval(() => {
     if (wsClient.isConnected()) wsClient.getQueueState(applyQueueStateToStore);
-  }, 3000);
+  }, 1500);
 }
 
 init();
