@@ -46,7 +46,6 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
   lin_planner->setPlannerId("LIN");
   lin_planner->setMaxVelocityScalingFactor(config_.cable_grasp.approach_lin_velocity_scaling);
   lin_planner->setMaxAccelerationScalingFactor(config_.cable_grasp.approach_lin_acceleration_scaling);
-  auto ompl_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "move_group");
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
   cartesian_planner->setMaxVelocityScalingFactor(1.0);
@@ -104,7 +103,7 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
 
   const rclcpp::Time now = node_->now();
   geometry_msgs::msg::PoseStamped pregrasp_ps = toPoseStamped(candidate.pregrasp_pose, plan_frame, now);
-  auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ompl_planner);
+  auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
   stage_pregrasp->setGroup(arm_group_name);
   stage_pregrasp->setGoal(pregrasp_ps);
   stage_pregrasp->setIKFrame(hand_frame);
