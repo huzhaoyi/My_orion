@@ -19,11 +19,14 @@ find_package(trajectory_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(orion_mtc_msgs REQUIRED)
+find_package(sealien_ctrlpilot_msgmanagement REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(std_msgs REQUIRED)
 
 set(ORION_MTC_SOURCES
@@ -55,6 +58,16 @@ set(ORION_MTC_SOURCES
   src/orchestration/task_manager.cpp
 )
 
+add_executable(keypoint_to_arm_tf_node src/keypoint_to_arm_tf_node.cpp)
+ament_target_dependencies(keypoint_to_arm_tf_node
+  rclcpp
+  geometry_msgs
+  sealien_ctrlpilot_msgmanagement
+  tf2_ros
+  tf2_geometry_msgs
+  tf2
+)
+
 add_executable(mtc_node ${ORION_MTC_SOURCES})
 target_include_directories(mtc_node PRIVATE
   include
@@ -81,7 +94,7 @@ ament_target_dependencies(mtc_node
   tf2_ros
 )
 
-install(TARGETS mtc_node
+install(TARGETS mtc_node keypoint_to_arm_tf_node
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/
   DESTINATION include

@@ -17,6 +17,7 @@
   <depend>moveit_ros_planning</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>tf2</depend>
   <depend>tf2_eigen</depend>
   <depend>tf2_ros</depend>
   <depend>control_msgs</depend>
@@ -26,6 +27,7 @@
   <depend>std_srvs</depend>
   <depend>builtin_interfaces</depend>
   <depend>orion_mtc_msgs</depend>
+  <depend>sealien_ctrlpilot_msgmanagement</depend>
   <exec_depend>orion_moveit_config</exec_depend>
   <exec_depend>orion_description</exec_depend>
   <exec_depend>orion_holoocean_bridge</exec_depend>

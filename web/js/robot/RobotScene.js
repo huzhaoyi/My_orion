@@ -105,9 +105,11 @@ function createScene(containerEl) {
   world.add(grid);
   robot.position.y = GRID_Y;
 
-  /* 基坐标系 - ROS 配色 X 红 Y 绿 Z 蓝，带 X/Y/Z 标注 */
+  /* 基坐标系 - ROS base_link 语义：与 RobotModelLoader 根节点相同，Z-up(URDF) -> 场景 Y-up */
+  const ROS_Z_UP_TO_SCENE_Y_UP = -Math.PI / 2;
   const baseAxesGroup = new THREE.Group();
   baseAxesGroup.name = 'base_axes';
+  baseAxesGroup.rotation.x = ROS_Z_UP_TO_SCENE_Y_UP;
   const baseAxes = new THREE.AxesHelper(AXIS_SIZE);
   baseAxes.name = 'base_axes_lines';
   baseAxesGroup.add(baseAxes);

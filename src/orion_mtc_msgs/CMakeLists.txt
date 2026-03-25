@@ -13,6 +13,7 @@ find_package(action_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Keypoints.msg"
   "msg/TargetSet.msg"
   "msg/JobExecutionRecord.msg"
   "msg/PerceptionState.msg"

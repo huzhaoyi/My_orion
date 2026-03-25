@@ -198,6 +198,19 @@ orion_mtc_uninstall/fast:
 .PHONY : orion_mtc_uninstall/fast
 
 #=============================================================================
+# Target rules for targets named keypoint_to_arm_tf_node
+
+# Build rule for target.
+keypoint_to_arm_tf_node: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 keypoint_to_arm_tf_node
+.PHONY : keypoint_to_arm_tf_node
+
+# fast build rule for target.
+keypoint_to_arm_tf_node/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/keypoint_to_arm_tf_node.dir/build.make CMakeFiles/keypoint_to_arm_tf_node.dir/build
+.PHONY : keypoint_to_arm_tf_node/fast
+
+#=============================================================================
 # Target rules for targets named mtc_node
 
 # Build rule for target.
@@ -497,6 +510,30 @@ src/interface/manipulator_ros_interface.s: src/interface/manipulator_ros_interfa
 src/interface/manipulator_ros_interface.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mtc_node.dir/build.make CMakeFiles/mtc_node.dir/src/interface/manipulator_ros_interface.cpp.s
 .PHONY : src/interface/manipulator_ros_interface.cpp.s
+
+src/keypoint_to_arm_tf_node.o: src/keypoint_to_arm_tf_node.cpp.o
+.PHONY : src/keypoint_to_arm_tf_node.o
+
+# target to build an object file
+src/keypoint_to_arm_tf_node.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/keypoint_to_arm_tf_node.dir/build.make CMakeFiles/keypoint_to_arm_tf_node.dir/src/keypoint_to_arm_tf_node.cpp.o
+.PHONY : src/keypoint_to_arm_tf_node.cpp.o
+
+src/keypoint_to_arm_tf_node.i: src/keypoint_to_arm_tf_node.cpp.i
+.PHONY : src/keypoint_to_arm_tf_node.i
+
+# target to preprocess a source file
+src/keypoint_to_arm_tf_node.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/keypoint_to_arm_tf_node.dir/build.make CMakeFiles/keypoint_to_arm_tf_node.dir/src/keypoint_to_arm_tf_node.cpp.i
+.PHONY : src/keypoint_to_arm_tf_node.cpp.i
+
+src/keypoint_to_arm_tf_node.s: src/keypoint_to_arm_tf_node.cpp.s
+.PHONY : src/keypoint_to_arm_tf_node.s
+
+# target to generate assembly for a file
+src/keypoint_to_arm_tf_node.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/keypoint_to_arm_tf_node.dir/build.make CMakeFiles/keypoint_to_arm_tf_node.dir/src/keypoint_to_arm_tf_node.cpp.s
+.PHONY : src/keypoint_to_arm_tf_node.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -849,6 +886,7 @@ help:
 	@echo "... test"
 	@echo "... orion_mtc_uninstall"
 	@echo "... uninstall"
+	@echo "... keypoint_to_arm_tf_node"
 	@echo "... mtc_node"
 	@echo "... src/app/orion_mtc_node.o"
 	@echo "... src/app/orion_mtc_node.i"
@@ -886,6 +924,9 @@ help:
 	@echo "... src/interface/manipulator_ros_interface.o"
 	@echo "... src/interface/manipulator_ros_interface.i"
 	@echo "... src/interface/manipulator_ros_interface.s"
+	@echo "... src/keypoint_to_arm_tf_node.o"
+	@echo "... src/keypoint_to_arm_tf_node.i"
+	@echo "... src/keypoint_to_arm_tf_node.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

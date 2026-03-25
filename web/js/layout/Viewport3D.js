@@ -223,6 +223,15 @@ function mount(containerId) {
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {
       sceneApi.rovAxesGroup.position.copy(applyBaseLinkToScene(rovPos));
+      /* 与机械臂/base_axes 一致：ROS base_link(Z-up) → 场景，再乘 ROV 在 base_link 下的姿态 */
+      const qScene = new THREE.Quaternion().copy(Z_UP_TO_Y_UP);
+      const qRov = s.rovPoseInBaseLink?.orientation
+        ? rosToThreeQuaternion(s.rovPoseInBaseLink.orientation)
+        : null;
+      if (qRov) {
+        qScene.multiply(qRov);
+      }
+      sceneApi.rovAxesGroup.quaternion.copy(qScene);
       sceneApi.rovAxesGroup.visible = layerToggles.showCoordFrames && !!s.rovPoseInBaseLink;
     }
     const wo = sceneApi.targets.getObjectByName('world_object');

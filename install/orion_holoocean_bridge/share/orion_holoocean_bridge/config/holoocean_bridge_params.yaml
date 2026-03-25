@@ -37,6 +37,8 @@ target_sensor_to_object_pose:
     position_offset_x: 0.0
     position_offset_y: 0.0
     position_offset_z: 0.0
+    # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
+    use_pose_sensor_stamp_for_rov_tf: false
 
 # CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF base_link→cable
 # 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1
@@ -66,3 +68,4 @@ cable_sensor_to_object_pose:
     cable_positions_frame: "world"
     cable_direction_frame: "world"
     cable_euler_frame: "world"
+    use_pose_sensor_stamp_for_rov_tf: false

@@ -1,4 +1,5 @@
 /home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/mtc_node
+/home/huzy/My_orion/install/orion_mtc/lib/orion_mtc/keypoint_to_arm_tf_node
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/app/orion_mtc_node.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/manipulation_state_machine.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/orchestration/task_manager.hpp
@@ -34,6 +35,7 @@
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/solution_executor.hpp
 /home/huzy/My_orion/install/orion_mtc/include/orion_mtc/execution/trajectory_executor.hpp
 /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/pick_holoocean.launch.py
+/home/huzy/My_orion/install/orion_mtc/share/orion_mtc/launch/keypoint_arm_tf.launch.py
 /home/huzy/My_orion/install/orion_mtc/share/orion_mtc/config/orion_mtc_params.yaml
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/package_run_dependencies/orion_mtc
 /home/huzy/My_orion/install/orion_mtc/share/ament_index/resource_index/parent_prefix_path/orion_mtc
