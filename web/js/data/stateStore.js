@@ -88,6 +88,11 @@ const initialState = {
   approvalLoading: false,
   approvalTargetIndex: 1,   // 本次审批用的目标索引（0-based），默认第 2 个
   approvalTargetTotal: 0,   // 当前目标总数，用于显示「第 N 个（共 M 个）」
+
+  // joy_manipulator_node 上位机状态（/joy_manipulator/manual_mode、throttle_percent）
+  joyManualMode: null,      // null 未收到；true 手动；false 自动
+  joyThrottlePercent: null, // null 未收到；0～100 臂油门比例
+  joyThrottlePulseSeq: 0,   // 油门数值变化时递增，供顶栏短脉冲动画
 };
 
 let state = { ...initialState };
@@ -335,6 +340,36 @@ function setApprovalResult(payload) {
   });
 }
 
+function setJoyBridgeManual(isManual) {
+  if (isManual === null || isManual === undefined)
+  {
+    setState({ joyManualMode: null });
+    return;
+  }
+  setState({ joyManualMode: isManual === true });
+}
+
+function setJoyBridgeThrottle(percent) {
+  if (percent === null || percent === undefined)
+  {
+    setState({ joyThrottlePercent: null });
+    return;
+  }
+  const p = Number(percent);
+  if (!Number.isFinite(p))
+  {
+    return;
+  }
+  const clamped = Math.max(0.0, Math.min(100.0, p));
+  const prev = state.joyThrottlePercent;
+  let seq = state.joyThrottlePulseSeq;
+  if (prev !== null && Number.isFinite(prev) && Math.abs(clamped - prev) >= 0.25)
+  {
+    seq = seq + 1;
+  }
+  setState({ joyThrottlePercent: clamped, joyThrottlePulseSeq: seq });
+}
+
 export default {
   getState,
   setState,
@@ -356,4 +391,6 @@ export default {
   setRecentJobs,
   applyGetRobotStateResponse,
   setApprovalResult,
+  setJoyBridgeManual,
+  setJoyBridgeThrottle,
 };

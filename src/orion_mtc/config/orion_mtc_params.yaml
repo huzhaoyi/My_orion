@@ -1,5 +1,9 @@
 # orion_mtc 应用参数（抓取几何 + 运行策略），由 pick_holoocean.launch.py 合并到 orion_mtc_node。
 # 原 split：pick_params.yaml 与 runtime_policy.yaml 已合并为单文件。
+#
+# pick_holoocean.launch.py 会读取下列键（仅作 launch，不传入 mtc_node）：
+#   use_joy_manipulator — 是否启动手柄桥接
+#   start_rviz — 是否启动 RViz（demo.launch）；命令行可 start_rviz:=true 覆盖
 
 # ---------- 抓取规划（MTCConfig / cable_side_grasp）----------
 # 若机械臂姿态“扭曲”、不像真实机械臂：
@@ -56,3 +60,9 @@ runtime_policy:
   auto_reset_after_execution_failure: true
   auto_go_home_after_failure: false
   reject_new_jobs_while_busy: false
+
+# ---------- pick_holoocean.launch.py（仅 launch 使用，不进入 mtc_node）----------
+# 为 true 时默认启动 orion_joy_arm_bridge（/left_joy、/right_joy）
+use_joy_manipulator: true
+# 为 true 时启动 RViz；默认 false 便于无头/网页联调
+start_rviz: false

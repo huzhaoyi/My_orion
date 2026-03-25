@@ -31,6 +31,26 @@ function statusToLabel(s) {
   return s;
 }
 
+function joyModeBadgeClass(manual) {
+  if (manual === null || manual === undefined) return 'badge-idle';
+  return manual ? 'badge-warning' : 'badge-running';
+}
+
+function joyModeLabel(manual) {
+  if (manual === null || manual === undefined) return '手柄 —';
+  return manual ? '手动' : '自动';
+}
+
+/** 手柄油门徽章：按 0～100% 分档着色；无数据时用默认 info 色 */
+function throttleBadgeClass(percent) {
+  if (percent === null || percent === undefined || !Number.isFinite(percent)) return 'badge-throttle';
+  if (percent < 34) return 'badge-throttle-low';
+  if (percent < 67) return 'badge-throttle-mid';
+  return 'badge-throttle-high';
+}
+
+let lastThrottlePulseSeq = 0;
+
 function render(el) {
   if (!el) return;
 
@@ -44,6 +64,13 @@ function render(el) {
   const taskBadge = taskModeBadgeClass(conn.taskMode);
   const queueCount = conn.queueSize ?? 0;
 
+  const thPct = conn.joyThrottlePercent;
+  const thBase = throttleBadgeClass(thPct);
+  const thPulse = conn.joyThrottlePulseSeq !== lastThrottlePulseSeq;
+  if (thPulse) lastThrottlePulseSeq = conn.joyThrottlePulseSeq;
+  const thCls = thBase + (thPulse ? ' badge-throttle--pulse' : '');
+  const thText = thPct != null && Number.isFinite(thPct) ? `${Math.round(thPct)}%` : '油门 —';
+
   el.innerHTML = `
     <div class="top-bar__brand">
       <img src="SEALIEN-LOGO.png" alt="Orion" class="top-bar__logo" />
@@ -53,6 +80,8 @@ function render(el) {
     ${section(tag(workerBadge, '⚙', '工作线程 ' + statusToLabel(conn.workerStatus)))}
     ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
     ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}
+    ${section(tag(joyModeBadgeClass(conn.joyManualMode), '🎮', joyModeLabel(conn.joyManualMode), 'joy_manipulator：/joy_manipulator/manual_mode'))}
+    ${section(tag(thCls, '⏱', thText, '臂油门 0～100%（/joy_manipulator/throttle_percent）；颜色随档位变化，变化时短暂高亮'))}
     <div class="top-bar__section top-bar__section--emergency" style="margin-left: auto;">
       <button type="button" id="btn-clear-queue" class="btn-secondary" title="cancel_job 清空待执行任务">清空队列</button>
       <button type="button" id="btn-reset-held" class="btn-secondary" title="reset_held_object">重置持物</button>

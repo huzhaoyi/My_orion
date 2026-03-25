@@ -128,6 +128,12 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
                std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
             handleEmergencyStopService(req, res);
         });
+    clear_estop_srv_ = ctx_.action_client_node->create_service<std_srvs::srv::Trigger>(
+        ns + "/clear_estop",
+        [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+               std::shared_ptr<std_srvs::srv::Trigger::Response> res) {
+            handleClearEstopService(req, res);
+        });
     go_to_ready_srv_ = ctx_.action_client_node->create_service<std_srvs::srv::Trigger>(
         ns + "/go_to_ready",
         [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
@@ -536,6 +542,15 @@ void ManipulatorRosInterface::handleEmergencyStopService(const std::shared_ptr<s
     res->success = true;
     res->message = "emergency_stop";
     RCLCPP_WARN(ctx_.logger, "service emergency_stop: cancel trajectories + clear queue");
+}
+
+void ManipulatorRosInterface::handleClearEstopService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+                                                      std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+    ctx_.task_manager->clearEmergencyStopLatch();
+    res->success = true;
+    res->message = "clear_estop";
+    RCLCPP_INFO(ctx_.logger, "service clear_estop: latch cleared");
 }
 
 void ManipulatorRosInterface::handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,

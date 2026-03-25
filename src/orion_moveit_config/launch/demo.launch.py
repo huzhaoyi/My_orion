@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition, UnlessCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -14,6 +14,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     use_joint_state_gui = LaunchConfiguration("use_joint_state_gui", default="true")
     tf_under_manipulator = LaunchConfiguration("tf_under_manipulator", default="false")
+    start_rviz = LaunchConfiguration("start_rviz", default="true")
     remappings_tf = [("tf", "/manipulator/tf"), ("tf_static", "/manipulator/tf_static")]
     orion_desc_share = get_package_share_directory("orion_description")
     orion_moveit_share = get_package_share_directory("orion_moveit_config")
@@ -98,6 +99,11 @@ def generate_launch_description():
                 default_value="false",
                 description="If true, publish/subscribe TF on /manipulator/tf and /manipulator/tf_static.",
             ),
+            DeclareLaunchArgument(
+                "start_rviz",
+                default_value="true",
+                description="If true, start RViz2 with config/moveit.rviz.",
+            ),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -155,7 +161,17 @@ def generate_launch_description():
                     {"robot_description_kinematics": kinematics_config},
                 ],
                 remappings=remappings_tf,
-                condition=IfCondition(tf_under_manipulator),
+                condition=IfCondition(
+                    PythonExpression(
+                        [
+                            "'",
+                            tf_under_manipulator,
+                            "' == 'true' and '",
+                            start_rviz,
+                            "' == 'true'",
+                        ]
+                    )
+                ),
                 sigterm_timeout="15",
                 sigkill_timeout="5",
             ),
@@ -170,7 +186,18 @@ def generate_launch_description():
                     {"robot_description_semantic": srdf_content},
                     {"robot_description_kinematics": kinematics_config},
                 ],
-                condition=UnlessCondition(tf_under_manipulator),
+                remappings=remappings_tf,
+                condition=IfCondition(
+                    PythonExpression(
+                        [
+                            "'",
+                            tf_under_manipulator,
+                            "' != 'true' and '",
+                            start_rviz,
+                            "' == 'true'",
+                        ]
+                    )
+                ),
                 sigterm_timeout="15",
                 sigkill_timeout="5",
             ),

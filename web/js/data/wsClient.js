@@ -8,6 +8,8 @@
  *   /manipulator/object_pose (PoseStamped，来自 CableSensor 缆绳单目标)
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
+ *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
+ *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
  * 服务（与 orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, get_recent_jobs, submit_job, cancel_job,
  *   open_gripper, close_gripper, emergency_stop, go_to_ready（std_srvs/Trigger）,
@@ -42,6 +44,14 @@ function getTopicPrefix() {
   return params.get('ns') || params.get('topic_prefix') || '/manipulator';
 }
 
+/** 手柄桥接 UI 状态话题前缀，默认 /joy_manipulator（?joy_ui= 覆盖） */
+function getJoyUiPrefix() {
+  const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+  const p = params.get('joy_ui');
+  if (p) return p.replace(/\/$/, '');
+  return '/joy_manipulator';
+}
+
 function connect() {
   const url = getWsUrl();
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
@@ -65,6 +75,8 @@ function connect() {
 
   ws.onclose = () => {
     stateStore.setConnection('ws', false);
+    stateStore.setJoyBridgeManual(null);
+    stateStore.setJoyBridgeThrottle(null);
     stateStore.pushSystemLog('warn', 'WebSocket 已断开');
     scheduleReconnect();
   };
@@ -94,6 +106,7 @@ function scheduleReconnect() {
 
 function subscribeTopics() {
   const prefix = getTopicPrefix();
+  const joyUi = getJoyUiPrefix();
   const topics = [
     prefix + '/runtime_status',
     prefix + '/job_event',
@@ -103,6 +116,8 @@ function subscribeTopics() {
     prefix + '/perception_state',
     prefix + '/joint_states',
     '/joint_states',
+    joyUi + '/manual_mode',
+    joyUi + '/throttle_percent',
   ];
   const seen = new Set();
   topics.forEach((topic) => {
@@ -124,11 +139,22 @@ function inferType(topic) {
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
   if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
+  if (topic.endsWith('/manual_mode')) return 'std_msgs/msg/Bool';
+  if (topic.endsWith('/throttle_percent')) return 'std_msgs/msg/Float32';
   return 'std_msgs/msg/String';
 }
 
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
+  if (data.topic.endsWith('/manual_mode') && Object.prototype.hasOwnProperty.call(data.msg, 'data')) {
+    stateStore.setJoyBridgeManual(data.msg.data === true);
+    return;
+  }
+  if (data.topic.endsWith('/throttle_percent') && data.msg.data != null) {
+    const v = Number(data.msg.data);
+    if (Number.isFinite(v)) stateStore.setJoyBridgeThrottle(v);
+    return;
+  }
   if (data.topic.endsWith('/runtime_status')) {
     const prev_job = stateStore.getState().currentJobId || '';
     stateStore.applyRuntimeStatus(data.msg);
@@ -323,6 +349,7 @@ export default {
   callGoToReady,
   callService,
   getTopicPrefix,
+  getJoyUiPrefix,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
   JOB_TYPE,
   buildPoseStamped,

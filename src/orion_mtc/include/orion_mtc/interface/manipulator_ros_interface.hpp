@@ -99,6 +99,8 @@ private:
                             std::shared_ptr<std_srvs::srv::Trigger::Response> res);
     void handleEmergencyStopService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                                     std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleClearEstopService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
     void handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
@@ -122,6 +124,7 @@ private:
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr open_gripper_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr close_gripper_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr emergency_stop_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_estop_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr go_to_ready_srv_;
 
     rclcpp::Publisher<orion_mtc_msgs::msg::RuntimeStatus>::SharedPtr pub_runtime_status_;

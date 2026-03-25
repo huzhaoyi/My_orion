@@ -1275,6 +1275,12 @@ void TaskManager::requestEmergencyStop()
   RCLCPP_WARN(LOGGER, "requestEmergencyStop: E_STOP, queue cleared, trajectory cancel requested");
 }
 
+void TaskManager::clearEmergencyStopLatch()
+{
+  estop_requested_.store(false);
+  RCLCPP_INFO(LOGGER, "clearEmergencyStopLatch: estop_requested cleared");
+}
+
 bool TaskManager::tryGoToReady(std::string& out_message)
 {
   {

@@ -187,7 +187,31 @@ label {
 .badge-running { background: var(--status-idle); color: #fff; }
 .badge-taskmode { background: var(--status-taskmode); color: #fff; }
 .badge-job,
-.badge-queue { background: var(--color-info); color: #0B0F14; }
+.badge-queue,
+.badge-throttle { background: var(--color-info); color: #0B0F14; }
+
+/* 手柄油门分档（与 TopBar throttleBadgeClass 一致） */
+.badge-throttle-low {
+  background: #4682B4;
+  color: #fff;
+}
+.badge-throttle-mid {
+  background: #E6B800;
+  color: #0B0F14;
+}
+.badge-throttle-high {
+  background: #C44;
+  color: #fff;
+}
+
+@keyframes throttle-pulse {
+  0% { filter: brightness(1.25); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45); }
+  100% { filter: brightness(1); box-shadow: none; }
+}
+
+.badge-throttle--pulse {
+  animation: throttle-pulse 0.45s ease-out 1;
+}
 .badge-recovering,
 .badge-warning { background: var(--status-warning); color: #0B0F14; }
 .badge-error,

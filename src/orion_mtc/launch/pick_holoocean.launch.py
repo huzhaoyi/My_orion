@@ -7,13 +7,16 @@ FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 Ag
 /holoocean/command/agent/arm，在 HoloOcean 中驱动机械臂（顺序：0=左臂，1=右臂）。
 需能导入 holoocean_interfaces：通过环境变量 HOLOOCEAN_ROS_INSTALL 指定 holoocean-ros 的 install 目录，
 或先 source 该工作区的 setup.bash，本 launch 会为桥接节点注入其 Python 路径。
+是否默认启动手柄桥接 / RViz：见 orion_mtc/config/orion_mtc_params.yaml 中 use_joy_manipulator、start_rviz（launch 参数仍可覆盖）。
 """
 import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
@@ -34,11 +37,31 @@ def _holoocean_interfaces_pythonpath():
     return candidates[0] + (os.pathsep + existing if existing else "")
 
 
+def _yaml_bool_to_launch_arg_string(value) -> str:
+    """将 YAML 中的布尔语义转为 launch 参数 true/false 字符串。"""
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in ("true", "1", "yes", "on"):
+            return "true"
+        if s in ("false", "0", "no", "off"):
+            return "false"
+    return "false"
+
+
+_LAUNCH_ONLY_PARAM_KEYS = frozenset({"use_joy_manipulator", "start_rviz"})
+
+
 def generate_launch_description():
     orion_desc_share = get_package_share_directory("orion_description")
     orion_moveit_share = get_package_share_directory("orion_moveit_config")
     orion_holoocean_share = get_package_share_directory("orion_holoocean_bridge")
     orion_mtc_share = get_package_share_directory("orion_mtc")
+    orion_joy_share = get_package_share_directory("orion_joy_arm_bridge")
+    joy_params_path = os.path.join(orion_joy_share, "config", "joy_manipulator.yaml")
 
     urdf_path = os.path.join(orion_desc_share, "urdf", "orion.urdf")
     srdf_path = os.path.join(orion_moveit_share, "config", "orion.srdf")
@@ -85,11 +108,17 @@ def generate_launch_description():
         move_group_params.update(yaml.safe_load(f))
 
     mtc_app_params_path = os.path.join(orion_mtc_share, "config", "orion_mtc_params.yaml")
+    mtc_app_raw = {}
     if os.path.isfile(mtc_app_params_path):
         with open(mtc_app_params_path, "r") as f:
-            mtc_app = yaml.safe_load(f)
-        if mtc_app:
-            move_group_params.update(mtc_app)
+            loaded_mtc = yaml.safe_load(f)
+        if isinstance(loaded_mtc, dict):
+            mtc_app_raw = loaded_mtc
+    use_joy_default = _yaml_bool_to_launch_arg_string(mtc_app_raw.get("use_joy_manipulator", False))
+    start_rviz_default = _yaml_bool_to_launch_arg_string(mtc_app_raw.get("start_rviz", False))
+    mtc_for_node = {k: v for k, v in mtc_app_raw.items() if k not in _LAUNCH_ONLY_PARAM_KEYS}
+    if mtc_for_node:
+        move_group_params.update(mtc_for_node)
 
     demo_launch = os.path.join(orion_moveit_share, "launch", "demo.launch.py")
     bridge_params = os.path.join(orion_holoocean_share, "config", "holoocean_bridge_params.yaml")
@@ -143,17 +172,46 @@ def generate_launch_description():
         **shutdown_timeouts,
     )
 
+    joy_node = Node(
+        package="orion_joy_arm_bridge",
+        executable="joy_manipulator_node",
+        name="joy_manipulator_node",
+        output="screen",
+        parameters=[joy_params_path] if os.path.isfile(joy_params_path) else [],
+        condition=IfCondition(LaunchConfiguration("use_joy_manipulator")),
+        **shutdown_timeouts,
+    )
+
+    arg_use_joy = DeclareLaunchArgument(
+        "use_joy_manipulator",
+        default_value=use_joy_default,
+        description=(
+            "true：启动 orion_joy_arm_bridge；默认取自 share/orion_mtc/config/orion_mtc_params.yaml"
+        ),
+    )
+    arg_start_rviz = DeclareLaunchArgument(
+        "start_rviz",
+        default_value=start_rviz_default,
+        description=(
+            "true：启动 RViz2；默认取自 share/orion_mtc/config/orion_mtc_params.yaml 中 start_rviz"
+        ),
+    )
+
     actions = [
+        arg_use_joy,
+        arg_start_rviz,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_launch),
             launch_arguments=[
                 ("use_joint_state_gui", "false"),
                 ("tf_under_manipulator", "true"),
+                ("start_rviz", LaunchConfiguration("start_rviz")),
             ],
         ),
         bridge_node,
         trajectory_bridge_node,
         cable_sensor_to_pose_node,
+        joy_node,
         mtc_node,
     ]
 
@@ -162,7 +220,7 @@ def generate_launch_description():
         rosbridge_share = get_package_share_directory("rosbridge_server")
         rosbridge_launch = os.path.join(rosbridge_share, "launch", "rosbridge_websocket_launch.xml")
         if os.path.isfile(rosbridge_launch):
-            actions.insert(0, IncludeLaunchDescription(XMLLaunchDescriptionSource(rosbridge_launch)))
+            actions.insert(1, IncludeLaunchDescription(XMLLaunchDescriptionSource(rosbridge_launch)))
     except Exception:
         pass
 

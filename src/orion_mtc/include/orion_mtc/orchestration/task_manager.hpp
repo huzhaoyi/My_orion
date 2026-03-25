@@ -122,6 +122,9 @@ public:
   /** 急停：取消当前 FollowJointTrajectory、清空待执行队列、置位供执行循环中止 */
   void requestEmergencyStop();
 
+  /** 仅清除软件急停闭锁（estop_requested_），不恢复队列；供手柄切回自动等场景 */
+  void clearEmergencyStopLatch();
+
   /** 规划并执行回 SRDF ready + 张开手；若正在抓取或 worker 执行 job 则拒绝 */
   bool tryGoToReady(std::string& out_message);
 

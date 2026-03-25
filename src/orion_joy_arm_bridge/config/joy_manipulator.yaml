@@ -1,0 +1,131 @@
+# =============================================================================
+# joy_manipulator_node 参数（orion_joy_arm_bridge）
+# 订阅双路 sensor_msgs/Joy + joint_states；自动模式走 pick_trigger / 夹爪服务；
+# 手动模式走 arm_controller、hand_controller 的 FollowJointTrajectory。
+# 下列关节限位、夹爪目标角、手动角速度均以「度」为单位；joint_states/轨迹仍为弧度，由节点换算。
+# YAML 顶层 /** 表示与任意节点名匹配（launch 加载本文件时由 ROS2 合并参数）。
+# =============================================================================
+/**:
+  ros__parameters:
+    # ---------- 话题与机械臂 ROS 命名空间 ----------
+    # orion_mtc 默认在 /manipulator 下提供 pick_trigger、open_gripper 等
+    manipulator_ns: "/manipulator"
+    # 左手柄 Joy（模式档、油门轴、6 臂±键、手动夹爪键等）；自动开闭夹爪见右手
+    topic_left_joy: "/left_joy"
+    # 右手柄 Joy（仅抓取键等）
+    topic_right_joy: "/right_joy"
+    # 与 robot_state_publisher / 仿真桥接一致，用于读当前关节角做手动积分
+    topic_joint_states: "/joint_states"
+
+    # ---------- 控制周期与摇杆速度比例 ----------
+    # 手动微动定时器频率 [Hz]，越大响应越快但 Action 发送越密
+    control_rate_hz: 50.0
+    # throttle_full_span：速度比例 = (axis+1)/2，即 axis=-1 → 0%、axis=+1 → 100%（0.0～1.0 乘在手动速度上）
+    # 此模式下 axis_deadband 仅在映射后的低端起效；要全程严格线性请保持 0；怠速抖动可改为 0.02～0.05
+    # symmetric_abs：|axis| ≤ axis_deadband 视为 0（旧行为，与油门无关）
+    axis_deadband: 0.0
+    # 左手 axes[speed_axis_index]：手动 1～6 轴乘此油门比例
+    speed_axis_index: 0
+    # true 时先取反再算比例（期望 +1=100% 与硬件反向时打开）
+    speed_axis_invert: false
+    # 须为 throttle_full_span 方为一维油门：-1→0、+1→100%
+    speed_axis_map_mode: throttle_full_span
+    # 手动满油门角速度上限（度/秒）；有油门时 0~100% 乘在其上
+    manual_arm_max_speed_deg_s: 360.0
+    manual_gripper_max_speed_deg_s: 25.0
+    # 仅手动夹爪：速度倍率（与臂无关，乘在 max_speed×油门×dt 上；例 2.5≈2.5 倍开合）
+    manual_gripper_speed_scale: 5.0
+    # 手动夹爪(键 9/10)是否乘油门；false 时夹爪始终按满速 manual_gripper_max_speed_deg_s 积分
+    manual_gripper_use_throttle: true
+    # 夹爪油门读哪只手柄；-1 表示与 speed_axis_index 同一下标（左手同一油门杆控制臂+夹爪时请保持 left + -1）
+    gripper_speed_joy: "left"
+    gripper_speed_axis_index: -1
+    # 下发轨迹点的 time_from_start ≈ dt × 该系数，略大于周期利于控制器接受
+    trajectory_time_margin: 1.25
+
+    # ---------- 自动 / 手动模式（读左手柄）----------
+    # mode_source: "button" 用 buttons[mode_button_index]；
+    #              "axis"  用 axes[mode_axis_index] > mode_manual_axis_positive_above 判手动
+    mode_source: "button"
+    # 左手自动/手动档位：buttons[32]（非零视为按下/某一档，配合 mode_manual_when_pressed）
+    mode_button_index: 32
+    # true：按下 mode 键为手动；false：按下为自动（按硬件约定二选一）
+    mode_manual_when_pressed: true
+    # mode_source 为 axis 时使用的 axes 下标
+    mode_axis_index: 0
+    # 该轴大于此阈值视为手动模式（仅 mode_source: axis）
+    mode_manual_axis_positive_above: 0.2
+
+    # ---------- 右手：全局（不分自动/手动）----------
+    # buttons[0] 上升沿 → /manipulator/emergency_stop；buttons[5] 按下后松开 → /manipulator/clear_estop（-1 关闭）
+    right_emergency_stop_button_index: 0
+    right_clear_estop_button_index: 5
+
+    # ---------- 自动模式：右手抓取、可选自动夹爪服务 ----------
+    # 右手 buttons[]：上升沿发布 /manipulator/pick_trigger（手动模式下不发）；硬件对应 buttons[2]
+    right_pick_button_index: 2
+    # 仅自动、键位上升沿 open/close_gripper；默认 -1；自动开闭优先用下方与手动共用的右手 axes[] 边沿
+    auto_gripper_open_button_index: -1
+    auto_gripper_close_button_index: -1
+    # 右手 buttons[4]：硬件 ready/中位；log_joy_on_change 时「非0→0」在 diff 上标注「（回 ready 位）」
+    log_right_joy_ready_button_index: 4
+    # true：仅自动模式下，该键由按下变为松开（非0→0）时调用 /manipulator/go_to_ready（与上位机「回 ready」相同）
+    on_auto_right_ready_release_call_go_to_ready: true
+
+    # ---------- 手动模式：6 臂关节 ± 键位（与 arm_joint_names 顺序一一对应）----------
+    # 约定：plus=正向积分 minus=负向；速度乘 speed 轴比例
+    # 硬件：TGL1 11/12→J1，TGL2 13/14→J2，TGL3 15/16→J3，TGL4 17/18→J4；
+    #      SW1-2 5/6→J5，SW3-4 7/8→J6；每对「先 minus / 后 plus」
+    arm_button_plus_indices: [12, 14, 16, 18, 6, 8]
+    arm_button_minus_indices: [11, 13, 15, 17, 5, 7]
+    # 手动夹爪：SW5-6 9=持续开 10=持续合（对 hand_joint_names 积分）
+    gripper_open_button_index: 9
+    gripper_close_button_index: 10
+    # 右手 axes[6]（与手动共用下标/阈值）：手动为持续积分开/合；自动为进入 ± 区边沿各触发一次 open_gripper / close_gripper；-1 关闭轴
+    manual_right_gripper_axis_index: 6
+    manual_right_gripper_axis_threshold: 0.5
+
+    # ---------- 关节名与限位（须与 MoveIt / URDF 一致）----------
+    arm_joint_names:
+      - "joint_base_link_Link1"
+      - "joint_Link1_Link2"
+      - "joint_Link2_Link3"
+      - "joint_LinkVirtual_Link4"
+      - "joint_Link4_Link5"
+      - "joint_Link5_Link6"
+    hand_joint_names:
+      - "joint_Link6_Link7"
+      - "joint_Link6_Link8"
+    arm_joint_lower_limits_deg: [-180.0, -180.0, -180.0, -180.0, -180.0, -180.0]
+    arm_joint_upper_limits_deg: [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+    # 手指关节手动积分目标（度），与 SRDF open/close 一致（约 ±22.92° 对应 ±0.4 rad）
+    hand_q7_open_deg: 22.92
+    hand_q8_open_deg: -22.92
+    hand_q7_close_deg: 0.0
+    hand_q8_close_deg: 0.0
+
+    # ---------- 轨迹 Action（与 MTC / trajectory_to_agent_bridge 相同接口）----------
+    arm_action_name: "arm_controller/follow_joint_trajectory"
+    hand_action_name: "hand_controller/follow_joint_trajectory"
+
+    # ---------- 安全与服务就绪 ----------
+    # true：切入手动时先调用 /manipulator/emergency_stop，避免与规划执行抢控制器
+    on_manual_enter_call_emergency_stop: true
+    # true：切回自动时先 /manipulator/emergency_stop 再 /manipulator/clear_estop（清轨迹与队列后解闭锁）
+    on_auto_enter_call_clear_estop: true
+    # true：未等到对应 Action 服务则手动环不发送轨迹（仿真未起 bridge 时可改 false 仅测 Joy）
+    require_arm_action_server: true
+    require_hand_action_server: true
+
+    # ---------- 上位机 Web（rosbridge 订阅：自动/手动 + 臂油门百分比）----------
+    publish_ui_status: true
+    topic_ui_manual_mode: "/joy_manipulator/manual_mode"
+    topic_ui_throttle_percent: "/joy_manipulator/throttle_percent"
+
+    # ---------- 调试日志 ----------
+    # true：定时打印手动目标臂/手关节与速度比例（刷屏，平时 false）
+    log_joint_targets_debug: false
+    # true：Joy 相对上一帧有「语义变化」时打印（buttons 或 |Δ轴|>epsilon）；调键位映射时用
+    log_joy_on_change: true
+    # 摇杆噪声抑制：逐轴与上一帧差 ≤ 此值视为未变（既不打印也不判为变化）；diff 里也用同一阈值
+    log_joy_axis_epsilon: 0.05
