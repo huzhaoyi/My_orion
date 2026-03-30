@@ -1,3 +1,5 @@
+/* cable_segments：沿轴线切片生成 CableSegment 列表供碰撞与预检 */
+
 #include "orion_mtc/planning/cable_segments.hpp"
 #include <cmath>
 #include <sstream>

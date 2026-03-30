@@ -1,3 +1,5 @@
+/* collision_object_utils：位姿链乘与目标/缆段 MoveIt CollisionObject 构建 */
+
 #include "orion_mtc/planning/collision_object_utils.hpp"
 #include "orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <shape_msgs/msg/solid_primitive.hpp>

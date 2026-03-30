@@ -1,3 +1,5 @@
+/* ManipulatorRosInterface：注册 /manipulator 下订阅、服务、Action 与状态发布定时器 */
+
 #include "orion_mtc/interface/manipulator_ros_interface.hpp"
 #include "orion_mtc/core/constants.hpp"
 #include "orion_mtc/perception/perception_snapshot.hpp"
@@ -31,11 +33,16 @@ void nsToTime(int64_t ns, builtin_interfaces::msg::Time& t)
 namespace orion_mtc
 {
 
+/* 仅保存 ManipulatorInterfaceContext（缓存、TaskManager、logger 等），注册接口在 register* 中完成。 */
 ManipulatorRosInterface::ManipulatorRosInterface(ManipulatorInterfaceContext ctx)
   : ctx_(std::move(ctx))
 {
 }
 
+/*
+ * 在 action_client_node 上注册 /manipulator 下全部订阅、Pick Action 服务端与各业务服务。
+ * left_arm_gripped 同时写入原子量并转发 TaskManager::applyGripperFeedbackFromTopic。
+ */
 void ManipulatorRosInterface::registerSubscriptionsAndServices()
 {
     const std::string ns(MANIPULATOR_NS);
@@ -161,6 +168,10 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         });
 }
 
+/*
+ * 创建 runtime_status/job_event/task_stage 等 publisher，500ms 定时发 RuntimeStatus；
+ * 将 TaskManager 的 job/held/recovery/stage 回调桥接到对应 ROS 消息。
+ */
 void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
 {
     const std::string ns(MANIPULATOR_NS);
@@ -238,6 +249,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
         });
 }
 
+/* 聚合 TaskManager 与 TaskQueue 状态填充 RuntimeStatus 并发布（供 Web/监控轮询）。 */
 void ManipulatorRosInterface::publishRuntimeStatus()
 {
     orion_mtc_msgs::msg::RuntimeStatus msg;
@@ -260,6 +272,10 @@ void ManipulatorRosInterface::publishRuntimeStatus()
     pub_runtime_status_->publish(msg);
 }
 
+/*
+ * pick_trigger 话题：后台线程中组 ManipulationJob，优先 TargetSelector，否则 object_pose 缓存，可等待最多 3s；
+ * gripper locked 则拒绝入队；submitJob 结果打 INFO/WARN。
+ */
 void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr)
 {
     std::thread([this]() {
@@ -308,12 +324,14 @@ void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::
     }).detach();
 }
 
+/* 与 applyGripperFeedback 阈值一致：left_arm_gripped >= 0.5 视为夹紧有物。 */
 bool ManipulatorRosInterface::isGripperLocked() const
 {
     const double threshold = 0.5;
     return ctx_.left_arm_gripped->load() >= threshold;
 }
 
+/* Pick Action _goal 校验：已持物、gripper locked、业务 busy 时 REJECT，否则 ACCEPT_AND_EXECUTE。 */
 rclcpp_action::GoalResponse ManipulatorRosInterface::handlePickGoalRequest(
     const rclcpp_action::GoalUUID&,
     std::shared_ptr<const orion_mtc_msgs::action::Pick::Goal>)
@@ -338,12 +356,17 @@ rclcpp_action::GoalResponse ManipulatorRosInterface::handlePickGoalRequest(
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
+/* 当前实现不允许取消已在执行的 Pick Action（避免与 MTC 分段状态难对齐）。 */
 rclcpp_action::CancelResponse ManipulatorRosInterface::handlePickGoalCancel(
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>&)
 {
     return rclcpp_action::CancelResponse::REJECT;
 }
 
+/*
+ * 接受 goal 后 detach 线程调用 TaskManager::handlePick，成功 succeed、失败 abort，
+ * Result 中带 task_id、held_object_id、message/last_error。
+ */
 void ManipulatorRosInterface::handlePickGoalAccepted(
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& goal_handle)
 {
@@ -367,6 +390,7 @@ void ManipulatorRosInterface::handlePickGoalAccepted(
     }).detach();
 }
 
+/* GetRobotState：返回 mode、task_id、持物 id 标志、last_error（轻量查询）。 */
 void ManipulatorRosInterface::handleGetRobotState(
     const std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Request>,
     std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Response> res)
@@ -379,6 +403,10 @@ void ManipulatorRosInterface::handleGetRobotState(
     res->last_error = ctx_.task_manager->getLastError();
 }
 
+/*
+ * GetQueueState：队列长度、当前/下一 job、worker 状态、task_mode、是否空队列等；
+ * next_* 来自 peekFront，不弹出。
+ */
 void ManipulatorRosInterface::handleGetQueueState(
     const std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Request>,
     std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Response> res)
@@ -408,6 +436,7 @@ void ManipulatorRosInterface::handleGetQueueState(
     res->queue_empty = !q || q->empty();
 }
 
+/* GetRecentJobs：将 TaskManager 环形执行记录转为消息列表，max_count 默认上限 50。 */
 void ManipulatorRosInterface::handleGetRecentJobs(
     const std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Response> res)
@@ -431,6 +460,10 @@ void ManipulatorRosInterface::handleGetRecentJobs(
     }
 }
 
+/*
+ * SubmitJob：校验 job_type；PICK 且 gripper locked 拒绝；组装 ManipulationJob 调 TaskManager::submitJob，
+ * 成功返回 job_id，失败写 message。
+ */
 void ManipulatorRosInterface::handleSubmitJob(
     const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Response> res)
@@ -470,6 +503,7 @@ void ManipulatorRosInterface::handleSubmitJob(
     res->job_id = assigned_id;
 }
 
+/* CancelJob：代理 TaskManager::cancelJob；正在执行的 job 不可取消。 */
 void ManipulatorRosInterface::handleCancelJob(
     const std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res)
@@ -480,6 +514,7 @@ void ManipulatorRosInterface::handleCancelJob(
     res->message = message;
 }
 
+/* ResetHeldObject：调用 handleResetHeldObject，success/message 回填。 */
 void ManipulatorRosInterface::handleResetHeldObject(
     const std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Request>,
     std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Response> res)
@@ -487,6 +522,7 @@ void ManipulatorRosInterface::handleResetHeldObject(
     res->success = ctx_.task_manager->handleResetHeldObject(res->message);
 }
 
+/* SyncHeldObject：透传 set_holding、tracked、位姿到 TaskManager::handleSyncHeldObject。 */
 void ManipulatorRosInterface::handleSyncHeldObject(
     const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res)
@@ -495,6 +531,7 @@ void ManipulatorRosInterface::handleSyncHeldObject(
         req->set_holding, req->tracked, req->object_id, req->object_pose, req->tcp_pose, res->message);
 }
 
+/* CheckPick：有 FeasibilityChecker 则委托 checkPick；否则拒绝并提示未就绪。 */
 void ManipulatorRosInterface::handleCheckPick(
     const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res)
@@ -511,6 +548,7 @@ void ManipulatorRosInterface::handleCheckPick(
     }
 }
 
+/* 打开夹爪：异步入队 OPEN_GRIPPER，success 表示已接受队列 job_id。 */
 void ManipulatorRosInterface::handleOpenGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                                                 std::shared_ptr<std_srvs::srv::Trigger::Response> res)
 {
@@ -523,6 +561,7 @@ void ManipulatorRosInterface::handleOpenGripper(const std::shared_ptr<std_srvs::
     res->message = res->success ? job_id : ("rejected: " + reject_reason);
 }
 
+/* 闭合夹爪：异步入队 CLOSE_GRIPPER。 */
 void ManipulatorRosInterface::handleCloseGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                                                  std::shared_ptr<std_srvs::srv::Trigger::Response> res)
 {
@@ -535,6 +574,7 @@ void ManipulatorRosInterface::handleCloseGripper(const std::shared_ptr<std_srvs:
     res->message = res->success ? job_id : ("rejected: " + reject_reason);
 }
 
+/* 急停服务：requestEmergencyStop（清队列、取消轨迹），始终 success=true 除非后续扩展。 */
 void ManipulatorRosInterface::handleEmergencyStopService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                                                          std::shared_ptr<std_srvs::srv::Trigger::Response> res)
 {
@@ -544,6 +584,7 @@ void ManipulatorRosInterface::handleEmergencyStopService(const std::shared_ptr<s
     RCLCPP_WARN(ctx_.logger, "service emergency_stop: cancel trajectories + clear queue");
 }
 
+/* 解除急停闭锁位，不恢复队列。 */
 void ManipulatorRosInterface::handleClearEstopService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                                                       std::shared_ptr<std_srvs::srv::Trigger::Response> res)
 {
@@ -553,6 +594,7 @@ void ManipulatorRosInterface::handleClearEstopService(const std::shared_ptr<std_
     RCLCPP_INFO(ctx_.logger, "service clear_estop: latch cleared");
 }
 
+/* go_to_ready 服务：同步调用 tryGoToReady，busy 时失败 message 说明原因。 */
 void ManipulatorRosInterface::handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                                                      std::shared_ptr<std_srvs::srv::Trigger::Response> res)
 {

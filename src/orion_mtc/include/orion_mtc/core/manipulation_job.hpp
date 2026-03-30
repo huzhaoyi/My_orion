@@ -33,9 +33,9 @@ struct ManipulationJob
   std::string object_id;
   bool tracked = false;
 
-  /**
+  /*
    * 优先级：数值越大越先执行。
-   * 约定：priority < 0 表示“未指定”，入队时用 getDefaultPriority(type) 填充；
+   * priority < 0 表示未指定，入队时用 getDefaultPriority(type) 填充；
    * 0 为有效值。恢复类 job 可显式覆盖默认，普通业务 job 不建议超过恢复类默认值（如 50）。
    */
   int priority = 0;

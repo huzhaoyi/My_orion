@@ -1,3 +1,5 @@
+/* task_queue：优先级插入、阻塞 pop、clear 与 size */
+
 #include "orion_mtc/orchestration/task_queue.hpp"
 #include <algorithm>
 

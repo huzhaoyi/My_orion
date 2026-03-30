@@ -1,3 +1,5 @@
+/* planning_scene_manager：apply_planning_scene 封装，world 与 attach 增删 */
+
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/planning/collision_object_utils.hpp"
 #include <rclcpp/rclcpp.hpp>

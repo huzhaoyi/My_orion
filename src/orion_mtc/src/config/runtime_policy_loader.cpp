@@ -1,3 +1,5 @@
+/* runtime_policy_loader：声明并读取失败后恢复/入队策略等参数 */
+
 #include "orion_mtc/config/runtime_policy_loader.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/exceptions.hpp>

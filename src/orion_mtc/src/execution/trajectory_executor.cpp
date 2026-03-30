@@ -1,3 +1,5 @@
+/* trajectory_executor：arm_controller / hand_controller 的 FollowJointTrajectory 异步发送与结果 */
+
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/core/constants.hpp"
@@ -15,10 +17,12 @@ namespace orion_mtc
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
 
+/* 保存 ROS 节点指针，用于创建/缓存 FollowJointTrajectory action client。 */
 TrajectoryExecutor::TrajectoryExecutor(rclcpp::Node* node) : node_(node)
 {
 }
 
+/* 急停时 cancelOngoingGoals 遍历的列表：记录尚未结束的 async goal handle。 */
 void TrajectoryExecutor::registerActiveGoal(
     const rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr& client,
     const rclcpp_action::ClientGoalHandle<control_msgs::action::FollowJointTrajectory>::SharedPtr&
@@ -32,6 +36,7 @@ void TrajectoryExecutor::registerActiveGoal(
   active_goals_.emplace_back(client, goal_handle);
 }
 
+/* 轨迹段执行结束后从 active 列表移除，避免泄漏式长期持有 handle。 */
 void TrajectoryExecutor::unregisterActiveGoal(
     const rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr& client,
     const rclcpp_action::ClientGoalHandle<control_msgs::action::FollowJointTrajectory>::SharedPtr&
@@ -52,6 +57,7 @@ void TrajectoryExecutor::unregisterActiveGoal(
   }
 }
 
+/* 对当前记录的全部 goal 发送 async_cancel_goal（拷贝列表后遍历，避免死锁）。 */
 void TrajectoryExecutor::cancelOngoingGoals()
 {
   std::vector<std::pair<rclcpp_action::Client<control_msgs::action::FollowJointTrajectory>::SharedPtr,
@@ -71,6 +77,10 @@ void TrajectoryExecutor::cancelOngoingGoals()
   }
 }
 
+/*
+ * 向 `/{controller_name}/follow_joint_trajectory` 发送整条轨迹并阻塞到 SUCCEEDED；
+ * 自动创建并缓存 client；注册 active goal 以便急停取消。空 trajectory 视为 no-op 成功。
+ */
 bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
                                               const trajectory_msgs::msg::JointTrajectory& jt)
 {
@@ -162,6 +172,10 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
   return true;
 }
 
+/*
+ * MTC 子轨迹一步：先 apply scene_diff（若需）；再按 joint_names 推断 arm/hand controller，
+ * 拆分为子 JointTrajectory；多控制器时并行 async 发送，全成功才返回 true。
+ */
 bool TrajectoryExecutor::executeSubTrajectory(
     const moveit_task_constructor_msgs::msg::SubTrajectory& sub,
     PlanningSceneManager* scene_manager)

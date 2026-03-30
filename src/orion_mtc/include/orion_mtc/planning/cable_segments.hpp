@@ -20,10 +20,10 @@ struct CableSegment
   double radius = 0.025;
 };
 
-/**
+/*
  * 将整根缆绳离散为多段短圆柱。
  * center/axis 为缆绳中点与轴线（单位向量），total_length 为总长，segment_length 为每段长。
- * 段中心沿轴分布：offset_k = -L/2 + seg_len/2 + k*seg_len，p_k = center + axis*offset_k
+ * 段中心沿轴：offset_k = -L/2 + seg_len/2 + k*seg_len，p_k = center + axis*offset_k。
  */
 std::vector<CableSegment> buildCableSegments(const Eigen::Vector3d& center,
                                              const Eigen::Vector3d& axis,

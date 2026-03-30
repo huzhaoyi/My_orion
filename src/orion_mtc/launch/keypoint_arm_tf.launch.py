@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-静态 TF（camera=视觉 keypoints 的 frame_id，sensor_link 与臂安装 TF 衔接）。
+Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_arm_tf_node）。
 
-- camera -> sensor_link：
-  p_sensor = R_{v->r} * p_camera。采用循环置换使典型点 (0, ~2.9, 0)_camera -> (~2.9,0,0)_sensor，
-  再减左臂安装得 (~1.35,-0.565,0.283)_left_arm；旧矩阵会把 Y 映成 -X 导致整条链符号错。
-  R_{v->r}=[[0,1,0],[0,0,1],[1,0,0]]，R_{r->v}=R_{v->r}^T=[[0,0,1],[1,0,0],[0,1,0]]。
-  四元数 (qx,qy,qz,qw)=(0.5, 0.5, 0.5, 0.5)，平移暂为 0（需与实物再标定）。
-- sensor_link -> left_arm_base / right_arm_base：仅平移（安装位姿）。
+两种模式（use_platform_tf）：
 
-启动参数 use_mock_keypoints:=true 时不订阅 /keypoints，按 echo 样例注入假数据（可调 mock_kp_*）。
+- false（默认）：本地 HoloOcean / 离线调试。启动三个 static_transform_publisher：
+  camera→sensor_link（循环置换四元数）、sensor_link→left_arm_base / right_arm_base（安装平移）。
+  与 sealien_ctrlpilot_location 的 URDF 不要同时发重复静态变换。
+
+- true：对接 sealien_ctrlpilot_location（rov.urdf_simulate.xml 等）。仅启动 keypoint 节点；帧名与
+  robot_state_publisher 一致：sensor_camera1、sensor_left_roboticarm、sensor_right_roboticarm。
+  需已运行机体 URDF + odom→base_link 等，使 TF 树完整。
+
+启动参数 use_mock_keypoints:=true 时不订阅 /keypoints，按参数注入假数据。
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
@@ -19,22 +22,43 @@ from launch_ros.actions import Node
 
 def _launch_setup(context, *_args, **_kwargs):
     use_mock = LaunchConfiguration("use_mock_keypoints").perform(context).lower() in ("true", "1", "yes")
-    keypoint_params = {
-        "input_topic": "/keypoints",
-        "source_frame_override": "sensor_link",
-        "left_arm_frame": "left_arm_base",
-        "right_arm_frame": "right_arm_base",
-        "tf_timeout_sec": 0.5,
-        "tf_use_latest_timestamp": True,
-        "qos_best_effort": False,
-        "qos_depth": 10,
-        "use_mock_keypoints": use_mock,
-        "mock_frame_id": "camera",
-        "mock_kp_x": 0.0,
-        "mock_kp_y": 2.9054482685810803,
-        "mock_kp_z": -9.536743164059724e-05,
-        "mock_period_sec": 1.0,
-    }
+    use_platform = LaunchConfiguration("use_platform_tf").perform(context).lower() in ("true", "1", "yes")
+
+    if use_platform:
+        keypoint_params = {
+            "input_topic": "/keypoints",
+            "source_frame_override": "sensor_camera1",
+            "left_arm_frame": "sensor_left_roboticarm",
+            "right_arm_frame": "sensor_right_roboticarm",
+            "tf_timeout_sec": 0.5,
+            "tf_use_latest_timestamp": True,
+            "qos_best_effort": False,
+            "qos_depth": 10,
+            "use_mock_keypoints": use_mock,
+            "mock_frame_id": "sensor_camera1",
+            "mock_kp_x": 0.0,
+            "mock_kp_y": 2.9054482685810803,
+            "mock_kp_z": -9.536743164059724e-05,
+            "mock_period_sec": 1.0,
+        }
+    else:
+        keypoint_params = {
+            "input_topic": "/keypoints",
+            "source_frame_override": "sensor_link",
+            "left_arm_frame": "left_arm_base",
+            "right_arm_frame": "right_arm_base",
+            "tf_timeout_sec": 0.5,
+            "tf_use_latest_timestamp": True,
+            "qos_best_effort": False,
+            "qos_depth": 10,
+            "use_mock_keypoints": use_mock,
+            "mock_frame_id": "camera",
+            "mock_kp_x": 0.0,
+            "mock_kp_y": 2.9054482685810803,
+            "mock_kp_z": -9.536743164059724e-05,
+            "mock_period_sec": 1.0,
+        }
+
     keypoint_node = Node(
         package="orion_mtc",
         executable="keypoint_to_arm_tf_node",
@@ -42,6 +66,10 @@ def _launch_setup(context, *_args, **_kwargs):
         output="screen",
         parameters=[keypoint_params],
     )
+
+    if use_platform:
+        return [keypoint_node]
+
     camera_to_sensor = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -130,6 +158,14 @@ def generate_launch_description():
                 "use_mock_keypoints",
                 default_value="false",
                 description="true：不订阅 /keypoints，用定时器注入假 Keypoints（与 ros2 echo 样例一致，可调参数 mock_kp_*）",
+            ),
+            DeclareLaunchArgument(
+                "use_platform_tf",
+                default_value="false",
+                description=(
+                    "true：仅启动 keypoint 节点，帧名对齐 sealien_ctrlpilot_location URDF（sensor_camera1、"
+                    "sensor_left_roboticarm、sensor_right_roboticarm），不启动本地 static_transform_publisher"
+                ),
             ),
             OpaqueFunction(function=_launch_setup),
         ]

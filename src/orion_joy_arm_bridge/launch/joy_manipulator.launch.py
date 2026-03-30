@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""仅启动 joy_manipulator_node：双路 Joy + joint_states，服务连接 /manipulator/*。"""
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument

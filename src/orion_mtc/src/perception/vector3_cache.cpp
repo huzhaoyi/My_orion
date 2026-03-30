@@ -1,3 +1,5 @@
+/* vector3_cache：object_axis 等 Vector3Stamped 的缓存与等待 */
+
 #include "orion_mtc/perception/vector3_cache.hpp"
 #include <rclcpp/rclcpp.hpp>
 

@@ -1,3 +1,5 @@
+/* SolutionExecutor：解析 MTC Solution、分段改 scene、调 TrajectoryExecutor 与 gripped 等待 */
+
 #include "orion_mtc/execution/solution_executor.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
@@ -16,6 +18,7 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
 
 namespace
 {
+/* 子轨迹关节名若仅含 HAND_JOINTS 而不含 ARM_JOINTS，则视为纯夹爪段（用于 gripped 等待逻辑）。 */
 bool isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
 {
   const auto& names = sub.trajectory.joint_trajectory.joint_names;
@@ -53,12 +56,16 @@ bool isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajec
   return std::abs(j0) < 0.15 && std::abs(j1) < 0.15;
 }
 
+/* 该段 scene_diff 是否包含附着碰撞体变更（attach/detach 语义）。 */
 bool sceneDiffHasAttach(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
 {
   return sub.scene_diff.is_diff &&
          !sub.scene_diff.robot_state.attached_collision_objects.empty();
 }
 
+/*
+ * 用轨迹末点关节位置前向运动学到手系 hand_frame，输出 tcp_pose_out（抓取成功时写入持物上下文）。
+ */
 bool computeTcpPoseFromTrajectoryEnd(const moveit::core::RobotModelConstPtr& robot_model,
                                     const trajectory_msgs::msg::JointTrajectory& traj,
                                     const std::string& hand_frame,
@@ -95,12 +102,17 @@ bool computeTcpPoseFromTrajectoryEnd(const moveit::core::RobotModelConstPtr& rob
 }
 }  // namespace
 
+/* 持有 scene 与 trajectory 执行器指针，不拥有所有权（由 OrionMTCNode 管理生命周期）。 */
 SolutionExecutor::SolutionExecutor(PlanningSceneManager* scene_manager,
                                    TrajectoryExecutor* trajectory_executor)
   : scene_manager_(scene_manager), trajectory_executor_(trajectory_executor)
 {
 }
 
+/*
+ * 通用多段执行：按序 executeSubTrajectory；should_abort 为真时中断并上报 FAILED/E_STOP；
+ * 手爪段可根据 wait_for_gripped 在闭合/张开后等待传感器。stage_report 可选。
+ */
 bool SolutionExecutor::executeSolution(
     const moveit_task_constructor_msgs::msg::Solution& solution_msg,
     WaitForGrippedFn wait_for_gripped,
@@ -188,6 +200,10 @@ bool SolutionExecutor::executeSolution(
   return true;
 }
 
+/*
+ * 抓取专用：在 executeSolution 基础上跟踪 attach 段、cable_world_object_ids 清理 world 缆段、
+ * 闭合后若 wait gripped 失败可置 failed_no_grip_out；成功则填充 held_context_out（TCP、物体位姿等）。
+ */
 bool SolutionExecutor::executePickSolution(
     const moveit_task_constructor_msgs::msg::Solution& solution_msg,
     const geometry_msgs::msg::Pose& object_pose_at_grasp,

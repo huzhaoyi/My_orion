@@ -43,6 +43,7 @@ struct FeasibilityChecker::Impl
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr sub_joint_state;
 };
 
+/* 加载 URDF、订阅 joint_states 作为 IK 种子；失败时 robot_model 为空，后续 IK 将报错项 */
 FeasibilityChecker::FeasibilityChecker(rclcpp::Node::SharedPtr node)
   : node_(node), impl_(std::make_unique<Impl>())
 {
@@ -80,6 +81,7 @@ void FeasibilityChecker::setMTCConfig(const MTCConfig* config)
   mtc_config_ = config;
 }
 
+/* 从 ROS 参数读取 feasibility.*，缺省时用 FeasibilityParams 结构体内默认值 */
 void FeasibilityChecker::loadParams()
 {
   if (!node_)
@@ -121,6 +123,7 @@ void FeasibilityChecker::loadParams()
          params_.suggestion_perturb_yaw_rad);
 }
 
+/* 组装一条 DiagnosticItem 追加到 items，供 check_pick 与 objectPoseWithinWorkspaceHardLimits 共用 */
 void FeasibilityChecker::addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items,
                                  const std::string& code, int32_t level, const std::string& message,
                                  const std::string& field, double value, double threshold,
@@ -137,6 +140,10 @@ void FeasibilityChecker::addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem
   items.push_back(item);
 }
 
+/*
+ * 工作空间硬限：径向 r、高度 z；违反任一则返回 true。
+ * items 非空指针时写入对应 ERROR 级诊断项（与 TaskManager 预拒绝逻辑一致）。
+ */
 bool FeasibilityChecker::workspaceHasHardLimitViolation(
     double px, double py, double grasp_z, std::vector<orion_mtc_msgs::msg::DiagnosticItem>* items)
 {
@@ -187,6 +194,7 @@ bool FeasibilityChecker::workspaceHasHardLimitViolation(
   return rejected;
 }
 
+/* 供 MTC 入队前快速拒绝：仅看硬限，返回 false 时 reject_reason 取首条诊断文案 */
 bool FeasibilityChecker::objectPoseWithinWorkspaceHardLimits(const geometry_msgs::msg::Pose& pose_base_link,
                                                             std::string& reject_reason)
 {
@@ -208,6 +216,10 @@ bool FeasibilityChecker::objectPoseWithinWorkspaceHardLimits(const geometry_msgs
   return false;
 }
 
+/*
+ * 用当前 joint_states 种子对 (px,py,pz)+四元数做 setFromIK；成功后再检查主动关节距限位的最小余量。
+ * 失败或越限写 items，返回 false。
+ */
 bool FeasibilityChecker::runIkAndJointMargin(const std::string& group_name,
                                              const std::string& link_name,
                                              double px, double py, double pz,
@@ -299,6 +311,7 @@ bool FeasibilityChecker::runIkAndJointMargin(const std::string& group_name,
   return true;
 }
 
+/* trySuggestCorrectionPick 内部用：仅判断 IK+关节界是否可行，不写诊断项 */
 bool FeasibilityChecker::runIkOnly(double px, double py, double pz,
                                   double qx, double qy, double qz, double qw)
 {
@@ -352,6 +365,9 @@ bool FeasibilityChecker::runIkOnly(double px, double py, double pz,
   return true;
 }
 
+/*
+ * 硬拒绝后在物体 xy/z 及绕 Z 小范围内枚举扰动，找到首个通过 runIkOnly 的位姿写入 res->best_candidate_pose。
+ */
 void FeasibilityChecker::trySuggestCorrectionPick(
     const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
     orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res,
@@ -418,6 +434,10 @@ void FeasibilityChecker::trySuggestCorrectionPick(
   }
 }
 
+/*
+ * CheckPick 服务主体：硬限 → 软距告警 → 接近角 → IK+关节余量 →（可选）规划场景碰撞；
+ * 最终 severity 与 approved、summary、items、best_candidate_pose 一并填充。
+ */
 void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
                                   orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res)
 {
@@ -495,6 +515,10 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
     res->best_candidate_pose = req->object_pose;
 }
 
+/*
+ * 若配置了 feasibility.get_planning_scene_service：拉当前 scene，IK 到目标后做自碰与环境碰检测。
+ * 服务不可用或异常时返回 false（视为未检出碰撞，不误杀）。
+ */
 bool FeasibilityChecker::checkTargetCollision(double px, double py, double pz,
                                               double qx, double qy, double qz, double qw,
                                               std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items)

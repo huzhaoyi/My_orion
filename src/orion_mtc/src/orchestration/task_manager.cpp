@@ -1,3 +1,5 @@
+/* TaskManager：PICK 侧抓 MTC 构建/规划/执行、任务队列 Worker、持物与 planning scene 对齐 */
+
 #include "orion_mtc/orchestration/task_manager.hpp"
 #include "orion_mtc/orchestration/task_queue.hpp"
 #include "orion_mtc/orchestration/recovery_actions.hpp"
@@ -63,6 +65,11 @@ static constexpr const char* RECON_POSE_TOPIC = "reconstructed_object_pose";
 static constexpr const char* RECON_APPROACH_TOPIC = "reconstructed_approach_axis";
 }  // namespace
 
+/*
+ * TaskManager 构造：保存规划与执行子系统指针，创建 PickTaskBuilder、任务队列、RecoveryActions；
+ * 并创建 reconstructed_object_pose / reconstructed_approach_axis 两个调试用 publisher。
+ * wait_for_gripped_fn 在闭合夹爪阶段用于等待夹爪反馈；scene_manager 仅被恢复与持物逻辑使用。
+ */
 TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
                          const MTCConfig& config,
                          PlanningSceneManager* scene_manager,
@@ -85,22 +92,26 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
       node_->create_publisher<geometry_msgs::msg::Vector3Stamped>(RECON_APPROACH_TOPIC, 10);
 }
 
+/* 析构：停止 Worker 线程，避免与正在退出的 ROS 上下文竞态。 */
 TaskManager::~TaskManager()
 {
   stopWorker();
 }
 
+/* 注入审批器指针；handlePick 在 base_link 下会调用 objectPoseWithinWorkspaceHardLimits。nullptr 则跳过工作空间硬校验。 */
 void TaskManager::setFeasibilityChecker(FeasibilityChecker* checker)
 {
   feasibility_checker_ = checker;
 }
 
+/* 设置业务态 task_mode_（加锁）；供抓取成功、恢复、急停等路径统一改写。 */
 void TaskManager::setState(RobotTaskMode mode)
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   task_mode_ = mode;
 }
 
+/* 置 ERROR 态并记录 last_error_，打 ERROR 日志；用于规划/执行/业务规则拒绝等不可恢复路径。 */
 void TaskManager::setStateError(const std::string& err)
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
@@ -109,6 +120,7 @@ void TaskManager::setStateError(const std::string& err)
   RCLCPP_ERROR(LOGGER, "state ERROR: %s", err.c_str());
 }
 
+/* 生成唯一任务 id：prefix + 系统纳秒时间戳，用于 pick 与 submitJob 未显式指定 job_id 时。 */
 std::string TaskManager::genTaskId(const char* prefix)
 {
   auto now = std::chrono::system_clock::now();
@@ -118,6 +130,13 @@ std::string TaskManager::genTaskId(const char* prefix)
   return oss.str();
 }
 
+/*
+ * 同步抓取主路径（即时调用，非队列）：缆绳侧向多候选 MTC。
+ * 流程：急停/持物/ busy / 夹爪 locked 检查 → TF 到 base_link（可选回调）→ feasibility 硬限
+ * → 取 object_axis → buildCableSegments + generateCableSideGrasps → 逐候选 precheck → MTC plan
+ * → executePickSolution（夹紧检测）→ 成功则 HOLDING_TRACKED；失败可换候选；夹紧失败则 retreatToReady。
+ * object_id 空时持物场景标记默认为 "cable"。
+ */
 bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                              const std::string& object_id)
 {
@@ -445,6 +464,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   return false;
 }
 
+/*
+ * Pilz PTP 回 SRDF 命名状态 "ready"，再插值闭合 hand group（不等待夹紧确认，避免空载超时）。
+ * 用于抓取失败恢复、急停后整理姿态；返回 false 表示 init/plan/executeSolution 任一步失败。
+ */
 bool TaskManager::retreatToReady()
 {
   const std::string arm_group_name = "arm";
@@ -514,6 +537,10 @@ bool TaskManager::retreatToReady()
   return true;
 }
 
+/*
+ * 仅对手 group 规划并执行 MoveTo "open"：CurrentState 锁定当前臂关节（来自 joint_states），
+ * 便于手柄/外部已动臂后只张开夹爪。成功则返回 true，内部经 solution_executor 可走 gripped 等待链（若配置）。
+ */
 bool TaskManager::handleOpenGripper()
 {
   const std::string hand_group_name = "hand";
@@ -563,6 +590,11 @@ bool TaskManager::handleOpenGripper()
   return true;
 }
 
+/*
+ * /left_arm_gripped 话题回调：gripped_value >= 0.5 视为夹紧，直接返回；
+ * PICKING 中忽略（避免抓取过程误判）；若当前语义持物且反馈为张开，则清 held_object、置 IDLE、
+ *  detached planning scene 中 held_* / object，并通知 held_object_state 订阅方。
+ */
 void TaskManager::applyGripperFeedbackFromTopic(double gripped_value)
 {
   static constexpr double k_locked_threshold = 0.5;
@@ -605,6 +637,9 @@ void TaskManager::applyGripperFeedbackFromTopic(double gripped_value)
   }
 }
 
+/*
+ * 仅对手 group MoveTo "close"，臂关节保持 CurrentState；用于队列 CLOSE_GRIPPER 与服务触发路径。
+ */
 bool TaskManager::handleCloseGripper()
 {
   const std::string hand_group_name = "hand";
@@ -654,48 +689,57 @@ bool TaskManager::handleCloseGripper()
   return true;
 }
 
+/* 外部注入「夹爪是否已有物」谓词；为 true 时 handlePick 拒绝，防止重复规划。 */
 void TaskManager::setGripperLockedCallback(std::function<bool()> fn)
 {
   is_gripper_locked_fn_ = std::move(fn);
 }
 
+/* Worker 执行 PICK 时通过此回调取话题最新 object_pose；即时 handlePick 不使用。 */
 void TaskManager::setGetLatestObjectPoseCallback(
     std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn)
 {
   get_latest_object_pose_fn_ = std::move(fn);
 }
 
+/* 提供缆绳轴向 Vector3Stamped；handlePick 与 TF 回调配合 transform_to_base_link_fn_ 使用。 */
 void TaskManager::setGetLatestObjectAxisCallback(
     std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn)
 {
   get_latest_object_axis_fn_ = std::move(fn);
 }
 
+/* 将 PoseStamped（及可选 Vector3Stamped 轴）从感知系变换到 base_link；失败则保留原 frame_id 并打 WARN。 */
 void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
 {
   transform_to_base_link_fn_ = std::move(fn);
 }
 
+/* 任务生命周期事件（SUBMITTED/STARTED/SUCCEEDED/FAILED/REJECTED/CANCELLED）发布到 /manipulator/job_event。 */
 void TaskManager::setJobEventCallback(JobEventFn fn)
 {
   job_event_fn_ = std::move(fn);
 }
 
+/* 持物上下文变化时回调，用于 /manipulator/held_object_state。 */
 void TaskManager::setHeldObjectStateCallback(HeldObjectStateFn fn)
 {
   held_object_state_fn_ = std::move(fn);
 }
 
+/* 自动恢复各子步骤（清 scene、reset held、go_home）的诊断事件。 */
 void TaskManager::setRecoveryEventCallback(RecoveryEventFn fn)
 {
   recovery_event_fn_ = std::move(fn);
 }
 
+/* MTC 执行过程中按阶段名上报，供 /manipulator/task_stage 与前端展示。 */
 void TaskManager::setStageReportCallback(StageReportFn fn)
 {
   stage_report_fn_ = std::move(fn);
 }
 
+/* 窥视队列队首 job 的类型字符串（不入队）；空队列返回 ""。 */
 std::string TaskManager::getNextJobType() const
 {
   ManipulationJob front;
@@ -706,6 +750,11 @@ std::string TaskManager::getNextJobType() const
   return jobTypeToCString(front.type);
 }
 
+/*
+ * 持物状态与 planning scene 同步：仅在 IDLE/ERROR 下允许。
+ * tracked=true 时需 object_pose 与 tcp_pose，计算 tcp_to_object，挂 held_tracked 并清 world "object"；
+ * untracked 挂 held_unknown。set_holding=false 时直接返回成功且不修改（兼容服务语义）。
+ */
 bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
                                        const std::string& object_id,
                                        const geometry_msgs::msg::Pose& object_pose,
@@ -793,6 +842,10 @@ bool TaskManager::handleSyncHeldObject(bool set_holding, bool tracked,
   return true;
 }
 
+/*
+ * 清除内部 held_object、置 IDLE；非 PICKING 忙碌态才可调用。
+ * 同时从 planning scene 移除 held_unknown / held_tracked / object 附着与世界物体。
+ */
 bool TaskManager::handleResetHeldObject(std::string& out_message)
 {
   {
@@ -822,30 +875,39 @@ bool TaskManager::handleResetHeldObject(std::string& out_message)
   return true;
 }
 
+/* 线程安全读取当前业务态（IDLE/PICKING/HOLDING_/ERROR）。 */
 RobotTaskMode TaskManager::getMode() const
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   return task_mode_;
 }
 
+/* 当前同步抓取流程的 task id（如 pick_xxx）；队列 job id 另见 worker 字段。 */
 std::string TaskManager::getTaskId() const
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   return current_task_id_;
 }
 
+/* 最近 setStateError 或业务路径写入的人类可读错误摘要。 */
 std::string TaskManager::getLastError() const
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   return last_error_;
 }
 
+/* 拷贝返回持物上下文（锁内复制），供服务查询与状态发布。 */
 HeldObjectContext TaskManager::getHeldObject() const
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   return held_object_;
 }
 
+/*
+ * 异步入队：填充 job_id（若空）、默认 priority、created_at_ns；
+ * 检查 reject_new_jobs_while_busy、JobDeduplicator 去重；通过则 push 队列并发 SUBMITTED 事件。
+ * 拒绝时返回空串并可选写 out_reject_reason。
+ */
 std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_reject_reason)
 {
   ManipulationJob j = job;
@@ -929,6 +991,7 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
   return j.job_id;
 }
 
+/* 启动后台 worker 线程执行 workerLoop；重复调用打 WARN 且不增线程。 */
 void TaskManager::startWorker()
 {
   if (worker_running_.exchange(true))
@@ -944,6 +1007,7 @@ void TaskManager::startWorker()
   RCLCPP_INFO(LOGGER, "startWorker: started");
 }
 
+/* 置 worker_running_ false、join 线程、清 current_job_* 并将 worker_status_ 置 STOPPED。 */
 void TaskManager::stopWorker()
 {
   if (!worker_running_.exchange(false))
@@ -964,44 +1028,55 @@ void TaskManager::stopWorker()
   RCLCPP_INFO(LOGGER, "stopWorker: stopped");
 }
 
+/* 原子读 worker 线程是否在跑（start 后至 exit 前为 true）。 */
 bool TaskManager::isWorkerRunning() const
 {
   return worker_running_.load();
 }
 
+/* Worker 细粒度状态：IDLE/RUNNING_JOB/RECOVERING/ERROR/STOPPED 等，供 get_queue_state。 */
 WorkerStatus TaskManager::getWorkerStatus() const
 {
   std::lock_guard<std::mutex> lock(worker_mutex_);
   return worker_status_;
 }
 
+/* Worker 正在执行的 job_id；无任务时为空串。 */
 std::string TaskManager::getCurrentJobId() const
 {
   std::lock_guard<std::mutex> lock(worker_mutex_);
   return current_job_id_;
 }
 
+/* 当前执行 job 类型字符串；空时为 "NONE"。 */
 std::string TaskManager::getCurrentJobType() const
 {
   std::lock_guard<std::mutex> lock(worker_mutex_);
   return current_job_type_.empty() ? "NONE" : current_job_type_;
 }
 
+/* 返回共享的任务队列指针（主要用于测试或扩展；正常使用经 submitJob）。 */
 std::shared_ptr<TaskQueue> TaskManager::getQueue()
 {
   return queue_;
 }
 
+/* 更新运行时策略（失败是否自动恢复、是否拒绝忙时入队等），与 MTCConfig 独立。 */
 void TaskManager::setPolicy(const RuntimePolicy& policy)
 {
   policy_ = policy;
 }
 
+/* 只读引用当前 RuntimePolicy。 */
 const RuntimePolicy& TaskManager::getPolicy() const
 {
   return policy_;
 }
 
+/*
+ * 取消队列中尚未开始执行的 job；正在执行的 job_id 不可取消。
+ * 成功则从队列移除并写 CANCELLED 执行记录与 job_event。
+ */
 bool TaskManager::cancelJob(const std::string& job_id, std::string* out_message)
 {
   if (job_id.empty())
@@ -1051,6 +1126,7 @@ bool TaskManager::cancelJob(const std::string& job_id, std::string* out_message)
   return false;
 }
 
+/* 环形 recent_records_ 追加一条 STARTED 记录（result 仍为 UNKNOWN，结束由 updateExecutionRecordFinish 写）。 */
 void TaskManager::pushExecutionRecordStart(const ManipulationJob& job, int64_t started_at_ns)
 {
   JobExecutionRecordEntry entry;
@@ -1069,6 +1145,7 @@ void TaskManager::pushExecutionRecordStart(const ManipulationJob& job, int64_t s
   recent_records_.push_back(entry);
 }
 
+/* 将最近一条执行记录标记结束：写 result_code、message、finished_at_ns。 */
 void TaskManager::updateExecutionRecordFinish(JobResultCode code, const std::string& message, int64_t finished_at_ns)
 {
   std::lock_guard<std::mutex> lock(records_mutex_);
@@ -1081,6 +1158,7 @@ void TaskManager::updateExecutionRecordFinish(JobResultCode code, const std::str
   recent_records_.back().finished_at_ns = finished_at_ns;
 }
 
+/* 队列入队取消时追加一条独立记录（started_at=0，result=CANCELLED）。 */
 void TaskManager::pushExecutionRecordCancelled(const ManipulationJob& job, int64_t finished_at_ns)
 {
   JobExecutionRecordEntry entry;
@@ -1100,6 +1178,7 @@ void TaskManager::pushExecutionRecordCancelled(const ManipulationJob& job, int64
   recent_records_.push_back(entry);
 }
 
+/* 按时间逆序（最近在前）返回最多 max_count 条执行记录副本。 */
 std::vector<TaskManager::JobExecutionRecordEntry> TaskManager::getRecentRecords(std::size_t max_count) const
 {
   std::lock_guard<std::mutex> lock(records_mutex_);
@@ -1113,6 +1192,10 @@ std::vector<TaskManager::JobExecutionRecordEntry> TaskManager::getRecentRecords(
   return out;
 }
 
+/*
+ * Worker 主循环：waitPop 任务 → 置 RUNNING_JOB、发 STARTED → executeJob →
+ * 成功则 IDLE，失败则 ERROR 并可触发 auto_reset（resetHeld、clearScene、goHome）与 recovery_event。
+ */
 void TaskManager::workerLoop()
 {
   const auto poll_timeout = std::chrono::milliseconds(500);
@@ -1205,6 +1288,7 @@ void TaskManager::workerLoop()
   }
 }
 
+/* 按 JobType 分派：PICK 拉最新 object_pose 调 handlePick；RESET/OPEN/CLOSE/SYNC 调对应 handle 系列。 */
 bool TaskManager::executeJob(const ManipulationJob& job)
 {
   switch (job.type)
@@ -1278,11 +1362,16 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   }
 }
 
+/* 返回捕获 estop_requested_ 的原子谓词，传入 executePickSolution/executeSolution 以在急停时打断分段执行。 */
 std::function<bool()> TaskManager::makeEstopAbortFn() const
 {
   return [this]() { return estop_requested_.load(); };
 }
 
+/*
+ * 急停：置 estop 标志、取消当前 FollowJointTrajectory、清空任务队列（不自动清 latch）。
+ * 执行循环内通过 makeEstopAbortFn 感知并中止。
+ */
 void TaskManager::requestEmergencyStop()
 {
   estop_requested_.store(true);
@@ -1297,12 +1386,17 @@ void TaskManager::requestEmergencyStop()
   RCLCPP_WARN(LOGGER, "requestEmergencyStop: E_STOP, queue cleared, trajectory cancel requested");
 }
 
+/* 仅清除 estop_requested_ 原子位，不恢复已清空的队列；供手柄 clear_estop 等。 */
 void TaskManager::clearEmergencyStopLatch()
 {
   estop_requested_.store(false);
   RCLCPP_INFO(LOGGER, "clearEmergencyStopLatch: estop_requested cleared");
 }
 
+/*
+ * 服务 go_to_ready：禁止在 PICKING 或 worker RUNNING_JOB 时调用；否则执行 retreatToReady()，
+ * 成功则清 last_error、置 IDLE；失败写 out_message。
+ */
 bool TaskManager::tryGoToReady(std::string& out_message)
 {
   {

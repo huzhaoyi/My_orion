@@ -1,3 +1,5 @@
+/* constants：ARM_JOINTS / HAND_JOINTS 及 allowed collision 链接名列表 */
+
 #include "orion_mtc/core/constants.hpp"
 
 namespace orion_mtc

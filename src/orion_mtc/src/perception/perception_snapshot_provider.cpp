@@ -1,3 +1,5 @@
+/* perception_snapshot_provider：从各 cache 组装 PerceptionSnapshot 快照 */
+
 #include "orion_mtc/perception/perception_snapshot_provider.hpp"
 #include "orion_mtc/perception/pose_cache.hpp"
 #include "orion_mtc/perception/target_cache.hpp"

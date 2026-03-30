@@ -1,3 +1,5 @@
+/* reach_kinematics：由 URDF 采样正运动学估计 TCP 距离包络，解析 feasibility 尺寸 */
+
 #include "orion_mtc/decision/reach_kinematics.hpp"
 #include <moveit/robot_model/link_model.h>
 #include <moveit/robot_model/robot_model.h>

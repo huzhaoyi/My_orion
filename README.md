@@ -11,7 +11,7 @@ ROS 2 工作空间，用于 Orion 机械臂与 **HoloOcean** 仿真联调：关�
 | **orion_mtc_msgs** | 抓取相关接口：Pick Action；GetRobotState、GetQueueState、SubmitJob、CancelJob、GetRecentJobs、ResetHeldObject、SyncHeldObject、CheckPick 等服务；**TargetSet**（多目标候选）、**Keypoints**（视觉/融合关键点：`header`、`corner_points`、`keypoints` 等）等消息 |
 | **orion_mtc** | 基于 MoveIt Task Constructor 的**抓取**节点（仅 pick / 夹爪 / 持物同步，无放置任务）。内部按 **app / interface / perception / decision / planning / execution / scene / orchestration** 分层：`ManipulatorRosInterface` 负责 ROS 订阅与服务；`TaskManager` 编排；`PickTaskBuilder` + MTC 只做运动序列；`SolutionExecutor`/`TrajectoryExecutor` 执行；`PlanningSceneManager` 管理 scene；`FeasibilityChecker` 与 `cable_side_pick_precheck` 做审批与缆绳侧抓预检；**`target_set` + `TargetSelector`** 与 **`object_pose`** 二选一供抓取目标。规划末端参考系为 URDF **`gripper_tcp`**。任务队列 + Worker，支持优先级与去重；夹取失败时自动回到 ready 并设 IDLE；另提供 **打开/闭合夹爪** 服务（仅动夹爪，臂关节保持当前 joint_states）；Action 即时执行，话题/SubmitJob 异步入队。另含调试可执行文件 **`keypoint_to_arm_tf_node`**：订阅 **`/keypoints`**，消息类型与 **`cable_detect` 等发布端一致，为 **`sealien_ctrlpilot_msgmanagement/msg/Keypoints`**（与仓库内 `orion_mtc_msgs/Keypoints` 字段相同但 **ROS 类型名不同，不可混用**）。将关键点从源帧（`header.frame_id`，常见 `camera`）经 TF 变换到 **`left_arm_base` / `right_arm_base`** 并打印。依赖 **`sealien_ctrlpilot_msgmanagement`** 包需在编译/运行前已安装或 `source` 其 `install/setup.bash`（与 `pick_holoocean.launch.py` **分离** 的 launch：`keypoint_arm_tf.launch.py`） |
 | **orion_holoocean_bridge** | HoloOcean 桥接：ArmSensor → `joint_states`；FollowJointTrajectory 经 **trajectory_to_agent_bridge** 转为 AgentCommand 发往 HoloOcean 执行；**target_sensor_to_object_pose**：TargetSensor（positions + directions）+ ROV 里程计 → base_link 下 `/object_pose`；**cable_sensor_to_object_pose**：CableSensor（单缆绳）→ world 下变换到 base_link 后发布 `/object_pose` |
-| **orion_joy_arm_bridge** | 双路 `sensor_msgs/Joy`（默认 `/left_joy`、`/right_joy`）：**右手全局**：`buttons[0]`→`emergency_stop`，`buttons[5]` 松开→`clear_estop`；**自动**：`pick_trigger`、右手 **axes[6]**（默认同配置）进入 +1/-1 区边沿→`open_gripper`/`close_gripper`、ready 松手→`go_to_ready`；**手动**：6 臂 + 左手 9/10 + 右手轴持续积分开/合爪。参数见 `joy_manipulator.yaml`。 |
+| **orion_joy_arm_bridge** | 双路 `sensor_msgs/Joy`（默认 `/left_joy`、`/right_joy`）：**右手全局**：`buttons[0]`→`emergency_stop`，`buttons[5]` 松开→`clear_estop`；**自动**：`pick_trigger`、右手 **axes[6]**（默认同配置）进入 +1/-1 区边沿→`open_gripper`/`close_gripper`、ready 松手→调用 `go_to_ready`（Trigger 服务）；**手动**：6 臂 + 左手 9/10 + 右手轴持续积分开/合爪。参数见 `joy_manipulator.yaml`。 |
 
 ## 依赖
 
@@ -44,6 +44,73 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+## ROS 话题与服务（程序默认 · 当前使用）
+
+**命名约定**：抓取应用层统一在 **`/manipulator`** 下（代码常量 `MANIPULATOR_NS`）。下列「程序」指仓库内默认参数/源码；「**当前 pick_holoocean**」指 `ros2 launch orion_mtc pick_holoocean.launch.py` 实际拉起的节点与 `holoocean_bridge_params.yaml` 中的话题名。
+
+### 程序内——`orion_mtc`（`mtc_node`）
+
+| 方向 | 全名 | 类型 | 简要说明 |
+|------|------|------|----------|
+| 订阅 | `/manipulator/object_pose` | `geometry_msgs/PoseStamped` | 抓取目标中心位姿（任意 `frame_id` 可在执行前变换到规划系 `base_link`） |
+| 订阅 | `/manipulator/object_axis` | `geometry_msgs/Vector3Stamped` | 缆绳侧向抓取：缆轴方向（建议与 `object_pose` 同系，多为 `base_link`） |
+| 订阅 | `/manipulator/target_set` | `orion_mtc_msgs/TargetSet` | 多目标时 `pick_trigger` 优先取 `targets[0]` |
+| 订阅 | `/manipulator/pick_trigger` | `std_msgs/Empty` | 异步入队抓取 |
+| 订阅 | `/manipulator/left_arm_gripped` | `std_msgs/Float32` | 夹爪/持物反馈（如 0=张开、1=夹紧），与桥接 `gripped_topic` 对齐 |
+| 订阅 | `/joint_states` | `sensor_msgs/JointState` | **可行性审批**用，参数 `feasibility.joint_state_topic`（默认 `joint_states`） |
+| 发布 | `/manipulator/runtime_status` | `orion_mtc_msgs/RuntimeStatus` | Worker/模式/队列摘要（定时） |
+| 发布 | `/manipulator/job_event` | `orion_mtc_msgs/JobEvent` | 任务生命周期事件 |
+| 发布 | `/manipulator/task_stage` | `orion_mtc_msgs/TaskStage` | MTC 阶段名与状态 |
+| 发布 | `/manipulator/held_object_state` | `orion_mtc_msgs/HeldObjectState` | 持物同步态 |
+| 发布 | `/manipulator/recovery_event` | `orion_mtc_msgs/RecoveryEvent` | 恢复动作记录 |
+| 发布 | `/reconstructed_object_pose` | `geometry_msgs/PoseStamped` | 调试：任务管理器重建/展示用目标位姿（无 `manipulator` 前缀） |
+| 发布 | `/reconstructed_approach_axis` | `geometry_msgs/Vector3Stamped` | 调试：接近轴 |
+| Action 服务 | `/manipulator/pick` | `orion_mtc_msgs/action/Pick` | 即时抓取 |
+| 服务 | `/manipulator/get_robot_state`、`get_queue_state`、`get_recent_jobs`、`submit_job`、`cancel_job`、`reset_held_object`、`sync_held_object`、`open_gripper`、`close_gripper`、`check_pick` | 见下表 | 与接口说明一致 |
+| 服务 | `/manipulator/emergency_stop`、`/manipulator/clear_estop`、`/manipulator/go_to_ready` | `std_srvs/Trigger` | 急停 / 解闭锁 / 回 SRDF ready（**非话题**） |
+
+### 程序内——`orion_holoocean_bridge`（参数见 `config/holoocean_bridge_params.yaml`）
+
+| 节点 | 方向 | 话题名（文件中多为全路径） | 类型 | 简要说明 |
+|------|------|----------------------------|------|----------|
+| `arm_sensor_to_joint_state` | 订阅 | `/holoocean/rov0/ArmSensor` | `holoocean_interfaces/ArmSensor` | 仿真臂关节（度） |
+| | 发布 | `/joint_states` | `sensor_msgs/JointState` | 与 MoveIt / 手柄共用 |
+| | 发布 | `/manipulator/left_arm_gripped` | `std_msgs/Float32` | 与 MTC 订阅名一致 |
+| `trajectory_to_agent_bridge` | Action 服务 | `arm_controller/follow_joint_trajectory`、`hand_controller/follow_joint_trajectory` | `control_msgs/FollowJointTrajectory` | MoveIt 执行器连到此节点 |
+| | 发布 | `/holoocean/command/agent/arm` | `holoocean_interfaces/AgentCommand` | 发往 HoloOcean |
+| `cable_sensor_to_object_pose` | 订阅 | `/holoocean/rov0/CableSensor` | `holoocean_interfaces/CableSensor` | 单缆绳感知 |
+| | 订阅 | `/holoocean/rov0/PoseSensor` | `geometry_msgs/PoseWithCovarianceStamped` | ROV 位姿，换算到 `base_link` |
+| | 发布 | `/manipulator/object_pose`、`/manipulator/object_axis` | 同上表 | MTC 抓取输入 |
+| | 发布 | `/manipulator/perception_state` | `orion_mtc_msgs/PerceptionState` | **MTC 未订阅**；给上位机或其它节点 |
+| `target_sensor_to_object_pose` | （配置项） | `/holoocean/rov0/TargetSensor` 等 | — | **当前 `pick_holoocean.launch.py` 未启动该可执行体**；需多目标 TargetSensor 时在 launch 中另加节点 |
+
+若 `publish_tf: true`（默认），`target_sensor` / `cable` 节点还会广播 **动态 TF**（如 `map`→`rov0`、`base_link`→`cable` 等），与 **sealien_ctrlpilot_location** 同跑时注意避免重复定义；实车可关 `publish_tf` 仅用位姿话题。
+
+### 程序内——`orion_joy_arm_bridge`（默认 `config/joy_manipulator.yaml`）
+
+| 方向 | 全名 | 类型 | 简要说明 |
+|------|------|------|----------|
+| 订阅 | `/left_joy`、`/right_joy` | `sensor_msgs/Joy` | 双手柄 |
+| 订阅 | `/joint_states` | `sensor_msgs/JointState` | 手动模式积分基准 |
+| 发布 | `/manipulator/pick_trigger` | `std_msgs/Empty` | 自动抓取触发（与 MTC 一致） |
+| 发布 | `/joy_manipulator/manual_mode`、`/joy_manipulator/throttle_percent` | `std_msgs/Bool`、`std_msgs/Float32` | Web 显示（可改前缀） |
+| 客户端 | `/manipulator/open_gripper`、`close_gripper`、`emergency_stop`、`clear_estop`、`go_to_ready` | `std_srvs/Trigger` | 自动模式下调服务，非直接对外话题 |
+
+### 程序内——Keypoints 调试（`keypoint_to_arm_tf_node`，独立 launch）
+
+| 方向 | 全名 | 类型 | 简要说明 |
+|------|------|------|----------|
+| 订阅 | `/keypoints`（参数 `input_topic` 可改） | `sealien_ctrlpilot_msgmanagement/Keypoints` | 与 `cable_detect` 等发布端对齐 |
+| TF | — | 监听 `/tf`、`/tf_static` | **`use_platform_tf:=true`** 时用机体 URDF 帧名（如 `sensor_camera1`→`sensor_left_roboticarm`）；否则由 launch 内 `static_transform_publisher` 造链 |
+
+### 当前 `pick_holoocean.launch` 实际数据流（与「使用」一致）
+
+1. **目标**：仅 **`cable_sensor_to_object_pose`** → `/manipulator/object_pose` + `/manipulator/object_axis`（来自 HoloOcean **CableSensor + PoseSensor**）。
+2. **状态**：**`arm_sensor_to_joint_state`** → `/joint_states` + `/manipulator/left_arm_gripped`。
+3. **执行**：MTC → **`trajectory_to_agent_bridge`** → `/holoocean/command/agent/arm`。
+4. **TF**：`demo.launch.py` 传入 **`tf_under_manipulator:=true`** 时，MoveIt / `robot_state_publisher` 使用 **`/manipulator/tf`、`/manipulator/tf_static`**，与全局 **`/tf`** 并存；机体传感器链请依赖 **location** 等其它栈，勿与本地重复静态发布冲突（参见 `keypoint_arm_tf.launch.py` 的 `use_platform_tf`）。
+5. **Web**：rosbridge 默认前缀 **`?ns=/manipulator`**，话题/服务名与上表 `/manipulator/...` 一致。
+
 ## orion_mtc 接口说明
 
 任务可经 **Action（即时执行）** 或 **话题/SubmitJob（异步入队）** 提交；队列按优先级调度，支持去重与取消未执行 job。
@@ -71,7 +138,7 @@ source install/setup.bash
 | 话题 | `/manipulator/pick_trigger` | 空消息：异步入队**抓取**（需有 `object_pose` 或 `target_set`，或等待 3s） |
 | 服务 | `/manipulator/emergency_stop` | `std_srvs/srv/Trigger`：急停——取消当前 FollowJointTrajectory、清空待执行队列、中止后续 solution 段 |
 | 服务 | `/manipulator/clear_estop` | `std_srvs/srv/Trigger`：仅清除软件急停闭锁 `estop_requested_`（不恢复队列）；手柄桥接切回自动时默认 **先** `/manipulator/emergency_stop` **再** 调用本服务（清残留轨迹后解闭锁），否则仅解闭锁时 `open_gripper` 等仍可能在异常状态下难以执行 |
-| 话题 | `/manipulator/go_to_ready` | `std_msgs/msg/Empty`：回到 SRDF ready 并闭合夹爪（**仅在非抓取且 worker 未执行 job 时**接受；否则拒绝并打日志） |
+| 服务 | `/manipulator/go_to_ready` | `std_srvs/srv/Trigger`：回到 SRDF ready 并闭合夹爪（**仅在非抓取且 worker 未执行 job 时**接受；否则拒绝并打日志） |
 | 话题 | `/manipulator/left_arm_gripped` | `std_msgs/Float32`：夹爪传感器反馈（如 0=张开、1=夹紧）；**持物态是否与物理一致以此为准**——当反馈为「张开」且当前为持物态（非 PICKING）时，节点会清除内部 `held_object`、置 `task_mode` 为 IDLE、清理 planning scene 中 attach，并发布 `held_object_state`（与 `reset_held_object` 的 scene 清理一致） |
 | 话题 | `/manipulator/tf`、`/manipulator/tf_static` | 机械臂 TF（HoloOcean 联调 launch 下由 robot_state_publisher / move_group 发布并订阅，与全局 `/tf` 隔离） |
 
@@ -154,13 +221,19 @@ ros2 launch orion_moveit_config demo.launch.py
 ros2 launch orion_mtc keypoint_arm_tf.launch.py
 ```
 
+对接 **sealien_ctrlpilot_location** 机体 URDF（`robot_state_publisher` 已发 `/tf_static`，勿重复广播）：
+
+```bash
+ros2 launch orion_mtc keypoint_arm_tf.launch.py use_platform_tf:=true
+```
+
 不订阅、用与 `ros2 topic echo /keypoints` 一致的**假数据**做 TF 自测：
 
 ```bash
 ros2 launch orion_mtc keypoint_arm_tf.launch.py use_mock_keypoints:=true
 ```
 
-参数：`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false，与 `cable_detect` 等 **Reliable** 发布匹配；若发布端为 Best Effort 可改 true）、`qos_depth`；**`use_mock_keypoints`**（true 时不订阅，由定时器注入假 Keypoints）、**`mock_frame_id`**、**`mock_kp_x`** / **`mock_kp_y`** / **`mock_kp_z`**、**`mock_period_sec`**。
+参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false，与 `cable_detect` 等 **Reliable** 发布匹配；若发布端为 Best Effort 可改 true）、`qos_depth`；**`use_mock_keypoints`**（true 时不订阅，由定时器注入假 Keypoints）、**`mock_frame_id`**、**`mock_kp_x`** / **`mock_kp_y`** / **`mock_kp_z`**、**`mock_period_sec`**。
 
 测试发布（类型须与线上一致，例如 **sealien**）：
 
@@ -184,7 +257,7 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 **功能对应**：
 - **订阅话题**：`runtime_status`、`job_event`、`task_stage`、`held_object_state`、`recovery_event`、`object_pose`、`joint_states`、**`joy_manipulator/manual_mode`（Bool）**、**`joy_manipulator/throttle_percent`（Float32，臂油门 0～100%）**（需启动 `joy_manipulator_node` 且 `publish_ui_status: true`）
-- **发布话题（急停/回 ready）**：通过 rosbridge `op: publish` 向 `emergency_stop`、`go_to_ready` 发 `std_msgs/Empty`（{}）；顶部栏提供「急停」「回 ready」按钮
+- **急停/回 ready**：通过 rosbridge **调用服务** `emergency_stop`、`go_to_ready`（类型均为 `std_srvs/Trigger`，空请求 `{}`）；顶部栏按钮与此一致
 - **调用服务**：`get_robot_state`（连接时同步）、`get_queue_state`、`get_recent_jobs`（底部「最近执行」Tab）、`submit_job`、`cancel_job`、`reset_held_object`、`sync_held_object`、`open_gripper`、`close_gripper`、`check_pick`
 - **界面**：左侧当前执行/队列/持物/感知/最近错误，中间 3D 视图与视角/显示层（原点 **base_link** RGB 轴与 `RobotModelLoader` 根一致；**ROV** 小坐标系为 `Z_UP_TO_Y_UP`×`rov_pose_in_base_link` 姿态），右侧任务操作（抓取、夹爪、审批抓取）与调试工具，底部事件流/最近执行/系统日志
 

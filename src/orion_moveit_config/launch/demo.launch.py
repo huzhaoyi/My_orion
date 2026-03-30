@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""MoveIt move_group + robot_state_publisher + RViz；tf_under_manipulator 时将 TF 重映射到 /manipulator/tf*。"""
 
 import os
 import yaml

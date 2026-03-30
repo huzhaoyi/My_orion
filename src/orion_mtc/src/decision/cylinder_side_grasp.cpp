@@ -1,3 +1,5 @@
+/* cylinder_side_grasp：单位轴向 → 使圆柱局部 Z 对齐的四元数 */
+
 #include "orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <Eigen/Geometry>
 #include <cmath>

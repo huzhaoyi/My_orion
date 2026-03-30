@@ -28,6 +28,10 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc");
 namespace orion_mtc
 {
 
+/*
+ * 双节点构造：orion_mtc_node 承载参数与 FeasibilityChecker；action_client 承载订阅/服务/TF。
+ * 顺序：declare/load 参数 → initModules（缓存、scene、executor、TaskManager、TF 回调）→ initInterfaces（ROS 注册）。
+ */
 OrionMTCNode::OrionMTCNode(const rclcpp::NodeOptions& options)
   : node_(std::make_shared<rclcpp::Node>("orion_mtc_node", options))
   , action_client_node_(std::make_shared<rclcpp::Node>("orion_mtc_action_client", options))
@@ -40,8 +44,13 @@ OrionMTCNode::OrionMTCNode(const rclcpp::NodeOptions& options)
     initInterfaces();
 }
 
+/* 默认析构；模块均为 shared_ptr，不按逆序手动释放。 */
 OrionMTCNode::~OrionMTCNode() = default;
 
+/*
+ * 创建感知缓存、PlanningSceneManager、Trajectory/SolutionExecutor、TaskManager；
+ * 注入 wait_for_gripped（轮询 left_arm_gripped）、gripper_locked、latest pose/axis、tf2 到 base_link 的变换与 FeasibilityChecker。
+ */
 void OrionMTCNode::initModules()
 {
     object_pose_cache_ = std::make_shared<PoseCache>("");
@@ -121,6 +130,7 @@ void OrionMTCNode::initModules()
     task_manager_->setFeasibilityChecker(feasibility_checker_.get());
 }
 
+/* 装配 ManipulatorInterfaceContext 并注册订阅/服务与状态发布。 */
 void OrionMTCNode::initInterfaces()
 {
     ManipulatorInterfaceContext ctx{ LOGGER,
@@ -139,11 +149,16 @@ void OrionMTCNode::initInterfaces()
     manipulator_iface_->registerStatusPublishersAndCallbacks();
 }
 
+/* MultiThreadedExecutor spin 使用 action_client 节点，因其持有绝大多数 ROS 接口。 */
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getNodeBaseInterface()
 {
     return action_client_node_->get_node_base_interface();
 }
 
+/*
+ * main 线程在 spin 前调用：当前不在此加载 world 碰撞体（物体在 MTC 任务内添加）；
+ * 若策略 auto_start_worker 为真则启动后台 Worker。
+ */
 void OrionMTCNode::setupPlanningScene()
 {
     RCLCPP_INFO(LOGGER, "setupPlanningScene: object added in-task (add object stage), no /collision_object publish");

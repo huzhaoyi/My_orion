@@ -16,9 +16,9 @@
 namespace orion_mtc
 {
 
-/**
+/*
  * 对单个 CableGraspCandidate 做 pregrasp IK、关节界、（若 has_scene）带缆段局部 ACM 的碰撞预检。
- * @return true 表示可进入 MTC plan；false 时 out_reason 有效。
+ * 返回 true 表示可进入 MTC plan；false 时 out_reason 有效。
  */
 bool precheckCableSideGraspCandidate(
     const rclcpp::Logger& logger,

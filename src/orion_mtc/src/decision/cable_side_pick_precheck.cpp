@@ -1,3 +1,5 @@
+/* cable_side_pick_precheck：正式规划前 IK/关节界/pregrasp 与缆段碰撞快速筛候选 */
+
 #include "orion_mtc/decision/cable_side_pick_precheck.hpp"
 #include "orion_mtc/core/constants.hpp"
 #include "orion_mtc/planning/collision_object_utils.hpp"

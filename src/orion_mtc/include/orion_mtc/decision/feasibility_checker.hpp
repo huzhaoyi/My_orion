@@ -27,9 +27,9 @@ public:
   void checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
                  orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res);
 
-  /**
+  /*
    * 与 checkPick 中硬拒绝一致：max_reach_hard、min_reach_safe、z_min、z_max。
-   * pose 须在 **base_link**（与 object_pose 语义一致，TCP 偏移由审批全链路另行处理；此处仅用坐标分量）。
+   * pose 须在 base_link（与 object_pose 语义一致，TCP 偏移由审批全链路另行处理；此处仅用坐标分量）。
    */
   bool objectPoseWithinWorkspaceHardLimits(const geometry_msgs::msg::Pose& pose_base_link,
                                           std::string& reject_reason);

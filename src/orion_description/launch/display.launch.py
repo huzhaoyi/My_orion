@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""RViz 无 MoveIt：robot_state_publisher + joint_state_publisher_gui 展示 Orion URDF。"""
 
 import os
 from ament_index_python.packages import get_package_share_directory

@@ -1,3 +1,5 @@
+/* recovery_actions：失败后按 policy 清 scene、复位持物、可选 Pilz 回 ready */
+
 #include "orion_mtc/orchestration/recovery_actions.hpp"
 #include "orion_mtc/orchestration/task_manager.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"

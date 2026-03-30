@@ -1,3 +1,5 @@
+/* pose_cache：object_pose 订阅侧校验 frame、最近帧与条件等待 */
+
 #include "orion_mtc/perception/pose_cache.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <thread>

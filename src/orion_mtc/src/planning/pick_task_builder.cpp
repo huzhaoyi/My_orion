@@ -1,3 +1,5 @@
+/* PickTaskBuilder：缆绳圆柱分段加入 scene、侧向抓取 MoveRelative / 夹爪阶段构图 */
+
 #include "orion_mtc/planning/pick_task_builder.hpp"
 #include "orion_mtc/planning/collision_object_utils.hpp"
 #include "orion_mtc/planning/cable_side_grasp.hpp"

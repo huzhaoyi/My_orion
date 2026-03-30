@@ -1,3 +1,5 @@
+/* job_deduplicator：与当前 job/队列重复的 submit 在时间窗内拒绝 */
+
 #include "orion_mtc/orchestration/job_deduplicator.hpp"
 #include <cmath>
 

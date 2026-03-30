@@ -1,3 +1,5 @@
+/* orion_mtc 入口：规划节点与 action_client 节点共用 MultiThreadedExecutor，主线程 join 前调用 setupPlanningScene */
+
 #include "orion_mtc/app/orion_mtc_node.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <memory>
