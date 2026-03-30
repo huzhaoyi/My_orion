@@ -4,7 +4,13 @@
 
 import stateStore from '../data/stateStore.js';
 import wsClient from '../data/wsClient.js';
-import { jobTypeLabel, stageNameLabel, stageStateLabel } from '../data/labels.js';
+import {
+  jobTypeLabel,
+  stageNameLabel,
+  stagePillClass,
+  stageStateLabel,
+  stageStateModifier,
+} from '../data/labels.js';
 
 const TAB_EVENTS = 'events';
 const TAB_RECENT_JOBS = 'recent';
@@ -69,10 +75,19 @@ function mount(containerId) {
     const list = events.slice(-80).reverse();
     logContainer.innerHTML = list.map((e) => {
       const ts = e.header?.stamp ? `${e.header.stamp.sec}.${String(e.header.stamp.nanosec || 0).slice(0, 3)}` : (e._ts ? new Date(e._ts).toLocaleTimeString() : '');
-      const typeZh = (e.stage_name ? stageNameLabel(e.stage_name) : null) || (e.task_type ? jobTypeLabel(e.task_type) : null) || e.event_type || '—';
+      const typeZh =
+        (e.stage_name ? stageNameLabel(e.stage_name) : null) ||
+        (e.task_type ? jobTypeLabel(e.task_type) : null) ||
+        e.event_type ||
+        '—';
       const id = e.job_id || '—';
-      const detailPart = e.stage_state ? stageStateLabel(e.stage_state) : (e.reason || e.detail || '');
-      return `<div class="log-line">${ts} | ${typeZh} | ${id} ${detailPart ? '| ' + detailPart : ''}</div>`;
+      const detailPart = e.stage_state ? stageStateLabel(e.stage_state) : e.reason || e.detail || '';
+      const pill =
+        e.stage_name != null && String(e.stage_name).trim() !== ''
+          ? `stage-pill ${stagePillClass(e.stage_name)} ${stageStateModifier(e.stage_state)}`.trim()
+          : '';
+      const typeHtml = pill ? `<span class="${pill}">${typeZh}</span>` : typeZh;
+      return `<div class="log-line log-line--event">${ts} | ${typeHtml} | ${id} ${detailPart ? '| ' + detailPart : ''}</div>`;
     }).join('') || '<div class="log-line" style="color:var(--text-muted);">暂无事件</div>';
     if (autoScroll) logContainer.scrollTop = 0;
   }

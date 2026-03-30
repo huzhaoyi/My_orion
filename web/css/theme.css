@@ -58,6 +58,16 @@
   --radius: 4px;
   --radius-card: 6px;
   --radius-btn: 6px;
+
+  /* MTC 阶段胶囊（与 labels.js stagePillClass 一致） */
+  --stage-meta-fg: #cbd5e1;
+  --stage-ready-fg: #7dd3fc;
+  --stage-open-fg: #67e8f9;
+  --stage-close-fg: #86efac;
+  --stage-approach-fg: #fcd34d;
+  --stage-retreat-fg: #c4b5fd;
+  --stage-scene-fg: #a5b4fc;
+  --stage-cable-fg: #fdba74;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
@@ -244,7 +254,16 @@ label {
   letter-spacing: 0.3px;
 }
 
-/* 任务栏工作空间提示：单行紧凑，运动学 AABB */
+/* 任务栏：上行 TCP 示意 AABB；下行缆绳中心 feasibility（与 yaml 同步见 feasibilityWorkspace.js） */
+.workspace-hint-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.workspace-hint-stack .workspace-hint {
+  margin-bottom: 0;
+}
 .workspace-hint {
   display: flex;
   align-items: center;
@@ -279,6 +298,88 @@ label {
   margin-left: auto;
   color: var(--color-warning);
   font-size: 10px;
+}
+/* 紧凑句式「··· m 勿超出」：勿超出紧跟在数值后 */
+.workspace-hint--compact .workspace-hint__note {
+  margin-left: 6px;
+}
+
+/* 当前执行 / 事件流：MTC 阶段中文 + 分类色 */
+.stage-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  border: 1px solid transparent;
+  vertical-align: baseline;
+}
+.stage-pill--idle {
+  color: var(--text-muted);
+  background: rgba(100, 116, 139, 0.22);
+  border-color: rgba(100, 116, 139, 0.35);
+}
+.stage-pill--meta {
+  color: var(--stage-meta-fg);
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.38);
+}
+.stage-pill--ready {
+  color: var(--stage-ready-fg);
+  background: rgba(14, 165, 233, 0.16);
+  border-color: rgba(14, 165, 233, 0.42);
+}
+.stage-pill--open {
+  color: var(--stage-open-fg);
+  background: rgba(6, 182, 212, 0.16);
+  border-color: rgba(6, 182, 212, 0.38);
+}
+.stage-pill--close {
+  color: var(--stage-close-fg);
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+.stage-pill--approach {
+  color: var(--stage-approach-fg);
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.48);
+}
+.stage-pill--retreat {
+  color: var(--stage-retreat-fg);
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.42);
+}
+.stage-pill--scene {
+  color: var(--stage-scene-fg);
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.36);
+}
+.stage-pill--cable {
+  color: var(--stage-cable-fg);
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(251, 146, 60, 0.42);
+}
+.stage-pill--task {
+  color: var(--color-primary);
+  background: rgba(0, 172, 237, 0.12);
+  border-color: rgba(0, 172, 237, 0.38);
+}
+.stage-pill--default {
+  color: var(--text-secondary);
+  background: rgba(43, 54, 66, 0.55);
+  border-color: var(--border);
+}
+.stage-pill--state-run {
+  box-shadow: 0 0 0 1px rgba(0, 172, 237, 0.45);
+}
+.stage-pill--state-done {
+  opacity: 0.9;
+}
+.stage-pill--state-fail {
+  color: #fecaca !important;
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: var(--color-error) !important;
 }
 
 /* 卡片内容层级：标题突出，内容 12px 次级色 */

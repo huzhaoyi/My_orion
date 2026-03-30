@@ -3,6 +3,7 @@
 #ifndef ORION_MTC_DECISION_FEASIBILITY_CHECKER_HPP
 #define ORION_MTC_DECISION_FEASIBILITY_CHECKER_HPP
 
+#include <geometry_msgs/msg/pose.hpp>
 #include <orion_mtc_msgs/msg/diagnostic_item.hpp>
 #include <orion_mtc_msgs/srv/check_pick.hpp>
 #include <rclcpp/node.hpp>
@@ -26,17 +27,25 @@ public:
   void checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
                  orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res);
 
+  /**
+   * 与 checkPick 中硬拒绝一致：max_reach_hard、min_reach_safe、z_min、z_max。
+   * pose 须在 **base_link**（与 object_pose 语义一致，TCP 偏移由审批全链路另行处理；此处仅用坐标分量）。
+   */
+  bool objectPoseWithinWorkspaceHardLimits(const geometry_msgs::msg::Pose& pose_base_link,
+                                          std::string& reject_reason);
+
   /** 注入 MTC 配置（gripper 偏移等），可选；未设置则用节点参数 */
   void setMTCConfig(const MTCConfig* config);
 
 private:
   struct FeasibilityParams
   {
-    double max_reach_hard = 1.20;
-    double max_reach_soft = 1.10;
-    double min_reach_safe = 0.12;
-    double z_min = -0.50;
-    double z_max = 0.80;
+    /* 与 orion_mtc_params.yaml 对齐：见 orion_description/urdf/orion.urdf 采样说明 */
+    double max_reach_hard = 1.72;
+    double max_reach_soft = 1.58;
+    double min_reach_safe = 0.14;
+    double z_min = -0.55;
+    double z_max = 1.55;
     double joint_margin_warning_rad = 0.10;
     double ik_timeout = 0.2;
     double approach_angle_max_deg = 55.0;   /* 接近方向与竖直向下允许最大夹角 */
@@ -46,6 +55,9 @@ private:
   };
 
   void loadParams();
+  /** 若违反任一硬限返回 true；items 非空则写入诊断项（可多条） */
+  bool workspaceHasHardLimitViolation(double px, double py, double pz,
+                                     std::vector<orion_mtc_msgs::msg::DiagnosticItem>* items);
   void onJointState(const void* msg);
   void addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items,
                const std::string& code, int32_t level, const std::string& message,

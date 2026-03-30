@@ -1,24 +1,25 @@
 # Orion 机械臂工作空间限值
 
-本文档给出的范围用于**配置抓取/放置目标、感知与安全边界时勿超出**，防止目标点超出可达范围导致规划失败或异常。
+本文档用于**配置抓取目标与安全边界**时参考；**与执行端硬拒绝一致**的标量以 `src/orion_mtc/config/orion_mtc_params.yaml` 的 **`feasibility`** 为准。
 
-**说明**：数值由**正运动学逐点采样**得到（关节限位 ±π，对 6 个关节各 4 档采样，取末端 Link6 原点在 base_link 下的 AABB），与 `web/js/robot/RobotModelLoader.js` 中 `getWorkspaceUrdf()` 一致。URDF 变更后需重新采样并同步本文档。
+## 与后端一致的硬限（base_link，物体/缆绳中心）
 
-坐标系：**base_link**（与 `orion.urdf` 一致），X 前、Y 左、Z 上，单位：米（m）。
+| 项 | 含义 | 典型值 (m) | 参数名 |
+|----|------|------------|--------|
+| **‖p‖ 下限** | 距基座原点过近拒绝 | 0.14 | `min_reach_safe` |
+| **‖p‖ 硬上限** | 距基座原点过远拒绝 | 1.72 | `max_reach_hard` |
+| **‖p‖ 软上限** | 审批/诊断告警 | 1.58 | `max_reach_soft` |
+| **Z 下限** | 高度过低拒绝 | -0.55 | `z_min` |
+| **Z 上限** | 过高拒绝 | 1.55 | `z_max` |
 
-## 各轴范围（URDF 系，运动学采样 AABB）
+坐标系：**base_link**（`orion.urdf`），单位 m。URDF 或策略变更时请同时改 yaml、**`web/js/data/feasibilityWorkspace.js`**（与前端展示同步）。
 
-| 轴 | 方向说明 | 最小值 (m) | 最大值 (m) |
-|----|----------|------------|------------|
-| **X** | 前后（水平） | 由运动学采样 | 由运动学采样 |
-| **Y** | 左右（水平） | 由运动学采样 | 由运动学采样 |
-| **Z** | 上下（垂直） | 由运动学采样 | 由运动学采样 |
+## Web 与 3D 示意
 
-- 具体数值由 `getWorkspaceBoundsForDoc()` 在运行时计算；Web 任务栏与 3D 工作空间框同源。
-- 配置时建议目标点略保守于上述范围。
+- **任务栏**（`RightPanel.js`）：**两行**——① **工作空间**：`gripper_tcp` 采样∩硬限后的 X/Y/Z 示意 AABB（与 3D 线框同源）；② **目标（缆绳）**：`object_pose` 用的 ‖p‖、Z、软 ‖p‖（与 `feasibilityWorkspace.js` / yaml 一致）。
+- **3D 线框**：`RobotScene` 使用同源 `getWorkspaceBoundsScene()`。示意框角点未必全部可达；以 ‖p‖ 与 Z 硬限为准。
 
 ## 配置提醒
 
-- **抓取 / 放置位姿**：`object_pose`、放置目标等请在上述 **X、Y、Z 的 min～max** 内配置，避免超出工作空间。
-- **安全/禁区**：若设置平面或体积禁区，建议与上述范围对比，勿将可达区域误设为禁区内。
-- 数值来源：`web/js/robot/RobotModelLoader.js` 中 `getWorkspaceUrdf()`（正运动学采样）；URDF 变更后请同步更新本文档与前端。
+- **object_pose**：应在 ‖p‖ 与 Z 硬限内；角点外包络可能略宽，勿仅按 X/Y 最大值理解可达性。
+- **URDF 变更**：重跑前端逻辑或更新 yaml / `feasibilityWorkspace.js` 后核对 Web 与 `check_pick`。

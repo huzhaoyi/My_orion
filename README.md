@@ -48,7 +48,7 @@ source install/setup.bash
 
 任务可经 **Action（即时执行）** 或 **话题/SubmitJob（异步入队）** 提交；队列按优先级调度，支持去重与取消未执行 job。
 
-- **抓取**：使用 `/manipulator/object_pose`（PoseStamped，可为任意 frame，执行前变换到 `base_link`）。缆绳侧向抓取需 **`/manipulator/object_axis`**（Vector3Stamped，缆绳轴向）。可选 **`/manipulator/target_set`**（`orion_mtc_msgs/TargetSet`）：若 `targets` 非空，`pick_trigger` 优先取**第一个**目标，否则回退到 `object_pose` 的 latest。话题触发的 PICK 在执行时会取**最新**位姿（先等待一次更新再取 latest）。夹不到时判失败并自动回到 ready（臂+手张开）再设 IDLE。抓稳后保存持物上下文，状态变为 HOLDING_TRACKED/HOLDING_UNTRACKED。
+- **抓取**：使用 `/manipulator/object_pose`（PoseStamped，可为任意 frame，执行前变换到 `base_link`）。缆绳侧向抓取需 **`/manipulator/object_axis`**（Vector3Stamped，缆绳轴向）。可选 **`/manipulator/target_set`**（`orion_mtc_msgs/TargetSet`）：若 `targets` 非空，`pick_trigger` 优先取**第一个**目标，否则回退到 `object_pose` 的 latest。话题触发的 PICK 在执行时会取**最新**位姿（先等待一次更新再取 latest）。在 **`base_link`** 下进入 MTC 规划前，按与 **`check_pick` 相同的可行性硬限**（`feasibility.max_reach_hard`、`min_reach_safe`、`z_min`、`z_max`）自动拒绝超界目标（`last_error` 前缀 `WORKSPACE:`）；若位姿不在 `base_link` 则仅打日志并跳过该校验。夹不到时判失败并自动回到 ready（臂回就绪位，夹爪闭合）再设 IDLE。抓稳后保存持物上下文，状态变为 HOLDING_TRACKED/HOLDING_UNTRACKED。
 - **重置持物 / 同步持物**：通过对应服务或 SubmitJob 入队，用于场景与持物状态一致。
 - **打开/闭合夹爪**：仅对手 group 做 MoveTo open/close，**臂关节保持当前 joint_states**（来自 joystick/编码器等），通过服务触发并异步入队执行。
 
@@ -71,7 +71,7 @@ source install/setup.bash
 | 话题 | `/manipulator/pick_trigger` | 空消息：异步入队**抓取**（需有 `object_pose` 或 `target_set`，或等待 3s） |
 | 服务 | `/manipulator/emergency_stop` | `std_srvs/srv/Trigger`：急停——取消当前 FollowJointTrajectory、清空待执行队列、中止后续 solution 段 |
 | 服务 | `/manipulator/clear_estop` | `std_srvs/srv/Trigger`：仅清除软件急停闭锁 `estop_requested_`（不恢复队列）；手柄桥接切回自动时默认 **先** `/manipulator/emergency_stop` **再** 调用本服务（清残留轨迹后解闭锁），否则仅解闭锁时 `open_gripper` 等仍可能在异常状态下难以执行 |
-| 话题 | `/manipulator/go_to_ready` | `std_msgs/msg/Empty`：回到 SRDF ready 并张开手（**仅在非抓取且 worker 未执行 job 时**接受；否则拒绝并打日志） |
+| 话题 | `/manipulator/go_to_ready` | `std_msgs/msg/Empty`：回到 SRDF ready 并闭合夹爪（**仅在非抓取且 worker 未执行 job 时**接受；否则拒绝并打日志） |
 | 话题 | `/manipulator/left_arm_gripped` | `std_msgs/Float32`：夹爪传感器反馈（如 0=张开、1=夹紧）；**持物态是否与物理一致以此为准**——当反馈为「张开」且当前为持物态（非 PICKING）时，节点会清除内部 `held_object`、置 `task_mode` 为 IDLE、清理 planning scene 中 attach，并发布 `held_object_state`（与 `reset_held_object` 的 scene 清理一致） |
 | 话题 | `/manipulator/tf`、`/manipulator/tf_static` | 机械臂 TF（HoloOcean 联调 launch 下由 robot_state_publisher / move_group 发布并订阅，与全局 `/tf` 隔离） |
 
@@ -132,7 +132,7 @@ ros2 launch orion_joy_arm_bridge joy_manipulator.launch.py
 - 桥接与目标索引：`orion_holoocean_bridge/config/holoocean_bridge_params.yaml`（如 `target_index`、`trajectory_to_agent_bridge`、`cable_sensor_to_object_pose` 的 `cable_sensor_topic` 等）
 - `orion_mtc` 抓取与运行策略（单文件）：`orion_mtc/config/orion_mtc_params.yaml`（`cable_side_grasp`、`feasibility`、`runtime_policy` 等）
 - **MoveIt**（规划器/限位/控制器等）仍使用 `orion_moveit_config/config/` 下多文件，与 `orion_mtc` 应用参数分离，符合 MoveIt 惯例
-- **工作空间限值**（水平/垂直 min～max，防止抓取目标配置超出）：见 [docs/workspace_limits.md](docs/workspace_limits.md)；**TF 与坐标系**（world/ROV/base_link）：见 [docs/tf_conversion.md](docs/tf_conversion.md)
+- **工作空间限值**（与 `feasibility` / 网页任务栏 / 3D 示意框一致）：见 [docs/workspace_limits.md](docs/workspace_limits.md)；**TF 与坐标系**（world/ROV/base_link）：见 [docs/tf_conversion.md](docs/tf_conversion.md)
 
 **仅查看机器人模型：**
 

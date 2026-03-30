@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 
 const MESH_DIR = '/robot/meshes/stl/';
 
@@ -19,7 +20,7 @@ const JOINT_DEFS = [
   { name: 'joint_Link6_Link8', xyz: [-0.0363, 0, 0.047], rpy: [0, 0, 0], axis: [0, 1, 0] },
 ];
 
-/* 正运动学链：base_link → Link6（6 个 revolute + 1 个 fixed），与 JOINT_DEFS 一致，用于工作空间逐点采样 */
+/* 正运动学链：base_link → gripper_tcp（6 个 revolute + Link3 固定偏置 + TCP 平移），与 orion.urdf 一致；采样后按 feasibility 硬限过滤 */
 const FK_ORIGINS = [
   [0, 0, 0],
   [-0.0105, 0, 0.0699],
@@ -28,6 +29,8 @@ const FK_ORIGINS = [
   [0, 0, 0],
   [0, -0.0091, 0.3784],
   [-0.0113, 0.0091, 0.2516],
+  /* gripper_tcp：Link6 局部 +Z，与 orion.urdf joint_Link6_gripper_tcp 一致 */
+  [0, 0, 0.108],
 ];
 const FK_AXES = [
   [1, 0, 0],
@@ -37,6 +40,7 @@ const FK_AXES = [
   [0, 0, 1],
   [0, 1, 0],
   [0, 0, 1],
+  null,
 ];
 const FK_FIXED_RPY = [0, -3.97248, 0];
 
@@ -61,7 +65,7 @@ function fkChain(jointAngles) {
         angle
       );
       M = new THREE.Matrix4().makeTranslation(origin[0], origin[1], origin[2]).multiply(R);
-    } else {
+    } else if (i === 3) {
       quat.setFromEuler(
         new THREE.Euler(FK_FIXED_RPY[0], FK_FIXED_RPY[1], FK_FIXED_RPY[2], 'XYZ')
       );
@@ -70,6 +74,8 @@ function fkChain(jointAngles) {
         quat,
         scale
       );
+    } else {
+      M = new THREE.Matrix4().makeTranslation(origin[0], origin[1], origin[2]);
     }
     total.multiply(M);
   }
@@ -83,6 +89,7 @@ function sampleWorkspace() {
   const max = { x: -Infinity, y: -Infinity, z: -Infinity };
   const step = (JOINT_LIMIT_MAX - JOINT_LIMIT_MIN) / (SAMPLE_STEPS - 1);
   const angles = new Array(6);
+  const F = FEASIBILITY_WORKSPACE;
   for (let i0 = 0; i0 < SAMPLE_STEPS; i0++) {
     angles[0] = JOINT_LIMIT_MIN + i0 * step;
     for (let i1 = 0; i1 < SAMPLE_STEPS; i1++) {
@@ -96,6 +103,9 @@ function sampleWorkspace() {
             for (let i5 = 0; i5 < SAMPLE_STEPS; i5++) {
               angles[5] = JOINT_LIMIT_MIN + i5 * step;
               const p = fkChain(angles);
+              const r = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+              if (r < F.min_reach_safe_m || r > F.max_reach_hard_m) continue;
+              if (p.z < F.z_min_m || p.z > F.z_max_m) continue;
               if (p.x < min.x) min.x = p.x;
               if (p.y < min.y) min.y = p.y;
               if (p.z < min.z) min.z = p.z;
@@ -107,6 +117,12 @@ function sampleWorkspace() {
         }
       }
     }
+  }
+  if (!Number.isFinite(min.x)) {
+    return {
+      min: { x: -F.max_reach_hard_m, y: -F.max_reach_hard_m, z: F.z_min_m },
+      max: { x: F.max_reach_hard_m, y: F.max_reach_hard_m, z: F.z_max_m },
+    };
   }
   return { min, max };
 }
@@ -136,13 +152,18 @@ export function getWorkspaceBoundsScene() {
 }
 export function getWorkspaceBoundsForDoc() {
   const u = getWorkspaceUrdf();
+  const F = FEASIBILITY_WORKSPACE;
   return {
     urdf_frame: {
       x_m: { min: u.minX, max: u.maxX },
       y_m: { min: u.minY, max: u.maxY },
       z_m: { min: u.minZ, max: u.maxZ },
     },
+    /** 与后端 object_pose 校验一致：base_link 原点到目标中心距离 */
+    radial_m: { min: F.min_reach_safe_m, max: F.max_reach_hard_m },
+    soft_reach_m: F.max_reach_soft_m,
     from_kinematics: true,
+    from_feasibility: true,
   };
 }
 

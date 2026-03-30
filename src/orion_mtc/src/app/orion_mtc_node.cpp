@@ -118,6 +118,7 @@ void OrionMTCNode::initModules()
         });
     feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
     feasibility_checker_->setMTCConfig(&config_);
+    task_manager_->setFeasibilityChecker(feasibility_checker_.get());
 }
 
 void OrionMTCNode::initInterfaces()

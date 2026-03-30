@@ -163,7 +163,7 @@ function createScene(containerEl) {
     robot.add(link);
   });
 
-  /* 工作空间示意框：由 URDF 推导，含下方可达 */
+  /* 工作空间示意框：gripper_tcp 粗网格采样 ∩ feasibility 硬限（与 orion_mtc_params 一致） */
   const wsBounds = getWorkspaceBoundsScene();
   const wsMin = new THREE.Vector3(wsBounds.min.x, wsBounds.min.y, wsBounds.min.z);
   const wsMax = new THREE.Vector3(wsBounds.max.x, wsBounds.max.y, wsBounds.max.z);

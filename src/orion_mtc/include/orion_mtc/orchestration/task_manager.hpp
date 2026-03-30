@@ -31,6 +31,7 @@
 
 namespace orion_mtc
 {
+class FeasibilityChecker;
 class PlanningSceneManager;
 class TrajectoryExecutor;
 class PickTaskBuilder;
@@ -74,6 +75,9 @@ public:
   using TransformToBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
   void setTransformToBaseLinkCallback(TransformToBaseLinkFn fn);
+
+  /** 与 check_pick 相同 feasibility 硬限；nullptr 则不校验 */
+  void setFeasibilityChecker(FeasibilityChecker* checker);
 
   using JobEventFn = std::function<void(const std::string& job_id, const std::string& job_type,
                                        const std::string& source, uint32_t priority,
@@ -125,7 +129,7 @@ public:
   /** 仅清除软件急停闭锁（estop_requested_），不恢复队列；供手柄切回自动等场景 */
   void clearEmergencyStopLatch();
 
-  /** 规划并执行回 SRDF ready + 张开手；若正在抓取或 worker 执行 job 则拒绝 */
+  /** 规划并执行回 SRDF ready + 闭合夹爪；若正在抓取或 worker 执行 job 则拒绝 */
   bool tryGoToReady(std::string& out_message);
 
   struct JobExecutionRecordEntry
@@ -172,6 +176,7 @@ private:
   std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fn_;
   std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fn_;
   TransformToBaseLinkFn transform_to_base_link_fn_;
+  FeasibilityChecker* feasibility_checker_ = nullptr;
 
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_reconstructed_object_pose_;
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_reconstructed_approach_axis_;

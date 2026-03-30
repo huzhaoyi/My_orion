@@ -12,6 +12,7 @@
 #include "orion_mtc/core/cable_pick_fail_reason.hpp"
 #include "orion_mtc/decision/cable_side_pick_precheck.hpp"
 #include "orion_mtc/decision/cylinder_side_grasp.hpp"
+#include "orion_mtc/decision/feasibility_checker.hpp"
 #include "orion_mtc/orchestration/job_deduplicator.hpp"
 #include "orion_mtc/planning/cable_side_grasp.hpp"
 #include "orion_mtc/planning/cable_segments.hpp"
@@ -87,6 +88,11 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
 TaskManager::~TaskManager()
 {
   stopWorker();
+}
+
+void TaskManager::setFeasibilityChecker(FeasibilityChecker* checker)
+{
+  feasibility_checker_ = checker;
 }
 
 void TaskManager::setState(RobotTaskMode mode)
@@ -171,6 +177,21 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   if (pose_base.header.frame_id != "base_link")
   {
     RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s'，规划使用 base_link 系；若不一致请设置 setTransformToBaseLinkCallback",
+                pose_base.header.frame_id.c_str());
+  }
+  if (feasibility_checker_ != nullptr && pose_base.header.frame_id == "base_link")
+  {
+    std::string ws_reject;
+    if (!feasibility_checker_->objectPoseWithinWorkspaceHardLimits(pose_base.pose, ws_reject))
+    {
+      RCLCPP_WARN(LOGGER, "handlePick: workspace hard reject: %s", ws_reject.c_str());
+      setStateError(std::string("WORKSPACE: ") + ws_reject);
+      return false;
+    }
+  }
+  else if (feasibility_checker_ != nullptr)
+  {
+    RCLCPP_WARN(LOGGER, "handlePick: object_pose 未在 base_link（当前 %s），跳过工作空间硬校验",
                 pose_base.header.frame_id.c_str());
   }
   RCLCPP_INFO(LOGGER,
@@ -449,10 +470,10 @@ bool TaskManager::retreatToReady()
   task.add(std::move(stage_ready));
 
   auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
-  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand (ready)", interpolation_planner);
-  stage_open->setGroup(hand_group_name);
-  stage_open->setGoal("open");
-  task.add(std::move(stage_open));
+  auto stage_close = std::make_unique<mtc::stages::MoveTo>("close hand (ready)", interpolation_planner);
+  stage_close->setGroup(hand_group_name);
+  stage_close->setGoal("close");
+  task.add(std::move(stage_close));
 
   try
   {
@@ -482,7 +503,8 @@ bool TaskManager::retreatToReady()
 
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
-  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, nullptr, "", "", {},
+  // 就绪位闭合不做夹紧确认，避免空载时 wait_for_gripped 超时等待
+  if (!solution_executor_->executeSolution(solution_msg, nullptr, nullptr, "", "", {},
                                           makeEstopAbortFn()))
   {
     RCLCPP_ERROR(LOGGER, "retreatToReady execution failed");

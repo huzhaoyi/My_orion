@@ -137,6 +137,77 @@ void FeasibilityChecker::addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem
   items.push_back(item);
 }
 
+bool FeasibilityChecker::workspaceHasHardLimitViolation(
+    double px, double py, double grasp_z, std::vector<orion_mtc_msgs::msg::DiagnosticItem>* items)
+{
+  loadParams();
+  bool rejected = false;
+  double r = std::sqrt(px * px + py * py + grasp_z * grasp_z);
+  if (r > params_.max_reach_hard)
+  {
+    rejected = true;
+    if (items != nullptr)
+    {
+      addItem(*items, "TARGET_OUT_OF_SAFE_RANGE", LEVEL_ERROR,
+              "目标点距离机械臂基座 " + std::to_string(static_cast<int>(r * 100) / 100.0) + " m，超过硬上限 " +
+                  std::to_string(params_.max_reach_hard) + " m",
+              "target_pose.position", r, params_.max_reach_hard, "请将目标移近基座");
+    }
+  }
+  if (r < params_.min_reach_safe)
+  {
+    rejected = true;
+    if (items != nullptr)
+    {
+      addItem(*items, "TARGET_TOO_CLOSE", LEVEL_ERROR,
+              "目标点过近基座 " + std::to_string(r) + " m，低于 " + std::to_string(params_.min_reach_safe) + " m",
+              "target_pose.position", r, params_.min_reach_safe, "请将目标外移");
+    }
+  }
+  if (grasp_z < params_.z_min)
+  {
+    rejected = true;
+    if (items != nullptr)
+    {
+      addItem(*items, "Z_TOO_LOW", LEVEL_ERROR,
+              "抓取高度 " + std::to_string(grasp_z) + " m 低于下限 " + std::to_string(params_.z_min) + " m",
+              "target_pose.position.z", grasp_z, params_.z_min, "请抬高目标");
+    }
+  }
+  if (grasp_z > params_.z_max)
+  {
+    rejected = true;
+    if (items != nullptr)
+    {
+      addItem(*items, "Z_TOO_HIGH", LEVEL_ERROR,
+              "抓取高度 " + std::to_string(grasp_z) + " m 超过上限 " + std::to_string(params_.z_max) + " m",
+              "target_pose.position.z", grasp_z, params_.z_max, "请降低目标");
+    }
+  }
+  return rejected;
+}
+
+bool FeasibilityChecker::objectPoseWithinWorkspaceHardLimits(const geometry_msgs::msg::Pose& pose_base_link,
+                                                            std::string& reject_reason)
+{
+  reject_reason.clear();
+  std::vector<orion_mtc_msgs::msg::DiagnosticItem> items;
+  if (!workspaceHasHardLimitViolation(pose_base_link.position.x, pose_base_link.position.y,
+                                     pose_base_link.position.z, &items))
+  {
+    return true;
+  }
+  if (!items.empty())
+  {
+    reject_reason = items.front().message;
+  }
+  else
+  {
+    reject_reason = "target outside configured workspace hard limits";
+  }
+  return false;
+}
+
 bool FeasibilityChecker::runIkAndJointMargin(const std::string& group_name,
                                              const std::string& link_name,
                                              double px, double py, double pz,
@@ -366,17 +437,13 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
   /* 规划 IK frame 已切换为 gripper_tcp（夹爪 TCP），不再需要 Link6->夹爪的固定偏移补偿 */
   double grasp_z = pz;
 
-  double r = std::sqrt(px * px + py * py + grasp_z * grasp_z);
-  if (r > params_.max_reach_hard)
+  if (workspaceHasHardLimitViolation(px, py, grasp_z, &res->items))
   {
-    addItem(res->items, "TARGET_OUT_OF_SAFE_RANGE", LEVEL_ERROR,
-            "目标点距离机械臂基座 " + std::to_string(static_cast<int>(r * 100) / 100.0) + " m，超过硬上限 " +
-                std::to_string(params_.max_reach_hard) + " m",
-            "target_pose.position", r, params_.max_reach_hard, "请将目标移近基座");
     res->approved = false;
     res->severity = SEV_REJECT;
   }
-  else if (r > params_.max_reach_soft)
+  double r = std::sqrt(px * px + py * py + grasp_z * grasp_z);
+  if (r > params_.max_reach_soft && r <= params_.max_reach_hard)
   {
     addItem(res->items, "TARGET_NEAR_REACH_LIMIT", LEVEL_WARNING,
             "目标点距离 " + std::to_string(static_cast<int>(r * 100) / 100.0) + " m，超过推荐范围 " +
@@ -384,30 +451,6 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
             "target_pose.position", r, params_.max_reach_soft, "可执行但接近工作边界");
     if (res->severity < SEV_WARNING)
       res->severity = SEV_WARNING;
-  }
-  if (r < params_.min_reach_safe)
-  {
-    addItem(res->items, "TARGET_TOO_CLOSE", LEVEL_ERROR,
-            "目标点过近基座 " + std::to_string(r) + " m，低于 " + std::to_string(params_.min_reach_safe) + " m",
-            "target_pose.position", r, params_.min_reach_safe, "请将目标外移");
-    res->approved = false;
-    res->severity = SEV_REJECT;
-  }
-  if (grasp_z < params_.z_min)
-  {
-    addItem(res->items, "Z_TOO_LOW", LEVEL_ERROR,
-            "抓取高度 " + std::to_string(grasp_z) + " m 低于下限 " + std::to_string(params_.z_min) + " m",
-            "target_pose.position.z", grasp_z, params_.z_min, "请抬高目标");
-    res->approved = false;
-    res->severity = SEV_REJECT;
-  }
-  if (grasp_z > params_.z_max)
-  {
-    addItem(res->items, "Z_TOO_HIGH", LEVEL_ERROR,
-            "抓取高度 " + std::to_string(grasp_z) + " m 超过上限 " + std::to_string(params_.z_max) + " m",
-            "target_pose.position.z", grasp_z, params_.z_max, "请降低目标");
-    res->approved = false;
-    res->severity = SEV_REJECT;
   }
 
   /* 接近方向：物体姿态 z 轴与竖直向下 (0,0,-1) 夹角 */

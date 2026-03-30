@@ -3,6 +3,7 @@
  * Tab = 任务 | 调试
  */
 
+import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
 import ApprovalCard from '../panels/ApprovalCard.js';
 
@@ -51,8 +52,10 @@ function mount(containerId) {
 }
 
 function renderTaskTab(container) {
+  const F = FEASIBILITY_WORKSPACE;
   const ws = getWorkspaceBoundsForDoc();
   const u = ws.urdf_frame;
+  const f2 = (v) => Number(v).toFixed(2);
   container.innerHTML = `
     <div class="card">
       <div class="card-title">急停与回位</div>
@@ -85,13 +88,17 @@ function renderTaskTab(container) {
         <button type="button" id="btn-close-gripper" class="btn-secondary">闭合夹爪</button>
       </div>
     </div>
-    <div class="workspace-hint">
-      <span class="workspace-hint__label">工作空间</span>
-      <span class="workspace-hint__axes">X <var>${u.x_m.min.toFixed(2)}</var>～<var>${u.x_m.max.toFixed(2)}</var></span>
-      <span class="workspace-hint__axes">Y <var>${u.y_m.min.toFixed(2)}</var>～<var>${u.y_m.max.toFixed(2)}</var></span>
-      <span class="workspace-hint__axes">Z <var>${u.z_m.min.toFixed(2)}</var>～<var>${u.z_m.max.toFixed(2)}</var></span>
-      <span class="workspace-hint__unit">m</span>
-      <span class="workspace-hint__note">勿超出</span>
+    <div class="workspace-hint-stack">
+      <div class="workspace-hint workspace-hint--compact" title="base_link：gripper_tcp 粗采样∩feasibility 球/带 硬限后的示意 AABB（3D 线框同源），角点未必可达">
+        <span class="workspace-hint__label">工作空间</span>
+        <span class="workspace-hint__axes">X <var>${f2(u.x_m.min)}</var>～<var>${f2(u.x_m.max)}</var> Y <var>${f2(u.y_m.min)}</var>～<var>${f2(u.y_m.max)}</var> Z <var>${f2(u.z_m.min)}</var>～<var>${f2(u.z_m.max)}</var> m</span>
+        <span class="workspace-hint__note">勿超出</span>
+      </div>
+      <div class="workspace-hint workspace-hint--compact" title="object_pose 缆绳中心在 base_link；与 check_pick / 抓取前硬限一致（orion_mtc_params feasibility）">
+        <span class="workspace-hint__label">目标（缆绳）</span>
+        <span class="workspace-hint__axes">‖p‖ <var>${f2(F.min_reach_safe_m)}</var>～<var>${f2(F.max_reach_hard_m)}</var> m Z <var>${f2(F.z_min_m)}</var>～<var>${f2(F.z_max_m)}</var> m 软‖p‖ <var>${f2(F.max_reach_soft_m)}</var> m</span>
+        <span class="workspace-hint__note">勿超出</span>
+      </div>
     </div>
   `;
   container.querySelector('#btn-pick-send')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick')));
