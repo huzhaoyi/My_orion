@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 
+/** 持物与 planning scene 一致性摘要卡片。 */
 function render(parentEl) {
   if (!parentEl) return;
   const wrap = document.createElement('div');

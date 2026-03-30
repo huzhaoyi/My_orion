@@ -5,6 +5,7 @@
 import stateStore from '../data/stateStore.js';
 import { jobTypeLabel } from '../data/labels.js';
 
+/** 队列列表：展示 queueList 或 current/next 推导；单项可 orion:cancel-job。 */
 function render(parentEl) {
   if (!parentEl) return;
   const wrap = document.createElement('div');

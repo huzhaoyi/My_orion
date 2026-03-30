@@ -3,6 +3,7 @@
  * 阶段配色：stagePillClass() 供「当前执行 / 事件流」彩色区分
  */
 
+/** ROS job_type / 任务类型英文枚举 → 中文短标签。 */
 export function jobTypeLabel(t) {
   if (!t) return '—';
   const u = String(t).toUpperCase();
@@ -55,6 +56,7 @@ const STAGE_NAME_ZH = {
   close_hand_ready: '闭合手爪(就绪)',
 };
 
+/** MTC stage_name（空格或下划线）→ 中文；segment_k 显示为「执行段 k」。 */
 export function stageNameLabel(name) {
   if (!name || !String(name).trim()) return '—';
   const key = String(name).trim();
@@ -93,6 +95,7 @@ export function stageStateModifier(state) {
   return '';
 }
 
+/** TaskStage.stage_state → 事件流中文（进入/运行中/完成/失败）。 */
 export function stageStateLabel(state) {
   if (!state) return '';
   const u = String(state).toUpperCase();

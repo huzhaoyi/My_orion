@@ -16,6 +16,9 @@ const TAB_EVENTS = 'events';
 const TAB_RECENT_JOBS = 'recent';
 const TAB_SYSTEM = 'system';
 
+/**
+ * 底部面板：事件流（JobEvent+TaskStage）、最近任务、系统日志三 Tab；筛选/搜索/自动滚动/清空。
+ */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;

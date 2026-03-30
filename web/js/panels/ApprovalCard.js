@@ -11,30 +11,35 @@ const SEV_WARNING = 1;
 const SEV_REJECT = 2;
 const DEFAULT_PICK_TARGET_INDEX = 0;
 
+/** CheckPick item.level → 中文等级。 */
 function levelLabel(level) {
   if (level === 0) return '信息';
   if (level === 1) return '警告';
   return '错误';
 }
 
+/** item.level → 列表项 CSS 修饰类。 */
 function levelClass(level) {
   if (level === 0) return 'approval-item--info';
   if (level === 1) return 'approval-item--warn';
   return 'approval-item--error';
 }
 
+/** severity 枚举 → 通过/警告/禁止中文。 */
 function severityLabel(severity) {
   if (severity === SEV_PASS) return '通过';
   if (severity === SEV_WARNING) return '可执行（有风险）';
   return '禁止执行';
 }
 
+/** severity → 顶栏徽章样式类。 */
 function severityClass(severity) {
   if (severity === SEV_PASS) return 'approval-badge--pass';
   if (severity === SEV_WARNING) return 'approval-badge--warn';
   return 'approval-badge--reject';
 }
 
+/** 右栏「审批抓取」：校验连接与 object_pose 后调用 wsClient.checkPick，结果写入 stateStore + toast。 */
 function handlePickClick(e) {
   e.preventDefault();
   const btn = e.currentTarget;

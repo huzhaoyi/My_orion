@@ -98,15 +98,18 @@ const initialState = {
 let state = { ...initialState };
 const listeners = new Set();
 
+/** 浅拷贝当前 state（避免外部直接改引用时可再封装）。 */
 function getState() {
   return { ...state };
 }
 
+/** 合并 partial 并通知全部 subscribe 监听者。 */
 function setState(partial) {
   state = { ...state, ...partial };
   listeners.forEach((fn) => fn(getState()));
 }
 
+/** 注册渲染回调；返回 unsubscribe 函数。 */
 function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -326,6 +329,7 @@ function setPerceptionState(msg) {
   setState(patch);
 }
 
+/** 写入最后一次 CheckPick 结构化结果（含 items、best_candidate_pose）。 */
 function setApprovalResult(payload) {
   setState({
     approvalResult: payload == null ? null : {
@@ -340,6 +344,7 @@ function setApprovalResult(payload) {
   });
 }
 
+/** /joy_manipulator/manual_mode：null 表示尚未收到。 */
 function setJoyBridgeManual(isManual) {
   if (isManual === null || isManual === undefined)
   {
@@ -349,6 +354,7 @@ function setJoyBridgeManual(isManual) {
   setState({ joyManualMode: isManual === true });
 }
 
+/** 臂油门 0～100；变化超阈值时递增 joyThrottlePulseSeq 供顶栏动画。 */
 function setJoyBridgeThrottle(percent) {
   if (percent === null || percent === undefined)
   {

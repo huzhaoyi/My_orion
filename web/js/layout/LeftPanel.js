@@ -8,6 +8,10 @@ import HeldObjectCard from '../panels/HeldObjectCard.js';
 import PerceptionCard from '../panels/PerceptionCard.js';
 import LastErrorCard from '../panels/LastErrorCard.js';
 
+/**
+ * 左侧栏：依次挂载 RuntimeStatus / Queue / HeldObject / Perception / LastError 卡片。
+ * 各卡片自行 subscribe stateStore。
+ */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;

@@ -7,6 +7,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 声明 cable_side_grasp.* 与 grasp_offset_along_axis 等参数；已声明时吞掉异常，便于重复加载。
+ */
 void declareParameters(rclcpp::Node* node)
 {
   if (!node)
@@ -144,6 +147,9 @@ void declareParameters(rclcpp::Node* node)
   }
 }
 
+/*
+ * 从 node 读取已声明参数填入 MTCConfig；node 为空则立即返回。
+ */
 void loadFromNode(rclcpp::Node* node, MTCConfig& config)
 {
   if (!node)

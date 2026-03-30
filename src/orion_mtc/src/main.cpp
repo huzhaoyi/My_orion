@@ -5,6 +5,10 @@
 #include <memory>
 #include <thread>
 
+/*
+ * 初始化 rclcpp，启用参数覆盖；单节点挂 MultiThreadedExecutor 子线程 spin，
+ * 主线程在首帧 spin 后调用 setupPlanningScene 同步刷 scene，再 join 退出。
+ */
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);

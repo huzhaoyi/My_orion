@@ -46,6 +46,10 @@ function makeAxisLabel(text, hexColor) {
   return sprite;
 }
 
+/**
+ * 在 containerEl 内创建 WebGL 画布、灯光、网格、机械臂占位、目标/轨迹/工作空间辅助体与动画循环。
+ * @returns {object} scene API（setRobotJointValues、resize、targets、world 等）
+ */
 function createScene(containerEl) {
   const width = containerEl.clientWidth;
   const height = containerEl.clientHeight;

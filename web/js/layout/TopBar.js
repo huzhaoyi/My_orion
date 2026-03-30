@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 
+/** worker_status 字符串 → CSS 徽章类（错误/恢复/运行/空闲）。 */
 function workerBadgeClass(workerStatus) {
   const s = (workerStatus || '').toUpperCase();
   if (s.includes('ERROR') || s.includes('DISCONNECTED')) return 'badge-error';
@@ -12,6 +13,7 @@ function workerBadgeClass(workerStatus) {
   return 'badge-idle';
 }
 
+/** task_mode → 任务模式徽章配色。 */
 function taskModeBadgeClass(taskMode) {
   const s = (taskMode || '').toUpperCase();
   if (s.includes('ERROR')) return 'badge-error';
@@ -20,6 +22,7 @@ function taskModeBadgeClass(taskMode) {
   return 'badge-taskmode';
 }
 
+/** 后端英文状态 → 顶栏短中文标签。 */
 function statusToLabel(s) {
   if (!s) return '空闲';
   const u = (s + '').toUpperCase();
@@ -31,11 +34,13 @@ function statusToLabel(s) {
   return s;
 }
 
+/** 手柄手动/自动/null 未知 → 徽章类。 */
 function joyModeBadgeClass(manual) {
   if (manual === null || manual === undefined) return 'badge-idle';
   return manual ? 'badge-warning' : 'badge-running';
 }
 
+/** 手柄模式中文文案（含「—」无数据）。 */
 function joyModeLabel(manual) {
   if (manual === null || manual === undefined) return '手柄 —';
   return manual ? '手动' : '自动';
@@ -51,6 +56,7 @@ function throttleBadgeClass(percent) {
 
 let lastThrottlePulseSeq = 0;
 
+/** 渲染顶栏 HTML 并绑定「清空队列」「重置持物」为全局 CustomEvent。 */
 function render(el) {
   if (!el) return;
 
@@ -92,6 +98,7 @@ function render(el) {
   el.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
 }
 
+/** 挂载到 #containerId，订阅 stateStore 以随连接/队列/手柄状态刷新。 */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;

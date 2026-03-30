@@ -48,6 +48,7 @@ const JOINT_LIMIT_MIN = -Math.PI;
 const JOINT_LIMIT_MAX = Math.PI;
 const SAMPLE_STEPS = 4;
 
+/** 简化的 7+1 段正运动学链：输出末端 4x4 累计变换（与 URDF 链一致，用于工作空间粗采样）。 */
 function fkChain(jointAngles) {
   const total = new THREE.Matrix4().identity();
   const pos = new THREE.Vector3();
@@ -128,6 +129,8 @@ function sampleWorkspace() {
 }
 
 let WORKSPACE_URDF_CACHED = null;
+
+/** 基于 FK 粗采样 + feasibility 过滤后的工作空间 AABB（URDF Z-up），带少量 margin。 */
 function getWorkspaceUrdf() {
   if (WORKSPACE_URDF_CACHED) return WORKSPACE_URDF_CACHED;
   const { min, max } = sampleWorkspace();
@@ -150,6 +153,8 @@ export function getWorkspaceBoundsScene() {
     max: { x: u.maxX, y: u.maxZ, z: -u.minY },
   };
 }
+
+/** 右栏「工作空间」文案：URDF 框 + feasibility 径向/软限（与 yaml 同源常量）。 */
 export function getWorkspaceBoundsForDoc() {
   const u = getWorkspaceUrdf();
   const F = FEASIBILITY_WORKSPACE;
@@ -220,6 +225,7 @@ function makeJointGroup(jointDef) {
   return g;
 }
 
+/** 异步链式加载 base_link…Link8 的 STL，挂接 setJointValues；根节点已做 Z-up→Y-up 倾斜。 */
 export function loadRobotModel() {
   const root = new THREE.Group();
   root.name = 'orion';

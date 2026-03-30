@@ -13,6 +13,8 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
   需已运行机体 URDF + odom→base_link 等，使 TF 树完整。
 
 启动参数 use_mock_keypoints:=true 时不订阅 /keypoints，按参数注入假数据。
+
+generate_launch_description 经 OpaqueFunction 按 use_platform_tf/use_mock_keypoints 组合 static 与 keypoint 节点参数。
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
@@ -21,6 +23,7 @@ from launch_ros.actions import Node
 
 
 def _launch_setup(context, *_args, **_kwargs):
+    """根据 LaunchConfiguration 组装 static TF 列表与 keypoint_to_arm_tf 节点（平台模式省略 static）。"""
     use_mock = LaunchConfiguration("use_mock_keypoints").perform(context).lower() in ("true", "1", "yes")
     use_platform = LaunchConfiguration("use_platform_tf").perform(context).lower() in ("true", "1", "yes")
 
@@ -152,6 +155,7 @@ def _launch_setup(context, *_args, **_kwargs):
 
 
 def generate_launch_description():
+    """声明 use_mock_keypoints / use_platform_tf，由 OpaqueFunction 展开具体 Node 列表。"""
     return LaunchDescription(
         [
             DeclareLaunchArgument(

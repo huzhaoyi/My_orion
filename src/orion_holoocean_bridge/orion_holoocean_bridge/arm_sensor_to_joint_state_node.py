@@ -8,6 +8,8 @@ left_arm_gripped 发布到话题供 MTC 动态抓取时等待“抓稳/松开”
 - left_arm_joints[0..5] = Joint1..Joint6，left_arm_joints[6] = Gripper，单位度。
 - Orion 臂关节顺序：joint_base_link_Link1..joint_Link5_Link6 即 Joint1..Joint6，夹爪为 Link7/Link8。
 - 1:1 映射：left_arm_joints[i] -> Orion 第 i 个臂关节，left_arm_joints[6] -> 夹爪。
+
+发布：sensor_msgs/JointState（全臂+双手关节名）、left_arm_gripped（Float32，供 MTC 等待抓稳）。
 """
 
 import math
@@ -126,6 +128,7 @@ class ArmSensorToJointStateNode(Node):
 
 
 def main(args=None):
+    """节点入口：spin ArmSensorToJointStateNode。"""
     rclpy.init(args=args)
     node = ArmSensorToJointStateNode()
     try:

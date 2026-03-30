@@ -9,6 +9,10 @@
 namespace orion_mtc
 {
 
+/*
+ * 正式 MTC 规划前：grasp/pregrasp IK（hand_frame）、关节界、可选 PlanningScene+缆段+局部 ACM 的 pregrasp 碰撞检测。
+ * robot_model 为空时跳过几何直接 true；失败理由写入 out_reason。
+ */
 bool precheckCableSideGraspCandidate(
     const rclcpp::Logger& logger,
     std::size_t candidate_index,

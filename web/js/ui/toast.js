@@ -8,6 +8,7 @@ const TOAST_MAX = 3;
 
 let container = null;
 
+/** 懒创建右下角 toast 根节点并挂到 body。 */
 function getContainer() {
   if (container && container.isConnected) {
     return container;
@@ -19,6 +20,7 @@ function getContainer() {
   return container;
 }
 
+/** 展示一条限时 toast，类型 success|error|warn|info；最多保留 TOAST_MAX 条。 */
 function showToast(message, type = 'info') {
   if (!message || typeof message !== 'string') {
     return;

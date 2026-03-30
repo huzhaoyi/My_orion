@@ -3,6 +3,9 @@
 将 MoveIt FollowJointTrajectory 转为 HoloOcean 臂指令的桥接节点。
 - 弧度转度数；左臂 6 关节 + 夹爪（2 个手部关节合并为 1 个自由度）。
 - 发布到 /holoocean/command/agent/arm：仅 14 维（无推进器），[0:7] 左臂 7 关节，[7:14] 右臂 7 关节。
+
+提供 arm_controller 与 hand_controller 两个 FollowJointTrajectory ActionServer，
+按关节名从轨迹插值映射到 Holoocean 左臂度数与单值夹爪。
 """
 
 import math
@@ -267,6 +270,7 @@ class TrajectoryToAgentBridgeNode(Node):
 
 
 def main(args=None):
+    """节点入口：spin TrajectoryToAgentBridgeNode（双 ActionServer）。"""
     rclpy.init(args=args)
     node = TrajectoryToAgentBridgeNode()
     try:

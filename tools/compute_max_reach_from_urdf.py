@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 
 
 def _norm_xyz(xyz: list[float]) -> float:
+    """三维向量 L2 范数（URDF origin xyz 线段长）。"""
     return math.sqrt(sum(x * x for x in xyz))
 
 
@@ -27,6 +28,11 @@ def _joint_xyz(joint_el: ET.Element) -> list[float]:
 
 
 def compute_kinematic_ub_m(urdf_path: str, tip_link: str, base_link: str) -> tuple[float, list[tuple[str, list[float], float]]]:
+    """
+    自 tip 沿 URDF 父链走向 base，对每个 joint 的 origin xyz 取范数并累加，得到与 MoveIt LinkModel 链长一致的上界近似。
+
+    返回 (总和, [(joint_name, xyz, segment_norm), ...])；链断开则抛 ValueError。
+    """
     root = ET.parse(urdf_path).getroot()
     child_to: dict[str, tuple[str, list[float], str]] = {}
     for j in root.findall("joint"):
@@ -55,6 +61,7 @@ def compute_kinematic_ub_m(urdf_path: str, tip_link: str, base_link: str) -> tup
 
 
 def main() -> int:
+    """CLI：打印 kinematic_ub、×margin 的 hard 建议与 ×soft_ratio 的 soft 建议；verbose 打印各关节贡献。"""
     ap = argparse.ArgumentParser(description="从 URDF 计算 max_reach 建议值（与 orion_mtc 预检一致）")
     ap.add_argument(
         "--urdf",

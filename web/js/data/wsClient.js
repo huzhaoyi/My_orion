@@ -18,7 +18,7 @@
 
 import stateStore from './stateStore.js';
 
-// 默认 WS 使用当前页面主机（外机访问时自动连到该主机上的 rosbridge）
+/** 默认 rosbridge：`ws://<页面 hostname>:9090`（无查询参数时）。 */
 function getDefaultWsUrl() {
   const host = typeof window !== 'undefined' && window.location && window.location.hostname
     ? window.location.hostname
@@ -31,6 +31,7 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
+/** `?ws=` 可覆写完整 WebSocket URL，否则用 getDefaultWsUrl。 */
 function getWsUrl() {
   const query = typeof window !== 'undefined' && window.location ? window.location.search : '';
   const params = new URLSearchParams(query);
@@ -39,12 +40,13 @@ function getWsUrl() {
   return getDefaultWsUrl();
 }
 
+/** ROS 话题/服务根前缀，默认 `/manipulator`；`?ns=` 或 `?topic_prefix=` 覆盖。 */
 function getTopicPrefix() {
   const params = new URLSearchParams(window.location.search);
   return params.get('ns') || params.get('topic_prefix') || '/manipulator';
 }
 
-/** 手柄桥接 UI 状态话题前缀，默认 /joy_manipulator（?joy_ui= 覆盖） */
+/** 手柄桥接 UI 状态话题前缀，默认 /joy_manipulator（`?joy_ui=` 覆盖）。 */
 function getJoyUiPrefix() {
   const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
   const p = params.get('joy_ui');
@@ -52,6 +54,7 @@ function getJoyUiPrefix() {
   return '/joy_manipulator';
 }
 
+/** 建立 WebSocket、订阅业务话题、断线指数退避重连。 */
 function connect() {
   const url = getWsUrl();
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
@@ -95,6 +98,7 @@ function connect() {
   };
 }
 
+/** 指数退避重连 WebSocket，上限 MAX_RECONNECT_ATTEMPTS 次。 */
 function scheduleReconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
@@ -104,6 +108,7 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(connect, delay);
 }
 
+/** 向 rosbridge 发送 subscribe，覆盖 manipulator 状态/感知/joint_states 与手柄 UI 话题。 */
 function subscribeTopics() {
   const prefix = getTopicPrefix();
   const joyUi = getJoyUiPrefix();
@@ -131,6 +136,7 @@ function subscribeTopics() {
   });
 }
 
+/** 按话题名片段推断 ROS 消息类型字符串（供 rosbridge subscribe）。 */
 function inferType(topic) {
   if (topic.includes('runtime_status')) return 'orion_mtc_msgs/msg/RuntimeStatus';
   if (topic.includes('job_event')) return 'orion_mtc_msgs/msg/JobEvent';
@@ -144,6 +150,7 @@ function inferType(topic) {
   return 'std_msgs/msg/String';
 }
 
+/** 单条 rosbridge 入站：分发到 stateStore（runtime_status、job_event、task_stage、持物、位姿、关节等）。 */
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
   if (data.topic.endsWith('/manual_mode') && Object.prototype.hasOwnProperty.call(data.msg, 'data')) {
@@ -206,6 +213,7 @@ function handleMessage(data) {
   }
 }
 
+/** OPEN 状态下 JSON.stringify 写出；否则静默丢弃。 */
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(obj));
@@ -232,6 +240,10 @@ function callGoToReady(callback) {
   callService(getTopicPrefix() + '/go_to_ready', {}, callback, { timeout_ms: 120000 });
 }
 
+/**
+ * rosbridge call_service：生成 id、监听匹配回包或超时；callback 收到扁平化 result.values。
+ * options.timeout_ms、options.on_timeout 可选。
+ */
 function callService(service, request = {}, callback, options = {}) {
   const id = 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2);
   const timeoutMs = Number.isFinite(options.timeout_ms) ? options.timeout_ms : 3000;
@@ -272,6 +284,7 @@ const JOB_TYPE = {
   CLOSE_GRIPPER: 4,
 };
 
+/** 构造简化 geometry_msgs/PoseStamped 字面量（供 submit_job 嵌套）。 */
 function buildPoseStamped(position, orientation, frameId = 'base_link') {
   return {
     header: { frame_id: frameId, stamp: { sec: 0, nanosec: 0 } },
@@ -282,6 +295,7 @@ function buildPoseStamped(position, orientation, frameId = 'base_link') {
   };
 }
 
+/** 调用 /submit_job：从 options 组装 job_type、位姿与优先级。 */
 function submitJob(options, callback) {
   const {
     job_type,
@@ -306,19 +320,23 @@ function submitJob(options, callback) {
   callService(getTopicPrefix() + '/submit_job', args, callback);
 }
 
+/** get_queue_state 服务，回调队列与 next job 摘要。 */
 function getQueueState(callback) {
   callService(getTopicPrefix() + '/get_queue_state', {}, callback);
 }
 
+/** get_robot_state：模式、当前任务、持物与 last_error。 */
 function getRobotState(callback) {
   callService(getTopicPrefix() + '/get_robot_state', {}, callback);
 }
 
+/** get_recent_jobs：max_count 钳位 1～200，超时 5s。 */
 function getRecentJobs(maxCount, callback) {
   const n = Math.max(1, Math.min(200, Number(maxCount) || 50));
   callService(getTopicPrefix() + '/get_recent_jobs', { max_count: n }, callback, { timeout_ms: 5000 });
 }
 
+/** check_pick：object_pose 可为 PoseStamped 或裸 pose，服务超时 5s。 */
 function checkPick(objectPose, callback) {
   const pose = objectPose && objectPose.pose
     ? objectPose
@@ -327,6 +345,7 @@ function checkPick(objectPose, callback) {
   callService(getTopicPrefix() + '/check_pick', { object_pose: pose }, callback, { timeout_ms: 5000 });
 }
 
+/** 停止重连、关闭 WebSocket、标记未连接（不 rclpy.shutdown）。 */
 function disconnect() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);

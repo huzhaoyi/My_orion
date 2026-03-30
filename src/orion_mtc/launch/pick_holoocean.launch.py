@@ -56,6 +56,11 @@ _LAUNCH_ONLY_PARAM_KEYS = frozenset({"use_joy_manipulator", "start_rviz"})
 
 
 def generate_launch_description():
+    """
+    组合 MoveIt demo、HoloOcean 四桥接节点、rosbridge、MTC、可选 joy_manipulator 与 RViz。
+
+    从 orion_mtc_params.yaml 读取默认 use_joy_manipulator/start_rviz；为 trajectory 节点注入 holoocean_interfaces 的 PYTHONPATH。
+    """
     orion_desc_share = get_package_share_directory("orion_description")
     orion_moveit_share = get_package_share_directory("orion_moveit_config")
     orion_holoocean_share = get_package_share_directory("orion_holoocean_bridge")

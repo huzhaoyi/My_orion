@@ -2,6 +2,9 @@
 """
 将 HoloOcean CableSensor（COM 系下 位置 + 轴向 + 欧拉角）转换为 MTC 所需的 object_pose（base_link 下）。
 单目标：3m 长、直径 5cm 缆绳。
+
+支持分字段声明 positions/directions/euler 所在系（world/rov/com），与仿真版本差异兼容；
+姿态主要由轴向对齐 MoveIt CYLINDER 局部 Z。
 """
 
 import math
@@ -230,6 +233,7 @@ class CableSensorToObjectPoseNode(Node):
             self._tf_static_broadcaster = None
 
     def _publish_static_rov_to_base_link(self) -> None:
+        """static TF：rov0 → output_frame，臂基在 ROV 内平移。"""
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = "rov0"
@@ -244,6 +248,7 @@ class CableSensorToObjectPoseNode(Node):
         self._tf_static_broadcaster.sendTransform(t)
 
     def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
+        """缓存 ROV 世界位姿；发布 map→rov0 TF；在已有 object_pose 时刷新 perception_state。"""
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
         self._rov_position = np.array([p.x, p.y, p.z], dtype=float)
@@ -292,6 +297,7 @@ class CableSensorToObjectPoseNode(Node):
         self._publish_perception_state(stamp)
 
     def _publish_perception_state(self, stamp) -> None:
+        """组装 PerceptionState：物体 pose、轴、置信度、ROV 在 base/world 下的姿态。"""
         ps = PerceptionState()
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
@@ -316,6 +322,10 @@ class CableSensorToObjectPoseNode(Node):
         self._pub_perception_state.publish(ps)
 
     def _on_cable_sensor(self, msg: CableSensor) -> None:
+        """
+        仅支持 num_cables=1：按 frame 参数把位置/方向变到 world 再入 base_link，
+        用轴向生成圆柱姿态，发布 object_pose、axis、可选 cable TF、perception_state。
+        """
         if msg.num_cables <= 0:
             return
         if self._rov_position is None or self._rov_orientation_xyzw is None:
@@ -439,6 +449,7 @@ class CableSensorToObjectPoseNode(Node):
 
 
 def main(args=None):
+    """节点入口：spin CableSensorToObjectPoseNode。"""
     rclpy.init(args=args)
     node = CableSensorToObjectPoseNode()
     try:

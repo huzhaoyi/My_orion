@@ -6,6 +6,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 大 priority 值靠前插入；唤醒阻塞在 waitPop 上的消费者。
+ */
 void TaskQueue::push(const ManipulationJob& job)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -23,6 +26,9 @@ void TaskQueue::push(const ManipulationJob& job)
   cv_.notify_one();
 }
 
+/*
+ * 非阻塞：空则 false；否则弹出队首 move 到 job。
+ */
 bool TaskQueue::tryPop(ManipulationJob& job)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -35,6 +41,9 @@ bool TaskQueue::tryPop(ManipulationJob& job)
   return true;
 }
 
+/*
+ * 超时内等待非空，成功后与 tryPop 相同弹出语义。
+ */
 bool TaskQueue::waitPop(ManipulationJob& job, std::chrono::milliseconds timeout)
 {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -47,24 +56,36 @@ bool TaskQueue::waitPop(ManipulationJob& job, std::chrono::milliseconds timeout)
   return true;
 }
 
+/*
+ * 线程安全查询队列是否为空。
+ */
 bool TaskQueue::empty() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
   return queue_.empty();
 }
 
+/*
+ * 当前排队任务条数。
+ */
 std::size_t TaskQueue::size() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
   return queue_.size();
 }
 
+/*
+ * 清空队列（不通知 CV；适合停机或丢弃积压）。
+ */
 void TaskQueue::clear()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   queue_.clear();
 }
 
+/*
+ * 复制队首到 job 但不弹出；空队列返回 false。
+ */
 bool TaskQueue::peekFront(ManipulationJob& job) const
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -76,6 +97,9 @@ bool TaskQueue::peekFront(ManipulationJob& job) const
   return true;
 }
 
+/*
+ * 按 job_id 线性查找并擦除；out_removed 非空时写出被移除项。未找到返回 false。
+ */
 bool TaskQueue::removeById(const std::string& job_id, ManipulationJob* out_removed)
 {
   std::lock_guard<std::mutex> lock(mutex_);

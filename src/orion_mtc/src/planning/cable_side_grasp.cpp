@@ -1,3 +1,5 @@
+/* cable_side_grasp：缆检测 + 配置 → 侧向接近/预抓姿态候选，及 Eigen/ROS 位姿互转 */
+
 #include "orion_mtc/planning/cable_side_grasp.hpp"
 #include "orion_mtc/planning/cable_segments.hpp"
 #include <Eigen/Geometry>
@@ -60,13 +62,14 @@ static Eigen::Matrix3d makeBaseRotation(const Eigen::Vector3d& axis_d,
   return R;
 }
 
-/* 绕轴 axis 旋转 angle_rad */
+/* Right-handed：axis 单位化后 AngleAxis 得旋转矩阵。 */
 static Eigen::Matrix3d rotateAboutAxis(const Eigen::Vector3d& axis, double angle_rad)
 {
   Eigen::AngleAxisd aa(angle_rad, axis.normalized());
   return aa.toRotationMatrix();
 }
 
+/* 长度不足 3 返回单位阵；否则 ZYX 内联乘，作 TCP 系相对抓取系的微小偏置。 */
 static Eigen::Matrix3d tcpBiasFromRpyDeg(const std::vector<double>& rpy_deg)
 {
   if (rpy_deg.size() < 3U)
@@ -84,6 +87,10 @@ static Eigen::Matrix3d tcpBiasFromRpyDeg(const std::vector<double>& rpy_deg)
 
 namespace
 {
+/*
+ * 核心枚举：校验轴线、构建缆段、对每组 approach_dist/轴向偏移/绕轴角/抓取深度/预抓距 组合生成 grasp/pregrasp Pose，
+ * 打分排序；local_segment_indices 供后续碰撞预检收窄 ACM。
+ */
 std::vector<CableGraspCandidate> enumerateCableSideGrasps(const CableDetection& cable,
                                                           const CableGraspConfig& cfg)
 {
@@ -173,12 +180,18 @@ std::vector<CableGraspCandidate> enumerateCableSideGrasps(const CableDetection& 
 }
 }  // namespace
 
+/*
+ * 对外枚举接口，直接委托 enumerateCableSideGrasps。
+ */
 std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
                                                          const CableGraspConfig& cfg)
 {
   return enumerateCableSideGrasps(cable, cfg);
 }
 
+/*
+ * 全量枚举后取排序首元素；空则 nullopt（与多候选规划入口区分）。
+ */
 std::optional<CableGraspCandidate> generateBestCableSideGrasp(const CableDetection& cable,
                                                                const CableGraspConfig& cfg)
 {
@@ -190,6 +203,9 @@ std::optional<CableGraspCandidate> generateBestCableSideGrasp(const CableDetecti
   return v.front();
 }
 
+/*
+ * Isometry3d 平移与线性部分 → geometry_msgs Pose（四元数由旋转阵构造）。
+ */
 void isometryToPose(const Eigen::Isometry3d& T, geometry_msgs::msg::Pose& out)
 {
   out.position.x = T.translation().x();
@@ -202,6 +218,9 @@ void isometryToPose(const Eigen::Isometry3d& T, geometry_msgs::msg::Pose& out)
   out.orientation.w = q.w();
 }
 
+/*
+ * 带 frame_id 与时间戳的 PoseStamped，位姿由 isometryToPose 填充。
+ */
 geometry_msgs::msg::PoseStamped toPoseStamped(const Eigen::Isometry3d& T,
                                               const std::string& frame_id,
                                               const rclcpp::Time& stamp)
@@ -213,6 +232,9 @@ geometry_msgs::msg::PoseStamped toPoseStamped(const Eigen::Isometry3d& T,
   return ps;
 }
 
+/*
+ * Eigen 向量写入 Vector3Stamped.header 与 .vector 分量。
+ */
 geometry_msgs::msg::Vector3Stamped toVector3Stamped(const Eigen::Vector3d& v,
                                                      const std::string& frame_id,
                                                      const rclcpp::Time& stamp)

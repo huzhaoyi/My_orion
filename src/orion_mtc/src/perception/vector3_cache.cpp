@@ -11,11 +11,17 @@ namespace
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.perception");
 }
 
+/*
+ * 与 PoseCache 相同：expected_frame_id 用于过滤错误坐标系。
+ */
 Vector3Cache::Vector3Cache(const std::string& expected_frame_id)
   : expected_frame_id_(expected_frame_id)
 {
 }
 
+/*
+ * 写入最新 Vector3Stamped 并 notify；帧不匹配则忽略。
+ */
 void Vector3Cache::update(const geometry_msgs::msg::Vector3Stamped& msg)
 {
   if (!expected_frame_id_.empty() && msg.header.frame_id != expected_frame_id_)
@@ -32,12 +38,18 @@ void Vector3Cache::update(const geometry_msgs::msg::Vector3Stamped& msg)
   cv_.notify_all();
 }
 
+/*
+ * 是否已有至少一帧 axis 类数据。
+ */
 bool Vector3Cache::hasData() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
   return has_data_;
 }
 
+/*
+ * 返回当前缓存拷贝；无数据则 nullopt。
+ */
 std::optional<geometry_msgs::msg::Vector3Stamped> Vector3Cache::latest() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -48,6 +60,9 @@ std::optional<geometry_msgs::msg::Vector3Stamped> Vector3Cache::latest() const
   return data_;
 }
 
+/*
+ * 条件变量等待直至 has_data_ 或超时，成功则写出 out。
+ */
 bool Vector3Cache::waitForData(std::chrono::milliseconds timeout, geometry_msgs::msg::Vector3Stamped& out) const
 {
   const auto deadline = std::chrono::steady_clock::now() + timeout;

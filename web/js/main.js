@@ -1,5 +1,9 @@
 /**
- * Orion 上位机入口：挂载布局、连接数据层、注册全局事件
+ * Orion 上位机入口：挂载布局、连接数据层、注册全局事件。
+ *
+ * - init：挂载五块布局、wsClient.connect、系统日志、全局 CustomEvent（清队列、reset held、急停等）。
+ * - registerGlobalHandlers：orion:* 事件与键盘快捷键由这里统一派发。
+ * WebSocket URL：?ws= 覆盖；ROS 话题前缀：?ns= 或 ?topic_prefix=。
  */
 
 import TopBar from './layout/TopBar.js';
@@ -11,6 +15,7 @@ import wsClient from './data/wsClient.js';
 import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
 
+/** 创建各面板 DOM 挂载点、建立 rosbridge 连接并注册全局快捷键与服务封装事件。 */
 function init() {
   TopBar.mount('top-bar');
   LeftPanel.mount('left-panel');
@@ -24,10 +29,15 @@ function init() {
   registerGlobalHandlers();
 }
 
+/** get_queue_state 回调：把响应写入 stateStore（兼容 res.values 封装）。 */
 function applyQueueStateToStore(res) {
   stateStore.applyQueueStateResponse(res);
 }
 
+/**
+ * 注册 document 级 CustomEvent（orion:clear-queue、orion:reset-held 等）及键盘监听；
+ * 与 TopBar/卡片按钮发出的事件名保持一致。
+ */
 function registerGlobalHandlers() {
   const handlers = {
     'orion:clear-queue': () => {

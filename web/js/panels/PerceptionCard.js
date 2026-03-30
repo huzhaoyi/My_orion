@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 
+/** 位置对象格式化为 "x, y, z" 三位小数。 */
 function fmtPos(pos) {
   if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number' || typeof pos.z !== 'number') {
     return '—';
@@ -11,6 +12,7 @@ function fmtPos(pos) {
   return `${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}, ${pos.z.toFixed(3)}`;
 }
 
+/** 四元数格式化为简短 qx..qw 串。 */
 function fmtQuat(q) {
   if (!q || typeof q.w !== 'number') return '—';
   const x = (q.x != null ? q.x : 0);
@@ -20,6 +22,7 @@ function fmtQuat(q) {
   return `qx=${x.toFixed(3)} qy=${y.toFixed(3)} qz=${z.toFixed(3)} qw=${w.toFixed(3)}`;
 }
 
+/** 感知卡片：object_pose、ROV base/world、更新时间（来自 perception_state / 缓存）。 */
 function render(parentEl) {
   if (!parentEl) return;
   const wrap = document.createElement('div');

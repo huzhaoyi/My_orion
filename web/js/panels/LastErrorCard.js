@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 
+/** 展示 stateStore.lastError 单行。 */
 function render(parentEl) {
   if (!parentEl) return;
   const wrap = document.createElement('div');

@@ -7,6 +7,7 @@ import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
 import ApprovalCard from '../panels/ApprovalCard.js';
 
+/** 右侧栏：任务/调试 Tab，任务页绑定 CustomEvent 与 ApprovalCard。 */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -51,6 +52,7 @@ function mount(containerId) {
   showTab('task');
 }
 
+/** 任务 Tab：急停、审批、抓取、夹爪、工作空间提示与工作空间 AABB 文案。 */
 function renderTaskTab(container) {
   const F = FEASIBILITY_WORKSPACE;
   const ws = getWorkspaceBoundsForDoc();
@@ -111,6 +113,7 @@ function renderTaskTab(container) {
   ApprovalCard.renderResult(container.querySelector('#approval-result-container'));
 }
 
+/** 调试 Tab：持物重置、同步场景、碰撞体显示开关（发 orion:toggle-show-collision）。 */
 function renderDebugTab(container) {
   container.innerHTML = `
     <div class="card">

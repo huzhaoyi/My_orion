@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""MoveIt move_group + robot_state_publisher + RViz；tf_under_manipulator 时将 TF 重映射到 /manipulator/tf*。"""
+"""
+Orion MoveIt 本地演示 Launch：加载 URDF/SRDF、OMPL+Pilz、关节限界与笛卡尔限界、kinematics、控制器配置。
+
+启动 move_group、robot_state_publisher、可选 joint_state_publisher(_gui)、RViz。
+Launch 参数：use_joint_state_gui、start_rviz、tf_under_manipulator（true 时将 tf/tf_static remap 到 /manipulator/*，
+便于与命名空间下的 MTC 节点同机调试）。
+"""
 
 import os
 import yaml
@@ -13,6 +19,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """组装 LaunchDescription：声明参数并条件启动各节点。"""
     use_joint_state_gui = LaunchConfiguration("use_joint_state_gui", default="true")
     tf_under_manipulator = LaunchConfiguration("tf_under_manipulator", default="false")
     start_rviz = LaunchConfiguration("start_rviz", default="true")

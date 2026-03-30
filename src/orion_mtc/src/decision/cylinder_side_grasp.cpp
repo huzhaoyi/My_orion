@@ -1,4 +1,4 @@
-/* cylinder_side_grasp：单位轴向 → 使圆柱局部 Z 对齐的四元数 */
+/* cylinder_side_grasp：单位轴向 → SolidPrimitive 圆柱局部 Z 与轴对齐的 orientation（退化轴向用备用参考向量） */
 
 #include "orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <Eigen/Geometry>
@@ -7,6 +7,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 零向量返回单位四元数；否则 z=axis，x 由参考向量与 z 叉乘归一化，y=z×x，组装旋转阵再转 msg Quaternion。
+ */
 geometry_msgs::msg::Quaternion buildCylinderCollisionOrientationFromAxis(
     const geometry_msgs::msg::Vector3& axis_direction)
 {

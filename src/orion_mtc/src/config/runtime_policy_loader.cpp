@@ -7,6 +7,9 @@
 namespace orion_mtc
 {
 
+/*
+ * runtime_policy.*：Worker 自启、规划失败重试、scene 清理、失败后复位/回 home、忙时拒单等布尔与整型。
+ */
 void declareRuntimePolicyParameters(const std::shared_ptr<rclcpp::Node>& node)
 {
   if (!node)
@@ -41,6 +44,9 @@ void declareRuntimePolicyParameters(const std::shared_ptr<rclcpp::Node>& node)
   declare_bool(prefix + "reject_new_jobs_while_busy", false);
 }
 
+/*
+ * 将 runtime_policy.* 读入 RuntimePolicy 结构；node 为空则无操作。
+ */
 void loadRuntimePolicyFromNode(const std::shared_ptr<rclcpp::Node>& node, RuntimePolicy& policy)
 {
   if (!node)

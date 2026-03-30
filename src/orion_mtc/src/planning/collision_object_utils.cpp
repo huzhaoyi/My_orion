@@ -8,6 +8,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 将 base 与 local 转为 Eigen Isometry 链乘，再输出合成 Pose（位置+四元数）。
+ */
 geometry_msgs::msg::Pose composePose(const geometry_msgs::msg::Pose& base,
                                       const geometry_msgs::msg::Pose& local)
 {
@@ -32,6 +35,9 @@ geometry_msgs::msg::Pose composePose(const geometry_msgs::msg::Pose& base,
   return out;
 }
 
+/*
+ * id=object_id、frame=base_link 的整根缆绳圆柱（与规划默认「单物体」一致）；operation 传 ADD/REMOVE。
+ */
 moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& object_id,
                                                             const geometry_msgs::msg::Pose& object_pose,
                                                             uint8_t operation)
@@ -50,6 +56,9 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
   return object;
 }
 
+/*
+ * 单段 CableSegment → CollisionObject：圆柱尺寸为 length/radius，轴向由 segment.axis 经 buildCylinderCollisionOrientationFromAxis 对齐局部 Z。
+ */
 moveit_msgs::msg::CollisionObject makeSegmentCollisionObject(const CableSegment& segment,
                                                              const std::string& frame_id,
                                                              uint8_t operation)

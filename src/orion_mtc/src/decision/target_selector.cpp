@@ -5,6 +5,9 @@
 namespace orion_mtc
 {
 
+/*
+ * TargetSet 非空时取首个目标；否则回落到 object_pose（兼容仅 pose 无 target_set 的上游）。
+ */
 std::optional<geometry_msgs::msg::PoseStamped> TargetSelector::selectPickTarget(
     const PerceptionSnapshot& snap) const
 {

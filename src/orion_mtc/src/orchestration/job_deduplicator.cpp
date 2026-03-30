@@ -6,6 +6,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 仅 PICK/SYNC 且带 object_pose 时返回 true 并写出 pose；夹爪/复位等无空间目标返回 false。
+ */
 bool JobDeduplicator::getJobPoseForDedup(const ManipulationJob& job, geometry_msgs::msg::Pose* out)
 {
     if (out == nullptr)
@@ -37,6 +40,9 @@ bool JobDeduplicator::getJobPoseForDedup(const ManipulationJob& job, geometry_ms
     }
 }
 
+/*
+ * 位置 L2 小于 pos_tol_m 且四元数点积（取绝对值）不小于 quat_dot_min 视为同一目标。
+ */
 bool JobDeduplicator::posesNear(const geometry_msgs::msg::Pose& a, const geometry_msgs::msg::Pose& b,
                                 double pos_tol_m, double quat_dot_min)
 {
@@ -57,6 +63,9 @@ bool JobDeduplicator::posesNear(const geometry_msgs::msg::Pose& a, const geometr
     return dot >= quat_dot_min;
 }
 
+/*
+ * 与 RUNNING 同类型且目标接近视为重复；时间窗内与上次接受的同类型无目标/同目标亦视为重复。out_reason 可选填中文说明。
+ */
 bool JobDeduplicator::isDuplicate(const ManipulationJob& job,
                                   int64_t now_ns,
                                   WorkerStatus worker_status,

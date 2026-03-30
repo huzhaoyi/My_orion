@@ -17,6 +17,9 @@ constexpr double k_fallback_hard_m = 2.0;
 constexpr double k_default_kinematic_margin = 1.08;
 }  // namespace
 
+/*
+ * 自 tip_link 沿 parent 链累加 joint origin 平移范数至 base_link，作为「伸直」上界近似；链断或找不到返回 -1。
+ */
 double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
                                         const std::string& base_link,
                                         const std::string& tip_link)
@@ -40,6 +43,9 @@ double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
   return sum;
 }
 
+/*
+ * 读 feasibility.* 参数：手动 hard/soft 优先；否则用 kinematic_ub×margin 作 hard，soft 默认 hard×KINEMATIC_SOFT_REACH_RATIO。
+ */
 ResolvedReachLimits resolveFeasibilityReachLimits(
     const rclcpp::Node::SharedPtr& node,
     const std::shared_ptr<const moveit::core::RobotModel>& robot_model,

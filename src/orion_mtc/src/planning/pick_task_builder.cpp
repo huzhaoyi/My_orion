@@ -17,11 +17,19 @@ namespace mtc = moveit::task_constructor;
 namespace orion_mtc
 {
 
+/*
+ * 保存 node 与 MTCConfig 引用；不拷贝重型资源，由调用方保证 node 存活期覆盖 Task 规划全程。
+ */
 PickTaskBuilder::PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCConfig& config)
   : node_(node), config_(config)
 {
 }
 
+/*
+ * 从缆段列表与侧向抓取候选组装完整 MTC Task：CurrentState → ready → Add 分段圆柱碰撞体 →
+ * 开爪 → ACM 放宽自碰 → MoveRelative 接近/抓取/后退 → 闭爪与 scene 变更（attach/remove segment）等。
+ * plan_frame 与分段 object header 一致，供 MoveIt 在正确父系下解释 primitive 位姿。
+ */
 mtc::Task PickTaskBuilder::buildFromCableCandidate(
     const std::vector<CableSegment>& segments,
     const CableGraspCandidate& candidate,

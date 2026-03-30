@@ -7,6 +7,10 @@
 namespace orion_mtc
 {
 
+/*
+ * 沿归一化 axis 在 [-L/2,L/2] 内均分切片，每段长度 segment_length（末段可能略长由 ceil 覆盖总长）；
+ * 各段 id 为 cable_seg_k，中心在轴上、axis 拷贝为 d。
+ */
 std::vector<CableSegment> buildCableSegments(const Eigen::Vector3d& center,
                                              const Eigen::Vector3d& axis,
                                              double total_length,
@@ -36,6 +40,9 @@ std::vector<CableSegment> buildCableSegments(const Eigen::Vector3d& center,
   return out;
 }
 
+/*
+ * 在 segments 中选与 p_grasp 欧氏距离最小的段下标；空列表返回 -1。
+ */
 int nearestSegmentIndex(const Eigen::Vector3d& p_grasp,
                         const std::vector<CableSegment>& segments)
 {
@@ -57,6 +64,10 @@ int nearestSegmentIndex(const Eigen::Vector3d& p_grasp,
   return best;
 }
 
+/*
+ * 以 nearest_index 为中心，向两侧各扩展 grasp_neighbor_segments 格，裁剪到 [0,num_segments-1]。
+ * 用于预检/ACM 仅放宽邻近缆段与手爪碰撞。
+ */
 std::vector<int> localSegmentIndices(int nearest_index,
                                      int grasp_neighbor_segments,
                                      int num_segments)

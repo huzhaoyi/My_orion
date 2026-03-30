@@ -23,6 +23,7 @@ const layerToggles = {
   showCoordFrames: true,
 };
 
+/** ROS geometry_msgs/Point → Three 用的 {x,y,z}（暂不翻轴，后续 applyBaseLinkToScene）。 */
 function rosToThreePosition(pos) {
   if (!pos) return { x: 0, y: 0, z: 0 };
   const x = pos.x || 0;
@@ -31,6 +32,7 @@ function rosToThreePosition(pos) {
   return { x, y, z };
 }
 
+/** ROS 四元数 → THREE.Quaternion（w 默认 1）。 */
 function rosToThreeQuaternion(q) {
   if (!q) return null;
   return new THREE.Quaternion(
@@ -41,6 +43,7 @@ function rosToThreeQuaternion(q) {
   );
 }
 
+/** 浮层勾选：同步 layerToggles 与 RobotScene 内 mesh 可见性。 */
 function createLayerToggles(containerEl, sceneApiRef) {
   const panel = document.createElement('div');
   panel.className = 'viewport-3d__layer-panel';
@@ -106,6 +109,7 @@ function createLayerToggles(containerEl, sceneApiRef) {
 
 const RAD_TO_DEG = 180 / Math.PI;
 
+/** 左下角关节角表格壳子，返回 panel 与 tbody 引用。 */
 function createJoystickTable(containerEl) {
   const panel = document.createElement('div');
   panel.className = 'viewport-3d__joystick-panel';
@@ -158,6 +162,7 @@ function updateJoystickTable(tbody, jointNames, jointPositions) {
   tbody.innerHTML = rows.join('');
 }
 
+/** 预设机位按钮 +「跟随末端」勾选。 */
 function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   const div = document.createElement('div');
   div.className = 'viewport-3d__view-buttons';
@@ -190,6 +195,10 @@ function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   return div;
 }
 
+/**
+ * 创建画布、RobotScene、图层开关、视角按钮、关节表；订阅 stateStore 驱动目标点/ROV/轨迹/关节。
+ * @returns {object|null} RobotScene API（供外部 getScene）
+ */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return null;
@@ -298,6 +307,7 @@ function mount(containerId) {
   return sceneApi;
 }
 
+/** 返回 mount 创建的 sceneApi 引用（未 mount 时为 null）。 */
 function getScene() {
   return sceneApi;
 }

@@ -5,6 +5,7 @@
 import stateStore from '../data/stateStore.js';
 import { jobTypeLabel, stageNameLabel, stagePillClass } from '../data/labels.js';
 
+/** 在 parentEl 下追加「当前执行」卡片并订阅刷新。 */
 function render(parentEl) {
   if (!parentEl) return;
   const wrap = document.createElement('div');

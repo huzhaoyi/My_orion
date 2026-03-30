@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""RViz 无 MoveIt：robot_state_publisher + joint_state_publisher_gui 展示 Orion URDF。"""
+"""
+Orion URDF 可视化（无 MoveIt）：robot_state_publisher 读 urdf 字符串，joint_state_publisher_gui 送关节角。
+
+mesh 路径将 package 相对路径替换为 share 目录绝对路径，便于 RViz 加载 STL。
+"""
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -10,6 +14,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """返回仅含 RSP 与 joint_state_publisher_gui 的 LaunchDescription。"""
     pkg_share = get_package_share_directory("orion_description")
     urdf_path = os.path.join(pkg_share, "urdf", "orion.urdf")
     meshes_abs = os.path.join(pkg_share, "meshes")

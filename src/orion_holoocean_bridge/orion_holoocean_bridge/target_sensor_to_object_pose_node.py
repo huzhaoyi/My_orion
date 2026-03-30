@@ -2,6 +2,9 @@
 """
 将 HoloOcean TargetSensor（世界系下 xyz + 圆柱轴方向）转换为 MTC 所需的 /object_pose（base_link 下）。
 订阅 ROV 位姿（PoseSensor，世界系），将目标点从世界系变换到机械臂 base_link，并用 direction 构造物体姿态（无欧拉角时由方向向量推导）。
+
+并行发布：object_axis（Vector3Stamped）、perception_state（物体+ROV+多目标几何）、可选 map 下各 target_k TF；
+静态 TF rov0→base_link 表臂基在 ROV 系平移。
 """
 
 import math
@@ -216,6 +219,7 @@ class TargetSensorToObjectPoseNode(Node):
             self._tf_static_broadcaster = None
 
     def _publish_static_rov_to_base_link(self) -> None:
+        """发布一次性 static：rov0 → output_frame（臂基相对 ROV 的平移，无旋转）。"""
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = "rov0"
@@ -230,7 +234,10 @@ class TargetSensorToObjectPoseNode(Node):
         self._tf_static_broadcaster.sendTransform(t)
 
     def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
-        """ROV 世界系位姿（PoseSensor），用于 world→ROV→base_link 变换。"""
+        """
+        ROV 世界系位姿（PoseSensor）：更新缓存、发布 map→rov0、推导 rov 在 base/world 下的 PoseStamped；
+        若已有 object_pose 则发 perception_state，避免仅 ROV 动时网页丢失融合帧。
+        """
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
         self._rov_position = np.array([p.x, p.y, p.z], dtype=float)
@@ -291,6 +298,10 @@ class TargetSensorToObjectPoseNode(Node):
             )
 
     def _on_target_sensor(self, msg: TargetSensor) -> None:
+        """
+        多目标：world→rov→base 位置/方向列表；单选 target_index 发布侧向抓取系 object_pose 与轴向量；
+        填充 perception_state（需已有 ROV 回调缓存，避免空闪烁）。
+        """
         if self._rov_position is None or self._rov_orientation_xyzw is None:
             self.get_logger().warn(
                 "target_sensor_to_object_pose: 尚无 ROV 位姿，跳过本帧（需订阅 "
@@ -417,6 +428,7 @@ class TargetSensorToObjectPoseNode(Node):
 
 
 def main(args=None):
+    """节点入口：spin TargetSensorToObjectPoseNode 直至中断。"""
     rclpy.init(args=args)
     node = TargetSensorToObjectPoseNode()
     try:

@@ -3,6 +3,9 @@
 双路 sensor_msgs/Joy → Orion 机械臂：右手 buttons 急停/解刹（不分模式）；自动 pick_trigger、右手 axes[] 边沿 open/close_gripper（与手动同轴下标）、可选键位夹爪；
 手动 6 轴速度积分 + 夹爪轨迹（FollowJointTrajectory → arm_controller / hand_controller）。
 参数中关节角、角速度、限位均以度(°)为单位；订阅的 joint_states 与下发的轨迹位置仍为弧度（ROS 惯例），在节点内换算。
+
+订阅：左右 Joy、joint_states。发布：pick_trigger、可选 UI 手动/油门。客户端：开闭爪、急停/解刹、go_to_ready。
+Action：双臂与手部 FollowJointTrajectory。模式：左手按钮/轴切换自动与手动；手动enter 可选先急停，切回自动可选先停再解刹。
 """
 
 import math
@@ -26,10 +29,12 @@ _RAD_TO_DEG = 180.0 / math.pi
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
+    """将标量限制在 [lo, hi]，用于关节命令与 UI 油门百分比。"""
     return max(lo, min(hi, x))
 
 
 def _joy_button(msg: Optional[Joy], index: int) -> bool:
+    """读取 Joy.buttons[index]；msg 或下标无效时视为未按下。"""
     if msg is None or index < 0:
         return False
     if index >= len(msg.buttons):
@@ -38,6 +43,7 @@ def _joy_button(msg: Optional[Joy], index: int) -> bool:
 
 
 def _joy_axis(msg: Optional[Joy], index: int) -> float:
+    """读取 Joy.axes[index]；无效时返回 0.0。"""
     if msg is None or index < 0:
         return 0.0
     if index >= len(msg.axes):
@@ -58,12 +64,14 @@ def _joy_axis_tri_sign(msg: Optional[Joy], index: int, threshold: float) -> int:
 
 
 def _joy_snapshot(msg: Joy) -> Tuple[Tuple[int, ...], Tuple[float, ...]]:
+    """buttons/axes 转为不可变元组快照，供边沿检测与语义相等比较。"""
     buttons = tuple(int(x) for x in msg.buttons)
     axes = tuple(float(x) for x in msg.axes)
     return (buttons, axes)
 
 
 def _format_button_diff(old_b: Tuple[int, ...], new_b: Tuple[int, ...]) -> str:
+    """生成相邻两帧按钮变化的可读串，供 Joy 变更日志。"""
     n = max(len(old_b), len(new_b))
     parts: List[str] = []
     for i in range(n):
@@ -75,6 +83,7 @@ def _format_button_diff(old_b: Tuple[int, ...], new_b: Tuple[int, ...]) -> str:
 
 
 def _format_axis_diff(old_a: Tuple[float, ...], new_a: Tuple[float, ...], eps: float) -> str:
+    """逐轴差分超过 eps 时写入日志片段，过滤摇杆抖动。"""
     n = max(len(old_a), len(new_a))
     parts: List[str] = []
     for i in range(n):
@@ -106,7 +115,12 @@ def _joy_snap_semantically_equal(
 
 
 class JoyManipulatorNode(Node):
-    """手柄桥接节点。"""
+    """
+    手柄桥接节点：将双路 Joy 与 joint_states 合成为规划栈可识别的服务/Action/话题。
+
+    定时器周期内根据模式更新：自动模式允许 pick_trigger、右手急停/解刹、可选自动开闭爪与回 ready；
+    手动模式对 6 臂做速度积分并发 FollowJointTrajectory，夹爪按键/轴与左手油门联动。
+    """
 
     def __init__(self) -> None:
         super().__init__("joy_manipulator_node")
@@ -345,6 +359,7 @@ class JoyManipulatorNode(Node):
         )
 
     def _publish_joy_ui_status(self, manual: bool, throttle_scale_arm: float) -> None:
+        """向 Web/调试话题发布当前是否手动与臂油门 0～100（需 publish_ui_status）。"""
         if self._pub_ui_manual is None or self._pub_ui_throttle is None:
             return
         msg_m = Bool()
@@ -379,6 +394,7 @@ class JoyManipulatorNode(Node):
         return bline
 
     def _log_joy_changed(self, hand_label: str, topic: str, prev_snap, msg: Joy) -> None:
+        """在 log_joy_on_change 开启时输出首帧或语义变化后的按钮/轴 diff，并附带模式后缀。"""
         snap = _joy_snapshot(msg)
         eps = self._log_joy_axis_eps
         left_for_mode = msg if hand_label == "左手柄" else self._left_joy
@@ -420,24 +436,28 @@ class JoyManipulatorNode(Node):
         )
 
     def _cb_left_joy(self, msg: Joy) -> None:
+        """左手柄：可选打日志后缓存，供模式判定与手动臂增量。"""
         if self._log_joy_change:
             self._log_joy_changed("左手柄", self._topic_left, self._snap_left_prev, msg)
             self._snap_left_prev = _joy_snapshot(msg)
         self._left_joy = msg
 
     def _cb_right_joy(self, msg: Joy) -> None:
+        """右手柄：急停/解刹/抓取/夹爪/回 ready 等逻辑的数据源。"""
         if self._log_joy_change:
             self._log_joy_changed("右手柄", self._topic_right, self._snap_right_prev, msg)
             self._snap_right_prev = _joy_snapshot(msg)
         self._right_joy = msg
 
     def _cb_joint_state(self, msg: JointState) -> None:
+        """维护关节名→位置字典，手动微动以当前关节值为起点积分。"""
         self._js_received = True
         for i, name in enumerate(msg.name):
             if i < len(msg.position):
                 self._joint_pos[name] = float(msg.position[i])
 
     def _speed_scale_for(self, joy: Optional[Joy], axis_index: int) -> float:
+        """读指定轴并经 deadband 与 map_mode 归一化到 [0,1] 作为臂/爪速度比例。"""
         ax = _joy_axis(joy, axis_index)
         if self._speed_axis_invert:
             ax = -ax
@@ -459,6 +479,7 @@ class JoyManipulatorNode(Node):
         return float(_clamp((a - db) / span, 0.0, 1.0))
 
     def _compute_manual_mode(self, left: Optional[Joy]) -> bool:
+        """由 mode_source（button 或 axis）判定当前是否为手动模式。"""
         if self._mode_source == "axis":
             return _joy_axis(left, self._mode_axis_index) > self._mode_axis_thr
         pressed = _joy_button(left, self._mode_button_index)
@@ -467,6 +488,7 @@ class JoyManipulatorNode(Node):
         return not pressed
 
     def _arm_pair_sign(self, msg: Optional[Joy], plus_i: int, minus_i: int) -> int:
+        """单关节 ± 按钮互斥：同时按返回 0；否则 +1 / -1 / 0。"""
         p = _joy_button(msg, plus_i)
         m = _joy_button(msg, minus_i)
         if p and m:
@@ -478,6 +500,7 @@ class JoyManipulatorNode(Node):
         return 0
 
     def _send_traj(self, client: ActionClient, goal_handle_attr: str, joint_names: List[str], positions: List[float]) -> None:
+        """组装单点 JointTrajectory，取消旧 goal 后异步发送 FollowJointTrajectory。"""
         if len(joint_names) != len(positions):
             self.get_logger().error("关节名与位置数量不匹配")
             return
@@ -517,6 +540,7 @@ class JoyManipulatorNode(Node):
         send_future.add_done_callback(_resp_cb)
 
     def _maybe_call_trigger(self, client, log_name: str) -> None:
+        """std_srvs/Trigger 异步调用；未就绪则 WARN 跳过。"""
         if not client.service_is_ready():
             self.get_logger().warn("服务未就绪，跳过调用: %s" % log_name)
             return
@@ -527,6 +551,7 @@ class JoyManipulatorNode(Node):
         )
 
     def _trigger_done_cb(self, future, name: str) -> None:
+        """Trigger 完成回调：记录 success/message，不抛未捕获异常。"""
         try:
             res = future.result()
         except Exception as ex:  # noqa: BLE001
@@ -560,6 +585,7 @@ class JoyManipulatorNode(Node):
         self._maybe_call_trigger(self._srv_clear_estop, "clear_estop")
 
     def _call_estop_then_clear_estop_for_auto_mode(self) -> None:
+        """链式：先 emergency_stop（异步）再在回调里 clear_estop，用于手动→自动过渡。"""
         """切回自动模式：先急停再解闭锁，避免残留轨迹与闭锁并存。"""
         if not self._srv_clear_estop.service_is_ready():
             self.get_logger().warn("切回自动：clear_estop 未就绪，跳过")
@@ -573,6 +599,7 @@ class JoyManipulatorNode(Node):
         estop_future.add_done_callback(self._on_estop_done_then_clear_estop)
 
     def _control_timer(self) -> None:
+        """控制周期核心：模式切换副作用、自动侧抓取/夹爪/回 ready、手动侧积分发臂/手轨迹。"""
         left = self._left_joy
         right = self._right_joy
         manual = self._compute_manual_mode(left)
@@ -773,6 +800,7 @@ class JoyManipulatorNode(Node):
 
 
 def main(args: Optional[List[str]] = None) -> None:
+    """rclpy 初始化、spin JoyManipulatorNode，捕获键盘中断与外部 shutdown。"""
     rclpy.init(args=args)
     node = JoyManipulatorNode()
     try:

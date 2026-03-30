@@ -13,10 +13,16 @@ namespace orion_mtc
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.scene");
 
+/*
+ * 仅保存 node 指针；apply_planning_scene 客户端按需惰性创建。
+ */
 PlanningSceneManager::PlanningSceneManager(rclcpp::Node* node) : node_(node)
 {
 }
 
+/*
+ * 创建 /apply_planning_scene 客户端并在未就绪时短等待；node 为空或服务不可用返回 false。
+ */
 bool PlanningSceneManager::ensureClient()
 {
   if (!node_)
@@ -39,6 +45,9 @@ bool PlanningSceneManager::ensureClient()
   return true;
 }
 
+/*
+ * 将 is_diff 场景整块交给 apply_planning_scene；同步等待响应，超时或服务失败记 WARN 并返回 false。
+ */
 bool PlanningSceneManager::applySceneDiff(const moveit_msgs::msg::PlanningScene& scene_diff)
 {
   if (!ensureClient())
@@ -62,6 +71,9 @@ bool PlanningSceneManager::applySceneDiff(const moveit_msgs::msg::PlanningScene&
   return true;
 }
 
+/*
+ * 先 REMOVE 再 ADD id=object 的圆柱目标体，位姿由 px..qw 给定；用于 perception 更新 world 物体。
+ */
 bool PlanningSceneManager::applyObjectPoseToPlanningScene(double px, double py, double pz,
                                                            double qx, double qy, double qz, double qw)
 {
@@ -107,6 +119,9 @@ bool PlanningSceneManager::applyObjectPoseToPlanningScene(double px, double py, 
   return true;
 }
 
+/*
+ * 在 Link6 附加 held_unknown 盒体，表示未知形状持物占位；touch_links 限制与手爪链路一致。
+ */
 bool PlanningSceneManager::applyAttachedHeldUnknownToScene()
 {
   if (!ensureClient())
@@ -164,6 +179,10 @@ bool PlanningSceneManager::applyAttachedHeldUnknownToScene()
   return true;
 }
 
+/*
+ * 对指定 id 发送 REMOVE 式 AttachedCollisionObject；held_unknown 挂 Link6，其余默认 gripper_tcp。
+ * robot_state.is_diff 避免空 JointState 覆盖当前机器人状态。
+ */
 bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::string& object_id)
 {
   if (object_id.empty())
@@ -204,6 +223,9 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
   return true;
 }
 
+/*
+ * world 碰撞体按 id REMOVE；内部复用 applySceneDiff。
+ */
 bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
 {
   if (object_id.empty())
@@ -231,6 +253,10 @@ bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
   return true;
 }
 
+/*
+ * tcp_to_object 为 TCP 到物体中心的刚体变换；可选沿缆轴 grasp_offset_along_axis 平移中心。
+ * 圆柱 primitive pose 在 TCP 系组合后附加为 held_tracked，供 TRACK 与后续规划一致。
+ */
 bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isometry3d& tcp_to_object,
                                                              double grasp_offset_along_axis)
 {

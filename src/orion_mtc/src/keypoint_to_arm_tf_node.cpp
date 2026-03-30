@@ -24,6 +24,9 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("keypoint_to_arm_tf");
 class KeypointToArmTfNode final : public rclcpp::Node
 {
 public:
+    /*
+     * 工厂：构造节点并挂 TransformListener（传入 shared_from_this 语义下的 node 接口）。
+     */
     static std::shared_ptr<KeypointToArmTfNode> create()
     {
         auto node = std::shared_ptr<KeypointToArmTfNode>(new KeypointToArmTfNode());
@@ -33,6 +36,9 @@ public:
     }
 
 private:
+    /*
+     * 声明 QoS、帧覆盖、mock 与 TF 查询策略；按 use_mock_keypoints 选择定时器或订阅 Keypoints。
+     */
     KeypointToArmTfNode()
       : rclcpp::Node("keypoint_to_arm_tf")
       , tf_buffer_(get_clock())
@@ -137,11 +143,17 @@ private:
         processKeypoints(msg);
     }
 
+    /*
+     * 订阅回调：直接转发 processKeypoints。
+     */
     void onKeypoints(const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
     {
         processKeypoints(msg);
     }
 
+    /*
+     * 解析源帧 → 将各 keypoint 变到左/右臂基座系并 INFO 打印；TF 异常 WARN 单点不阻断其余点。
+     */
     void processKeypoints(const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
     {
         if (!received_keypoints_once_)
@@ -247,6 +259,9 @@ private:
     double mock_period_sec_{1.0};
 };
 
+/*
+ * 独立可执行：`keypoint_to_arm_tf` 单线程 spin 工具节点。
+ */
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);

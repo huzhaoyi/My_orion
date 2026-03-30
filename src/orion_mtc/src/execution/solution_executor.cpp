@@ -18,7 +18,9 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
 
 namespace
 {
-/* 子轨迹关节名若仅含 HAND_JOINTS 而不含 ARM_JOINTS，则视为纯夹爪段（用于 gripped 等待逻辑）。 */
+/*
+ * 子轨迹关节名若仅含 HAND_JOINTS 而不含 ARM_JOINTS，则视为纯夹爪段（用于 gripped 等待逻辑）。
+ */
 bool isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
 {
   const auto& names = sub.trajectory.joint_trajectory.joint_names;
@@ -31,6 +33,9 @@ bool isHandOnlySegment(const moveit_task_constructor_msgs::msg::SubTrajectory& s
          names.end();
 }
 
+/*
+ * 轨迹末点左右夹爪关节位置绝对值均小于阈值时视为闭合姿态（与硬件开度标定一致）。
+ */
 bool isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
 {
   const auto& traj = sub.trajectory.joint_trajectory;
@@ -56,7 +61,9 @@ bool isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajec
   return std::abs(j0) < 0.15 && std::abs(j1) < 0.15;
 }
 
-/* 该段 scene_diff 是否包含附着碰撞体变更（attach/detach 语义）。 */
+/*
+ * 该段 scene_diff 是否包含附着碰撞体变更（attach/detach 语义）。
+ */
 bool sceneDiffHasAttach(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
 {
   return sub.scene_diff.is_diff &&

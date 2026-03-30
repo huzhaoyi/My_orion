@@ -8,6 +8,9 @@
 namespace orion_mtc
 {
 
+/*
+ * 注入 object_pose 与 target 缓存及可选时钟；指针可为空，对应字段快照留空。
+ */
 PerceptionSnapshotProvider::PerceptionSnapshotProvider(const std::shared_ptr<PoseCache>& object_pose_cache,
                                                        const std::shared_ptr<TargetCache>& target_cache,
                                                        rclcpp::Clock::SharedPtr clock)
@@ -17,6 +20,9 @@ PerceptionSnapshotProvider::PerceptionSnapshotProvider(const std::shared_ptr<Pos
 {
 }
 
+/*
+ * 组装单一时间戳下的 PerceptionSnapshot：填入 optional pose 与 TargetSet。
+ */
 PerceptionSnapshot PerceptionSnapshotProvider::snapshot() const
 {
     PerceptionSnapshot out;
