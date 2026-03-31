@@ -1,7 +1,9 @@
-/* 订阅 Keypoints（与 cable_detect 等发布端一致：sealien_ctrlpilot_msgmanagement/msg/Keypoints），
- * 或将 use_mock_keypoints 打开，用定时器注入假数据做离线 TF 测试。 */
+/* 订阅 Keypoints（sealien_ctrlpilot_msgmanagement/msg/Keypoints；默认话题 /perception/sonar/keypoints），
+ * 或将 use_mock_keypoints 打开，用定时器注入假数据做离线 TF 测试。
+ * 可选 centerline_grasp_test：去重 → 中值滤波 → 弧长抓取点 → 局部直线(PCA)切向 → 侧抓姿态，在 grasp 规划系下 INFO 输出。 */
 
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
 #include <sealien_ctrlpilot_msgmanagement/msg/keypoints.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
@@ -12,14 +14,283 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("keypoint_to_arm_tf");
+
+/* mock_preset:=sonar_cable_9 时注入的 9 点（源系下 m 级坐标；y 统一 2.9 便于与调试 TF 一致） */
+static const std::array<std::array<float, 3>, 9> MOCK_KP_SONAR_CABLE_9 = {{
+    {{0.871f, 2.9f, 0.0f}},
+    {{0.704f, 2.9f, 0.0f}},
+    {{0.221f, 2.9f, 0.0f}},
+    {{0.061f, 2.9f, 0.0f}},
+    {{-0.099f, 2.9f, 0.0f}},
+    {{0.542f, 2.9f, 0.0f}},
+    {{-0.098f, 2.9f, 0.0f}},
+    {{0.220f, 2.9f, 0.0f}},
+    {{-0.411f, 2.9f, 0.0f}},
+}};
+
+Eigen::Vector3d pointToEigen(const geometry_msgs::msg::Point& p)
+{
+    return Eigen::Vector3d(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z));
 }
+
+/*
+ * 侧向抓取：先按与 object_pose 桥接相同的叉乘规则构造 R_legacy（列 x,y,z），再左乘 R_corr，
+ * 使切向与 +Z 对齐时等价于绕 X 转 -90°（qx=-√2/2, qw=√2/2），与本节点测试 / gripper_tcp 约定一致。
+ * R_corr = Rx(-90°) * Ry(-90°)，满足 R_corr * Ry(+90°) = Rx(-90°)。
+ */
+geometry_msgs::msg::Quaternion sideGraspQuaternionFromAxis(Eigen::Vector3d a)
+{
+    double n = a.norm();
+    if (n < 1e-9)
+    {
+        a = Eigen::Vector3d(0.0, 0.0, 1.0);
+    }
+    else
+    {
+        a /= n;
+    }
+    if (a.z() < 0.0)
+    {
+        a = -a;
+    }
+    Eigen::Vector3d ref(0.0, 0.0, 1.0);
+    if (std::fabs(a.dot(ref)) > 0.95)
+    {
+        ref = Eigen::Vector3d(1.0, 0.0, 0.0);
+    }
+    Eigen::Vector3d y = a.cross(ref);
+    double ny = y.norm();
+    if (ny < 1e-9)
+    {
+        y = (std::fabs(a.x()) < 0.9) ? Eigen::Vector3d(1.0, 0.0, 0.0) : Eigen::Vector3d(0.0, 1.0, 0.0);
+        y = y - y.dot(a) * a;
+        y.normalize();
+    }
+    else
+    {
+        y /= ny;
+    }
+    Eigen::Vector3d z = y.cross(a);
+    z.normalize();
+    Eigen::Vector3d x = y.cross(z);
+    x.normalize();
+    Eigen::Matrix3d R_legacy;
+    R_legacy.col(0) = x;
+    R_legacy.col(1) = y;
+    R_legacy.col(2) = z;
+    Eigen::Matrix3d R_corr;
+    R_corr << 0.0, 0.0, -1.0,
+        1.0, 0.0, 0.0,
+        0.0, -1.0, 0.0;
+    Eigen::Matrix3d R = R_corr * R_legacy;
+    Eigen::Quaterniond q(R);
+    q.normalize();
+    geometry_msgs::msg::Quaternion out;
+    out.x = q.x();
+    out.y = q.y();
+    out.z = q.z();
+    out.w = q.w();
+    return out;
+}
+
+/* 点云主轴方向（最大特征值对应特征向量），用于沿缆线排序 */
+Eigen::Vector3d principalDirectionMax(const std::vector<Eigen::Vector3d>& pts, Eigen::Vector3d* mean_out)
+{
+    const size_t n = pts.size();
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    for (const auto& p : pts)
+    {
+        mean += p;
+    }
+    mean /= static_cast<double>(n);
+    if (mean_out != nullptr)
+    {
+        *mean_out = mean;
+    }
+    Eigen::Matrix3d cov = Eigen::Matrix3d::Zero();
+    for (const auto& p : pts)
+    {
+        Eigen::Vector3d q = p - mean;
+        cov += q * q.transpose();
+    }
+    if (n > 1U)
+    {
+        cov /= static_cast<double>(n - 1U);
+    }
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(cov);
+    Eigen::Vector3d dir = es.eigenvectors().col(2);
+    if (dir.norm() > 1e-9)
+    {
+        dir.normalize();
+    }
+    else
+    {
+        dir = Eigen::Vector3d(1.0, 0.0, 0.0);
+    }
+    return dir;
+}
+
+std::vector<Eigen::Vector3d> orderAlongDirection(std::vector<Eigen::Vector3d> pts, const Eigen::Vector3d& dir,
+                                                   const Eigen::Vector3d& mean)
+{
+    std::sort(pts.begin(), pts.end(), [&](const Eigen::Vector3d& a, const Eigen::Vector3d& b) {
+        return (a - mean).dot(dir) < (b - mean).dot(dir);
+    });
+    return pts;
+}
+
+std::vector<Eigen::Vector3d> dedupeOrderedChain(const std::vector<Eigen::Vector3d>& ordered, double radius_m)
+{
+    std::vector<Eigen::Vector3d> out;
+    for (const auto& p : ordered)
+    {
+        if (out.empty() || (p - out.back()).norm() > radius_m)
+        {
+            out.push_back(p);
+        }
+    }
+    return out;
+}
+
+std::vector<Eigen::Vector3d> medianFilter3(const std::vector<Eigen::Vector3d>& pts, int win)
+{
+    const int n = static_cast<int>(pts.size());
+    if (win < 1)
+    {
+        return pts;
+    }
+    const int half = win / 2;
+    std::vector<Eigen::Vector3d> out;
+    out.reserve(pts.size());
+    for (int i = 0; i < n; ++i)
+    {
+        std::vector<double> cx;
+        std::vector<double> cy;
+        std::vector<double> cz;
+        for (int k = -half; k <= half; ++k)
+        {
+            const int j = std::clamp(i + k, 0, n - 1);
+            cx.push_back(pts[static_cast<size_t>(j)].x());
+            cy.push_back(pts[static_cast<size_t>(j)].y());
+            cz.push_back(pts[static_cast<size_t>(j)].z());
+        }
+        std::sort(cx.begin(), cx.end());
+        std::sort(cy.begin(), cy.end());
+        std::sort(cz.begin(), cz.end());
+        const size_t mid = cx.size() / 2;
+        out.emplace_back(cx[mid], cy[mid], cz[mid]);
+    }
+    return out;
+}
+
+/* 沿折线弧长比例 pos(0..L) 插值位置与线段索引；fraction 钳位到 [0,1] */
+std::pair<Eigen::Vector3d, int> polylinePointAtArcFraction(const std::vector<Eigen::Vector3d>& pl, double fraction)
+{
+    const int m = static_cast<int>(pl.size());
+    if (m <= 0)
+    {
+        return {Eigen::Vector3d(0.0, 0.0, 0.0), 0};
+    }
+    if (m == 1)
+    {
+        return {pl[0], 0};
+    }
+    double total = 0.0;
+    std::vector<double> seg_len(static_cast<size_t>(m - 1));
+    for (int i = 0; i < m - 1; ++i)
+    {
+        const double len = (pl[static_cast<size_t>(i + 1)] - pl[static_cast<size_t>(i)]).norm();
+        seg_len[static_cast<size_t>(i)] = len;
+        total += len;
+    }
+    if (total < 1e-12)
+    {
+        return {pl[0], 0};
+    }
+    double t = fraction * total;
+    if (t <= 0.0)
+    {
+        return {pl[0], 0};
+    }
+    if (t >= total)
+    {
+        return {pl[static_cast<size_t>(m - 1)], m - 2};
+    }
+    double acc = 0.0;
+    for (int i = 0; i < m - 1; ++i)
+    {
+        const double sl = seg_len[static_cast<size_t>(i)];
+        if (acc + sl >= t)
+        {
+            const double alpha = (t - acc) / sl;
+            const Eigen::Vector3d p = (1.0 - alpha) * pl[static_cast<size_t>(i)] + alpha * pl[static_cast<size_t>(i + 1)];
+            return {p, i};
+        }
+        acc += sl;
+    }
+    return {pl[static_cast<size_t>(m - 1)], m - 2};
+}
+
+Eigen::Vector3d localPcaTangent(const std::vector<Eigen::Vector3d>& pl, int center_seg_idx, int half_width,
+                                const Eigen::Vector3d& seg_forward_hint)
+{
+    const int m = static_cast<int>(pl.size());
+    const int i0 = std::clamp(center_seg_idx, 0, m - 2);
+    int ia = std::max(0, i0 - half_width);
+    int ib = std::min(m - 1, i0 + half_width + 1);
+    if (ib <= ia)
+    {
+        return seg_forward_hint.normalized();
+    }
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    const int cnt = ib - ia + 1;
+    for (int i = ia; i <= ib; ++i)
+    {
+        mean += pl[static_cast<size_t>(i)];
+    }
+    mean /= static_cast<double>(cnt);
+    Eigen::Matrix3d cov = Eigen::Matrix3d::Zero();
+    for (int i = ia; i <= ib; ++i)
+    {
+        Eigen::Vector3d q = pl[static_cast<size_t>(i)] - mean;
+        cov += q * q.transpose();
+    }
+    if (cnt > 1)
+    {
+        cov /= static_cast<double>(cnt - 1);
+    }
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(cov);
+    Eigen::Vector3d t = es.eigenvectors().col(2);
+    if (t.norm() < 1e-9)
+    {
+        t = seg_forward_hint;
+    }
+    else
+    {
+        t.normalize();
+    }
+    if (t.dot(seg_forward_hint) < 0.0)
+    {
+        t = -t;
+    }
+    return t;
+}
+}  // namespace
 
 class KeypointToArmTfNode final : public rclcpp::Node
 {
@@ -30,8 +301,9 @@ public:
     static std::shared_ptr<KeypointToArmTfNode> create()
     {
         auto node = std::shared_ptr<KeypointToArmTfNode>(new KeypointToArmTfNode());
+        /* spin_thread=true：独立线程收 /tf，才能对 buffer 使用带 timeout 的 transform，否则 tf2 报错 */
         node->tf_listener_ =
-            std::make_shared<tf2_ros::TransformListener>(node->tf_buffer_, node, false);
+            std::make_shared<tf2_ros::TransformListener>(node->tf_buffer_, node, true);
         return node;
     }
 
@@ -43,7 +315,7 @@ private:
       : rclcpp::Node("keypoint_to_arm_tf")
       , tf_buffer_(get_clock())
     {
-        input_topic_ = declare_parameter<std::string>("input_topic", "/keypoints");
+        input_topic_ = declare_parameter<std::string>("input_topic", "/perception/sonar/keypoints");
         /* header.frame_id 为空时使用 */
         source_frame_override_ = declare_parameter<std::string>("source_frame_override", "sensor_link");
         left_arm_frame_ = declare_parameter<std::string>("left_arm_frame", "left_arm_base");
@@ -61,6 +333,39 @@ private:
             qos_depth_ = 1;
         }
 
+        centerline_grasp_test_ = declare_parameter<bool>("centerline_grasp_test", true);
+        log_each_keypoint_tf_ = declare_parameter<bool>("log_each_keypoint_tf", false);
+        dedupe_radius_m_ = declare_parameter<double>("dedupe_radius_m", 0.03);
+        median_window_ = declare_parameter<int>("median_window", 3);
+        local_fit_half_width_ = declare_parameter<int>("local_fit_half_width", 2);
+        grasp_arclength_fraction_ = declare_parameter<double>("grasp_arclength_fraction", 0.5);
+        if (grasp_arclength_fraction_ < 0.0)
+        {
+            grasp_arclength_fraction_ = 0.0;
+        }
+        if (grasp_arclength_fraction_ > 1.0)
+        {
+            grasp_arclength_fraction_ = 1.0;
+        }
+        if (median_window_ < 1)
+        {
+            median_window_ = 1;
+        }
+        if (median_window_ % 2 == 0)
+        {
+            median_window_ += 1;
+        }
+        if (local_fit_half_width_ < 0)
+        {
+            local_fit_half_width_ = 0;
+        }
+
+        /* 调试：将 keypoint.y / z 统一（接真机可调 false 关闭） */
+        override_all_keypoints_y_ = declare_parameter<bool>("override_all_keypoints_y", true);
+        override_keypoint_y_value_ = declare_parameter<double>("override_keypoint_y_value", 2.9);
+        override_all_keypoints_z_ = declare_parameter<bool>("override_all_keypoints_z", true);
+        override_keypoint_z_value_ = declare_parameter<double>("override_keypoint_z_value", 0.0);
+
         rclcpp::QoS qos(static_cast<size_t>(qos_depth_));
         if (qos_best_effort_)
         {
@@ -75,9 +380,10 @@ private:
         use_mock_keypoints_ = declare_parameter<bool>("use_mock_keypoints", false);
         mock_frame_id_ = declare_parameter<std::string>("mock_frame_id", "camera");
         mock_kp_x_ = declare_parameter<double>("mock_kp_x", 0.0);
-        mock_kp_y_ = declare_parameter<double>("mock_kp_y", 2.9054482685810803);
-        mock_kp_z_ = declare_parameter<double>("mock_kp_z", -9.536743164059724e-05);
+        mock_kp_y_ = declare_parameter<double>("mock_kp_y", 2.9);
+        mock_kp_z_ = declare_parameter<double>("mock_kp_z", 0.0);
         mock_period_sec_ = declare_parameter<double>("mock_period_sec", 1.0);
+        mock_preset_ = declare_parameter<std::string>("mock_preset", "legacy_single");
         if (mock_period_sec_ < 0.05)
         {
             mock_period_sec_ = 0.05;
@@ -88,14 +394,33 @@ private:
             mock_timer_ = create_wall_timer(
                 std::chrono::duration<double>(mock_period_sec_),
                 std::bind(&KeypointToArmTfNode::onMockTimer, this));
-            RCLCPP_WARN(LOGGER,
-                        "use_mock_keypoints=true: NOT subscribing; injecting mock Keypoints every %.3fs "
-                        "(frame=%s pt=(%.6f,%.6f,%.6f))",
-                        mock_period_sec_,
-                        mock_frame_id_.c_str(),
-                        mock_kp_x_,
-                        mock_kp_y_,
-                        mock_kp_z_);
+            if (mock_preset_ == "sonar_cable_9")
+            {
+                RCLCPP_WARN(LOGGER,
+                            "use_mock_keypoints=true: NOT subscribing; mock_preset=sonar_cable_9 "
+                            "(%zu points) every %.3fs frame=%s",
+                            MOCK_KP_SONAR_CABLE_9.size(),
+                            mock_period_sec_,
+                            mock_frame_id_.c_str());
+            }
+            else
+            {
+                if (mock_preset_ != "legacy_single")
+                {
+                    RCLCPP_ERROR(LOGGER,
+                                 "unknown mock_preset='%s', using legacy_single (mock_kp_*)",
+                                 mock_preset_.c_str());
+                    mock_preset_ = "legacy_single";
+                }
+                RCLCPP_WARN(LOGGER,
+                            "use_mock_keypoints=true: NOT subscribing; mock_preset=legacy_single "
+                            "every %.3fs frame=%s pt=(%.6f,%.6f,%.6f)",
+                            mock_period_sec_,
+                            mock_frame_id_.c_str(),
+                            mock_kp_x_,
+                            mock_kp_y_,
+                            mock_kp_z_);
+            }
         }
         else
         {
@@ -107,7 +432,7 @@ private:
 
         RCLCPP_INFO(LOGGER,
                     "keypoint_to_arm_tf: mock=%s sub=%s qos=%s depth=%d tf_latest_stamp=%s empty_frame_fallback=%s "
-                    "force_frame=%s -> [%s | %s]",
+                    "force_frame=%s -> [%s | %s] centerline_test=%s log_each_kp=%s",
                     use_mock_keypoints_ ? "on" : "off",
                     input_topic_.c_str(),
                     qos_best_effort_ ? "best_effort" : "reliable",
@@ -116,7 +441,21 @@ private:
                     source_frame_override_.c_str(),
                     force_source_frame_.empty() ? "(use msg header.frame_id)" : force_source_frame_.c_str(),
                     left_arm_frame_.c_str(),
-                    right_arm_frame_.c_str());
+                    right_arm_frame_.c_str(),
+                    centerline_grasp_test_ ? "true" : "false",
+                    log_each_keypoint_tf_ ? "true" : "false");
+        if (override_all_keypoints_y_)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "override_all_keypoints_y=true: all keypoints y <- %.6f (set false for live perception)",
+                        override_keypoint_y_value_);
+        }
+        if (override_all_keypoints_z_)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "override_all_keypoints_z=true: all keypoints z <- %.6f (set false for live perception)",
+                        override_keypoint_z_value_);
+        }
     }
 
     void onMockTimer()
@@ -124,22 +463,35 @@ private:
         auto msg = std::make_shared<sealien_ctrlpilot_msgmanagement::msg::Keypoints>();
         msg->header.stamp = now();
         msg->header.frame_id = mock_frame_id_;
-        msg->has_target = false;
+        msg->has_target = true;
         msg->corner_points[0].x = 0.0f;
         msg->corner_points[0].y = 0.0f;
         msg->corner_points[0].z = 0.0f;
         msg->corner_points[1].x = 0.0f;
         msg->corner_points[1].y = 0.0f;
         msg->corner_points[1].z = 0.0f;
-        msg->keypoints.resize(1);
-        msg->keypoints[0].x = static_cast<float>(mock_kp_x_);
-        msg->keypoints[0].y = static_cast<float>(mock_kp_y_);
-        msg->keypoints[0].z = static_cast<float>(mock_kp_z_);
+        if (mock_preset_ == "sonar_cable_9")
+        {
+            msg->keypoints.resize(MOCK_KP_SONAR_CABLE_9.size());
+            for (size_t k = 0; k < MOCK_KP_SONAR_CABLE_9.size(); ++k)
+            {
+                msg->keypoints[k].x = MOCK_KP_SONAR_CABLE_9[k][0];
+                msg->keypoints[k].y = MOCK_KP_SONAR_CABLE_9[k][1];
+                msg->keypoints[k].z = MOCK_KP_SONAR_CABLE_9[k][2];
+            }
+        }
+        else
+        {
+            msg->keypoints.resize(1);
+            msg->keypoints[0].x = static_cast<float>(mock_kp_x_);
+            msg->keypoints[0].y = static_cast<float>(mock_kp_y_);
+            msg->keypoints[0].z = static_cast<float>(mock_kp_z_);
+        }
         msg->yaw_degree = 0.0f;
         msg->score = 0.0f;
         msg->score_threshold = 0.0f;
         msg->use_score_threshold = false;
-        msg->is_available = false;
+        msg->is_available = true;
         processKeypoints(msg);
     }
 
@@ -151,8 +503,108 @@ private:
         processKeypoints(msg);
     }
 
+    bool tryTransformPoint(const std::string& frame_id, const rclcpp::Time& stamp,
+                           const geometry_msgs::msg::Point& pt, const std::string& target_frame,
+                           geometry_msgs::msg::Point* out_pt)
+    {
+        geometry_msgs::msg::PointStamped pt_in;
+        if (tf_use_latest_timestamp_)
+        {
+            pt_in.header.stamp = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+        }
+        else
+        {
+            pt_in.header.stamp = stamp;
+        }
+        pt_in.header.frame_id = frame_id;
+        pt_in.point = pt;
+        const tf2::Duration timeout = tf2::durationFromSec(tf_timeout_sec_);
+        try
+        {
+            geometry_msgs::msg::PointStamped pt_out = tf_buffer_.transform(pt_in, target_frame, timeout);
+            out_pt->x = pt_out.point.x;
+            out_pt->y = pt_out.point.y;
+            out_pt->z = pt_out.point.z;
+            return true;
+        }
+        catch (const tf2::TransformException& ex)
+        {
+            RCLCPP_WARN(LOGGER, "TF %s->%s: %s", frame_id.c_str(), target_frame.c_str(), ex.what());
+            return false;
+        }
+    }
+
     /*
-     * 解析源帧 → 将各 keypoint 变到左/右臂基座系并 INFO 打印；TF 异常 WARN 单点不阻断其余点。
+     * 中心线测试：在 left_arm_frame 下拟合，输出抓取点、轴向、侧抓姿态（INFO）。
+     */
+    void runCenterlineGraspTest(const std::string& source_frame, const rclcpp::Time& stamp,
+                                const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
+    {
+        std::vector<Eigen::Vector3d> cloud;
+        cloud.reserve(msg->keypoints.size());
+        for (const auto& kp : msg->keypoints)
+        {
+            geometry_msgs::msg::Point p_out;
+            if (!tryTransformPoint(source_frame, stamp, kp, left_arm_frame_, &p_out))
+            {
+                RCLCPP_WARN_THROTTLE(LOGGER, *get_clock(), 2000, "centerline_test: TF failed, abort line fit");
+                return;
+            }
+            cloud.push_back(pointToEigen(p_out));
+        }
+        if (cloud.size() < 2U)
+        {
+            RCLCPP_WARN_THROTTLE(LOGGER, *get_clock(), 2000, "centerline_test: need >=2 points after TF");
+            return;
+        }
+        Eigen::Vector3d mean;
+        Eigen::Vector3d axis_global = principalDirectionMax(cloud, &mean);
+        std::vector<Eigen::Vector3d> ordered = orderAlongDirection(cloud, axis_global, mean);
+        std::vector<Eigen::Vector3d> deduped = dedupeOrderedChain(ordered, dedupe_radius_m_);
+        if (deduped.size() < 2U)
+        {
+            RCLCPP_WARN_THROTTLE(LOGGER, *get_clock(), 2000, "centerline_test: dedupe left <2 points");
+            return;
+        }
+        std::vector<Eigen::Vector3d> smoothed = medianFilter3(deduped, median_window_);
+        const auto grasp_arc = polylinePointAtArcFraction(smoothed, grasp_arclength_fraction_);
+        const Eigen::Vector3d grasp_pos = grasp_arc.first;
+        const int seg_idx = grasp_arc.second;
+        Eigen::Vector3d seg_hint = smoothed[static_cast<size_t>(seg_idx + 1)] - smoothed[static_cast<size_t>(seg_idx)];
+        if (seg_hint.norm() < 1e-9)
+        {
+            seg_hint = axis_global;
+        }
+        const Eigen::Vector3d tangent = localPcaTangent(smoothed, seg_idx, local_fit_half_width_, seg_hint);
+        const geometry_msgs::msg::Quaternion q = sideGraspQuaternionFromAxis(tangent);
+
+        RCLCPP_INFO(LOGGER,
+                    "centerline_grasp [%s]: sorted=%zu deduped=%zu smooth=%zu grasp_s=%.3f",
+                    left_arm_frame_.c_str(),
+                    ordered.size(),
+                    deduped.size(),
+                    smoothed.size(),
+                    grasp_arclength_fraction_);
+        RCLCPP_INFO(LOGGER,
+                    "  object_pose.position: (%.6f, %.6f, %.6f)",
+                    grasp_pos.x(),
+                    grasp_pos.y(),
+                    grasp_pos.z());
+        RCLCPP_INFO(LOGGER,
+                    "  object_axis (tangent): (%.6f, %.6f, %.6f)",
+                    tangent.x(),
+                    tangent.y(),
+                    tangent.z());
+        RCLCPP_INFO(LOGGER,
+                    "  object_pose.orientation (side grasp): x=%.6f y=%.6f z=%.6f w=%.6f",
+                    q.x,
+                    q.y,
+                    q.z,
+                    q.w);
+    }
+
+    /*
+     * 解析源帧 → 将各 keypoint 变到左/右臂基座系并可选 INFO；可选中心线抓取测试。
      */
     void processKeypoints(const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
     {
@@ -168,6 +620,23 @@ private:
             return;
         }
 
+        if (override_all_keypoints_y_ || override_all_keypoints_z_)
+        {
+            const float y_fix = static_cast<float>(override_keypoint_y_value_);
+            const float z_fix = static_cast<float>(override_keypoint_z_value_);
+            for (auto& kp : msg->keypoints)
+            {
+                if (override_all_keypoints_y_)
+                {
+                    kp.y = y_fix;
+                }
+                if (override_all_keypoints_z_)
+                {
+                    kp.z = z_fix;
+                }
+            }
+        }
+
         std::string frame_id;
         if (!force_source_frame_.empty())
         {
@@ -180,6 +649,16 @@ private:
             {
                 frame_id = source_frame_override_;
             }
+        }
+
+        if (centerline_grasp_test_)
+        {
+            runCenterlineGraspTest(frame_id, msg->header.stamp, msg);
+        }
+
+        if (!log_each_keypoint_tf_)
+        {
+            return;
         }
 
         const tf2::Duration timeout = tf2::durationFromSec(tf_timeout_sec_);
@@ -257,6 +736,19 @@ private:
     double mock_kp_y_{0.0};
     double mock_kp_z_{0.0};
     double mock_period_sec_{1.0};
+    std::string mock_preset_{"legacy_single"};
+
+    bool centerline_grasp_test_{true};
+    bool log_each_keypoint_tf_{false};
+    double dedupe_radius_m_{0.03};
+    int median_window_{3};
+    int local_fit_half_width_{2};
+    double grasp_arclength_fraction_{0.5};
+
+    bool override_all_keypoints_y_{true};
+    double override_keypoint_y_value_{2.9};
+    bool override_all_keypoints_z_{true};
+    double override_keypoint_z_value_{0.0};
 };
 
 /*

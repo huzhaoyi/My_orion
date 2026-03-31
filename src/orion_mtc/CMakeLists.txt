@@ -59,6 +59,7 @@ set(ORION_MTC_SOURCES
 )
 
 add_executable(keypoint_to_arm_tf_node src/keypoint_to_arm_tf_node.cpp)
+target_link_libraries(keypoint_to_arm_tf_node Eigen3::Eigen)
 ament_target_dependencies(keypoint_to_arm_tf_node
   rclcpp
   geometry_msgs

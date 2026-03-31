@@ -12,7 +12,7 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
   robot_state_publisher 一致：sensor_camera1、sensor_left_roboticarm、sensor_right_roboticarm。
   需已运行机体 URDF + odom→base_link 等，使 TF 树完整。
 
-启动参数 use_mock_keypoints:=true 时不订阅 /keypoints，按参数注入假数据。
+启动参数 use_mock_keypoints:=true 时不订阅 /perception/sonar/keypoints，按参数注入假数据。
 
 generate_launch_description 经 OpaqueFunction 按 use_platform_tf/use_mock_keypoints 组合 static 与 keypoint 节点参数。
 """
@@ -26,10 +26,11 @@ def _launch_setup(context, *_args, **_kwargs):
     """根据 LaunchConfiguration 组装 static TF 列表与 keypoint_to_arm_tf 节点（平台模式省略 static）。"""
     use_mock = LaunchConfiguration("use_mock_keypoints").perform(context).lower() in ("true", "1", "yes")
     use_platform = LaunchConfiguration("use_platform_tf").perform(context).lower() in ("true", "1", "yes")
+    mock_preset = LaunchConfiguration("mock_preset").perform(context)
 
     if use_platform:
         keypoint_params = {
-            "input_topic": "/keypoints",
+            "input_topic": "/perception/sonar/keypoints",
             "source_frame_override": "sensor_camera1",
             "left_arm_frame": "sensor_left_roboticarm",
             "right_arm_frame": "sensor_right_roboticarm",
@@ -40,13 +41,14 @@ def _launch_setup(context, *_args, **_kwargs):
             "use_mock_keypoints": use_mock,
             "mock_frame_id": "sensor_camera1",
             "mock_kp_x": 0.0,
-            "mock_kp_y": 2.9054482685810803,
-            "mock_kp_z": -9.536743164059724e-05,
+            "mock_kp_y": 2.9,
+            "mock_kp_z": 0.0,
             "mock_period_sec": 1.0,
+            "mock_preset": mock_preset,
         }
     else:
         keypoint_params = {
-            "input_topic": "/keypoints",
+            "input_topic": "/perception/sonar/keypoints",
             "source_frame_override": "sensor_link",
             "left_arm_frame": "left_arm_base",
             "right_arm_frame": "right_arm_base",
@@ -57,9 +59,10 @@ def _launch_setup(context, *_args, **_kwargs):
             "use_mock_keypoints": use_mock,
             "mock_frame_id": "camera",
             "mock_kp_x": 0.0,
-            "mock_kp_y": 2.9054482685810803,
-            "mock_kp_z": -9.536743164059724e-05,
+            "mock_kp_y": 2.9,
+            "mock_kp_z": 0.0,
             "mock_period_sec": 1.0,
+            "mock_preset": mock_preset,
         }
 
     keypoint_node = Node(
@@ -161,7 +164,9 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "use_mock_keypoints",
                 default_value="false",
-                description="true：不订阅 /keypoints，用定时器注入假 Keypoints（与 ros2 echo 样例一致，可调参数 mock_kp_*）",
+                description=(
+                    "true：不订阅 /perception/sonar/keypoints，用定时器注入假 Keypoints（与 ros2 echo 样例一致，可调参数 mock_kp_*）"
+                ),
             ),
             DeclareLaunchArgument(
                 "use_platform_tf",
@@ -169,6 +174,13 @@ def generate_launch_description():
                 description=(
                     "true：仅启动 keypoint 节点，帧名对齐 sealien_ctrlpilot_location URDF（sensor_camera1、"
                     "sensor_left_roboticarm、sensor_right_roboticarm），不启动本地 static_transform_publisher"
+                ),
+            ),
+            DeclareLaunchArgument(
+                "mock_preset",
+                default_value="sonar_cable_9",
+                description=(
+                    "use_mock_keypoints 时注入方式：sonar_cable_9=内置 9 点（与 centerline 测试）；legacy_single=单点 mock_kp_*"
                 ),
             ),
             OpaqueFunction(function=_launch_setup),
