@@ -2,6 +2,11 @@
  * 或将 use_mock_keypoints 打开，用定时器注入假数据做离线 TF 测试。
  * centerline_grasp_test：去重 → 中值滤波 → 弧长抓取点 → PCA 切向 → 侧抓姿态；结果经话题发布（默认
  * /manipulator/object_pose_fused），不在此循环打 INFO。调试键位：log_each_keypoint_tf + log level DEBUG。
+ * 融合姿态可与 /object_pose（桥接）约定对齐：对侧抓四元数左乘标定四元数
+ * fused_grasp_orientation_correction_{w,x,y,z}（Eigen 序 w,x,y,z），即 q_out = q_corr * q_side，勿直连桥接话题。
+ * 标定：取同帧 q_bridge、q_side，q_corr = q_bridge * inverse(q_side)。
+ * fused_grasp_position_z_offset_m：变换到 output_grasp_frame 后在 pose.position.z 上叠加（m），用于与 /object_pose
+ * 桥接 z 对齐等场地标定。
  * override_all_keypoints_y/z 默认 false，使用消息内真实坐标；仅离线对齐调试时可设 true。 */
 
 #include <geometry_msgs/msg/point_stamped.hpp>
@@ -20,6 +25,7 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
 
 #include <algorithm>
 #include <array>
@@ -56,8 +62,9 @@ Eigen::Vector3d pointToEigen(const geometry_msgs::msg::Point& p)
  * 侧向抓取：先按与 object_pose 桥接相同的叉乘规则构造 R_legacy（列 x,y,z），再左乘 R_corr，
  * 使切向与 +Z 对齐时等价于绕 X 转 -90°（qx=-√2/2, qw=√2/2），与本节点测试 / gripper_tcp 约定一致。
  * R_corr = Rx(-90°) * Ry(-90°)，满足 R_corr * Ry(+90°) = Rx(-90°)。
+ * cable_axis_ref：整段 PCA 主轴（已定向），用于与局部切向同向，避免 a.z()>0 判据在水平缆附近抖动导致姿态正负跳变。
  */
-geometry_msgs::msg::Quaternion sideGraspQuaternionFromAxis(Eigen::Vector3d a)
+geometry_msgs::msg::Quaternion sideGraspQuaternionFromAxis(Eigen::Vector3d a, const Eigen::Vector3d& cable_axis_ref)
 {
     double n = a.norm();
     if (n < 1e-9)
@@ -68,7 +75,13 @@ geometry_msgs::msg::Quaternion sideGraspQuaternionFromAxis(Eigen::Vector3d a)
     {
         a /= n;
     }
-    if (a.z() < 0.0)
+    const double nr = cable_axis_ref.norm();
+    Eigen::Vector3d axis_align = Eigen::Vector3d(0.0, 0.0, 1.0);
+    if (nr > 1e-9)
+    {
+        axis_align = cable_axis_ref / nr;
+    }
+    if (a.dot(axis_align) < 0.0)
     {
         a = -a;
     }
@@ -104,11 +117,34 @@ geometry_msgs::msg::Quaternion sideGraspQuaternionFromAxis(Eigen::Vector3d a)
     Eigen::Matrix3d R = R_corr * R_legacy;
     Eigen::Quaterniond q(R);
     q.normalize();
+    if (q.w() < 0.0)
+    {
+        q.coeffs() *= -1.0;
+    }
     geometry_msgs::msg::Quaternion out;
     out.x = q.x();
     out.y = q.y();
     out.z = q.z();
     out.w = q.w();
+    return out;
+}
+
+/* 左乘标定：q_out = q_corr * q_side（与 base_link 下列向量变换一致） */
+geometry_msgs::msg::Quaternion applyFusedOrientationCorrection(const geometry_msgs::msg::Quaternion& q_side,
+                                                                 const Eigen::Quaterniond& q_corr)
+{
+    Eigen::Quaterniond q_in(q_side.w, q_side.x, q_side.y, q_side.z);
+    Eigen::Quaterniond q_out = q_corr * q_in;
+    q_out.normalize();
+    if (q_out.w() < 0.0)
+    {
+        q_out.coeffs() *= -1.0;
+    }
+    geometry_msgs::msg::Quaternion out;
+    out.x = q_out.x();
+    out.y = q_out.y();
+    out.z = q_out.z();
+    out.w = q_out.w();
     return out;
 }
 
@@ -141,6 +177,23 @@ Eigen::Vector3d principalDirectionMax(const std::vector<Eigen::Vector3d>& pts, E
     if (dir.norm() > 1e-9)
     {
         dir.normalize();
+        /* 特征向量 ±v 等价；固定符号使排序与帧间主轴一致，避免切向/姿态每帧翻转 */
+        const double ax = std::fabs(dir.x());
+        const double ay = std::fabs(dir.y());
+        const double az = std::fabs(dir.z());
+        int k = 0;
+        if (ay >= ax && ay >= az)
+        {
+            k = 1;
+        }
+        else if (az >= ax && az >= ay)
+        {
+            k = 2;
+        }
+        if (dir(static_cast<Eigen::Index>(k)) < 0.0)
+        {
+            dir = -dir;
+        }
     }
     else
     {
@@ -399,6 +452,42 @@ private:
             declare_parameter<std::string>("grasp_pose_topic", "/manipulator/object_pose_fused");
         grasp_axis_topic_ =
             declare_parameter<std::string>("grasp_axis_topic", "/manipulator/object_axis_fused");
+
+        const double corr_w = declare_parameter<double>("fused_grasp_orientation_correction_w", 1.0);
+        const double corr_x = declare_parameter<double>("fused_grasp_orientation_correction_x", 0.0);
+        const double corr_y = declare_parameter<double>("fused_grasp_orientation_correction_y", 0.0);
+        const double corr_z = declare_parameter<double>("fused_grasp_orientation_correction_z", 0.0);
+        fused_orientation_correction_ = Eigen::Quaterniond(corr_w, corr_x, corr_y, corr_z);
+        if (fused_orientation_correction_.norm() < 1e-9)
+        {
+            fused_orientation_correction_ = Eigen::Quaterniond::Identity();
+        }
+        else
+        {
+            fused_orientation_correction_.normalize();
+        }
+        if (std::abs(fused_orientation_correction_.w() - 1.0) > 1e-6 ||
+            std::abs(fused_orientation_correction_.x()) > 1e-6 ||
+            std::abs(fused_orientation_correction_.y()) > 1e-6 ||
+            std::abs(fused_orientation_correction_.z()) > 1e-6)
+        {
+            RCLCPP_INFO(LOGGER,
+                        "fused_grasp_orientation_correction wxyz=(%.6f,%.6f,%.6f,%.6f) left-multiply on side-grasp",
+                        fused_orientation_correction_.w(),
+                        fused_orientation_correction_.x(),
+                        fused_orientation_correction_.y(),
+                        fused_orientation_correction_.z());
+        }
+
+        fused_grasp_position_z_offset_m_ = declare_parameter<double>("fused_grasp_position_z_offset_m", 0.0);
+        if (std::fabs(fused_grasp_position_z_offset_m_) > 1e-9)
+        {
+            RCLCPP_INFO(LOGGER,
+                        "fused_grasp_position_z_offset_m=%.6f added to fused pose z in '%s'",
+                        fused_grasp_position_z_offset_m_,
+                        output_grasp_frame_.c_str());
+        }
+
         if (publish_fused_grasp_topics_)
         {
             pub_grasp_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>(grasp_pose_topic_, qos);
@@ -580,7 +669,7 @@ private:
         ps.pose.position.x = grasp_pos_body.x();
         ps.pose.position.y = grasp_pos_body.y();
         ps.pose.position.z = grasp_pos_body.z();
-        ps.pose.orientation = q_body;
+        ps.pose.orientation = applyFusedOrientationCorrection(q_body, fused_orientation_correction_);
 
         geometry_msgs::msg::Vector3Stamped vs;
         vs.header = ps.header;
@@ -597,8 +686,8 @@ private:
         const tf2::Duration timeout = tf2::durationFromSec(tf_timeout_sec_);
         try
         {
-            const geometry_msgs::msg::PoseStamped pose_out =
-                tf_buffer_.transform(ps, output_grasp_frame_, timeout);
+            geometry_msgs::msg::PoseStamped pose_out = tf_buffer_.transform(ps, output_grasp_frame_, timeout);
+            pose_out.pose.position.z += fused_grasp_position_z_offset_m_;
             const geometry_msgs::msg::Vector3Stamped axis_out =
                 tf_buffer_.transform(vs, output_grasp_frame_, timeout);
             pub_grasp_pose_->publish(pose_out);
@@ -658,7 +747,7 @@ private:
             seg_hint = axis_global;
         }
         const Eigen::Vector3d tangent = localPcaTangent(smoothed, seg_idx, local_fit_half_width_, seg_hint);
-        const geometry_msgs::msg::Quaternion q = sideGraspQuaternionFromAxis(tangent);
+        const geometry_msgs::msg::Quaternion q = sideGraspQuaternionFromAxis(tangent, axis_global);
         tryPublishFusedGrasp(stamp, q, grasp_pos, tangent);
     }
 
@@ -815,6 +904,8 @@ private:
     std::string grasp_axis_topic_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_grasp_pose_;
     rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_grasp_axis_;
+    Eigen::Quaterniond fused_orientation_correction_{1.0, 0.0, 0.0, 0.0};
+    double fused_grasp_position_z_offset_m_{0.0};
 };
 
 /*

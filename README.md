@@ -215,7 +215,8 @@ ros2 launch orion_moveit_config demo.launch.py
 
 **Keypoints → 两臂基座 TF 调试（可选）：**
 
-**轴向约定**：**红=X、绿=Y、蓝=Z**，右手系；**前方为机械臂**。`camera`→`sensor_link` 的旋转使典型 keypoint \((0,2.9,0)\) 经 \(R_{v\to r}\) 与臂安装平移后接近左臂 \((1.35,-0.565,0.283)\)；当前取 **循环置换** \(R_{v\to r}=[[0,1,0],[0,0,1],[1,0,0]]\)，\(R_{r\to v}=R_{v\to r}^\top\)（见 `keypoint_arm_tf.launch.py`）。平移与角度仍以现场标定为准。独立 launch 另含 **`sensor_link` → `left_arm_base` / `right_arm_base`** 平移；并启动 `keypoint_to_arm_tf_node`。节点默认使用 **`Keypoints.header.frame_id`**（空时回退 `source_frame_override`）；可选 **`force_source_frame`**。
+**轴向约定**：**红=X、绿=Y、蓝=Z**，右手系；**前方为机械臂**。**独立调试**（`tf_under_manipulator:=false`）下 `camera`→`sensor_link` 仍可用 **循环置换** \(R_{v\to r}=[[0,1,0],[0,0,1],[1,0,0]]\) 等历史约定；平移以现场为准。独立 launch 另含 **`sensor_link` → `left_arm_base` / `right_arm_base`** 平移；并启动 `keypoint_to_arm_tf_node`。节点默认使用 **`Keypoints.header.frame_id`**（空时回退 `source_frame_override`）；可选 **`force_source_frame`**。  
+**`tf_under_manipulator:=true`（如 pick_holoocean）** 下 **`base_link`→`camera`** 为 **绕 `camera` Z 轴 −90°** 与 **平移 (−1.55, −0.5653, 0.283628) m**（视觉点 \((x_v,y_v,z_v)\) 到 **`base_link`**：\(x_b=y_v-1.55,\; y_b=-x_v-0.5653,\; z_b=z_v+0.283628\)），与左臂安装约定一致；**不再**使用旧「链式逆」四元数 **(0.5,0.5,0.5,−0.5)**。
 
 ```bash
 ros2 launch orion_mtc keypoint_arm_tf.launch.py
@@ -233,7 +234,9 @@ ros2 launch orion_mtc keypoint_arm_tf.launch.py use_platform_tf:=true
 ros2 launch orion_mtc keypoint_arm_tf.launch.py use_mock_keypoints:=true
 ```
 
-参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false，与 `cable_detect` 等 **Reliable** 发布匹配；若发布端为 Best Effort 可改 true）、`qos_depth`；**`use_mock_keypoints`**（true 时不订阅，由定时器注入假 Keypoints）、**`mock_frame_id`**、**`mock_kp_x`** / **`mock_kp_y`** / **`mock_kp_z`**、**`mock_period_sec`**。
+参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false，与 `cable_detect` 等 **Reliable** 发布匹配；若发布端为 Best Effort 可改 true）、`qos_depth`；**`use_mock_keypoints`**（true 时不订阅，由定时器注入假 Keypoints）、**`mock_frame_id`**、**`mock_kp_x`** / **`mock_kp_y`** / **`mock_kp_z`**、**`mock_period_sec`**。  
+**融合姿态标定（可选）**：对中心线侧抓四元数 `q_side` 可左乘 **`fused_grasp_orientation_correction_w/x/y/z`**（`q_out = q_corr * q_side`）。**`tf_under_manipulator` 分支默认 `w=1,x=y=z=0`**（TF 已与视觉轴约定一致，一般无需再为位置叠补偿）。若与 **`/object_pose` 桥接** 姿态仍差，可按同帧 **`q_corr = q_bridge ⊗ inverse(q_side)`** 重算并写入 launch。  
+**融合位置 z（可选）**：变换到 **`output_grasp_frame`** 后可在 **`pose.position.z` 上叠加 `fused_grasp_position_z_offset_m`**；**`tf_under` 分支默认 `0`**（z 已含在静态 `base_link→camera` 平移内）。现场仍有系统误差时再改。
 
 测试发布（类型须与线上一致，例如 **sealien**）：
 

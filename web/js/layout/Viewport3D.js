@@ -90,7 +90,15 @@ function createLayerToggles(containerEl, sceneApiRef) {
         }
         if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
         if (t.key === 'showTargets') {
-          sceneApiRef.pickMarker.visible = cb.checked;
+          sceneApiRef.pickMarker.visible =
+            cb.checked && !!stateStore.getState().objectPoseValid;
+          if (sceneApiRef.pickMarkerFused) {
+            sceneApiRef.pickMarkerFused.visible = cb.checked;
+            const fv = !!stateStore.getState().fusedObjectPoseValid;
+            const mat = sceneApiRef.pickMarkerFused.material;
+            mat.transparent = !fv;
+            mat.opacity = fv ? 1.0 : 0.38;
+          }
         }
         if (t.key === 'showWorkspace') {
           const ws = sceneApiRef.world.getObjectByName('workspace_box');
@@ -233,7 +241,10 @@ function mount(containerId) {
     const tfScene = applyBaseLinkToScene(tf);
     if (sceneApi.pickMarkerFused) {
       sceneApi.pickMarkerFused.position.copy(tfScene);
-      sceneApi.pickMarkerFused.visible = layerToggles.showTargets && !!s.fusedObjectPoseValid;
+      sceneApi.pickMarkerFused.visible = layerToggles.showTargets;
+      const fmat = sceneApi.pickMarkerFused.material;
+      fmat.transparent = !s.fusedObjectPoseValid;
+      fmat.opacity = s.fusedObjectPoseValid ? 1.0 : 0.38;
     }
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {

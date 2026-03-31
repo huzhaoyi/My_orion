@@ -249,17 +249,56 @@ function setConnection(which, value) {
   setState(partial);
 }
 
+/*
+ * rosbridge 将 geometry_msgs 序列化为 JSON 时常把 float 编成 string；
+ * PerceptionCard 用 typeof === 'number' 会整段显示为「—」。此处统一成 number。
+ */
+function coercePoseFromMsg(poseStampedOrNull) {
+  if (!poseStampedOrNull || typeof poseStampedOrNull !== 'object') {
+    return null;
+  }
+  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  const pos = pose.position;
+  if (!pos || pos.x === undefined || pos.y === undefined || pos.z === undefined) {
+    return null;
+  }
+  const x = Number(pos.x);
+  const y = Number(pos.y);
+  const z = Number(pos.z);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    return null;
+  }
+  const orient = pose.orientation || {};
+  const ox = Number(orient.x);
+  const oy = Number(orient.y);
+  const oz = Number(orient.z);
+  const owRaw = Number(orient.w);
+  const quatOk =
+    Number.isFinite(ox) &&
+    Number.isFinite(oy) &&
+    Number.isFinite(oz) &&
+    Number.isFinite(owRaw);
+  const q = quatOk
+    ? { x: ox, y: oy, z: oz, w: owRaw }
+    : { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
+  return {
+    position: { x, y, z },
+    orientation: q,
+  };
+}
+
 function setObjectPose(poseStampedOrNull) {
   if (!poseStampedOrNull) {
     setState({ objectPose: null, objectPoseValid: false });
     return;
   }
-  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  const coerced = coercePoseFromMsg(poseStampedOrNull);
+  if (!coerced) {
+    setState({ objectPose: null, objectPoseValid: false });
+    return;
+  }
   setState({
-    objectPose: {
-      position: pose.position || { x: 0, y: 0, z: 0 },
-      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
-    },
+    objectPose: coerced,
     objectPoseValid: true,
     perceptionUpdatedAt: Date.now(),
   });
@@ -273,12 +312,16 @@ function setFusedObjectPose(poseStampedOrNull) {
     });
     return;
   }
-  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  const coerced = coercePoseFromMsg(poseStampedOrNull);
+  if (!coerced) {
+    setState({
+      fusedObjectPose: null,
+      fusedObjectPoseValid: false,
+    });
+    return;
+  }
   setState({
-    fusedObjectPose: {
-      position: pose.position || { x: 0, y: 0, z: 0 },
-      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
-    },
+    fusedObjectPose: coerced,
     fusedObjectPoseValid: true,
     fusedPerceptionUpdatedAt: Date.now(),
   });

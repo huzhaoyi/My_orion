@@ -7,8 +7,11 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
 - false（默认）：本地感知调试。分两种情况：
   * tf_under_manipulator=false（默认）：独立小 TF 树 camera→sensor_link→left_arm_base/right_arm_base；
     与 **仅** 含 base_link→Link* 的 URDF **不连通**，勿与 pick_holoocean 同时使用。
-  * tf_under_manipulator=true（如 pick_holoocean）：**不把** left_arm_base 挂在 sensor 下（避免与 URDF 链重名或断树），
-    改为 base_link→camera→sensor_link，中心线在 **base_link** 下拟合，可与 MTC 的 base_link 规划一致。
+  * tf_under_manipulator=true（如 pick_holoocean）：base_link→camera **非单位**，按视觉与臂基几何约定：
+    **平移** (-1.55,-0.5653,0.283628) m，**旋转**绕 camera Z 轴 −90°（四元数 qx=qy=0, qz=-qw=−√2/2），使
+    「camera 下点 (x_v,y_v,z_v)」到 base_link 为 (y_v−1.55, −x_v−0.5653, z_v+0.283628)，与 **左臂安装**一致；
+    **不再**使用旧的「链式逆」循环置换四元数 **(0.5,0.5,0.5,−0.5)**。感知链仍为 base_link→camera→sensor_link；
+    **tf_under 不播 left_arm_base**，中心线在 **base_link** 拟合。
 
 - true：对接 sealien_ctrlpilot_location（rov.urdf_simulate.xml 等）。仅启动 keypoint 节点；帧名与
   robot_state_publisher 一致：sensor_camera1、sensor_left_roboticarm、sensor_right_roboticarm。
@@ -57,6 +60,7 @@ def _launch_setup(context, *_args, **_kwargs):
         }
     elif tf_under and not use_platform:
         # pick_holoocean / MTC：URDF 为 world→base_link→Link*，无 left_arm_base；将感知树挂到 base_link。
+        # base_link→camera 已为 Rz(-90°)+平移，侧抓位置无需再叠 z 标定；q_corr 默认单位（若与桥接姿态仍差可再设参数）。
         keypoint_params = {
             "input_topic": "/perception/sonar/keypoints",
             "source_frame_override": "sensor_link",
@@ -73,6 +77,11 @@ def _launch_setup(context, *_args, **_kwargs):
             "mock_kp_z": 0.0,
             "mock_period_sec": 1.0,
             "mock_preset": mock_preset,
+            "fused_grasp_orientation_correction_w": 1.0,
+            "fused_grasp_orientation_correction_x": 0.0,
+            "fused_grasp_orientation_correction_y": 0.0,
+            "fused_grasp_orientation_correction_z": 0.0,
+            "fused_grasp_position_z_offset_m": 0.0,
         }
     else:
         keypoint_params = {
@@ -134,25 +143,27 @@ def _launch_setup(context, *_args, **_kwargs):
     )
 
     if tf_under:
+        # base_link→camera：Rz(-90°) + 平移，与手算 p_b=(y_v−1.55, −x_v−0.5653, z_v+0.283628) 一致（tf2：p_b=R p_c+t）。
+        # 勿与独立分支 left_arm 平移脱节：1.55/0.5653/0.283628 与 arm 安装约定一致时应同组修改。
         base_to_camera = Node(
             package="tf2_ros",
             executable="static_transform_publisher",
             name="static_base_link_to_camera",
             arguments=[
                 "--x",
-                "0",
+                "-1.55",
                 "--y",
-                "0",
+                "-0.5653",
                 "--z",
-                "0",
+                "0.283628",
                 "--qx",
                 "0",
                 "--qy",
                 "0",
                 "--qz",
-                "0",
+                "-0.7071067811865476",
                 "--qw",
-                "1",
+                "0.7071067811865476",
                 "--frame-id",
                 "base_link",
                 "--child-frame-id",
