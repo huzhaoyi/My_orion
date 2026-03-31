@@ -47,6 +47,10 @@ const initialState = {
   objectPoseValid: false,
   perceptionUpdatedAt: null,
   objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
+  // 视觉+声呐中心线融合链：/manipulator/object_pose_fused
+  fusedObjectPoseValid: false,
+  fusedObjectPose: null,
+  fusedPerceptionUpdatedAt: null,
   // 单缆绳：object_pose，无多目标集合
   rovPoseInBaseLink: null,  // ROV 在 base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
@@ -261,6 +265,25 @@ function setObjectPose(poseStampedOrNull) {
   });
 }
 
+function setFusedObjectPose(poseStampedOrNull) {
+  if (!poseStampedOrNull) {
+    setState({
+      fusedObjectPose: null,
+      fusedObjectPoseValid: false,
+    });
+    return;
+  }
+  const pose = poseStampedOrNull.pose || poseStampedOrNull;
+  setState({
+    fusedObjectPose: {
+      position: pose.position || { x: 0, y: 0, z: 0 },
+      orientation: pose.orientation || { x: 0, y: 0, z: 0, w: 1 },
+    },
+    fusedObjectPoseValid: true,
+    fusedPerceptionUpdatedAt: Date.now(),
+  });
+}
+
 function setJointState(names, positions) {
   setState({ jointNames: names || [], jointPositions: positions || [] });
 }
@@ -389,6 +412,7 @@ export default {
   setQueueList,
   setConnection,
   setObjectPose,
+  setFusedObjectPose,
   setJointState,
   setTrajectoryPoints,
   setRovPoseInBaseLink,

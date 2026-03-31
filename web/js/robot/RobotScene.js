@@ -244,6 +244,16 @@ function createScene(containerEl) {
   pickMarker.visible = false;
   targets.add(pickMarker);
 
+  /* 融合中心线抓取点（object_pose_fused）— 品红，略大于 legacy 便于区分 */
+  const FUSED_MARKER_COLOR = 0xd946ef;
+  const pickMarkerFused = new THREE.Mesh(
+    new THREE.SphereGeometry(PICK_MARKER_RADIUS * 1.15, 20, 20),
+    new THREE.MeshBasicMaterial({ color: FUSED_MARKER_COLOR })
+  );
+  pickMarkerFused.name = 'pick_target_fused';
+  pickMarkerFused.visible = false;
+  targets.add(pickMarkerFused);
+
   /* ROV 坐标系（base_link 下，由 rov_pose_in_base_link 更新） */
   const ROV_AXIS_SIZE = 0.12;
   const rovAxesGroup = new THREE.Group();
@@ -319,6 +329,7 @@ function createScene(containerEl) {
     targets,
     overlays,
     pickMarker,
+    pickMarkerFused,
     targetObjectComposed,
     rovAxesGroup,
     trajectoryLine,

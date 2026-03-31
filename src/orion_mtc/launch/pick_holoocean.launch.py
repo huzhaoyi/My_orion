@@ -2,6 +2,7 @@
 """
 抓取（MTC）与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSensor（right_arm 6DOF+夹爪）。
 启动 MoveIt + RViz + HoloOcean 桥接节点、rosbridge（网页上位机用）、MTC。
+默认同时包含 keypoint_to_arm_tf（融合抓取话题 object_pose_fused），可用 start_keypoint_to_arm_tf:=false 关闭。
 MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
 FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
 /holoocean/command/agent/arm，在 HoloOcean 中驱动机械臂（顺序：0=左臂，1=右臂）。
@@ -202,14 +203,58 @@ def generate_launch_description():
         ),
     )
 
+    keypoint_launch = os.path.join(orion_mtc_share, "launch", "keypoint_arm_tf.launch.py")
+
+    arg_tf_under = DeclareLaunchArgument(
+        "tf_under_manipulator",
+        default_value="true",
+        description="与 MoveIt demo 一致；true 时 TF 在 /manipulator/tf，keypoint 同步重映射",
+    )
+    arg_start_keypoint = DeclareLaunchArgument(
+        "start_keypoint_to_arm_tf",
+        default_value="true",
+        description="true：一并启动 keypoint_arm_tf.launch（默认订阅真实 /perception/sonar/keypoints；离线可 keypoint_use_mock_keypoints:=true）",
+    )
+    arg_keypoint_mock = DeclareLaunchArgument(
+        "keypoint_use_mock_keypoints",
+        default_value="false",
+        description="false：订阅真实 Keypoints；true：定时器注入假数据（离线调 TF）",
+    )
+    arg_keypoint_platform = DeclareLaunchArgument(
+        "keypoint_use_platform_tf",
+        default_value="false",
+        description="真机平台 URDF（sensor_camera1 等）时设 true，与 keypoint_arm_tf 一致",
+    )
+    arg_keypoint_preset = DeclareLaunchArgument(
+        "keypoint_mock_preset",
+        default_value="sonar_cable_9",
+        description="mock 预设，同 keypoint_arm_tf.launch",
+    )
+
+    keypoint_include = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(keypoint_launch),
+        launch_arguments=[
+            ("use_mock_keypoints", LaunchConfiguration("keypoint_use_mock_keypoints")),
+            ("use_platform_tf", LaunchConfiguration("keypoint_use_platform_tf")),
+            ("mock_preset", LaunchConfiguration("keypoint_mock_preset")),
+            ("tf_under_manipulator", LaunchConfiguration("tf_under_manipulator")),
+        ],
+        condition=IfCondition(LaunchConfiguration("start_keypoint_to_arm_tf")),
+    )
+
     actions = [
         arg_use_joy,
         arg_start_rviz,
+        arg_tf_under,
+        arg_start_keypoint,
+        arg_keypoint_mock,
+        arg_keypoint_platform,
+        arg_keypoint_preset,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_launch),
             launch_arguments=[
                 ("use_joint_state_gui", "false"),
-                ("tf_under_manipulator", "true"),
+                ("tf_under_manipulator", LaunchConfiguration("tf_under_manipulator")),
                 ("start_rviz", LaunchConfiguration("start_rviz")),
             ],
         ),
@@ -218,6 +263,7 @@ def generate_launch_description():
         cable_sensor_to_pose_node,
         joy_node,
         mtc_node,
+        keypoint_include,
     ]
 
     try:

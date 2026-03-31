@@ -20,7 +20,7 @@ class PickTaskBuilder
 public:
   PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCConfig& config);
 
-  /* 缆绳侧向包夹 + 分段碰撞：加入多段缆绳、仅对 local 段放宽 ACM、闭爪后删除全部段并短 retreat */
+  /* 缆绳侧向包夹 + 分段碰撞：闭爪后删段、短退、回预抓取位并在预抓取位再次闭爪 */
   moveit::task_constructor::Task buildFromCableCandidate(
       const std::vector<CableSegment>& segments,
       const CableGraspCandidate& candidate,

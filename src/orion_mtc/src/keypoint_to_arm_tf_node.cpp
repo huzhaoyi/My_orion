@@ -1,9 +1,13 @@
 /* 订阅 Keypoints（sealien_ctrlpilot_msgmanagement/msg/Keypoints；默认话题 /perception/sonar/keypoints），
  * 或将 use_mock_keypoints 打开，用定时器注入假数据做离线 TF 测试。
- * 可选 centerline_grasp_test：去重 → 中值滤波 → 弧长抓取点 → 局部直线(PCA)切向 → 侧抓姿态，在 grasp 规划系下 INFO 输出。 */
+ * centerline_grasp_test：去重 → 中值滤波 → 弧长抓取点 → PCA 切向 → 侧抓姿态；结果经话题发布（默认
+ * /manipulator/object_pose_fused），不在此循环打 INFO。调试键位：log_each_keypoint_tf + log level DEBUG。
+ * override_all_keypoints_y/z 默认 false，使用消息内真实坐标；仅离线对齐调试时可设 true。 */
 
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <sealien_ctrlpilot_msgmanagement/msg/keypoints.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
@@ -361,9 +365,9 @@ private:
         }
 
         /* 调试：将 keypoint.y / z 统一（接真机可调 false 关闭） */
-        override_all_keypoints_y_ = declare_parameter<bool>("override_all_keypoints_y", true);
+        override_all_keypoints_y_ = declare_parameter<bool>("override_all_keypoints_y", false);
         override_keypoint_y_value_ = declare_parameter<double>("override_keypoint_y_value", 2.9);
-        override_all_keypoints_z_ = declare_parameter<bool>("override_all_keypoints_z", true);
+        override_all_keypoints_z_ = declare_parameter<bool>("override_all_keypoints_z", false);
         override_keypoint_z_value_ = declare_parameter<double>("override_keypoint_z_value", 0.0);
 
         rclcpp::QoS qos(static_cast<size_t>(qos_depth_));
@@ -387,6 +391,23 @@ private:
         if (mock_period_sec_ < 0.05)
         {
             mock_period_sec_ = 0.05;
+        }
+
+        publish_fused_grasp_topics_ = declare_parameter<bool>("publish_fused_grasp_topics", true);
+        output_grasp_frame_ = declare_parameter<std::string>("output_grasp_frame", "base_link");
+        grasp_pose_topic_ =
+            declare_parameter<std::string>("grasp_pose_topic", "/manipulator/object_pose_fused");
+        grasp_axis_topic_ =
+            declare_parameter<std::string>("grasp_axis_topic", "/manipulator/object_axis_fused");
+        if (publish_fused_grasp_topics_)
+        {
+            pub_grasp_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>(grasp_pose_topic_, qos);
+            pub_grasp_axis_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(grasp_axis_topic_, qos);
+            RCLCPP_INFO(LOGGER,
+                        "publish_fused_grasp_topics: pose=%s axis=%s output_frame=%s",
+                        grasp_pose_topic_.c_str(),
+                        grasp_axis_topic_.c_str(),
+                        output_grasp_frame_.c_str());
         }
 
         if (use_mock_keypoints_)
@@ -535,7 +556,68 @@ private:
     }
 
     /*
-     * 中心线测试：在 left_arm_frame 下拟合，输出抓取点、轴向、侧抓姿态（INFO）。
+     * 将中心线抓取结果发布到 MTC FUSED 话题（变换到 output_grasp_frame_，默认 base_link）。
+     */
+    void tryPublishFusedGrasp(const rclcpp::Time& stamp_in,
+                              const geometry_msgs::msg::Quaternion& q_body,
+                              const Eigen::Vector3d& grasp_pos_body,
+                              const Eigen::Vector3d& tangent_body)
+    {
+        if (!publish_fused_grasp_topics_ || !pub_grasp_pose_ || !pub_grasp_axis_)
+        {
+            return;
+        }
+        geometry_msgs::msg::PoseStamped ps;
+        if (tf_use_latest_timestamp_)
+        {
+            ps.header.stamp = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+        }
+        else
+        {
+            ps.header.stamp = stamp_in;
+        }
+        ps.header.frame_id = left_arm_frame_;
+        ps.pose.position.x = grasp_pos_body.x();
+        ps.pose.position.y = grasp_pos_body.y();
+        ps.pose.position.z = grasp_pos_body.z();
+        ps.pose.orientation = q_body;
+
+        geometry_msgs::msg::Vector3Stamped vs;
+        vs.header = ps.header;
+        Eigen::Vector3d tu = tangent_body;
+        const double tn = tu.norm();
+        if (tn > 1e-9)
+        {
+            tu /= tn;
+        }
+        vs.vector.x = tu.x();
+        vs.vector.y = tu.y();
+        vs.vector.z = tu.z();
+
+        const tf2::Duration timeout = tf2::durationFromSec(tf_timeout_sec_);
+        try
+        {
+            const geometry_msgs::msg::PoseStamped pose_out =
+                tf_buffer_.transform(ps, output_grasp_frame_, timeout);
+            const geometry_msgs::msg::Vector3Stamped axis_out =
+                tf_buffer_.transform(vs, output_grasp_frame_, timeout);
+            pub_grasp_pose_->publish(pose_out);
+            pub_grasp_axis_->publish(axis_out);
+        }
+        catch (const tf2::TransformException& ex)
+        {
+            RCLCPP_WARN_THROTTLE(LOGGER,
+                                 *get_clock(),
+                                 2000,
+                                 "fused grasp publish: TF %s->%s failed: %s",
+                                 left_arm_frame_.c_str(),
+                                 output_grasp_frame_.c_str(),
+                                 ex.what());
+        }
+    }
+
+    /*
+     * 中心线测试：在 left_arm_frame 下拟合；侧抓位姿由 tryPublishFusedGrasp 发布，供 MTC/UI。
      */
     void runCenterlineGraspTest(const std::string& source_frame, const rclcpp::Time& stamp,
                                 const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
@@ -577,30 +659,7 @@ private:
         }
         const Eigen::Vector3d tangent = localPcaTangent(smoothed, seg_idx, local_fit_half_width_, seg_hint);
         const geometry_msgs::msg::Quaternion q = sideGraspQuaternionFromAxis(tangent);
-
-        RCLCPP_INFO(LOGGER,
-                    "centerline_grasp [%s]: sorted=%zu deduped=%zu smooth=%zu grasp_s=%.3f",
-                    left_arm_frame_.c_str(),
-                    ordered.size(),
-                    deduped.size(),
-                    smoothed.size(),
-                    grasp_arclength_fraction_);
-        RCLCPP_INFO(LOGGER,
-                    "  object_pose.position: (%.6f, %.6f, %.6f)",
-                    grasp_pos.x(),
-                    grasp_pos.y(),
-                    grasp_pos.z());
-        RCLCPP_INFO(LOGGER,
-                    "  object_axis (tangent): (%.6f, %.6f, %.6f)",
-                    tangent.x(),
-                    tangent.y(),
-                    tangent.z());
-        RCLCPP_INFO(LOGGER,
-                    "  object_pose.orientation (side grasp): x=%.6f y=%.6f z=%.6f w=%.6f",
-                    q.x,
-                    q.y,
-                    q.z,
-                    q.w);
+        tryPublishFusedGrasp(stamp, q, grasp_pos, tangent);
     }
 
     /*
@@ -611,7 +670,7 @@ private:
         if (!received_keypoints_once_)
         {
             received_keypoints_once_ = true;
-            RCLCPP_INFO(LOGGER, "first Keypoints processed (keypoints.size=%zu)", msg->keypoints.size());
+            RCLCPP_DEBUG(LOGGER, "first Keypoints processed (keypoints.size=%zu)", msg->keypoints.size());
         }
 
         if (msg->keypoints.empty())
@@ -685,25 +744,25 @@ private:
                 geometry_msgs::msg::PointStamped right_out =
                     tf_buffer_.transform(pt_in, right_arm_frame_, timeout);
 
-                RCLCPP_INFO(LOGGER,
-                            "keypoint[%zu] in '%s': (%.6f, %.6f, %.6f)",
-                            i,
-                            frame_id.c_str(),
-                            pt_in.point.x,
-                            pt_in.point.y,
-                            pt_in.point.z);
-                RCLCPP_INFO(LOGGER,
-                            "  -> '%s': (%.6f, %.6f, %.6f)",
-                            left_arm_frame_.c_str(),
-                            left_out.point.x,
-                            left_out.point.y,
-                            left_out.point.z);
-                RCLCPP_INFO(LOGGER,
-                            "  -> '%s': (%.6f, %.6f, %.6f)",
-                            right_arm_frame_.c_str(),
-                            right_out.point.x,
-                            right_out.point.y,
-                            right_out.point.z);
+                RCLCPP_DEBUG(LOGGER,
+                             "keypoint[%zu] in '%s': (%.6f, %.6f, %.6f)",
+                             i,
+                             frame_id.c_str(),
+                             pt_in.point.x,
+                             pt_in.point.y,
+                             pt_in.point.z);
+                RCLCPP_DEBUG(LOGGER,
+                             "  -> '%s': (%.6f, %.6f, %.6f)",
+                             left_arm_frame_.c_str(),
+                             left_out.point.x,
+                             left_out.point.y,
+                             left_out.point.z);
+                RCLCPP_DEBUG(LOGGER,
+                             "  -> '%s': (%.6f, %.6f, %.6f)",
+                             right_arm_frame_.c_str(),
+                             right_out.point.x,
+                             right_out.point.y,
+                             right_out.point.z);
             }
             catch (const tf2::TransformException& ex)
             {
@@ -745,10 +804,17 @@ private:
     int local_fit_half_width_{2};
     double grasp_arclength_fraction_{0.5};
 
-    bool override_all_keypoints_y_{true};
+    bool override_all_keypoints_y_{false};
     double override_keypoint_y_value_{2.9};
-    bool override_all_keypoints_z_{true};
+    bool override_all_keypoints_z_{false};
     double override_keypoint_z_value_{0.0};
+
+    bool publish_fused_grasp_topics_{true};
+    std::string output_grasp_frame_;
+    std::string grasp_pose_topic_;
+    std::string grasp_axis_topic_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_grasp_pose_;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_grasp_axis_;
 };
 
 /*

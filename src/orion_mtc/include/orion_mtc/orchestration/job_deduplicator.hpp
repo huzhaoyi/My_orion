@@ -26,9 +26,11 @@ public:
                      const std::string& current_job_type,
                      bool current_job_has_pose,
                      const geometry_msgs::msg::Pose& current_job_target_pose,
+                     GraspSource current_job_grasp_source,
                      JobType last_accepted_type,
                      bool last_accepted_has_pose,
                      const geometry_msgs::msg::Pose& last_accepted_pose,
+                     GraspSource last_accepted_grasp_source,
                      int64_t last_accepted_time_ns,
                      std::string* out_reason) const;
 

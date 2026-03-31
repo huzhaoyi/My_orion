@@ -3,6 +3,8 @@
 geometry_msgs/PoseStamped object_pose
 # 可选：物体 ID，用于日志与 held_object 上报
 string object_id
+# 0=LEGACY 感知链，1=FUSED（object_pose_fused / object_axis_fused）
+uint8 grasp_source
 ---
 # Result
 bool success

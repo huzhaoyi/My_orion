@@ -54,8 +54,10 @@ OrionMTCNode::~OrionMTCNode() = default;
 void OrionMTCNode::initModules()
 {
     object_pose_cache_ = std::make_shared<PoseCache>("");
+    object_pose_fused_cache_ = std::make_shared<PoseCache>("");
     target_cache_ = std::make_shared<TargetCache>();
     object_axis_cache_ = std::make_shared<Vector3Cache>("");
+    object_axis_fused_cache_ = std::make_shared<Vector3Cache>("");
     perception_snapshot_ = std::make_shared<PerceptionSnapshotProvider>(
         object_pose_cache_, target_cache_, action_client_node_->get_clock());
     target_selector_ = std::make_shared<TargetSelector>();
@@ -95,8 +97,11 @@ void OrionMTCNode::initModules()
         const double threshold = 0.5;
         return left_arm_gripped_.load() >= threshold;
     });
-    task_manager_->setGetLatestObjectPoseCallback([this]() { return object_pose_cache_->latest(); });
-    task_manager_->setGetLatestObjectAxisCallback([this]() { return object_axis_cache_->latest(); });
+    task_manager_->setGraspChainPerceptionCallbacks(
+        [this]() { return object_pose_cache_->latest(); },
+        [this]() { return object_axis_cache_->latest(); },
+        [this]() { return object_pose_fused_cache_->latest(); },
+        [this]() { return object_axis_fused_cache_->latest(); });
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(action_client_node_->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, false);
     task_manager_->setTransformToBaseLinkCallback(
@@ -140,6 +145,8 @@ void OrionMTCNode::initInterfaces()
                                      object_pose_cache_,
                                      target_cache_,
                                      object_axis_cache_,
+                                     object_pose_fused_cache_,
+                                     object_axis_fused_cache_,
                                      perception_snapshot_,
                                      target_selector_,
                                      &left_arm_gripped_ };

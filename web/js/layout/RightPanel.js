@@ -76,11 +76,12 @@ function renderTaskTab(container) {
       <div id="approval-result-container"></div>
     </div>
     <div class="card">
-      <div class="card-title">抓取</div>
+      <div class="card-title">抓取（二选一）</div>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-pick-send" class="primary btn-action">提交抓取</button>
+        <button type="button" id="btn-pick-legacy" class="primary btn-action" title="原先一路：感知/缆绳/重建等桥接到 /manipulator/object_pose（与 Keypoints 无关）">原抓取方式</button>
+        <button type="button" id="btn-pick-fused" class="primary btn-action" style="background:#a21caf;border-color:#86198f;" title="视觉 + 声呐 Keypoints → 中心线拟合 → /manipulator/object_pose_fused">视觉+声呐中心线</button>
       </div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">submit_job（异步入队），目标为当前话题物体位姿</p>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">左：原链路 object_pose；右：keypoint_to_arm_tf 发布的融合位姿（需话题有数据）。均 submit_job 异步入队。</p>
     </div>
     <div class="card">
       <div class="card-title">夹爪</div>
@@ -103,7 +104,8 @@ function renderTaskTab(container) {
       </div>
     </div>
   `;
-  container.querySelector('#btn-pick-send')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick')));
+  container.querySelector('#btn-pick-legacy')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick')));
+  container.querySelector('#btn-pick-fused')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:fused')));
   container.querySelector('#btn-task-emergency-stop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:emergency-stop')));
   container.querySelector('#btn-task-go-ready')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-to-ready')));
   container.querySelector('#btn-open-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:open-gripper')));

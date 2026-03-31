@@ -121,19 +121,48 @@ function registerGlobalHandlers() {
       const s = stateStore.getState();
       const objPose = s.objectPose;
       if (!objPose) {
-        stateStore.pushSystemLog('warn', '无缆绳目标 (object_pose)，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据（CableSensor 桥接）');
-        toast.warn('无物体位姿，无法提交抓取');
+        stateStore.pushSystemLog('warn', '原抓取方式：无 object_pose，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据（原感知桥接）');
+        toast.warn('无原链路位姿，无法提交「原抓取方式」');
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
       wsClient.submitJob({
         job_type: wsClient.JOB_TYPE.PICK,
+        grasp_source: wsClient.GRASP_SOURCE.LEGACY,
         object_pose,
         object_id: '',
       }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? `抓取已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
+        const msg = (v && v.message) || (ok ? `LEGACY 抓取已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
+        if (ok) wsClient.getQueueState(applyQueueStateToStore);
+      });
+    },
+    'orion:pick:fused': () => {
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', '未连接，无法提交 FUSED Pick');
+        toast.warn('未连接，无法提交抓取');
+        return;
+      }
+      const s = stateStore.getState();
+      const objPose = s.fusedObjectPose;
+      if (!objPose || !s.fusedObjectPoseValid) {
+        stateStore.pushSystemLog('warn', '视觉+声呐中心线：无 object_pose_fused，请确认 keypoint_to_arm_tf 与 Keypoints 话题');
+        toast.warn('无中心线融合位姿，无法提交「视觉+声呐中心线」');
+        return;
+      }
+      const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.PICK,
+        grasp_source: wsClient.GRASP_SOURCE.FUSED,
+        object_pose,
+        object_id: '',
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const msg = (v && v.message) || (ok ? `「视觉+声呐中心线」已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
         stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
         if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);

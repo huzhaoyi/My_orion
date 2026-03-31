@@ -48,8 +48,10 @@ private:
     MTCConfig config_;
     RuntimePolicy runtime_policy_;
     std::shared_ptr<PoseCache> object_pose_cache_;
+    std::shared_ptr<PoseCache> object_pose_fused_cache_;
     std::shared_ptr<TargetCache> target_cache_;
     std::shared_ptr<Vector3Cache> object_axis_cache_;
+    std::shared_ptr<Vector3Cache> object_axis_fused_cache_;
     std::shared_ptr<PerceptionSnapshotProvider> perception_snapshot_;
     std::shared_ptr<TargetSelector> target_selector_;
     std::shared_ptr<PlanningSceneManager> scene_manager_;

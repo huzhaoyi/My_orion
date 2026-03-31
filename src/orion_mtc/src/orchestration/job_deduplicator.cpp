@@ -72,9 +72,11 @@ bool JobDeduplicator::isDuplicate(const ManipulationJob& job,
                                   const std::string& current_job_type,
                                   bool current_job_has_pose,
                                   const geometry_msgs::msg::Pose& current_job_target_pose,
+                                  GraspSource current_job_grasp_source,
                                   JobType last_accepted_type,
                                   bool last_accepted_has_pose,
                                   const geometry_msgs::msg::Pose& last_accepted_pose,
+                                  GraspSource last_accepted_grasp_source,
                                   int64_t last_accepted_time_ns,
                                   std::string* out_reason) const
 {
@@ -88,7 +90,9 @@ bool JobDeduplicator::isDuplicate(const ManipulationJob& job,
 
     if (worker_status == WorkerStatus::RUNNING_JOB && current_job_type == type_str)
     {
-        if (job_has_pose && current_job_has_pose &&
+        const bool pick_chain_match = (job.type != JobType::PICK) ||
+                                      (job.grasp_source == current_job_grasp_source);
+        if (job_has_pose && current_job_has_pose && pick_chain_match &&
             posesNear(current_job_target_pose, job_pose, DEDUP_POS_TOL_M, DEDUP_QUAT_DOT_MIN))
         {
             if (out_reason != nullptr)
@@ -109,7 +113,9 @@ bool JobDeduplicator::isDuplicate(const ManipulationJob& job,
 
     if ((now_ns - last_accepted_time_ns) < DEDUP_TIME_WINDOW_NS && last_accepted_type == job.type)
     {
-        if (job_has_pose && last_accepted_has_pose &&
+        const bool pick_chain_match_accepted =
+            (job.type != JobType::PICK) || (job.grasp_source == last_accepted_grasp_source);
+        if (job_has_pose && last_accepted_has_pose && pick_chain_match_accepted &&
             posesNear(last_accepted_pose, job_pose, DEDUP_POS_TOL_M, DEDUP_QUAT_DOT_MIN))
         {
             if (out_reason != nullptr)

@@ -27,7 +27,7 @@ PickTaskBuilder::PickTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCC
 
 /*
  * 从缆段列表与侧向抓取候选组装完整 MTC Task：CurrentState → ready → Add 分段圆柱碰撞体 →
- * 开爪 → ACM 放宽自碰 → MoveRelative 接近/抓取/后退 → 闭爪与 scene 变更（attach/remove segment）等。
+ * 开爪 → ACM 放宽自碰 → 预抓/接近/闭爪 → 清 scene → 短退 → 回到预抓取位 → 再次闭爪。
  * plan_frame 与分段 object header 一致，供 MoveIt 在正确父系下解释 primitive 位姿。
  */
 mtc::Task PickTaskBuilder::buildFromCableCandidate(
@@ -162,10 +162,24 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
   auto stage_retreat = std::make_unique<mtc::stages::MoveRelative>("retreat short", cartesian_planner);
   stage_retreat->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
   stage_retreat->setMinMaxDistance(static_cast<float>(candidate.retreat_dist),
-                                  static_cast<float>(candidate.retreat_dist));
+                                   static_cast<float>(candidate.retreat_dist));
   stage_retreat->setIKFrame(hand_frame);
   stage_retreat->setDirection(retreat_v);
   grasp->insert(std::move(stage_retreat));
+
+  pregrasp_ps.header.stamp = node_->now();
+  auto stage_pregrasp_holding = std::make_unique<mtc::stages::MoveTo>("move to pregrasp (holding)", ptp_planner);
+  stage_pregrasp_holding->setGroup(arm_group_name);
+  stage_pregrasp_holding->setGoal(pregrasp_ps);
+  stage_pregrasp_holding->setIKFrame(hand_frame);
+  grasp->insert(std::move(stage_pregrasp_holding));
+
+  {
+    auto stage_close_final = std::make_unique<mtc::stages::MoveTo>("close hand (at pregrasp)", interpolation_planner);
+    stage_close_final->setGroup(hand_group_name);
+    stage_close_final->setGoal("close");
+    grasp->insert(std::move(stage_close_final));
+  }
 
   task.add(std::move(grasp));
   return task;

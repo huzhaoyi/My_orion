@@ -57,6 +57,8 @@ static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
     "close hand",
     "remove_cable_segments",
     "retreat short",
+    "move to pregrasp (holding)",
+    "close hand (at pregrasp)",
 };
 
 namespace
@@ -138,7 +140,8 @@ std::string TaskManager::genTaskId(const char* prefix)
  * object_id 空时持物场景标记默认为 "cable"。
  */
 bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
-                             const std::string& object_id)
+                             const std::string& object_id,
+                             GraspSource grasp_source)
 {
   if (estop_requested_.load())
   {
@@ -175,12 +178,23 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
 
   /* 支持世界系输入：变换到 base_link 后再规划。规划系必须与机械臂 base_link 一致（URDF 改加 ROV 后根为 world，但 base_link 仍为臂根）。 */
   RCLCPP_INFO(LOGGER,
-              "handlePick: 收到 object_pose frame_id=%s pos=(%.4f, %.4f, %.4f) [规划系应为机械臂 base_link]",
+              "handlePick: 收到 object_pose frame_id=%s pos=(%.4f, %.4f, %.4f) grasp_source=%s "
+              "[规划系应为机械臂 base_link]",
               object_pose.header.frame_id.c_str(),
-              object_pose.pose.position.x, object_pose.pose.position.y, object_pose.pose.position.z);
+              object_pose.pose.position.x,
+              object_pose.pose.position.y,
+              object_pose.pose.position.z,
+              graspSourceToCString(grasp_source));
   geometry_msgs::msg::PoseStamped pose_base = object_pose;
-  std::optional<geometry_msgs::msg::Vector3Stamped> axis_stamped =
-      get_latest_object_axis_fn_ ? get_latest_object_axis_fn_() : std::nullopt;
+  std::optional<geometry_msgs::msg::Vector3Stamped> axis_stamped;
+  if (grasp_source == GraspSource::FUSED && get_latest_object_axis_fused_fn_)
+  {
+    axis_stamped = get_latest_object_axis_fused_fn_();
+  }
+  else if (grasp_source != GraspSource::FUSED && get_latest_object_axis_legacy_fn_)
+  {
+    axis_stamped = get_latest_object_axis_legacy_fn_();
+  }
   if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
   {
     geometry_msgs::msg::Vector3Stamped* axis_ptr = axis_stamped.has_value() ? &(*axis_stamped) : nullptr;
@@ -230,17 +244,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   {
     axis_v = axis_stamped->vector;
   }
-  else if (get_latest_object_axis_fn_)
+  const bool has_axis_cb = (grasp_source == GraspSource::FUSED)
+                               ? static_cast<bool>(get_latest_object_axis_fused_fn_)
+                               : static_cast<bool>(get_latest_object_axis_legacy_fn_);
+  if (!has_axis_cb && !axis_stamped.has_value())
   {
-    std::optional<geometry_msgs::msg::Vector3Stamped> opt = get_latest_object_axis_fn_();
-    if (opt.has_value())
-    {
-      axis_v = opt->vector;
-    }
-  }
-  if (!get_latest_object_axis_fn_ && !axis_stamped.has_value())
-  {
-    RCLCPP_WARN(LOGGER, "handlePick: no object_axis callback, need cable direction for side grasp");
+    RCLCPP_WARN(LOGGER, "handlePick: no object_axis callback for grasp_source=%s, need cable direction",
+                graspSourceToCString(grasp_source));
   }
 
   const double axis_norm = std::sqrt(axis_v.x * axis_v.x + axis_v.y * axis_v.y + axis_v.z * axis_v.z);
@@ -699,14 +709,26 @@ void TaskManager::setGripperLockedCallback(std::function<bool()> fn)
 void TaskManager::setGetLatestObjectPoseCallback(
     std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fn)
 {
-  get_latest_object_pose_fn_ = std::move(fn);
+  get_latest_object_pose_legacy_fn_ = std::move(fn);
 }
 
 /* 提供缆绳轴向 Vector3Stamped；handlePick 与 TF 回调配合 transform_to_base_link_fn_ 使用。 */
 void TaskManager::setGetLatestObjectAxisCallback(
     std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn)
 {
-  get_latest_object_axis_fn_ = std::move(fn);
+  get_latest_object_axis_legacy_fn_ = std::move(fn);
+}
+
+void TaskManager::setGraspChainPerceptionCallbacks(
+    std::function<std::optional<geometry_msgs::msg::PoseStamped>()> legacy_pose,
+    std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> legacy_axis,
+    std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fused_pose,
+    std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fused_axis)
+{
+  get_latest_object_pose_legacy_fn_ = std::move(legacy_pose);
+  get_latest_object_axis_legacy_fn_ = std::move(legacy_axis);
+  get_latest_object_pose_fused_fn_ = std::move(fused_pose);
+  get_latest_object_axis_fused_fn_ = std::move(fused_axis);
 }
 
 /* 将 PoseStamped（及可选 Vector3Stamped 轴）从感知系变换到 base_link；失败则保留原 frame_id 并打 WARN。 */
@@ -954,8 +976,10 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
   {
     std::lock_guard<std::mutex> lock(worker_mutex_);
     if (job_deduplicator_.isDuplicate(j, now_ns, worker_status_, current_job_type_,
-                                        current_job_has_pose_, current_job_target_pose_, last_accepted_type_,
-                                        last_accepted_has_pose_, last_accepted_pose_, last_accepted_time_ns_,
+                                        current_job_has_pose_, current_job_target_pose_, current_job_grasp_source_,
+                                        last_accepted_type_,
+                                        last_accepted_has_pose_, last_accepted_pose_, last_accepted_grasp_source_,
+                                        last_accepted_time_ns_,
                                         &reject_reason))
     {
       RCLCPP_WARN(LOGGER, "submitJob rejected: type=%s source=%s reason=%s",
@@ -975,6 +999,10 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
     last_accepted_type_ = j.type;
     last_accepted_has_pose_ = JobDeduplicator::getJobPoseForDedup(j, &last_accepted_pose_);
     last_accepted_time_ns_ = j.created_at_ns;
+    if (j.type == JobType::PICK)
+    {
+      last_accepted_grasp_source_ = j.grasp_source;
+    }
   }
 
   queue_->push(j);
@@ -1024,6 +1052,7 @@ void TaskManager::stopWorker()
     current_job_id_.clear();
     current_job_type_.clear();
     current_job_has_pose_ = false;
+    current_job_grasp_source_ = GraspSource::LEGACY;
   }
   RCLCPP_INFO(LOGGER, "stopWorker: stopped");
 }
@@ -1215,6 +1244,8 @@ void TaskManager::workerLoop()
       current_job_id_ = job.job_id;
       current_job_type_ = jobTypeToCString(job.type);
       current_job_has_pose_ = JobDeduplicator::getJobPoseForDedup(job, &current_job_target_pose_);
+      current_job_grasp_source_ =
+          (job.type == JobType::PICK) ? job.grasp_source : GraspSource::LEGACY;
     }
     if (job_event_fn_)
     {
@@ -1246,6 +1277,7 @@ void TaskManager::workerLoop()
       current_job_id_.clear();
       current_job_type_.clear();
       current_job_has_pose_ = false;
+      current_job_grasp_source_ = GraspSource::LEGACY;
       worker_status_ = ok ? WorkerStatus::IDLE : WorkerStatus::ERROR;
     }
     if (!ok)
@@ -1295,31 +1327,43 @@ bool TaskManager::executeJob(const ManipulationJob& job)
   {
     case JobType::PICK:
     {
-      /* 目标点仅来自话题：没有话题更新则不规划（无当前目标） */
-      if (!get_latest_object_pose_fn_)
+      std::function<std::optional<geometry_msgs::msg::PoseStamped>()> pose_fn;
+      if (job.grasp_source == GraspSource::FUSED)
       {
-        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose topic callback, cannot plan");
+        pose_fn = get_latest_object_pose_fused_fn_;
+      }
+      else
+      {
+        pose_fn = get_latest_object_pose_legacy_fn_;
+      }
+      if (!pose_fn)
+      {
+        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose callback for grasp_source=%s, cannot plan",
+                     graspSourceToCString(job.grasp_source));
         return false;
       }
-      std::optional<geometry_msgs::msg::PoseStamped> latest = get_latest_object_pose_fn_();
+      std::optional<geometry_msgs::msg::PoseStamped> latest = pose_fn();
       if (!latest.has_value())
       {
-        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose from topic (no target), skip plan");
+        RCLCPP_ERROR(LOGGER,
+                     "executeJob PICK: no object_pose from topic for grasp_source=%s (no target), skip plan",
+                     graspSourceToCString(job.grasp_source));
         return false;
       }
 
-      /* 缆绳侧向抓取：object_pose/object_axis 由话题提供，规划时用侧抓候选。 */
+      /* 缆绳侧向抓取：object_pose/object_axis 由对应链话题提供，规划时用侧抓候选。 */
       double lx = latest->pose.position.x;
       double ly = latest->pose.position.y;
       double lz = latest->pose.position.z;
       RCLCPP_INFO(LOGGER,
-                  "executeJob PICK: 感知状态目标点 frame_id=%s x=%.3f y=%.3f z=%.3f (缆绳中心，approach 后 gripper_tcp 将到此点)",
-                  latest->header.frame_id.c_str(), lx, ly, lz);
+                  "executeJob PICK: grasp_source=%s 目标点 frame_id=%s x=%.3f y=%.3f z=%.3f "
+                  "(缆绳中心，approach 后 gripper_tcp 将到此点)",
+                  graspSourceToCString(job.grasp_source), latest->header.frame_id.c_str(), lx, ly, lz);
       if (std::abs(lx) < 1e-6 && std::abs(ly) < 1e-6 && std::abs(lz) < 1e-6)
       {
-        RCLCPP_WARN(LOGGER, "executeJob PICK: 目标点接近 (0,0,0)，请检查 bridge 是否发布有效 object_pose");
+        RCLCPP_WARN(LOGGER, "executeJob PICK: 目标点接近 (0,0,0)，请检查对应抓取链是否发布有效 object_pose");
       }
-      return handlePick(latest.value(), job.object_id);
+      return handlePick(latest.value(), job.object_id, job.grasp_source);
     }
     case JobType::RESET_HELD_OBJECT:
     {

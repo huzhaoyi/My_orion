@@ -54,7 +54,8 @@ public:
 
   ~TaskManager();
 
-  bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id);
+  bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id,
+                  GraspSource grasp_source = GraspSource::LEGACY);
 
   bool handleSyncHeldObject(bool set_holding, bool tracked,
                            const std::string& object_id,
@@ -71,6 +72,16 @@ public:
 
   void setGetLatestObjectAxisCallback(
       std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn);
+
+  /*
+   * 双感知链：LEGACY 对应 /object_pose、/object_axis；FUSED 对应 /object_pose_fused、/object_axis_fused。
+   * 若仅调用 setGetLatestObjectPoseCallback 而未设 fused，则 fused 回调为空，FUSED job 会失败。
+   */
+  void setGraspChainPerceptionCallbacks(
+      std::function<std::optional<geometry_msgs::msg::PoseStamped>()> legacy_pose,
+      std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> legacy_axis,
+      std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fused_pose,
+      std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fused_axis);
 
   using TransformToBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
@@ -173,8 +184,10 @@ private:
   SolutionExecutor* solution_executor_;
   WaitForGrippedFn wait_for_gripped_fn_;
   std::function<bool()> is_gripper_locked_fn_;
-  std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fn_;
-  std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fn_;
+  std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_legacy_fn_;
+  std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_legacy_fn_;
+  std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fused_fn_;
+  std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fused_fn_;
   TransformToBaseLinkFn transform_to_base_link_fn_;
   FeasibilityChecker* feasibility_checker_ = nullptr;
 
@@ -205,10 +218,12 @@ private:
   std::string current_job_type_;
   geometry_msgs::msg::Pose current_job_target_pose_;
   bool current_job_has_pose_ = false;
+  GraspSource current_job_grasp_source_ = GraspSource::LEGACY;
 
   JobType last_accepted_type_ = JobType::PICK;
   geometry_msgs::msg::Pose last_accepted_pose_;
   bool last_accepted_has_pose_ = false;
+  GraspSource last_accepted_grasp_source_ = GraspSource::LEGACY;
   int64_t last_accepted_time_ns_ = 0;
 
   mutable std::mutex records_mutex_;

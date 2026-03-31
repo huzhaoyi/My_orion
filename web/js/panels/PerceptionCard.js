@@ -33,9 +33,15 @@ function render(parentEl) {
   function update(s) {
     if (!wrap.isConnected) return;
     const state = s != null ? s : stateStore.getState();
-    const objPose = state.objectPoseValid && state.objectPose ? state.objectPose : null;
+    const objPose = state.objectPose || null;
     const objPos = objPose ? objPose.position : null;
     const objQuat = objPose ? objPose.orientation : null;
+    const fusedPose = state.fusedObjectPose || null;
+    const fusedPos = fusedPose ? fusedPose.position : null;
+    const fusedQuat = fusedPose ? fusedPose.orientation : null;
+    const tfu = state.fusedPerceptionUpdatedAt
+      ? new Date(state.fusedPerceptionUpdatedAt).toLocaleTimeString()
+      : '—';
     const rovBase = state.rovPoseInBaseLink || null;
     const rovWorld = state.rovPoseInWorld || null;
     const rovPosBase = rovBase ? rovBase.position : null;
@@ -45,25 +51,38 @@ function render(parentEl) {
     const t = state.perceptionUpdatedAt
       ? new Date(state.perceptionUpdatedAt).toLocaleTimeString()
       : '—';
+
     wrap.innerHTML = `
       <div class="card-title">感知状态</div>
       <div class="perception-card__pose-block">
         <div class="card-row">
-          <span class="card-label">目标：缆绳 (base_link)</span>
-          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">长度 3m，直径 5cm</span>
+          <span class="card-label">原抓取方式 · 目标位姿</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">/object_pose（感知桥接）· base_link</span>
         </div>
         <div class="card-row card-row--indent">
           <span class="card-label">位置 (m)</span>
-          <span class="card-value">${state.objectPoseValid ? fmtPos(objPos) : '无效'}</span>
+          <span class="card-value">${fmtPos(objPos)}</span>
         </div>
         <div class="card-row card-row--indent">
           <span class="card-label">姿态 (四元数)</span>
           <span class="card-value perception-card__quat">${objQuat ? fmtQuat(objQuat) : '—'}</span>
         </div>
-        <div class="card-row card-row--indent">
-          <span class="card-label">说明</span>
-          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">base_link=机械臂基座坐标系</span>
+        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${t}</span></div>
+      </div>
+      <div class="perception-card__pose-block perception-card__pose-block--fused">
+        <div class="card-row">
+          <span class="card-label">视觉+声呐 · 中心线抓取点</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">/object_pose_fused · Keypoints 拟合 · base_link</span>
         </div>
+        <div class="card-row card-row--indent">
+          <span class="card-label">位置 (m)</span>
+          <span class="card-value">${fmtPos(fusedPos)}</span>
+        </div>
+        <div class="card-row card-row--indent">
+          <span class="card-label">姿态</span>
+          <span class="card-value perception-card__quat">${fusedQuat ? fmtQuat(fusedQuat) : '—'}</span>
+        </div>
+        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${tfu}</span></div>
       </div>
       <div class="perception-card__pose-block">
         <div class="card-row"><span class="card-label">ROV位姿 (map)</span></div>
@@ -75,7 +94,6 @@ function render(parentEl) {
         <div class="card-row card-row--indent"><span class="card-label">位置</span><span class="card-value">${rovPosBase ? fmtPos(rovPosBase) : '—'}</span></div>
         <div class="card-row card-row--indent"><span class="card-label">姿态</span><span class="card-value perception-card__quat">${rovQuatBase ? fmtQuat(rovQuatBase) : '—'}</span></div>
       </div>
-      <div class="card-row"><span class="card-label">更新时间</span><span class="card-value">${t}</span></div>
     `;
   }
 

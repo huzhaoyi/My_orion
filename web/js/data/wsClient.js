@@ -5,7 +5,8 @@
  *   /manipulator/job_event        (JobEvent)   — 注意单数
  *   /manipulator/task_stage       (TaskStage)  — 注意单数
  *   /manipulator/held_object_state (HeldObjectState)
- *   /manipulator/object_pose (PoseStamped，来自 CableSensor 缆绳单目标)
+ *   /manipulator/object_pose（原抓取方式：各类感知桥接）
+ *   /manipulator/object_pose_fused（视觉+声呐 Keypoints 中心线）
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
@@ -117,6 +118,7 @@ function subscribeTopics() {
     prefix + '/job_event',
     prefix + '/task_stage',
     prefix + '/held_object_state',
+    prefix + '/object_pose_fused',
     prefix + '/object_pose',
     prefix + '/perception_state',
     prefix + '/joint_states',
@@ -143,6 +145,7 @@ function inferType(topic) {
   if (topic.includes('task_stage')) return 'orion_mtc_msgs/msg/TaskStage';
   if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
+  if (topic.endsWith('/object_pose_fused')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
   if (topic.endsWith('/manual_mode')) return 'std_msgs/msg/Bool';
@@ -195,6 +198,10 @@ function handleMessage(data) {
   }
   if (data.topic && data.topic.endsWith('/held_object_state') && data.msg) {
     stateStore.applyHeldObjectState(data.msg);
+    return;
+  }
+  if (data.topic && data.topic.endsWith('/object_pose_fused') && data.msg) {
+    stateStore.setFusedObjectPose(data.msg);
     return;
   }
   if (data.topic && data.topic.endsWith('/object_pose') && data.msg) {
@@ -284,6 +291,12 @@ const JOB_TYPE = {
   CLOSE_GRIPPER: 4,
 };
 
+/** 与 ManipulationJob.grasp_source 一致：0=LEGACY，1=FUSED。 */
+const GRASP_SOURCE = {
+  LEGACY: 0,
+  FUSED: 1,
+};
+
 /** 构造简化 geometry_msgs/PoseStamped 字面量（供 submit_job 嵌套）。 */
 function buildPoseStamped(position, orientation, frameId = 'base_link') {
   return {
@@ -306,6 +319,7 @@ function submitJob(options, callback) {
     object_id = '',
     tracked = false,
     priority = 0,
+    grasp_source = GRASP_SOURCE.LEGACY,
   } = options;
   const args = {
     job_type,
@@ -313,6 +327,7 @@ function submitJob(options, callback) {
     object_id,
     tracked,
     priority,
+    grasp_source,
   };
   if (target_pose) args.target_pose = target_pose.header ? target_pose : buildPoseStamped(target_pose.pose?.position || target_pose.position, target_pose.pose?.orientation || target_pose.orientation);
   if (object_pose) args.object_pose = object_pose.header ? object_pose : buildPoseStamped(object_pose.pose?.position || object_pose.position, object_pose.pose?.orientation || object_pose.orientation);
@@ -371,6 +386,7 @@ export default {
   getJoyUiPrefix,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
   JOB_TYPE,
+  GRASP_SOURCE,
   buildPoseStamped,
   submitJob,
   getQueueState,

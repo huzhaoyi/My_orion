@@ -61,9 +61,27 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         ns + "/object_axis", 10, [this](const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) {
             ctx_.object_axis_cache->update(*msg);
         });
+    if (ctx_.object_pose_fused_cache)
+    {
+        sub_object_pose_fused_ = ctx_.action_client_node->create_subscription<geometry_msgs::msg::PoseStamped>(
+            ns + "/object_pose_fused", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+                ctx_.object_pose_fused_cache->update(*msg);
+            });
+    }
+    if (ctx_.object_axis_fused_cache)
+    {
+        sub_object_axis_fused_ = ctx_.action_client_node->create_subscription<geometry_msgs::msg::Vector3Stamped>(
+            ns + "/object_axis_fused", 10, [this](const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) {
+                ctx_.object_axis_fused_cache->update(*msg);
+            });
+    }
     sub_pick_trigger_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
         ns + "/pick_trigger", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
             onPickTriggerReceived(msg);
+        });
+    sub_pick_trigger_fused_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
+        ns + "/pick_trigger_fused", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
+            onPickTriggerFusedReceived(msg);
         });
     sub_left_arm_gripped_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Float32>(
         ns + "/left_arm_gripped", 10, [this](const std_msgs::msg::Float32::SharedPtr msg) {
@@ -273,8 +291,7 @@ void ManipulatorRosInterface::publishRuntimeStatus()
 }
 
 /*
- * pick_trigger 话题：后台线程中组 ManipulationJob，优先 TargetSelector，否则 object_pose 缓存，可等待最多 3s；
- * gripper locked 则拒绝入队；submitJob 结果打 INFO/WARN。
+ * pick_trigger：LEGACY 链；后台组 job，优先 TargetSelector，否则 legacy object_pose 缓存，可等待最多 3s。
  */
 void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr)
 {
@@ -288,6 +305,7 @@ void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::
         }
         ManipulationJob job;
         job.type = JobType::PICK;
+        job.grasp_source = GraspSource::LEGACY;
         job.object_id = "";
         job.source = "topic_pick_trigger";
         std::optional<geometry_msgs::msg::PoseStamped> topic_pose;
@@ -320,6 +338,54 @@ void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::
         else
         {
             RCLCPP_INFO(ctx_.logger, "topic_pick_trigger: accepted job_id=%s", job_id.c_str());
+        }
+    }).detach();
+}
+
+/*
+ * pick_trigger_fused：FUSED 链；仅用 object_pose_fused 缓存（不用 TargetSelector）。
+ */
+void ManipulatorRosInterface::onPickTriggerFusedReceived(const std_msgs::msg::Empty::SharedPtr)
+{
+    std::thread([this]() {
+        if (isGripperLocked())
+        {
+            RCLCPP_WARN(ctx_.logger,
+                        "topic_pick_trigger_fused: gripper locked (has object), not enqueued (reset_held_object "
+                        "or open_gripper first)");
+            return;
+        }
+        if (!ctx_.object_pose_fused_cache)
+        {
+            RCLCPP_WARN(ctx_.logger, "topic_pick_trigger_fused: fused pose cache not configured");
+            return;
+        }
+        ManipulationJob job;
+        job.type = JobType::PICK;
+        job.grasp_source = GraspSource::FUSED;
+        job.object_id = "";
+        job.source = "topic_pick_trigger_fused";
+        std::optional<geometry_msgs::msg::PoseStamped> topic_pose = ctx_.object_pose_fused_cache->latest();
+        if (!topic_pose.has_value())
+        {
+            geometry_msgs::msg::PoseStamped pose;
+            if (!ctx_.object_pose_fused_cache->waitForPose(std::chrono::milliseconds(3000), pose))
+            {
+                RCLCPP_WARN(ctx_.logger, "topic_pick_trigger_fused: no object_pose_fused after wait, not enqueued");
+                return;
+            }
+            topic_pose = pose;
+        }
+        job.object_pose = *topic_pose;
+        std::string reject_reason;
+        std::string job_id = ctx_.task_manager->submitJob(job, &reject_reason);
+        if (job_id.empty())
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_fused: rejected (%s)", reject_reason.c_str());
+        }
+        else
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_fused: accepted job_id=%s", job_id.c_str());
         }
     }).detach();
 }
@@ -372,8 +438,9 @@ void ManipulatorRosInterface::handlePickGoalAccepted(
 {
     std::thread([this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
+        const GraspSource gs = (goal->grasp_source == 1U) ? GraspSource::FUSED : GraspSource::LEGACY;
         bool ok = ctx_.task_manager->handlePick(goal->object_pose,
-                                                goal->object_id.empty() ? "object" : goal->object_id);
+                                                goal->object_id.empty() ? "object" : goal->object_id, gs);
         auto result = std::make_shared<orion_mtc_msgs::action::Pick::Result>();
         result->success = ok;
         result->task_id = ctx_.task_manager->getTaskId();
@@ -483,6 +550,7 @@ void ManipulatorRosInterface::handleSubmitJob(
     ManipulationJob job;
     job.job_id = req->job_id;
     job.type = static_cast<JobType>(req->job_type);
+    job.grasp_source = (req->grasp_source == 1U) ? GraspSource::FUSED : GraspSource::LEGACY;
     job.object_id = req->object_id;
     job.tracked = req->tracked;
     job.priority = req->priority;

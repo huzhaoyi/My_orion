@@ -229,6 +229,12 @@ function mount(containerId) {
     const tScene = applyBaseLinkToScene(t);
     sceneApi.pickMarker.position.copy(tScene);
     sceneApi.pickMarker.visible = layerToggles.showTargets && !!s.objectPoseValid;
+    const tf = rosToThreePosition(s.fusedObjectPose?.position);
+    const tfScene = applyBaseLinkToScene(tf);
+    if (sceneApi.pickMarkerFused) {
+      sceneApi.pickMarkerFused.position.copy(tfScene);
+      sceneApi.pickMarkerFused.visible = layerToggles.showTargets && !!s.fusedObjectPoseValid;
+    }
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {
       sceneApi.rovAxesGroup.position.copy(applyBaseLinkToScene(rovPos));

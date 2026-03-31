@@ -58,7 +58,35 @@ bool isGripperClosedInSegment(const moveit_task_constructor_msgs::msg::SubTrajec
   const auto& p = traj.points.back().positions;
   double j0 = p[hand_idx[0]];
   double j1 = p[hand_idx[1]];
-  return std::abs(j0) < 0.15 && std::abs(j1) < 0.15;
+  return std::abs(j0) < 0.15f && std::abs(j1) < 0.15f;
+}
+
+/*
+ * 与 SRDF hand「open」量级一致（约 ±0.4）：末端姿态明显张开时才做张开后等待，避免二次闭合段误触 unlock。
+ */
+bool isGripperOpenInSegment(const moveit_task_constructor_msgs::msg::SubTrajectory& sub)
+{
+  const auto& traj = sub.trajectory.joint_trajectory;
+  if (traj.points.empty() || traj.joint_names.size() != traj.points.back().positions.size())
+    return false;
+  std::vector<size_t> hand_idx;
+  for (const auto& hn : HAND_JOINTS)
+  {
+    for (size_t i = 0; i < traj.joint_names.size(); ++i)
+    {
+      if (traj.joint_names[i] == hn)
+      {
+        hand_idx.push_back(i);
+        break;
+      }
+    }
+  }
+  if (hand_idx.size() != 2u)
+    return false;
+  const auto& p = traj.points.back().positions;
+  double j0 = p[hand_idx[0]];
+  double j1 = p[hand_idx[1]];
+  return std::abs(j0) > 0.25f && std::abs(j1) > 0.25f;
 }
 
 /*
@@ -192,7 +220,7 @@ bool SolutionExecutor::executeSolution(
           RCLCPP_WARN(LOGGER, "executeSolution: wait gripped timeout, continue anyway");
         have_waited_gripped = true;
       }
-      else if (have_waited_gripped)
+      else if (have_waited_gripped && isGripperOpenInSegment(sub))
       {
         if (should_abort && should_abort())
         {
@@ -350,7 +378,7 @@ bool SolutionExecutor::executePickSolution(
         }
         have_waited_gripped = true;
       }
-      else if (have_waited_gripped)
+      else if (have_waited_gripped && isGripperOpenInSegment(sub))
       {
         if (should_abort && should_abort())
         {

@@ -51,6 +51,8 @@ struct ManipulatorInterfaceContext
     std::shared_ptr<PoseCache> object_pose_cache;
     std::shared_ptr<TargetCache> target_cache;
     std::shared_ptr<Vector3Cache> object_axis_cache;
+    std::shared_ptr<PoseCache> object_pose_fused_cache;
+    std::shared_ptr<Vector3Cache> object_axis_fused_cache;
     std::shared_ptr<PerceptionSnapshotProvider> perception_provider;
     std::shared_ptr<TargetSelector> target_selector;
     std::atomic<double>* left_arm_gripped;
@@ -67,6 +69,7 @@ public:
 private:
     void publishRuntimeStatus();
     void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerFusedReceived(const std_msgs::msg::Empty::SharedPtr msg);
 
     bool isGripperLocked() const;
 
@@ -107,9 +110,12 @@ private:
     ManipulatorInterfaceContext ctx_;
 
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_fused_;
     rclcpp::Subscription<orion_mtc_msgs::msg::TargetSet>::SharedPtr sub_target_set_;
     rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_fused_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_fused_;
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
 
     rclcpp_action::Server<orion_mtc_msgs::action::Pick>::SharedPtr pick_action_server_;

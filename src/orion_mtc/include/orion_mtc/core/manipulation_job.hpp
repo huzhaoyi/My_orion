@@ -5,11 +5,19 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+#include <cstdint>
 #include <optional>
 #include <string>
 
 namespace orion_mtc
 {
+
+/* PICK 感知链：legacy=原 vision/桥接 object_pose；fused=keypoint 中心线等第二路话题。 */
+enum class GraspSource : uint8_t
+{
+  LEGACY = 0,
+  FUSED = 1,
+};
 
 enum class JobType
 {
@@ -33,6 +41,9 @@ struct ManipulationJob
   std::string object_id;
   bool tracked = false;
 
+  /** PICK 选用哪条感知链（executeJob / handlePick 从对应缓存取 pose+axis）。 */
+  GraspSource grasp_source = GraspSource::LEGACY;
+
   /*
    * 优先级：数值越大越先执行。
    * priority < 0 表示未指定，入队时用 getDefaultPriority(type) 填充；
@@ -46,6 +57,18 @@ struct ManipulationJob
   /** 创建时间（纳秒，epoch），用于去重窗口、排队延迟、超时丢弃 */
   int64_t created_at_ns = 0;
 };
+
+inline const char* graspSourceToCString(GraspSource g)
+{
+  switch (g)
+  {
+    case GraspSource::FUSED:
+      return "FUSED";
+    case GraspSource::LEGACY:
+    default:
+      return "LEGACY";
+  }
+}
 
 inline const char* jobTypeToCString(JobType t)
 {
