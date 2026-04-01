@@ -7,6 +7,7 @@
  *   /manipulator/held_object_state (HeldObjectState)
  *   /manipulator/object_pose（原抓取方式：各类感知桥接）
  *   /manipulator/object_pose_fused（视觉+声呐 Keypoints 中心线）
+ *   /manipulator/keypoints_base_link（geometry_msgs/PoseArray：各关键点已变换到 base_link 等，供 UI）
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
@@ -71,6 +72,30 @@ function getTopicPrefix() {
   return params.get('ns') || params.get('topic_prefix') || '/manipulator';
 }
 
+/**
+ * Keypoints PoseArray 订阅全名；默认 `{prefix}/keypoints_base_link`。
+ * `?keypoints_topic=/a/b` 或 `?keypoints=/a/b` 覆盖（须与 keypoint_to_arm_tf 的 keypoints_posearray_topic 一致）。
+ */
+function getKeypointsSubscribeTopic() {
+  const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+  const custom = params.get('keypoints_topic') || params.get('keypoints');
+  if (custom) {
+    const t = String(custom).trim();
+    if (t.length === 0) {
+      /* fall through */
+    } else if (t.startsWith('/')) {
+      return t.replace(/\/+$/, '');
+    } else {
+      return '/' + t.replace(/\/+$/, '');
+    }
+  }
+  const p = String(getTopicPrefix()).replace(/\/+$/, '');
+  return `${p}/keypoints_base_link`;
+}
+
+/** 最近一次订阅的 keypoints 话题全名（供 inferType / handleMessage 对齐）。 */
+let subscribedKeypointsTopic = '';
+
 /** 手柄桥接 UI 状态话题前缀，默认 /joy_manipulator（`?joy_ui=` 覆盖）。 */
 function getJoyUiPrefix() {
   const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
@@ -100,12 +125,18 @@ function connect() {
     stateStore.setConnection('ws', true);
     stateStore.pushSystemLog('info', 'WebSocket 已连接: ' + url);
     subscribeTopics();
+    stateStore.pushSystemLog('info', `订阅 Keypoints 轨迹: ${subscribedKeypointsTopic}（geometry_msgs/PoseArray）`);
   };
 
   ws.onclose = () => {
     stateStore.setConnection('ws', false);
     stateStore.setJoyBridgeManual(null);
     stateStore.setJoyBridgeThrottle(null);
+    stateStore.setState({
+      keypointsTrace: null,
+      keypointsTraceValid: false,
+      keypointsTraceUpdatedAt: null,
+    });
     if (!pageUnloading) {
       stateStore.pushSystemLog('warn', 'WebSocket 已断开');
       scheduleReconnect();
@@ -136,16 +167,30 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(connect, delay);
 }
 
+/** 与 subscribedKeypointsTopic 匹配（rosbridge 发来的 topic 有时带/不带尾缀，以全名或后缀为准）。 */
+function isKeypointsTraceTopic(topic) {
+  if (!topic || typeof topic !== 'string') {
+    return false;
+  }
+  if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
+    return true;
+  }
+  const base = '/keypoints_base_link';
+  return topic === base || topic.endsWith(base);
+}
+
 /** 向 rosbridge 发送 subscribe，覆盖 manipulator 状态/感知/joint_states 与手柄 UI 话题。 */
 function subscribeTopics() {
   const prefix = getTopicPrefix();
   const joyUi = getJoyUiPrefix();
+  subscribedKeypointsTopic = getKeypointsSubscribeTopic();
   const topics = [
     prefix + '/runtime_status',
     prefix + '/job_event',
     prefix + '/task_stage',
     prefix + '/held_object_state',
     prefix + '/object_pose_fused',
+    subscribedKeypointsTopic,
     prefix + '/object_pose',
     prefix + '/perception_state',
     prefix + '/joint_states',
@@ -173,6 +218,10 @@ function inferType(topic) {
   if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
   if (topic.endsWith('/object_pose_fused')) return 'geometry_msgs/msg/PoseStamped';
+  if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
+    return 'geometry_msgs/msg/PoseArray';
+  }
+  if (topic.endsWith('/keypoints_base_link')) return 'geometry_msgs/msg/PoseArray';
   if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
   if (topic.endsWith('/manual_mode')) return 'std_msgs/msg/Bool';
@@ -231,6 +280,10 @@ function handleMessage(data) {
     stateStore.setFusedObjectPose(data.msg);
     return;
   }
+  if (data.msg && isKeypointsTraceTopic(data.topic)) {
+    stateStore.setKeypointsTrace(data.msg);
+    return;
+  }
   if (data.topic && data.topic.endsWith('/object_pose') && data.msg) {
     stateStore.setObjectPose(data.msg);
     return;
@@ -277,37 +330,72 @@ function callGoToReady(callback) {
 /**
  * rosbridge call_service：生成 id、监听匹配回包或超时；callback 收到扁平化 result.values。
  * options.timeout_ms、options.on_timeout 可选。
+ * options.service_missing_retries：>0 时若回包含「服务不存在」类错误则退避重试（减轻 launch 竞态）。
  */
 function callService(service, request = {}, callback, options = {}) {
-  const id = 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  const missing_max = Number(options.service_missing_retries);
+  let missing_retries_left = Number.isFinite(missing_max) && missing_max > 0 ? Math.floor(missing_max) : 0;
+
   const timeoutMs = Number.isFinite(options.timeout_ms) ? options.timeout_ms : 3000;
-  let timeoutTimer = null;
-  const handler = (ev) => {
-    try {
-      const data = JSON.parse(ev.data);
-      if (data.id === id) {
+
+  const run = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    const id = 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    let timeoutTimer = null;
+    const handler = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.id !== id) {
+          return;
+        }
         ws.removeEventListener('message', handler);
-        if (timeoutTimer) clearTimeout(timeoutTimer);
+        if (timeoutTimer) {
+          clearTimeout(timeoutTimer);
+        }
+        const envelope = JSON.stringify(data);
+        const service_missing = /does not exist|InvalidServiceException|Service .* does not exist/i.test(envelope);
+        if (service_missing && missing_retries_left > 0) {
+          missing_retries_left -= 1;
+          const attempt_n = missing_max - missing_retries_left;
+          const delay = Math.min(500 + attempt_n * 400, 4000);
+          setTimeout(run, delay);
+          return;
+        }
+        if (service_missing) {
+          stateStore.pushSystemLog('warn', `服务仍不可用: ${service}（已达到重试上限或无法解析回包）`);
+        }
         const raw = data.result || data;
         const result = raw && raw.values ? raw.values : raw;
-        if (callback) callback(result);
+        if (callback) {
+          callback(result);
+        }
+      } catch (_) {
+        /* ignore malformed chunks */
       }
-    } catch (_) {}
+    };
+    ws.addEventListener('message', handler);
+    timeoutTimer = setTimeout(() => {
+      try {
+        ws.removeEventListener('message', handler);
+      } catch (_) {
+        /* ignore */
+      }
+      stateStore.pushSystemLog('warn', `服务调用超时: ${service} (${timeoutMs}ms)`);
+      if (options.on_timeout) {
+        options.on_timeout();
+      }
+    }, timeoutMs);
+    send({
+      op: 'call_service',
+      id,
+      service,
+      args: request,
+    });
   };
-  ws.addEventListener('message', handler);
-  timeoutTimer = setTimeout(() => {
-    try {
-      ws.removeEventListener('message', handler);
-    } catch (_) {}
-    stateStore.pushSystemLog('warn', `服务调用超时: ${service} (${timeoutMs}ms)`);
-    if (options.on_timeout) options.on_timeout();
-  }, timeoutMs);
-  send({
-    op: 'call_service',
-    id,
-    service,
-    args: request,
-  });
+
+  run();
 }
 
 const JOB_TYPE = {
@@ -362,9 +450,9 @@ function submitJob(options, callback) {
   callService(getTopicPrefix() + '/submit_job', args, callback);
 }
 
-/** get_queue_state 服务，回调队列与 next job 摘要。 */
+/** get_queue_state 服务，回调队列与 next job 摘要（带服务未就绪重试，与 pick_holoocean 启动时序配合）。 */
 function getQueueState(callback) {
-  callService(getTopicPrefix() + '/get_queue_state', {}, callback);
+  callService(getTopicPrefix() + '/get_queue_state', {}, callback, { service_missing_retries: 10 });
 }
 
 /** get_robot_state：模式、当前任务、持物与 last_error。 */
@@ -410,6 +498,7 @@ export default {
   callGoToReady,
   callService,
   getTopicPrefix,
+  getKeypointsSubscribeTopic,
   getJoyUiPrefix,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
   JOB_TYPE,

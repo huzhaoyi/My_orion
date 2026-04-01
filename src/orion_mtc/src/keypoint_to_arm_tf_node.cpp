@@ -1,10 +1,12 @@
 /* 订阅 sealien_ctrlpilot_msgmanagement/msg/Keypoints，将关键点与消息内电缆姿态（directions / euler_angles）
- * 经 TF 变到 left_arm_frame ，发布 /manipulator/object_pose_fused 与 object_axis_fused 供 MTC/UI。
- * 位置：mean | keypoint_index | centerline_arclength（全局 PCA 排序→去重→中值→弧长插值，仅平移，无局部 PCA 切向）；
+ * 经 TF 变到 left_arm_frame ，发布 /manipulator/object_pose_fused 与 object_axis_fused 供 MTC/UI；
+ * 另可选发布 keypoints_posearray_topic（geometry_msgs/PoseArray）：各关键点已变换到 output_grasp_frame，供 Web 3D 与感知卡片。
+ * 位置：mean | keypoint_index | centerline_arclength（全局 PCA 排序→可选去重→可选沿折线窗口 3D 均值→弧长插值；无分量中值、无局部 PCA 切向）；
  * 姿态：读 directions 侧向叉乘系，或 euler_angles（度 ZYX）再乘源系→left_arm；auto 时 directions 优先。
  * fused_grasp_orientation_correction_*、fused_grasp_position_z_offset_m 仍为可选标定。 */
 
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
@@ -161,28 +163,21 @@ geometry_msgs::msg::Quaternion applyFusedOrientationCorrection(const geometry_ms
     return out;
 }
 
-Eigen::Vector3d component_wise_median(const std::vector<Eigen::Vector3d>& pts, size_t i_begin, size_t i_end_inclusive)
+/* 沿已排序折线在窗口 [i_begin, i_end] 上对真实顶点做 3D 算术均值（凸组合，避免分量中值拼出的离杆点）。 */
+Eigen::Vector3d polyline_window_mean(const std::vector<Eigen::Vector3d>& pts, size_t i_begin, size_t i_end_inclusive)
 {
+    Eigen::Vector3d s = Eigen::Vector3d::Zero();
     const size_t n = i_end_inclusive - i_begin + 1U;
-    std::vector<double> cx(n);
-    std::vector<double> cy(n);
-    std::vector<double> cz(n);
-    for (size_t k = 0; k < n; ++k)
+    for (size_t k = 0U; k < n; ++k)
     {
-        cx[k] = pts[i_begin + k].x();
-        cy[k] = pts[i_begin + k].y();
-        cz[k] = pts[i_begin + k].z();
+        s += pts[i_begin + k];
     }
-    const size_t mid = n / 2U;
-    std::nth_element(cx.begin(), cx.begin() + static_cast<std::ptrdiff_t>(mid), cx.end());
-    std::nth_element(cy.begin(), cy.begin() + static_cast<std::ptrdiff_t>(mid), cy.end());
-    std::nth_element(cz.begin(), cz.begin() + static_cast<std::ptrdiff_t>(mid), cz.end());
-    return Eigen::Vector3d(cx[mid], cy[mid], cz[mid]);
+    return s / static_cast<double>(n);
 }
 
-/* 无序关键点已在 left_arm_frame；PCA 主轴投影排序→去重→中值→按弧长比例取 3D 点。 */
+/* 无序关键点已在 left_arm_frame；PCA 主轴投影排序→去重→沿折线窗口均值→按弧长比例取 3D 点。 */
 bool centerline_arclength_grasp_position(const std::vector<Eigen::Vector3d>& pts_arm, double dedupe_radius_m,
-    int median_window_in, double arclength_fraction, Eigen::Vector3d* out_p)
+    int smooth_window_in, double arclength_fraction, Eigen::Vector3d* out_p)
 {
     if (out_p == nullptr || pts_arm.empty())
     {
@@ -254,7 +249,7 @@ bool centerline_arclength_grasp_position(const std::vector<Eigen::Vector3d>& pts
         return true;
     }
 
-    int mw = median_window_in;
+    int mw = smooth_window_in;
     if (mw < 1)
     {
         mw = 1;
@@ -272,7 +267,7 @@ bool centerline_arclength_grasp_position(const std::vector<Eigen::Vector3d>& pts
         const int ei = static_cast<int>(i) + half;
         const int i0 = std::max(0, bi);
         const int i1 = std::min(static_cast<int>(nc) - 1, ei);
-        smoothed[i] = component_wise_median(chain, static_cast<size_t>(i0), static_cast<size_t>(i1));
+        smoothed[i] = polyline_window_mean(chain, static_cast<size_t>(i0), static_cast<size_t>(i1));
     }
 
     double total_len = 0.0;
@@ -360,6 +355,7 @@ private:
         tf_timeout_sec_ = declare_parameter<double>("tf_timeout_sec", 0.5);
         force_source_frame_ = declare_parameter<std::string>("force_source_frame", "");
         tf_use_latest_timestamp_ = declare_parameter<bool>("tf_use_latest_timestamp", true);
+        /* 默认 RELIABLE：与 `ros2 topic info -v` 里发布端一致时再改；若为 BEST_EFFORT 发布则设 qos_best_effort:=true。 */
         qos_best_effort_ = declare_parameter<bool>("qos_best_effort", false);
         qos_depth_ = declare_parameter<int>("qos_depth", 10);
         if (qos_depth_ < 1)
@@ -374,8 +370,8 @@ private:
         fused_grasp_position_mode_ =
             declare_parameter<std::string>("fused_grasp_position_mode", "mean");  // mean | keypoint_index | centerline_arclength
         fused_grasp_keypoint_index_ = declare_parameter<int>("fused_grasp_keypoint_index", 0);
-        centerline_dedupe_radius_m_ = declare_parameter<double>("centerline_dedupe_radius_m", 0.03);
-        centerline_median_window_ = declare_parameter<int>("centerline_median_window", 3);
+        centerline_dedupe_radius_m_ = declare_parameter<double>("centerline_dedupe_radius_m", 0.0);
+        centerline_median_window_ = declare_parameter<int>("centerline_median_window", 1);
         centerline_grasp_arclength_fraction_ = declare_parameter<double>("centerline_grasp_arclength_fraction", 0.5);
         if (centerline_dedupe_radius_m_ < 0.0)
         {
@@ -383,11 +379,6 @@ private:
         }
 
         log_each_keypoint_tf_ = declare_parameter<bool>("log_each_keypoint_tf", false);
-
-        override_all_keypoints_y_ = declare_parameter<bool>("override_all_keypoints_y", false);
-        override_keypoint_y_value_ = declare_parameter<double>("override_keypoint_y_value", 2.9);
-        override_all_keypoints_z_ = declare_parameter<bool>("override_all_keypoints_z", false);
-        override_keypoint_z_value_ = declare_parameter<double>("override_keypoint_z_value", 0.0);
 
         rclcpp::QoS qos(static_cast<size_t>(qos_depth_));
         if (qos_best_effort_)
@@ -399,6 +390,11 @@ private:
             qos.reliable();
         }
         qos.durability_volatile();
+
+        RCLCPP_INFO(LOGGER,
+                    "Keypoints subscription QoS: %s depth=%d (若与发布端不一致可能无回调，可将 qos_best_effort 与对端对齐)",
+                    qos_best_effort_ ? "BEST_EFFORT" : "RELIABLE",
+                    qos_depth_);
 
         use_mock_keypoints_ = declare_parameter<bool>("use_mock_keypoints", false);
         mock_frame_id_ = declare_parameter<std::string>("mock_frame_id", "camera");
@@ -420,6 +416,9 @@ private:
             declare_parameter<std::string>("grasp_pose_topic", "/manipulator/object_pose_fused");
         grasp_axis_topic_ =
             declare_parameter<std::string>("grasp_axis_topic", "/manipulator/object_axis_fused");
+        publish_keypoints_posearray_ = declare_parameter<bool>("publish_keypoints_posearray", true);
+        keypoints_posearray_topic_ =
+            declare_parameter<std::string>("keypoints_posearray_topic", "/manipulator/keypoints_base_link");
 
         const double corr_w = declare_parameter<double>("fused_grasp_orientation_correction_w", 1.0);
         const double corr_x = declare_parameter<double>("fused_grasp_orientation_correction_x", 0.0);
@@ -468,6 +467,14 @@ private:
                         fused_apply_tcp_frame_correction_ ? "true" : "false",
                         output_grasp_frame_.c_str());
         }
+        if (publish_keypoints_posearray_)
+        {
+            pub_keypoints_posearray_ = create_publisher<geometry_msgs::msg::PoseArray>(keypoints_posearray_topic_, qos);
+            RCLCPP_INFO(LOGGER,
+                        "publish_keypoints_posearray: topic=%s frame=%s",
+                        keypoints_posearray_topic_.c_str(),
+                        output_grasp_frame_.c_str());
+        }
 
         if (use_mock_keypoints_)
         {
@@ -498,7 +505,7 @@ private:
         if (str_iequals(fused_grasp_position_mode_.c_str(), "centerline_arclength"))
         {
             RCLCPP_INFO(LOGGER,
-                        "centerline_arclength: dedupe=%.4fm median_win=%d arclen_frac=%.4f",
+                        "centerline_arclength: dedupe=%.4fm smooth_win=%d (polyline mean) arclen_frac=%.4f",
                         centerline_dedupe_radius_m_,
                         centerline_median_window_,
                         centerline_grasp_arclength_fraction_);
@@ -555,7 +562,7 @@ private:
 
     bool tryTransformPoint(const std::string& frame_id, const rclcpp::Time& stamp,
                            const geometry_msgs::msg::Point& pt, const std::string& target_frame,
-                           geometry_msgs::msg::Point* out_pt)
+                           geometry_msgs::msg::Point* out_pt, bool log_warnings = true)
     {
         geometry_msgs::msg::PointStamped pt_in;
         if (tf_use_latest_timestamp_)
@@ -579,7 +586,10 @@ private:
         }
         catch (const tf2::TransformException& ex)
         {
-            RCLCPP_WARN(LOGGER, "TF %s->%s: %s", frame_id.c_str(), target_frame.c_str(), ex.what());
+            if (log_warnings)
+            {
+                RCLCPP_WARN(LOGGER, "TF %s->%s: %s", frame_id.c_str(), target_frame.c_str(), ex.what());
+            }
             return false;
         }
     }
@@ -700,10 +710,12 @@ private:
             RCLCPP_WARN_THROTTLE(LOGGER,
                 *get_clock(),
                 2000,
-                "fused grasp publish: TF %s->%s failed: %s",
+                "object_pose_fused/axis 未发布: PoseStamped/Vector3 从 '%s' 变换到 '%s' 失败: %s (topics %s %s)",
                 left_arm_frame_.c_str(),
                 output_grasp_frame_.c_str(),
-                ex.what());
+                ex.what(),
+                grasp_pose_topic_.c_str(),
+                grasp_axis_topic_.c_str());
         }
     }
 
@@ -715,26 +727,49 @@ private:
         {
             std::vector<Eigen::Vector3d> pts_arm;
             pts_arm.reserve(msg->keypoints.size());
+            size_t ki = 0U;
             for (const auto& kp : msg->keypoints)
             {
                 geometry_msgs::msg::Point p_arm;
                 if (!tryTransformPoint(source_frame, stamp, kp, left_arm_frame_, &p_arm))
                 {
+                    RCLCPP_WARN_THROTTLE(LOGGER,
+                        *get_clock(),
+                        2000,
+                        "object_pose_fused 未参与发布: grasp_position(centerline_arclength) 在 keypoint[%zu/%zu] "
+                        "TF '%s'->'%s' 失败",
+                        ki,
+                        msg->keypoints.size(),
+                        source_frame.c_str(),
+                        left_arm_frame_.c_str());
                     return false;
                 }
                 pts_arm.push_back(pointToEigen(p_arm));
+                ++ki;
             }
-            return centerline_arclength_grasp_position(pts_arm,
-                centerline_dedupe_radius_m_,
-                centerline_median_window_,
-                centerline_grasp_arclength_fraction_,
-                out_p);
+            if (!centerline_arclength_grasp_position(pts_arm,
+                    centerline_dedupe_radius_m_,
+                    centerline_median_window_,
+                    centerline_grasp_arclength_fraction_,
+                    out_p))
+            {
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    5000,
+                    "object_pose_fused 未参与发布: centerline_arclength_grasp_position 返回 false");
+                return false;
+            }
+            return true;
         }
         if (str_iequals(fused_grasp_position_mode_.c_str(), "keypoint_index"))
         {
             const int n = static_cast<int>(msg->keypoints.size());
             if (n <= 0)
             {
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    5000,
+                    "object_pose_fused 未参与发布: grasp_position(keypoint_index) 但 keypoints 为空");
                 return false;
             }
             int idx = fused_grasp_keypoint_index_;
@@ -749,6 +784,13 @@ private:
             geometry_msgs::msg::Point p_arm;
             if (!tryTransformPoint(source_frame, stamp, msg->keypoints[static_cast<size_t>(idx)], left_arm_frame_, &p_arm))
             {
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    2000,
+                    "object_pose_fused 未参与发布: grasp_position(keypoint_index=%d) TF '%s'->'%s' 失败",
+                    idx,
+                    source_frame.c_str(),
+                    left_arm_frame_.c_str());
                 return false;
             }
             *out_p = pointToEigen(p_arm);
@@ -757,18 +799,32 @@ private:
         /* mean */
         Eigen::Vector3d sum = Eigen::Vector3d::Zero();
         size_t cnt = 0;
+        size_t ki_mean = 0U;
         for (const auto& kp : msg->keypoints)
         {
             geometry_msgs::msg::Point p_arm;
             if (!tryTransformPoint(source_frame, stamp, kp, left_arm_frame_, &p_arm))
             {
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    2000,
+                    "object_pose_fused 未参与发布: grasp_position(mean) 在 keypoint[%zu/%zu] TF '%s'->'%s' 失败",
+                    ki_mean,
+                    msg->keypoints.size(),
+                    source_frame.c_str(),
+                    left_arm_frame_.c_str());
                 return false;
             }
             sum += pointToEigen(p_arm);
             ++cnt;
+            ++ki_mean;
         }
         if (cnt == 0U)
         {
+            RCLCPP_WARN_THROTTLE(LOGGER,
+                *get_clock(),
+                5000,
+                "object_pose_fused 未参与发布: grasp_position(mean) 计数为 0");
             return false;
         }
         *out_p = sum / static_cast<double>(cnt);
@@ -809,7 +865,12 @@ private:
             geometry_msgs::msg::Vector3 v_arm;
             if (!tryTransformVector(source_frame, stamp, v_src, left_arm_frame_, &v_arm))
             {
-                RCLCPP_WARN_THROTTLE(LOGGER, *get_clock(), 2000, "fused: direction vector TF failed");
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    2000,
+                    "object_pose_fused 未发布: directions 向量 TF '%s'->'%s' 失败",
+                    source_frame.c_str(),
+                    left_arm_frame_.c_str());
                 return;
             }
             const Eigen::Vector3d d_arm(static_cast<double>(v_arm.x), static_cast<double>(v_arm.y),
@@ -835,6 +896,12 @@ private:
             Eigen::Quaterniond q_tf;
             if (!lookupRotationQuaternion(left_arm_frame_, source_frame, stamp, &q_tf))
             {
+                RCLCPP_WARN_THROTTLE(LOGGER,
+                    *get_clock(),
+                    2000,
+                    "object_pose_fused 未发布: euler 分支 lookupRotation '%s'<-'%s' 失败",
+                    left_arm_frame_.c_str(),
+                    source_frame.c_str());
                 return;
             }
             Eigen::Quaterniond q_arm = q_tf * q_src;
@@ -864,6 +931,68 @@ private:
         tryPublishFusedGrasp(stamp, q_orient_arm, grasp_pos_arm, axis_arm);
     }
 
+    void tryPublishKeypointsPoseArray(const std::string& source_frame, const rclcpp::Time& stamp,
+                                       const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
+    {
+        if (!publish_keypoints_posearray_ || !pub_keypoints_posearray_)
+        {
+            return;
+        }
+        geometry_msgs::msg::PoseArray out;
+        out.header.frame_id = output_grasp_frame_;
+        if (tf_use_latest_timestamp_)
+        {
+            out.header.stamp = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+        }
+        else
+        {
+            out.header.stamp = stamp;
+        }
+        out.poses.reserve(msg->keypoints.size());
+        size_t fail_count = 0U;
+        for (const auto& kp : msg->keypoints)
+        {
+            geometry_msgs::msg::Point p_out{};
+            if (!tryTransformPoint(source_frame, stamp, kp, output_grasp_frame_, &p_out, false))
+            {
+                ++fail_count;
+                continue;
+            }
+            p_out.z += fused_grasp_position_z_offset_m_;
+            geometry_msgs::msg::Pose pose{};
+            pose.position = p_out;
+            pose.orientation.w = 1.0;
+            out.poses.push_back(pose);
+        }
+        if (fail_count > 0U)
+        {
+            RCLCPP_WARN_THROTTLE(LOGGER,
+                *get_clock(),
+                2000,
+                "keypoints_posearray: %zu/%zu keypoints TF %s->%s failed (已发布 %zu 点)",
+                fail_count,
+                msg->keypoints.size(),
+                source_frame.c_str(),
+                output_grasp_frame_.c_str(),
+                out.poses.size());
+        }
+        if (!out.poses.empty())
+        {
+            pub_keypoints_posearray_->publish(out);
+        }
+        else if (!msg->keypoints.empty())
+        {
+            RCLCPP_WARN_THROTTLE(LOGGER,
+                *get_clock(),
+                2000,
+                "keypoints_posearray 未发布: 全部 %zu 个点 TF '%s'->'%s' 失败（topic=%s）",
+                msg->keypoints.size(),
+                source_frame.c_str(),
+                output_grasp_frame_.c_str(),
+                keypoints_posearray_topic_.c_str());
+        }
+    }
+
     void processKeypoints(const sealien_ctrlpilot_msgmanagement::msg::Keypoints::SharedPtr msg)
     {
         if (!received_keypoints_once_)
@@ -876,23 +1005,6 @@ private:
         {
             RCLCPP_WARN_THROTTLE(LOGGER, *get_clock(), 5000, "keypoints array empty, skip");
             return;
-        }
-
-        if (override_all_keypoints_y_ || override_all_keypoints_z_)
-        {
-            const float y_fix = static_cast<float>(override_keypoint_y_value_);
-            const float z_fix = static_cast<float>(override_keypoint_z_value_);
-            for (auto& kp : msg->keypoints)
-            {
-                if (override_all_keypoints_y_)
-                {
-                    kp.y = y_fix;
-                }
-                if (override_all_keypoints_z_)
-                {
-                    kp.z = z_fix;
-                }
-            }
         }
 
         std::string frame_id;
@@ -917,6 +1029,14 @@ private:
                 publishFusedFromMsgAttitude(frame_id, msg->header.stamp, msg, grasp_arm);
             }
         }
+        else
+        {
+            RCLCPP_DEBUG_THROTTLE(LOGGER,
+                *get_clock(),
+                10000,
+                "publish_fused_grasp_topics=false：不发布 object_pose_fused / axis_fused；仍发布 keypoints_posearray（若开启）");
+        }
+        tryPublishKeypointsPoseArray(frame_id, msg->header.stamp, msg);
 
         if (!log_each_keypoint_tf_)
         {
@@ -1001,25 +1121,24 @@ private:
     std::string mock_preset_{"legacy_single"};
 
     bool log_each_keypoint_tf_{false};
-    bool override_all_keypoints_y_{false};
-    double override_keypoint_y_value_{2.9};
-    bool override_all_keypoints_z_{false};
-    double override_keypoint_z_value_{0.0};
 
     bool publish_fused_grasp_topics_{true};
     std::string fused_orientation_source_{"auto"};
     bool fused_apply_tcp_frame_correction_{false};
     std::string fused_grasp_position_mode_{"mean"};
     int fused_grasp_keypoint_index_{0};
-    double centerline_dedupe_radius_m_{0.03};
-    int centerline_median_window_{3};
+    double centerline_dedupe_radius_m_{0.0};
+    int centerline_median_window_{1};
     double centerline_grasp_arclength_fraction_{0.5};
 
     std::string output_grasp_frame_;
     std::string grasp_pose_topic_;
     std::string grasp_axis_topic_;
+    bool publish_keypoints_posearray_{true};
+    std::string keypoints_posearray_topic_{"/manipulator/keypoints_base_link"};
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_grasp_pose_;
     rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_grasp_axis_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_keypoints_posearray_;
     Eigen::Quaterniond fused_orientation_correction_{1.0, 0.0, 0.0, 0.0};
     double fused_grasp_position_z_offset_m_{0.0};
 };

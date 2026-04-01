@@ -90,14 +90,27 @@ function createLayerToggles(containerEl, sceneApiRef) {
         }
         if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
         if (t.key === 'showTargets') {
-          sceneApiRef.pickMarker.visible =
-            cb.checked && !!stateStore.getState().objectPoseValid;
+          const st = stateStore.getState();
+          sceneApiRef.pickMarker.visible = cb.checked && !!st.objectPoseValid;
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
-            const fv = !!stateStore.getState().fusedObjectPoseValid;
+            const fv = !!st.fusedObjectPoseValid;
             const mat = sceneApiRef.pickMarkerFused.material;
             mat.transparent = !fv;
             mat.opacity = fv ? 1.0 : 0.38;
+          }
+          const showKp = cb.checked && !!st.keypointsTraceValid && (st.keypointsTrace?.points?.length || 0) > 0;
+          if (Array.isArray(sceneApiRef.kpTraceSpheres)) {
+            sceneApiRef.kpTraceSpheres.forEach((m, idx) => {
+              if (!m) {
+                return;
+              }
+              m.visible = showKp && idx < (st.keypointsTrace?.points?.length || 0);
+            });
+          }
+          if (sceneApiRef.keypointsPolyline) {
+            sceneApiRef.keypointsPolyline.visible =
+              showKp && (st.keypointsTrace?.points?.length || 0) > 1;
           }
         }
         if (t.key === 'showWorkspace') {
@@ -245,6 +258,33 @@ function mount(containerId) {
       const fmat = sceneApi.pickMarkerFused.material;
       fmat.transparent = !s.fusedObjectPoseValid;
       fmat.opacity = s.fusedObjectPoseValid ? 1.0 : 0.38;
+    }
+
+    const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];
+    const showKpTrace = layerToggles.showTargets && kpPts.length > 0;
+    if (Array.isArray(sceneApi.kpTraceSpheres)) {
+      for (let i = 0; i < sceneApi.kpTraceSpheres.length; i += 1) {
+        const m = sceneApi.kpTraceSpheres[i];
+        if (!m) {
+          continue;
+        }
+        if (i < kpPts.length) {
+          const v = applyBaseLinkToScene(kpPts[i]);
+          m.position.copy(v);
+          m.visible = showKpTrace;
+        } else {
+          m.visible = false;
+        }
+      }
+    }
+    if (sceneApi.keypointsPolyline) {
+      if (showKpTrace && kpPts.length > 1) {
+        const pts3 = kpPts.map((p) => applyBaseLinkToScene(p));
+        sceneApi.keypointsPolyline.geometry.setFromPoints(pts3);
+        sceneApi.keypointsPolyline.visible = true;
+      } else {
+        sceneApi.keypointsPolyline.visible = false;
+      }
     }
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {

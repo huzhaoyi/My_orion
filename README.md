@@ -101,7 +101,20 @@ source install/setup.bash
 | 方向 | 全名 | 类型 | 简要说明 |
 |------|------|------|----------|
 | 订阅 | `/keypoints`（参数 `input_topic` 可改） | `sealien_ctrlpilot_msgmanagement/Keypoints` | 与 `cable_detect` 等发布端对齐 |
+| 发布 | **`/manipulator/keypoints_base_link`**（参数 `keypoints_posearray_topic`，可关 `publish_keypoints_posearray`） | `geometry_msgs/PoseArray` | 各关键点已变换到 **`output_grasp_frame`**（常与 `object_pose_fused` 同为 `base_link`），Web 感知卡片与 3D 琥珀点列订阅此话题 |
 | TF | — | 监听 `/tf`、`/tf_static` | **`use_platform_tf:=true`** 时用机体 URDF 帧名（如 `sensor_camera1`→`sensor_left_roboticarm`）；否则由 launch 内 `static_transform_publisher` 造链 |
+
+#### 仅本机收不到 Keypoints / `ros2 topic echo` 无输出（别的电脑正常）
+
+多为 **QoS 与 CLI/本机环境**，不是发布端必坏。
+
+1. **看发布端 QoS**：`ros2 topic info /perception/sonar/keypoints -v`，以 **Publisher** 的 **Reliability** 为准（勿抄 Subscriber）。
+2. **echo**：须写**真实话题全名**，例如：  
+   `ros2 topic echo /perception/sonar/keypoints --qos-profile sensor_data`  
+   （`...` 不是合法话题名，会报 *topic name is invalid*。）  
+   若发布端为 **RELIABLE**，默认 `echo` 即可；若为 **BEST_EFFORT** 再加 `--qos-reliability best_effort` 或 `sensor_data`。
+3. **keypoint 节点**：默认 **`qos_best_effort:=false`（RELIABLE 订阅）**，与 **RELIABLE 发布**一致；若发布端为 **BEST_EFFORT** 请设 **`qos_best_effort:=true`**。
+4. **本机 CLI/DDS**：`ros2 daemon stop && ros2 daemon start`；核对 `RMW_IMPLEMENTATION`、`ROS_DOMAIN_ID`；可试 `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`（或与团队统一）。
 
 ### 当前 `pick_holoocean.launch` 实际数据流（与「使用」一致）
 
@@ -109,7 +122,7 @@ source install/setup.bash
 2. **状态**：**`arm_sensor_to_joint_state`** → `/joint_states` + `/manipulator/left_arm_gripped`。
 3. **执行**：MTC → **`trajectory_to_agent_bridge`** → `/holoocean/command/agent/arm`。
 4. **TF**：`demo.launch.py` 传入 **`tf_under_manipulator:=true`** 时，MoveIt / `robot_state_publisher` 使用 **`/manipulator/tf`、`/manipulator/tf_static`**，与全局 **`/tf`** 并存；机体传感器链请依赖 **location** 等其它栈，勿与本地重复静态发布冲突（参见 `keypoint_arm_tf.launch.py` 的 `use_platform_tf`）。
-5. **Web**：rosbridge 默认前缀 **`?ns=/manipulator`**，话题/服务名与上表 `/manipulator/...` 一致。
+5. **Web**：rosbridge 默认前缀 **`?ns=/manipulator`**，话题/服务名与上表 `/manipulator/...` 一致。Keypoints **PoseArray** 默认订阅 **`{ns}/keypoints_base_link`**；若与节点 `keypoints_posearray_topic` 不一致，页面可用 **`?keypoints_topic=/全名`**（或 **`?keypoints=`**）指定。
 
 ## orion_mtc 接口说明
 
@@ -234,7 +247,7 @@ ros2 launch orion_mtc keypoint_arm_tf.launch.py use_platform_tf:=true
 ros2 launch orion_mtc keypoint_arm_tf.launch.py use_mock_keypoints:=true
 ```
 
-参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false）、`qos_depth`；**`use_mock_keypoints`**、**`mock_frame_id`**、**`mock_kp_*`**、**`mock_direction_x/y/z`**、**`mock_period_sec`**。**融合姿态来源**：**`fused_orientation_source`** 为 **`auto`**（`||directions||` 足够则用 directions，否则 **`euler_angles`**）、**`directions`** 或 **`euler_angles`**；与 keypoints 共用 **`header.frame_id` / `force_source_frame`**，**`directions` 按向量**、**姿态按四元数**做 TF 到 `left_arm_frame` 再发布。**`fused_apply_tcp_frame_correction`**：是否对侧抓再左乘旧版 gripper_tcp 固定旋转（默认 **false**，与桥接 TargetSensor **同款侧抓叉乘**一致）。**`fused_grasp_position_mode`**：`mean`（关键点均值）、**`keypoint_index`**（**`fused_grasp_keypoint_index`**）或 **`centerline_arclength`**（`left_arm_frame` 下 PCA 排序→**`centerline_dedupe_radius_m`** 去重→**`centerline_median_window`** 分量中值平滑→按 **`centerline_grasp_arclength_fraction`** 在折线上取弧长点；**仅平移**，姿态仍由 directions/euler）。  
+参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 **false**＝**RELIABLE** 订阅；请用 `ros2 topic info -v` 与**发布端** Reliability **对齐**；若为 **BEST_EFFORT** 发布则设 **true**）、`qos_depth`；**`use_mock_keypoints`**、**`mock_frame_id`**、**`mock_kp_*`**、**`mock_direction_x/y/z`**、**`mock_period_sec`**。**融合姿态来源**：**`fused_orientation_source`** 为 **`auto`**（`||directions||` 足够则用 directions，否则 **`euler_angles`**）、**`directions`** 或 **`euler_angles`**；与 keypoints 共用 **`header.frame_id` / `force_source_frame`**，**`directions` 按向量**、**姿态按四元数**做 TF 到 `left_arm_frame` 再发布。**`fused_apply_tcp_frame_correction`**：是否对侧抓再左乘旧版 gripper_tcp 固定旋转（默认 **false**，与桥接 TargetSensor **同款侧抓叉乘**一致）。**`fused_grasp_position_mode`**：`mean`（关键点均值）、**`keypoint_index`**（**`fused_grasp_keypoint_index`**）或 **`centerline_arclength`**（`left_arm_frame` 下 PCA 排序→可选 **`centerline_dedupe_radius_m`** 去重，默认 **0**→**`centerline_median_window`** 沿折线对顶点 **3D 窗口均值**，默认 **1** 即不平滑→按 **`centerline_grasp_arclength_fraction`** 在折线上取弧长点；**仅平移**，姿态仍由 directions/euler）。  
 **融合姿态标定（可选）**：对输出四元数左乘 **`fused_grasp_orientation_correction_*`**。**`tf_under`** 分支默认单位。  
 **融合位置 z（可选）**：变换到 **`output_grasp_frame`** 后可在 **`pose.position.z` 上叠加 `fused_grasp_position_z_offset_m`**；**`tf_under` 分支默认 `0`**（z 已含在静态 `base_link→camera` 平移内）。现场仍有系统误差时再改。
 
@@ -251,7 +264,7 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 **机器人模型同步**：修改 `orion_description` 或 `rov_urdf` 的 URDF/STL 后，运行 `web/sync_robot_model.sh` 将 `src/orion_description` 与可选 `rov_urdf/meshes/stl` 同步到 `web/robot/`（URDF + meshes/stl），供 3D 视图加载。
 
-**前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 已包含 **`rosbridge_websocket_keepalive.launch.py`**（Tornado **websocket_ping_interval=25s**，减轻刷新后旧连接上的写失败 WARN）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
+**前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 在 **MoveIt/桥接/MTC/keypoint 之后**再按 **`rosbridge_startup_delay_sec`（默认 5s）** 拉起 **`rosbridge_websocket_keepalive.launch.py`**，避免网页连上时 `/manipulator/get_queue_state` 尚未注册；可设 `rosbridge_startup_delay_sec:=0` 去掉延迟（仅顺序置后）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
 
 **打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。可选 URL 参数：
 - `?ws=ws://host:port` — WebSocket 地址，默认 `ws://localhost:9090`

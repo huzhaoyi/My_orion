@@ -254,6 +254,36 @@ function createScene(containerEl) {
   pickMarkerFused.visible = false;
   targets.add(pickMarkerFused);
 
+  /* Keypoints 轨迹：琥珀球（与品红融合点、fused 区分）+ 折线 */
+  const KP_TRACE_COLOR = 0xf59e0b;
+  const KP_TRACE_RADIUS = 0.028;
+  const KP_TRACE_MAX = 32;
+  const keypointsTraceGroup = new THREE.Group();
+  keypointsTraceGroup.name = 'keypoints_trace';
+  const kpTraceSpheres = [];
+  for (let i = 0; i < KP_TRACE_MAX; i += 1) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(KP_TRACE_RADIUS, 14, 14),
+      new THREE.MeshBasicMaterial({ color: KP_TRACE_COLOR })
+    );
+    m.name = 'kp_trace_' + i;
+    m.visible = false;
+    keypointsTraceGroup.add(m);
+    kpTraceSpheres.push(m);
+  }
+  targets.add(keypointsTraceGroup);
+  const keypointsPolyline = new THREE.Line(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({
+      color: KP_TRACE_COLOR,
+      transparent: true,
+      opacity: 0.75,
+    })
+  );
+  keypointsPolyline.name = 'keypoints_polyline';
+  keypointsPolyline.visible = false;
+  targets.add(keypointsPolyline);
+
   /* ROV 坐标系（base_link 下，由 rov_pose_in_base_link 更新） */
   const ROV_AXIS_SIZE = 0.12;
   const rovAxesGroup = new THREE.Group();
@@ -330,6 +360,9 @@ function createScene(containerEl) {
     overlays,
     pickMarker,
     pickMarkerFused,
+    keypointsTraceGroup,
+    kpTraceSpheres,
+    keypointsPolyline,
     targetObjectComposed,
     rovAxesGroup,
     trajectoryLine,

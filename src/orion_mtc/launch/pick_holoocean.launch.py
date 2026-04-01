@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 抓取（MTC）与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSensor（right_arm 6DOF+夹爪）。
-启动 MoveIt + RViz + HoloOcean 桥接节点、rosbridge（网页上位机用）、MTC。
+启动 MoveIt + RViz + HoloOcean 桥接节点、MTC；rosbridge 在栈末**延迟**拉起（默认可改 `rosbridge_startup_delay_sec`），避免网页早于 `/manipulator/get_queue_state` 注册。
 默认同时包含 keypoint_to_arm_tf（融合抓取话题 object_pose_fused），可用 start_keypoint_to_arm_tf:=false 关闭。
 MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
 FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
@@ -14,7 +14,7 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -54,6 +54,23 @@ def _yaml_bool_to_launch_arg_string(value) -> str:
 
 
 _LAUNCH_ONLY_PARAM_KEYS = frozenset({"use_joy_manipulator", "start_rviz"})
+
+
+def _append_rosbridge_after_stack(context, *_args, **_kwargs):
+    """在 MoveIt/桥接/MTC/keypoint 之后启动 rosbridge；可选 Timer 给 mtc_node 注册服务留时间。"""
+    share = get_package_share_directory("orion_mtc")
+    rosbridge_keepalive = os.path.join(share, "launch", "rosbridge_websocket_keepalive.launch.py")
+    if not os.path.isfile(rosbridge_keepalive):
+        return []
+    include_rb = IncludeLaunchDescription(PythonLaunchDescriptionSource(rosbridge_keepalive))
+    delay_str = LaunchConfiguration("rosbridge_startup_delay_sec").perform(context)
+    try:
+        delay = float(delay_str)
+    except (ValueError, TypeError):
+        delay = 5.0
+    if delay <= 0.0:
+        return [include_rb]
+    return [TimerAction(period=delay, actions=[include_rb])]
 
 
 def generate_launch_description():
@@ -230,6 +247,14 @@ def generate_launch_description():
         default_value="sonar_cable_9",
         description="mock 预设，同 keypoint_arm_tf.launch",
     )
+    arg_rosbridge_delay = DeclareLaunchArgument(
+        "rosbridge_startup_delay_sec",
+        default_value="5.0",
+        description=(
+            "秒：rosbridge 在 demo/桥接/MTC/keypoint 之后延迟启动，减轻 Web 早于 get_queue_state 的竞态；"
+            "0 表示仅顺序置后、无 Timer"
+        ),
+    )
 
     keypoint_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(keypoint_launch),
@@ -250,6 +275,7 @@ def generate_launch_description():
         arg_keypoint_mock,
         arg_keypoint_platform,
         arg_keypoint_preset,
+        arg_rosbridge_delay,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_launch),
             launch_arguments=[
@@ -264,13 +290,7 @@ def generate_launch_description():
         joy_node,
         mtc_node,
         keypoint_include,
+        OpaqueFunction(function=_append_rosbridge_after_stack),
     ]
-
-    rosbridge_keepalive = os.path.join(orion_mtc_share, "launch", "rosbridge_websocket_keepalive.launch.py")
-    if os.path.isfile(rosbridge_keepalive):
-        actions.insert(
-            1,
-            IncludeLaunchDescription(PythonLaunchDescriptionSource(rosbridge_keepalive)),
-        )
 
     return LaunchDescription(actions)

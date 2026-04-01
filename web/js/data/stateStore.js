@@ -51,6 +51,10 @@ const initialState = {
   fusedObjectPoseValid: false,
   fusedObjectPose: null,
   fusedPerceptionUpdatedAt: null,
+  // keypoint_to_arm_tf 发布的 PoseArray（与 object_pose_fused 同 output_grasp_frame，默认 base_link）
+  keypointsTraceValid: false,
+  keypointsTrace: null,  // { frameId: string, points: [{x,y,z}] }
+  keypointsTraceUpdatedAt: null,
   // 单缆绳：object_pose，无多目标集合
   rovPoseInBaseLink: null,  // ROV 在 base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
@@ -304,6 +308,89 @@ function setObjectPose(poseStampedOrNull) {
   });
 }
 
+let _keypointsTraceWarnAt = 0;
+
+function _warnKeypointsTraceParseOnce(message) {
+  const now = Date.now();
+  if (now - _keypointsTraceWarnAt < 10000) {
+    return;
+  }
+  _keypointsTraceWarnAt = now;
+  pushSystemLog('warn', message);
+}
+
+/** rosbridge 常见：float 编成 string、poses 偶发为非数组对象。 */
+function setKeypointsTrace(poseArrayMsg) {
+  const raw = poseArrayMsg;
+  if (!raw || typeof raw !== 'object') {
+    setState({
+      keypointsTrace: null,
+      keypointsTraceValid: false,
+    });
+    _warnKeypointsTraceParseOnce('keypoints_base_link: 消息为空或非对象，无法显示点列');
+    return;
+  }
+  let poses = raw.poses;
+  if (poses != null && typeof poses === 'object' && !Array.isArray(poses)) {
+    poses = Object.values(poses);
+  }
+  if (!Array.isArray(poses)) {
+    setState({
+      keypointsTrace: null,
+      keypointsTraceValid: false,
+    });
+    _warnKeypointsTraceParseOnce(
+      'keypoints_base_link: 无 poses 数组（请确认 rosbridge 类型 geometry_msgs/PoseArray 与 topic 一致）'
+    );
+    return;
+  }
+  const frameId =
+    raw.header && raw.header.frame_id != null ? String(raw.header.frame_id) : 'base_link';
+
+  const numOrNull = (v) => {
+    const n = v === undefined || v === null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const points = poses
+    .map((p) => {
+      if (!p || typeof p !== 'object') {
+        return null;
+      }
+      const pos = p.position;
+      if (!pos || typeof pos !== 'object') {
+        return null;
+      }
+      const x = numOrNull(pos.x);
+      const y = numOrNull(pos.y);
+      const z = numOrNull(pos.z);
+      if (x === null || y === null || z === null) {
+        return null;
+      }
+      return { x, y, z };
+    })
+    .filter((pt) => pt != null);
+
+  if (points.length === 0) {
+    setState({
+      keypointsTrace: null,
+      keypointsTraceValid: false,
+    });
+    if (poses.length > 0) {
+      _warnKeypointsTraceParseOnce(
+        'keypoints_base_link: poses 有元素但 position 无法解析为数字（检查 rosbridge JSON）'
+      );
+    }
+    return;
+  }
+
+  setState({
+    keypointsTrace: { frameId, points },
+    keypointsTraceValid: true,
+    keypointsTraceUpdatedAt: Date.now(),
+  });
+}
+
 function setFusedObjectPose(poseStampedOrNull) {
   if (!poseStampedOrNull) {
     setState({
@@ -456,6 +543,7 @@ export default {
   setConnection,
   setObjectPose,
   setFusedObjectPose,
+  setKeypointsTrace,
   setJointState,
   setTrajectoryPoints,
   setRovPoseInBaseLink,

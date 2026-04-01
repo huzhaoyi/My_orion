@@ -58,6 +58,27 @@ function render(parentEl) {
       ? new Date(state.fusedPerceptionUpdatedAt).toLocaleTimeString()
       : '—';
     const fusedTimeDisp = fusedValid ? tfu : '—（无效，无有效更新时间）';
+    const kpTrace = state.keypointsTrace;
+    const kpValid = !!state.keypointsTraceValid && kpTrace && Array.isArray(kpTrace.points);
+    const kpPts = kpValid ? kpTrace.points : [];
+    const kpTf =
+      state.keypointsTraceUpdatedAt != null
+        ? new Date(state.keypointsTraceUpdatedAt).toLocaleTimeString()
+        : '—';
+    let kpRowsHtml = '';
+    if (kpValid && kpPts.length > 0) {
+      kpRowsHtml = kpPts
+        .map(
+          (p, idx) => `
+        <div class="card-row card-row--indent perception-card__kp-row">
+          <span class="card-label">#${idx}</span>
+          <span class="card-value" style="font-size:10px;">${fmtPos(p)}</span>
+        </div>`
+        )
+        .join('');
+    } else {
+      kpRowsHtml = `<div class="card-row card-row--indent"><span class="card-value" style="font-size:10px;color:var(--text-secondary);">未收到 /manipulator/keypoints_base_link（需 keypoint_to_arm_tf）</span></div>`;
+    }
     const rovBase = state.rovPoseInBaseLink || null;
     const rovWorld = state.rovPoseInWorld || null;
     const rovPosBase = rovBase ? rovBase.position : null;
@@ -99,6 +120,15 @@ function render(parentEl) {
           <span class="card-value perception-card__quat">${fusedQuatDisp}</span>
         </div>
         <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${fusedTimeDisp}</span></div>
+      </div>
+      <div class="perception-card__pose-block perception-card__pose-block--keypoints">
+        <div class="card-row">
+          <span class="card-label">关键点点列</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">${kpValid ? `${kpTrace.frameId} · ${kpPts.length} 点 · 3D 琥珀球+折线` : 'PoseArray · 与融合同坐标系'}</span>
+        </div>
+        ${kpRowsHtml}
+        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${kpValid ? kpTf : '—'}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">图例</span><span class="card-value" style="font-size:10px;">青=桥接抓取点 · 品红=拟合抓取点 · 琥珀=各关键点</span></div>
       </div>
       <div class="perception-card__pose-block">
         <div class="card-row"><span class="card-label">ROV位姿 (map)</span></div>
