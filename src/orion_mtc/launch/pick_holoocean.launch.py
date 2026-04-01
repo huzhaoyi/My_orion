@@ -266,13 +266,11 @@ def generate_launch_description():
         keypoint_include,
     ]
 
-    try:
-        from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
-        rosbridge_share = get_package_share_directory("rosbridge_server")
-        rosbridge_launch = os.path.join(rosbridge_share, "launch", "rosbridge_websocket_launch.xml")
-        if os.path.isfile(rosbridge_launch):
-            actions.insert(1, IncludeLaunchDescription(XMLLaunchDescriptionSource(rosbridge_launch)))
-    except Exception:
-        pass
+    rosbridge_keepalive = os.path.join(orion_mtc_share, "launch", "rosbridge_websocket_keepalive.launch.py")
+    if os.path.isfile(rosbridge_keepalive):
+        actions.insert(
+            1,
+            IncludeLaunchDescription(PythonLaunchDescriptionSource(rosbridge_keepalive)),
+        )
 
     return LaunchDescription(actions)

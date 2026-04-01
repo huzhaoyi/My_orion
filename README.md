@@ -234,8 +234,8 @@ ros2 launch orion_mtc keypoint_arm_tf.launch.py use_platform_tf:=true
 ros2 launch orion_mtc keypoint_arm_tf.launch.py use_mock_keypoints:=true
 ```
 
-参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false，与 `cable_detect` 等 **Reliable** 发布匹配；若发布端为 Best Effort 可改 true）、`qos_depth`；**`use_mock_keypoints`**（true 时不订阅，由定时器注入假 Keypoints）、**`mock_frame_id`**、**`mock_kp_x`** / **`mock_kp_y`** / **`mock_kp_z`**、**`mock_period_sec`**。  
-**融合姿态标定（可选）**：对中心线侧抓四元数 `q_side` 可左乘 **`fused_grasp_orientation_correction_w/x/y/z`**（`q_out = q_corr * q_side`）。**`tf_under_manipulator` 分支默认 `w=1,x=y=z=0`**（TF 已与视觉轴约定一致，一般无需再为位置叠补偿）。若与 **`/object_pose` 桥接** 姿态仍差，可按同帧 **`q_corr = q_bridge ⊗ inverse(q_side)`** 重算并写入 launch。  
+参数：**`use_platform_tf`**（true 时帧名用 `sensor_camera1` / `sensor_left_roboticarm` / `sensor_right_roboticarm`，且不启动本地 static TF）；`input_topic`、`source_frame_override`、`force_source_frame`、`left_arm_frame`、`right_arm_frame`、`tf_timeout_sec`；**`tf_use_latest_timestamp`**（默认 true）；**`qos_best_effort`**（默认 false）、`qos_depth`；**`use_mock_keypoints`**、**`mock_frame_id`**、**`mock_kp_*`**、**`mock_direction_x/y/z`**、**`mock_period_sec`**。**融合姿态来源**：**`fused_orientation_source`** 为 **`auto`**（`||directions||` 足够则用 directions，否则 **`euler_angles`**）、**`directions`** 或 **`euler_angles`**；与 keypoints 共用 **`header.frame_id` / `force_source_frame`**，**`directions` 按向量**、**姿态按四元数**做 TF 到 `left_arm_frame` 再发布。**`fused_apply_tcp_frame_correction`**：是否对侧抓再左乘旧版 gripper_tcp 固定旋转（默认 **false**，与桥接 TargetSensor **同款侧抓叉乘**一致）。**`fused_grasp_position_mode`**：`mean`（关键点均值）、**`keypoint_index`**（**`fused_grasp_keypoint_index`**）或 **`centerline_arclength`**（`left_arm_frame` 下 PCA 排序→**`centerline_dedupe_radius_m`** 去重→**`centerline_median_window`** 分量中值平滑→按 **`centerline_grasp_arclength_fraction`** 在折线上取弧长点；**仅平移**，姿态仍由 directions/euler）。  
+**融合姿态标定（可选）**：对输出四元数左乘 **`fused_grasp_orientation_correction_*`**。**`tf_under`** 分支默认单位。  
 **融合位置 z（可选）**：变换到 **`output_grasp_frame`** 后可在 **`pose.position.z` 上叠加 `fused_grasp_position_z_offset_m`**；**`tf_under` 分支默认 `0`**（z 已含在静态 `base_link→camera` 平移内）。现场仍有系统误差时再改。
 
 测试发布（类型须与线上一致，例如 **sealien**）：
@@ -251,7 +251,7 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 **机器人模型同步**：修改 `orion_description` 或 `rov_urdf` 的 URDF/STL 后，运行 `web/sync_robot_model.sh` 将 `src/orion_description` 与可选 `rov_urdf/meshes/stl` 同步到 `web/robot/`（URDF + meshes/stl），供 3D 视图加载。
 
-**前置**：先启动 rosbridge（如 `ros2 launch rosbridge_server rosbridge_websocket_launch.xml`）和 orion_mtc（如 `pick_holoocean.launch.py`）。
+**前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 已包含 **`rosbridge_websocket_keepalive.launch.py`**（Tornado **websocket_ping_interval=25s**，减轻刷新后旧连接上的写失败 WARN）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
 
 **打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。可选 URL 参数：
 - `?ws=ws://host:port` — WebSocket 地址，默认 `ws://localhost:9090`

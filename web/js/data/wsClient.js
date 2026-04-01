@@ -31,6 +31,30 @@ let ws = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
+/** true：整页卸载/刷新，不再 scheduleReconnect，并主动 close，减轻 rosbridge 对已死连接写 1Hz 时的 WARN */
+let pageUnloading = false;
+
+function handlePageLeave() {
+  pageUnloading = true;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (ws) {
+    try {
+      ws.close(1000, 'page leave');
+    } catch (_) {
+      /* ignore */
+    }
+    ws = null;
+  }
+  stateStore.setConnection('ws', false);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', handlePageLeave);
+  window.addEventListener('beforeunload', handlePageLeave);
+}
 
 /** `?ws=` 可覆写完整 WebSocket URL，否则用 getDefaultWsUrl。 */
 function getWsUrl() {
@@ -57,6 +81,7 @@ function getJoyUiPrefix() {
 
 /** 建立 WebSocket、订阅业务话题、断线指数退避重连。 */
 function connect() {
+  pageUnloading = false;
   const url = getWsUrl();
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return;
@@ -81,8 +106,10 @@ function connect() {
     stateStore.setConnection('ws', false);
     stateStore.setJoyBridgeManual(null);
     stateStore.setJoyBridgeThrottle(null);
-    stateStore.pushSystemLog('warn', 'WebSocket 已断开');
-    scheduleReconnect();
+    if (!pageUnloading) {
+      stateStore.pushSystemLog('warn', 'WebSocket 已断开');
+      scheduleReconnect();
+    }
   };
 
   ws.onerror = (ev) => {

@@ -32,6 +32,8 @@
   <exec_depend>orion_description</exec_depend>
   <exec_depend>orion_holoocean_bridge</exec_depend>
   <exec_depend>orion_joy_arm_bridge</exec_depend>
+  <exec_depend>rosbridge_server</exec_depend>
+  <exec_depend>rosapi</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

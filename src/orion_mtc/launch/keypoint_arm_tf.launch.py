@@ -11,7 +11,7 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
     **平移** (-1.55,-0.5653,0.283628) m，**旋转**绕 camera Z 轴 −90°（四元数 qx=qy=0, qz=-qw=−√2/2），使
     「camera 下点 (x_v,y_v,z_v)」到 base_link 为 (y_v−1.55, −x_v−0.5653, z_v+0.283628)，与 **左臂安装**一致；
     **不再**使用旧的「链式逆」循环置换四元数 **(0.5,0.5,0.5,−0.5)**。感知链仍为 base_link→camera→sensor_link；
-    **tf_under 不播 left_arm_base**，中心线在 **base_link** 拟合。
+    **tf_under 不播 left_arm_base**；融合位姿在 **base_link** 发布，姿态来自 Keypoints **directions/euler_angles**（与 keypoints 同源坐标系）。
 
 - true：对接 sealien_ctrlpilot_location（rov.urdf_simulate.xml 等）。仅启动 keypoint 节点；帧名与
   robot_state_publisher 一致：sensor_camera1、sensor_left_roboticarm、sensor_right_roboticarm。
@@ -254,7 +254,7 @@ def generate_launch_description():
                 "mock_preset",
                 default_value="sonar_cable_9",
                 description=(
-                    "use_mock_keypoints 时注入方式：sonar_cable_9=内置 9 点（与 centerline 测试）；legacy_single=单点 mock_kp_*"
+                    "use_mock_keypoints 时注入方式：sonar_cable_9=内置 9 点；legacy_single=单点 mock_kp_*（mock_direction_* 填 directions）"
                 ),
             ),
             DeclareLaunchArgument(
