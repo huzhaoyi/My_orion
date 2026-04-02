@@ -130,6 +130,9 @@ function createScene(containerEl) {
 
   /* 机械臂 STL 模型（异步加载）+ 轮廓线；碰撞体显示状态在模型加载后补刷 */
   let robotModel = null;
+  /** 加载完成前收到的 joint_states，避免「表格已更新、模型仍零位」 */
+  let lastJointNames = null;
+  let lastJointPositions = null;
   let collisionDebugVisible = false;
   function applyCollisionDebugVisible() {
     robot.traverse((obj) => {
@@ -153,6 +156,10 @@ function createScene(containerEl) {
     robot.add(model);
     addOutlineToModel(model);
     applyCollisionDebugVisible();
+    if (lastJointNames && lastJointPositions && model.setJointValues) {
+      model.setJointValues(lastJointNames, lastJointPositions);
+    }
+    window.dispatchEvent(new CustomEvent('orion:robot-model-ready'));
   }).catch((err) => {
     console.warn('RobotScene: 机械臂模型加载失败，使用占位', err);
     const linkGeo = new THREE.CylinderGeometry(0.03, 0.04, 0.3, 16);
@@ -341,7 +348,15 @@ function createScene(containerEl) {
   }
 
   function setRobotJointValues(names, positions) {
-    if (robotModel && robotModel.setJointValues) robotModel.setJointValues(names, positions);
+    const n = Array.isArray(names) ? names : [];
+    const p = Array.isArray(positions) ? positions : [];
+    if (n.length > 0 && p.length > 0) {
+      lastJointNames = n;
+      lastJointPositions = p;
+    }
+    if (robotModel && robotModel.setJointValues) {
+      robotModel.setJointValues(n, p);
+    }
   }
 
   function setCollisionDebugVisible(visible) {

@@ -278,17 +278,21 @@ export function loadRobotModel() {
   }).then(() => {
     root.rotation.x = -Math.PI / 2;
     root.userData.jointTransforms = jointTransforms;
+    const axisVec = new THREE.Vector3();
     root.setJointValues = function (names, positions) {
       if (!names || !positions) return;
       const map = {};
-      for (let i = 0; i < names.length; i++) map[names[i]] = positions[i];
+      const lim = Math.min(names.length, positions.length);
+      for (let i = 0; i < lim; i += 1) {
+        map[names[i]] = positions[i];
+      }
       jointTransforms.forEach(({ name, group, axis }) => {
-        const v = map[name];
-        if (v === undefined || v === null) return;
-        group.quaternion.setFromAxisAngle(
-          new THREE.Vector3(axis[0], axis[1], axis[2]),
-          v
-        );
+        const raw = map[name];
+        if (raw === undefined || raw === null) return;
+        const angle = Number(raw);
+        if (!Number.isFinite(angle)) return;
+        axisVec.set(axis[0], axis[1], axis[2]);
+        group.quaternion.setFromAxisAngle(axisVec, angle);
       });
     };
     return root;

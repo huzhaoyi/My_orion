@@ -158,6 +158,15 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     RCLCPP_ERROR(LOGGER, "handlePick: gripper locked (has object), reject (open_gripper first)");
     return false;
   }
+  if (feasibility_checker_ != nullptr && feasibility_checker_->inJoyModeSwitchIkCooldown())
+  {
+    RCLCPP_WARN(LOGGER, "handlePick: rejected (joy auto/manual just switched, skip IK cable precheck)");
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      last_error_ = "JOY_MODE_SWITCH_COOLDOWN";
+    }
+    return false;
+  }
 
   setState(RobotTaskMode::PICKING);
   {
@@ -959,6 +968,23 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
       }
       return "";
     }
+  }
+
+  if (j.type == JobType::PICK && feasibility_checker_ != nullptr &&
+      feasibility_checker_->inJoyModeSwitchIkCooldown())
+  {
+    const char* reason = "joy_mode_switch_ik_cooldown";
+    RCLCPP_WARN(LOGGER, "submitJob rejected: PICK reason=%s", reason);
+    if (out_reject_reason)
+    {
+      *out_reject_reason = reason;
+    }
+    if (job_event_fn_)
+    {
+      job_event_fn_(j.job_id, jobTypeToCString(j.type), j.source, static_cast<uint32_t>(j.priority),
+                    "REJECTED", false, reason, j.created_at_ns, 0, 0);
+    }
+    return "";
   }
 
   std::string reject_reason;

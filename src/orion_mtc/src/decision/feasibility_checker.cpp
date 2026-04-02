@@ -10,10 +10,13 @@
 #include <moveit_msgs/srv/get_planning_scene.hpp>
 #include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Geometry>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <mutex>
 
 namespace orion_mtc
@@ -41,6 +44,12 @@ struct FeasibilityChecker::Impl
   std::mutex joint_state_mutex;
   sensor_msgs::msg::JointState::SharedPtr last_joint_state;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr sub_joint_state;
+
+  std::atomic<bool> joy_manual_initialized{false};
+  std::atomic<bool> joy_manual{false};
+  /* 上次 auto<->manual 边沿的 node 时钟纳秒；0 表示尚未发生边沿 */
+  std::atomic<int64_t> last_mode_transition_ns{0};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_joy_manual;
 };
 
 /* 加载 URDF、订阅 joint_states 作为 IK 种子；失败时 robot_model 为空，后续 IK 将报错项 */
@@ -72,6 +81,52 @@ FeasibilityChecker::FeasibilityChecker(rclcpp::Node::SharedPtr node)
         std::lock_guard<std::mutex> lock(impl_->joint_state_mutex);
         impl_->last_joint_state = msg;
       });
+
+  std::string joy_topic;
+  node_->get_parameter("feasibility.joy_manual_mode_topic", joy_topic);
+  if (!joy_topic.empty())
+  {
+    impl_->sub_joy_manual = node_->create_subscription<std_msgs::msg::Bool>(
+        joy_topic, rclcpp::QoS(10),
+        [this](const std_msgs::msg::Bool::SharedPtr msg) {
+          const bool v = msg->data;
+          if (!impl_->joy_manual_initialized.exchange(true))
+          {
+            impl_->joy_manual.store(v);
+            return;
+          }
+          const bool prev = impl_->joy_manual.exchange(v);
+          if (prev != v)
+          {
+            impl_->last_mode_transition_ns.store(node_->now().nanoseconds());
+            RCLCPP_INFO(LOGGER,
+                        "FeasibilityChecker: joy manual_mode %s -> %s (IK/precheck cooldown %.3fs)",
+                        prev ? "true" : "false", v ? "true" : "false", params_.joy_mode_switch_ik_skip_sec);
+          }
+        });
+    RCLCPP_INFO(LOGGER, "FeasibilityChecker: subscribed joy manual_mode for IK skip: %s", joy_topic.c_str());
+  }
+}
+
+bool FeasibilityChecker::inJoyModeSwitchIkCooldown() const
+{
+  if (!impl_)
+  {
+    return false;
+  }
+  const int64_t t_edge = impl_->last_mode_transition_ns.load();
+  if (t_edge <= 0 || !node_)
+  {
+    return false;
+  }
+  const double skip = params_.joy_mode_switch_ik_skip_sec;
+  if (skip <= 0.0)
+  {
+    return false;
+  }
+  const int64_t now = node_->now().nanoseconds();
+  const double elapsed = static_cast<double>(now - t_edge) * 1e-9;
+  return elapsed < skip;
 }
 
 FeasibilityChecker::~FeasibilityChecker() = default;
@@ -121,6 +176,20 @@ void FeasibilityChecker::loadParams()
   get_or("feasibility.suggestion_perturb_z", params_.suggestion_perturb_z, params_.suggestion_perturb_z);
   get_or("feasibility.suggestion_perturb_yaw_rad", params_.suggestion_perturb_yaw_rad,
          params_.suggestion_perturb_yaw_rad);
+
+  decl("feasibility.joy_mode_switch_ik_skip_sec", params_.joy_mode_switch_ik_skip_sec);
+  get_or("feasibility.joy_mode_switch_ik_skip_sec", params_.joy_mode_switch_ik_skip_sec,
+         params_.joy_mode_switch_ik_skip_sec);
+  if (params_.joy_mode_switch_ik_skip_sec < 0.0)
+  {
+    params_.joy_mode_switch_ik_skip_sec = 0.0;
+  }
+
+  if (!node_->has_parameter("feasibility.joy_manual_mode_topic"))
+  {
+    node_->declare_parameter<std::string>("feasibility.joy_manual_mode_topic",
+                                          "/joy_manipulator/manual_mode");
+  }
 }
 
 /* 组装一条 DiagnosticItem 追加到 items，供 check_pick 与 objectPoseWithinWorkspaceHardLimits 共用 */
@@ -489,6 +558,18 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
             "建议调整物体姿态使夹爪可竖直接近");
     if (res->severity < SEV_WARNING)
       res->severity = SEV_WARNING;
+  }
+
+  if (inJoyModeSwitchIkCooldown())
+  {
+    addItem(res->items, "MODE_SWITCH_COOLDOWN", LEVEL_INFO,
+            "手柄自动/手动刚切换：跳过 IK、场景碰撞与建议位姿搜索", "", 0.0, 0.0,
+            "冷却结束后再试完整审批（feasibility.joy_mode_switch_ik_skip_sec）");
+    res->approved = false;
+    res->severity = SEV_REJECT;
+    res->summary = "模式切换冷却中：未执行 IK 审批";
+    res->best_candidate_pose = req->object_pose;
+    return;
   }
 
   bool ik_ok = runIkAndJointMargin(impl_->arm_group_name, impl_->hand_frame,

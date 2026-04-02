@@ -419,6 +419,11 @@ rclcpp_action::GoalResponse ManipulatorRosInterface::handlePickGoalRequest(
         RCLCPP_INFO(ctx_.logger, "Pick goal rejected: busy");
         return rclcpp_action::GoalResponse::REJECT;
     }
+    if (ctx_.feasibility_checker && ctx_.feasibility_checker->inJoyModeSwitchIkCooldown())
+    {
+        RCLCPP_INFO(ctx_.logger, "Pick goal rejected: joy auto/manual switch IK cooldown");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 

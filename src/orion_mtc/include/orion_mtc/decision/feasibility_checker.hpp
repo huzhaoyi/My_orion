@@ -37,6 +37,12 @@ public:
   /** 注入 MTC 配置（gripper 偏移等），可选；未设置则用节点参数 */
   void setMTCConfig(const MTCConfig* config);
 
+  /**
+   * 手柄自动/手动刚切换后的短冷却（feasibility.joy_mode_switch_ik_skip_sec）：
+   * 此期间应跳过 IK 审批与缆绳预检，避免切换瞬间关节状态瞬变导致误算。
+   */
+  bool inJoyModeSwitchIkCooldown() const;
+
 private:
   struct FeasibilityParams
   {
@@ -52,6 +58,7 @@ private:
     double suggestion_perturb_xy = 0.02;     /* 建议修正扰动 xy [m] */
     double suggestion_perturb_z = 0.03;
     double suggestion_perturb_yaw_rad = 0.15;
+    double joy_mode_switch_ik_skip_sec = 1.5;
   };
 
   void loadParams();

@@ -52,6 +52,9 @@ feasibility:
   suggestion_perturb_xy: 0.02
   suggestion_perturb_z: 0.03
   suggestion_perturb_yaw_rad: 0.15
+  # 与 orion_joy_arm_bridge 发布的 /joy_manipulator/manual_mode 对齐；auto<->manual 边沿后跳过 IK 审批与缆绳预检的时间窗 [s]
+  joy_manual_mode_topic: "/joy_manipulator/manual_mode"
+  joy_mode_switch_ik_skip_sec: 1.5
   get_planning_scene_service: ""
 
 # ---------- 运行策略（worker / 恢复 / 入队）----------
