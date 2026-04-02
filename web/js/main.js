@@ -14,9 +14,11 @@ import BottomLogPanel from './layout/BottomLogPanel.js';
 import wsClient from './data/wsClient.js';
 import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
+import { initI18n, t } from './data/i18n.js';
 
 /** 创建各面板 DOM 挂载点、建立 rosbridge 连接并注册全局快捷键与服务封装事件。 */
 function init() {
+  initI18n();
   TopBar.mount('top-bar');
   LeftPanel.mount('left-panel');
   Viewport3D.mount('viewport-3d');
@@ -24,7 +26,7 @@ function init() {
   BottomLogPanel.mount('bottom-panel');
 
   wsClient.connect();
-  stateStore.pushSystemLog('info', 'Orion 上位机已启动');
+  stateStore.pushSystemLog('info', t('startup.log'));
 
   registerGlobalHandlers();
 }
@@ -42,11 +44,11 @@ function registerGlobalHandlers() {
   const handlers = {
     'orion:clear-queue': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法清空队列');
-        toast.warn('未连接，无法清空队列');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_clear'));
+        toast.warn(t('toast.not_connected_clear'));
         return;
       }
-      toast.info('正在清空队列…');
+      toast.info(t('toast.clearing'));
 
       const MAX_CANCEL = 20;
       let cancelCount = 0;
@@ -57,17 +59,23 @@ function registerGlobalHandlers() {
           const nextId = v && v.next_job_id ? String(v.next_job_id) : '';
           const empty = v && (v.queue_empty === true || (v.queue_size === 0));
           if (empty || !nextId) {
-            stateStore.pushSystemLog('info', '队列清空完成');
+            stateStore.pushSystemLog('info', t('log.queue_cleared'));
             wsClient.getQueueState(applyQueueStateToStore);
             return;
           }
           if (cancelCount >= MAX_CANCEL) {
-            stateStore.pushSystemLog('warn', `已尝试取消 ${MAX_CANCEL} 次，停止（仍有 next_job_id=${nextId.slice(0, 12)}）`);
+            stateStore.pushSystemLog(
+              'warn',
+              `${t('log.cancel_cap_a')} ${MAX_CANCEL}${t('log.cancel_cap_b')}${nextId.slice(0, 12)}${t('log.cancel_cap_c')}`
+            );
             wsClient.getQueueState(applyQueueStateToStore);
             return;
           }
           cancelCount += 1;
-          stateStore.pushSystemLog('info', `取消 next_job_id: ${nextId.slice(0, 12)}... (${cancelCount}/${MAX_CANCEL})`);
+          stateStore.pushSystemLog(
+            'info',
+            `${t('log.cancel_next')} ${nextId.slice(0, 12)}... (${cancelCount}/${MAX_CANCEL})`
+          );
           wsClient.callService(wsClient.getTopicPrefix() + '/cancel_job', { job_id: nextId }, (r2) => {
             const v2 = r2 && r2.values ? r2.values : r2;
             const ok = v2 && (v2.success === true || v2.success === undefined);
@@ -83,8 +91,8 @@ function registerGlobalHandlers() {
     },
     'orion:reset-held': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法调用 ResetHeldObject');
-        toast.warn('未连接，无法重置持物');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_reset'));
+        toast.warn(t('toast.not_connected_reset'));
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/reset_held_object', {}, (res) => {
@@ -99,8 +107,8 @@ function registerGlobalHandlers() {
       const jobId = e.detail?.job_id;
       if (!jobId) return;
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法取消');
-        toast.warn('未连接，无法取消任务');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_cancel'));
+        toast.warn(t('toast.not_connected_cancel'));
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/cancel_job', { job_id: jobId }, (res) => {
@@ -114,15 +122,18 @@ function registerGlobalHandlers() {
     },
     'orion:pick': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法提交 Pick');
-        toast.warn('未连接，无法提交抓取');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
+        toast.warn(t('toast.not_connected_pick'));
         return;
       }
       const s = stateStore.getState();
       const objPose = s.objectPose;
       if (!objPose) {
-        stateStore.pushSystemLog('warn', '原抓取方式：无 object_pose，请确保 ' + wsClient.getTopicPrefix() + '/object_pose 有数据（原感知桥接）');
-        toast.warn('无原链路位姿，无法提交「原抓取方式」');
+        stateStore.pushSystemLog(
+          'warn',
+          'Legacy pick: no object_pose; ensure ' + wsClient.getTopicPrefix() + '/object_pose'
+        );
+        toast.warn(t('toast.no_pose_legacy'));
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
@@ -142,15 +153,18 @@ function registerGlobalHandlers() {
     },
     'orion:pick:fused': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法提交 FUSED Pick');
-        toast.warn('未连接，无法提交抓取');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
+        toast.warn(t('toast.not_connected_pick'));
         return;
       }
       const s = stateStore.getState();
       const objPose = s.fusedObjectPose;
       if (!objPose || !s.fusedObjectPoseValid) {
-        stateStore.pushSystemLog('warn', '视觉+声呐中心线：无 object_pose_fused，请确认 keypoint_to_arm_tf 与 Keypoints 话题');
-        toast.warn('无中心线融合位姿，无法提交「视觉+声呐中心线」');
+        stateStore.pushSystemLog(
+          'warn',
+          'Fused pick: no object_pose_fused; check keypoint_to_arm_tf / Keypoints'
+        );
+        toast.warn(t('toast.no_pose_fused'));
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
@@ -171,8 +185,8 @@ function registerGlobalHandlers() {
     'orion:sync-held': (e) => {
       const tracked = e.detail?.tracked ?? true;
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法调用 SyncHeldObject');
-        toast.warn('未连接，无法同步持物');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_sync'));
+        toast.warn(t('toast.not_connected_sync'));
         return;
       }
       const s = stateStore.getState();
@@ -185,7 +199,7 @@ function registerGlobalHandlers() {
         tcp_pose: s.heldTcpPoseAtGrasp || null,
       };
       if (req.tracked && (!req.object_pose || !req.tcp_pose)) {
-        stateStore.pushSystemLog('warn', 'SyncHeldObject(tracked) 需要 object_pose + tcp_pose（当前缺失），将改为 untracked 同步');
+        stateStore.pushSystemLog('warn', t('log.sync_need_pose'));
         req.tracked = false;
         req.object_pose = { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } };
         req.tcp_pose = { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } };
@@ -207,8 +221,8 @@ function registerGlobalHandlers() {
     },
     'orion:open-gripper': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法调用打开夹爪');
-        toast.warn('未连接，无法打开夹爪');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_gripper_o'));
+        toast.warn(t('toast.not_connected_gripper_o'));
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/open_gripper', {}, (res) => {
@@ -222,8 +236,8 @@ function registerGlobalHandlers() {
     },
     'orion:close-gripper': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法调用关闭夹爪');
-        toast.warn('未连接，无法关闭夹爪');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_gripper_c'));
+        toast.warn(t('toast.not_connected_gripper_c'));
         return;
       }
       wsClient.callService(wsClient.getTopicPrefix() + '/close_gripper', {}, (res) => {
@@ -237,8 +251,8 @@ function registerGlobalHandlers() {
     },
     'orion:emergency-stop': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法急停');
-        toast.warn('未连接，无法急停');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_estop'));
+        toast.warn(t('toast.not_connected_estop'));
         return;
       }
       wsClient.callEmergencyStop((res) => {
@@ -253,8 +267,8 @@ function registerGlobalHandlers() {
     },
     'orion:go-to-ready': () => {
       if (!wsClient.isConnected()) {
-        stateStore.pushSystemLog('warn', '未连接，无法回 ready');
-        toast.warn('未连接，无法回 ready');
+        stateStore.pushSystemLog('warn', t('toast.not_connected_ready'));
+        toast.warn(t('toast.not_connected_ready'));
         return;
       }
       wsClient.callGoToReady((res) => {

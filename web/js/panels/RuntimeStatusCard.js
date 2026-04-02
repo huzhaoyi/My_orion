@@ -4,6 +4,7 @@
 
 import stateStore from '../data/stateStore.js';
 import { jobTypeLabel, stageNameLabel, stagePillClass } from '../data/labels.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 /** 在 parentEl 下追加「当前执行」卡片并订阅刷新。 */
 function render(parentEl) {
@@ -16,27 +17,28 @@ function render(parentEl) {
   function statusLabel(s) {
     if (!s) return '—';
     const u = (s + '').toUpperCase();
-    if (u.includes('RUNNING') || u.includes('PICKING')) return '运行中';
-    if (u.includes('HOLDING')) return '持物中';
-    if (u.includes('ERROR') || u.includes('DISCONNECTED')) return '异常';
-    if (u.includes('RECOVERING') || u.includes('WARNING')) return '恢复中';
-    if (u.includes('IDLE')) return '空闲';
+    if (u.includes('RUNNING') || u.includes('PICKING')) return t('status.running');
+    if (u.includes('HOLDING')) return t('status.holding');
+    if (u.includes('ERROR') || u.includes('DISCONNECTED')) return t('status.error');
+    if (u.includes('RECOVERING') || u.includes('WARNING')) return t('status.recovering');
+    if (u.includes('IDLE')) return t('status.idle');
     return s;
   }
   function update() {
     const s = stateStore.getState();
     wrap.innerHTML = `
-      <div class="card-title">当前执行</div>
-      <div class="card-row"><span class="card-label">类型</span><span class="card-value">${jobTypeLabel(s.currentJobType)}</span></div>
-      <div class="card-row"><span class="card-label">任务ID</span><span class="card-value">${(s.currentJobId || '—').slice(0, 16)}</span></div>
-      <div class="card-row"><span class="card-label">阶段</span><span class="card-value"><span class="stage-pill ${stagePillClass(s.currentStageName)}">${stageNameLabel(s.currentStageName) || '—'}</span></span></div>
-      <div class="card-row"><span class="card-label">工作线程</span><span class="card-value">${statusLabel(s.workerStatus)}</span></div>
-      <div class="card-row"><span class="card-label">模式</span><span class="card-value">${statusLabel(s.taskMode)}</span></div>
+      <div class="card-title">${t('card.runtime.title')}</div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.type')}</span><span class="card-value">${jobTypeLabel(s.currentJobType)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.job_id')}</span><span class="card-value">${(s.currentJobId || '—').slice(0, 16)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.stage')}</span><span class="card-value"><span class="stage-pill ${stagePillClass(s.currentStageName)}">${stageNameLabel(s.currentStageName) || '—'}</span></span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.worker')}</span><span class="card-value">${statusLabel(s.workerStatus)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.mode')}</span><span class="card-value">${statusLabel(s.taskMode)}</span></div>
     `;
   }
 
   update();
   stateStore.subscribe(update);
+  subscribeLocale(update);
 }
 
 export default { render };

@@ -3,6 +3,7 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import { t, getLocale, setLocale, subscribeLocale } from '../data/i18n.js';
 
 /** worker_status 字符串 → CSS 徽章类（错误/恢复/运行/空闲）。 */
 function workerBadgeClass(workerStatus) {
@@ -22,15 +23,15 @@ function taskModeBadgeClass(taskMode) {
   return 'badge-taskmode';
 }
 
-/** 后端英文状态 → 顶栏短中文标签。 */
+/** 后端英文状态 → 顶栏短标签。 */
 function statusToLabel(s) {
-  if (!s) return '空闲';
+  if (!s) return t('status.idle');
   const u = (s + '').toUpperCase();
-  if (u.includes('RUNNING') || u.includes('PICKING')) return '运行中';
-  if (u.includes('HOLDING')) return '持物中';
-  if (u.includes('ERROR') || u.includes('DISCONNECTED')) return '异常';
-  if (u.includes('RECOVERING') || u.includes('WARNING')) return '恢复中';
-  if (u.includes('IDLE')) return '空闲';
+  if (u.includes('RUNNING') || u.includes('PICKING')) return t('status.running');
+  if (u.includes('HOLDING')) return t('status.holding');
+  if (u.includes('ERROR') || u.includes('DISCONNECTED')) return t('status.error');
+  if (u.includes('RECOVERING') || u.includes('WARNING')) return t('status.recovering');
+  if (u.includes('IDLE')) return t('status.idle');
   return s;
 }
 
@@ -40,10 +41,10 @@ function joyModeBadgeClass(manual) {
   return manual ? 'badge-warning' : 'badge-running';
 }
 
-/** 手柄模式中文文案（含「—」无数据）。 */
+/** 手柄模式文案（含「—」无数据）。 */
 function joyModeLabel(manual) {
-  if (manual === null || manual === undefined) return '手柄 —';
-  return manual ? '手动' : '自动';
+  if (manual === null || manual === undefined) return t('top.joy_unknown');
+  return manual ? t('top.manual') : t('top.auto');
 }
 
 /** 手柄油门徽章：按 0～100% 分档着色；无数据时用默认 info 色 */
@@ -75,36 +76,55 @@ function render(el) {
   const thPulse = conn.joyThrottlePulseSeq !== lastThrottlePulseSeq;
   if (thPulse) lastThrottlePulseSeq = conn.joyThrottlePulseSeq;
   const thCls = thBase + (thPulse ? ' badge-throttle--pulse' : '');
-  const thText = thPct != null && Number.isFinite(thPct) ? `${Math.round(thPct)}%` : '油门 —';
+  const thText = thPct != null && Number.isFinite(thPct) ? `${Math.round(thPct)}%` : t('top.throttle_unknown');
+
+  const loc = getLocale();
+  const langZhActive = loc === 'zh' ? ' top-bar__lang-btn--active' : '';
+  const langEnActive = loc === 'en' ? ' top-bar__lang-btn--active' : '';
 
   el.innerHTML = `
     <div class="top-bar__brand">
       <img src="SEALIEN-LOGO.png" alt="Orion" class="top-bar__logo" />
-      <span class="top-bar__brand-title">Orion</span>
+      <span class="top-bar__brand-title">${t('top.brand')}</span>
     </div>
-    ${section(tag(wsBadge, '●', conn.wsConnected ? '已连接' : '未连接', conn.wsConnected ? '' : '需先启动 rosbridge（默认 ws://127.0.0.1:9091，可用 ?ws= 覆盖）'))}
-    ${section(tag(workerBadge, '⚙', '工作线程 ' + statusToLabel(conn.workerStatus)))}
-    ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
-    ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}
-    ${section(tag(joyModeBadgeClass(conn.joyManualMode), '🎮', joyModeLabel(conn.joyManualMode), 'joy_manipulator：/joy_manipulator/manual_mode'))}
-    ${section(tag(thCls, '⏱', thText, '臂油门 0～100%（/joy_manipulator/throttle_percent）；颜色随档位变化，变化时短暂高亮'))}
+    <div class="top-bar__section top-bar__lang" title="${t('lang.switch')}">
+      <button type="button" class="top-bar__lang-btn${langZhActive}" data-locale="zh" aria-pressed="${loc === 'zh'}">${t('lang.zh')}</button>
+      <span class="top-bar__lang-sep">/</span>
+      <button type="button" class="top-bar__lang-btn${langEnActive}" data-locale="en" aria-pressed="${loc === 'en'}">${t('lang.en')}</button>
+    </div>
+    ${section(tag(wsBadge, '●', conn.wsConnected ? t('top.connected') : t('top.disconnected'), conn.wsConnected ? '' : t('top.ws_title_disconnected')))}
+    ${section(tag(workerBadge, '⚙', t('top.worker') + ' ' + statusToLabel(conn.workerStatus)))}
+    ${section(tag(taskBadge, '◇', t('top.task') + ' ' + statusToLabel(conn.taskMode)))}
+    ${section(tag('badge-queue', '☰', t('top.queue') + ' ' + queueCount))}
+    ${section(tag(joyModeBadgeClass(conn.joyManualMode), '🎮', joyModeLabel(conn.joyManualMode), t('top.joy_title')))}
+    ${section(tag(thCls, '⏱', thText, t('top.throttle_title')))}
     <div class="top-bar__section top-bar__section--emergency" style="margin-left: auto;">
-      <button type="button" id="btn-clear-queue" class="btn-secondary" title="cancel_job 清空待执行任务">清空队列</button>
-      <button type="button" id="btn-reset-held" class="btn-secondary" title="reset_held_object">重置持物</button>
+      <button type="button" id="btn-clear-queue" class="btn-secondary" title="${t('top.clear_queue_title')}">${t('top.clear_queue')}</button>
+      <button type="button" id="btn-reset-held" class="btn-secondary" title="${t('top.reset_held_title')}">${t('top.reset_held')}</button>
     </div>
   `;
 
   el.querySelector('#btn-clear-queue')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-queue')));
   el.querySelector('#btn-reset-held')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:reset-held')));
+  el.querySelectorAll('.top-bar__lang-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-locale');
+      if (next === 'zh' || next === 'en') {
+        setLocale(next);
+      }
+    });
+  });
 }
 
-/** 挂载到 #containerId，订阅 stateStore 以随连接/队列/手柄状态刷新。 */
+/** 挂载到 #containerId，订阅 stateStore 与语言变更以刷新。 */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
-  render(el);
-  stateStore.subscribe(() => render(el));
+  const rerender = () => render(el);
+  rerender();
+  stateStore.subscribe(rerender);
+  subscribeLocale(rerender);
 }
 
 export default { mount, render };

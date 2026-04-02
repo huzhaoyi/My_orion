@@ -1,18 +1,28 @@
 /**
- * 前端统一中文标签：任务类型、阶段名、阶段状态
+ * 任务类型、阶段名、阶段状态（随 i18n 中英切换）
  * 阶段配色：stagePillClass() 供「当前执行 / 事件流」彩色区分
  */
 
-/** ROS job_type / 任务类型英文枚举 → 中文短标签。 */
-export function jobTypeLabel(t) {
-  if (!t) return '—';
-  const u = String(t).toUpperCase();
-  if (u === 'PICK') return '抓取';
-  if (u === 'OPEN_GRIPPER') return '打开夹爪';
-  if (u === 'CLOSE_GRIPPER') return '闭合夹爪';
-  if (u === 'RESET_HELD_OBJECT') return '重置持物';
-  if (u === 'SYNC_HELD_OBJECT') return '同步持物';
-  return t;
+import { getLocale, t } from './i18n.js';
+
+/** ROS job_type / 任务类型 → 当前语言短标签。 */
+export function jobTypeLabel(jobT) {
+  if (!jobT) return '—';
+  const u = String(jobT).toUpperCase();
+  if (getLocale() === 'en') {
+    if (u === 'PICK') return t('job.pick');
+    if (u === 'OPEN_GRIPPER') return t('job.open_gripper');
+    if (u === 'CLOSE_GRIPPER') return t('job.close_gripper');
+    if (u === 'RESET_HELD_OBJECT') return t('job.reset_held');
+    if (u === 'SYNC_HELD_OBJECT') return t('job.sync_held');
+    return jobT;
+  }
+  if (u === 'PICK') return t('job.pick');
+  if (u === 'OPEN_GRIPPER') return t('job.open_gripper');
+  if (u === 'CLOSE_GRIPPER') return t('job.close_gripper');
+  if (u === 'RESET_HELD_OBJECT') return t('job.reset_held');
+  if (u === 'SYNC_HELD_OBJECT') return t('job.sync_held');
+  return jobT;
 }
 
 /**
@@ -56,14 +66,22 @@ const STAGE_NAME_ZH = {
   close_hand_ready: '闭合手爪(就绪)',
 };
 
-/** MTC stage_name（空格或下划线）→ 中文；segment_k 显示为「执行段 k」。 */
+/** MTC stage_name：中文表或英文原样；segment_k → 执行段 k / Segment k。 */
 export function stageNameLabel(name) {
   if (!name || !String(name).trim()) return '—';
   const key = String(name).trim();
+  if (/^segment_\d+$/i.test(key)) {
+    return `${t('stage.segment')} ${key.replace(/^segment_/i, '')}`;
+  }
+  if (getLocale() === 'en') {
+    if (key.toLowerCase() === 'current') {
+      return t('stage.current');
+    }
+    return key;
+  }
   if (STAGE_NAME_ZH[key]) return STAGE_NAME_ZH[key];
   const under = key.replace(/\s+/g, '_');
   if (STAGE_NAME_ZH[under]) return STAGE_NAME_ZH[under];
-  if (/^segment_\d+$/i.test(key)) return '执行段 ' + key.replace(/^segment_/i, '');
   return key;
 }
 
@@ -95,14 +113,14 @@ export function stageStateModifier(state) {
   return '';
 }
 
-/** TaskStage.stage_state → 事件流中文（进入/运行中/完成/失败）。 */
+/** TaskStage.stage_state → 事件流标签。 */
 export function stageStateLabel(state) {
   if (!state) return '';
   const u = String(state).toUpperCase();
-  if (u === 'ENTER') return '进入';
-  if (u === 'RUNNING') return '运行中';
-  if (u === 'DONE') return '完成';
-  if (u === 'FAILED') return '失败';
-  if (u === 'SKIPPED') return '跳过';
+  if (u === 'ENTER') return t('stage.state.enter');
+  if (u === 'RUNNING') return t('stage.state.running');
+  if (u === 'DONE') return t('stage.state.done');
+  if (u === 'FAILED') return t('stage.state.failed');
+  if (u === 'SKIPPED') return t('stage.state.skipped');
   return state;
 }

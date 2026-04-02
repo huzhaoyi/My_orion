@@ -6,27 +6,17 @@
 import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
 import ApprovalCard from '../panels/ApprovalCard.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 /** 右侧栏：任务/调试 Tab，任务页绑定 CustomEvent 与 ApprovalCard。 */
 function mount(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
-  const tabs = [
-    { id: 'task', label: '任务', content: renderTaskTab },
-    { id: 'debug', label: '调试', content: renderDebugTab },
-  ];
+  let activeTabId = 'task';
 
   const tabBar = document.createElement('div');
   tabBar.className = 'tabs right-panel__tabs';
-  tabs.forEach((t, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'tab' + (i === 0 ? ' active' : '');
-    btn.textContent = t.label;
-    btn.dataset.tab = t.id;
-    tabBar.appendChild(btn);
-  });
 
   const content = document.createElement('div');
   content.className = 'right-panel__content';
@@ -35,21 +25,43 @@ function mount(containerId) {
   el.appendChild(tabBar);
   el.appendChild(content);
 
-  function showTab(id) {
-    tabs.forEach((t) => {
-      const btn = tabBar.querySelector(`[data-tab="${t.id}"]`);
-      if (btn) btn.classList.toggle('active', t.id === id);
-    });
-    content.innerHTML = '';
-    const tab = tabs.find((t) => t.id === id);
-    if (tab && tab.content) tab.content(content);
+  function tabSpecs() {
+    return [
+      { id: 'task', label: t('right.tab_task'), content: renderTaskTab },
+      { id: 'debug', label: t('right.tab_debug'), content: renderDebugTab },
+    ];
   }
 
-  tabBar.querySelectorAll('.tab').forEach((btn) => {
-    btn.addEventListener('click', () => showTab(btn.dataset.tab));
-  });
+  function rebuildTabButtons() {
+    tabBar.innerHTML = '';
+    tabSpecs().forEach((spec, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tab' + (spec.id === activeTabId ? ' active' : '');
+      btn.textContent = spec.label;
+      btn.dataset.tab = spec.id;
+      btn.addEventListener('click', () => showTab(spec.id));
+      tabBar.appendChild(btn);
+    });
+  }
 
-  showTab('task');
+  function showTab(id) {
+    activeTabId = id;
+    tabBar.querySelectorAll('.tab').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.tab === id);
+    });
+    content.innerHTML = '';
+    const spec = tabSpecs().find((x) => x.id === id);
+    if (spec && spec.content) spec.content(content);
+  }
+
+  rebuildTabButtons();
+  showTab(activeTabId);
+
+  subscribeLocale(() => {
+    rebuildTabButtons();
+    showTab(activeTabId);
+  });
 }
 
 /** 任务 Tab：急停、审批、抓取、夹爪、工作空间提示与工作空间 AABB 文案。 */
@@ -60,47 +72,47 @@ function renderTaskTab(container) {
   const f2 = (v) => Number(v).toFixed(2);
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">急停与回位</div>
-      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">emergency_stop / go_to_ready 服务</p>
+      <div class="card-title">${t('right.emergency_ready_title')}</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">${t('right.emergency_ready_hint')}</p>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-task-emergency-stop" class="btn-secondary" style="background:#b91c1c;border-color:#991b1b;color:#fff;font-weight:600;">急停</button>
-        <button type="button" id="btn-task-go-ready" class="btn-secondary">回 ready</button>
+        <button type="button" id="btn-task-emergency-stop" class="btn-secondary" style="background:#b91c1c;border-color:#991b1b;color:#fff;font-weight:600;">${t('right.emergency_stop')}</button>
+        <button type="button" id="btn-task-go-ready" class="btn-secondary">${t('right.go_ready')}</button>
       </div>
     </div>
     <div class="card approval-card">
-      <div class="card-title">审批结果</div>
-      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">check_pick 服务；无物体位姿时不可用</p>
+      <div class="card-title">${t('right.approval_title')}</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">${t('right.approval_hint')}</p>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-approval-pick" class="primary btn-action">审批抓取</button>
+        <button type="button" id="btn-approval-pick" class="primary btn-action">${t('right.approval_btn')}</button>
       </div>
       <div id="approval-result-container"></div>
     </div>
     <div class="card">
-      <div class="card-title">抓取（二选一）</div>
+      <div class="card-title">${t('right.pick_title')}</div>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-pick-legacy" class="primary btn-action" title="原先一路：感知/缆绳/重建等桥接到 /manipulator/object_pose（与 Keypoints 无关）">原抓取方式</button>
-        <button type="button" id="btn-pick-fused" class="primary btn-action" style="background:#a21caf;border-color:#86198f;" title="视觉 + 声呐 Keypoints → 中心线拟合 → /manipulator/object_pose_fused">视觉+声呐中心线</button>
+        <button type="button" id="btn-pick-legacy" class="primary btn-action" title="${t('right.pick_legacy_title')}">${t('right.pick_legacy')}</button>
+        <button type="button" id="btn-pick-fused" class="primary btn-action" style="background:#a21caf;border-color:#86198f;" title="${t('right.pick_fused_title')}">${t('right.pick_fused')}</button>
       </div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">左：原链路 object_pose；右：keypoint_to_arm_tf 发布的融合位姿（需话题有数据）。均 submit_job 异步入队。</p>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">${t('right.pick_hint')}</p>
     </div>
     <div class="card">
-      <div class="card-title">夹爪</div>
-      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">仅动夹爪，臂关节保持当前姿态</p>
+      <div class="card-title">${t('right.gripper_title')}</div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">${t('right.gripper_hint')}</p>
       <div class="form-actions form-actions--row">
-        <button type="button" id="btn-open-gripper" class="primary btn-action">打开夹爪</button>
-        <button type="button" id="btn-close-gripper" class="btn-secondary">闭合夹爪</button>
+        <button type="button" id="btn-open-gripper" class="primary btn-action">${t('right.open_gripper')}</button>
+        <button type="button" id="btn-close-gripper" class="btn-secondary">${t('right.close_gripper')}</button>
       </div>
     </div>
     <div class="workspace-hint-stack">
-      <div class="workspace-hint workspace-hint--compact" title="base_link：gripper_tcp 粗采样∩feasibility 球/带 硬限后的示意 AABB（3D 线框同源），角点未必可达">
-        <span class="workspace-hint__label">工作空间</span>
+      <div class="workspace-hint workspace-hint--compact" title="${t('right.ws_title')}">
+        <span class="workspace-hint__label">${t('right.ws_label')}</span>
         <span class="workspace-hint__axes">X <var>${f2(u.x_m.min)}</var>～<var>${f2(u.x_m.max)}</var> Y <var>${f2(u.y_m.min)}</var>～<var>${f2(u.y_m.max)}</var> Z <var>${f2(u.z_m.min)}</var>～<var>${f2(u.z_m.max)}</var> m</span>
-        <span class="workspace-hint__note">勿超出</span>
+        <span class="workspace-hint__note">${t('right.ws_note')}</span>
       </div>
-      <div class="workspace-hint workspace-hint--compact" title="object_pose 缆绳中心在 base_link；与 check_pick / 抓取前硬限一致（orion_mtc_params feasibility）">
-        <span class="workspace-hint__label">目标（缆绳）</span>
+      <div class="workspace-hint workspace-hint--compact" title="${t('right.target_cable_title')}">
+        <span class="workspace-hint__label">${t('right.target_cable')}</span>
         <span class="workspace-hint__axes">‖p‖ <var>${f2(F.min_reach_safe_m)}</var>～<var>${f2(F.max_reach_hard_m)}</var> m Z <var>${f2(F.z_min_m)}</var>～<var>${f2(F.z_max_m)}</var> m 软‖p‖ <var>${f2(F.max_reach_soft_m)}</var> m</span>
-        <span class="workspace-hint__note">勿超出</span>
+        <span class="workspace-hint__note">${t('right.ws_note')}</span>
       </div>
     </div>
   `;
@@ -119,13 +131,13 @@ function renderTaskTab(container) {
 function renderDebugTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">调试工具</div>
+      <div class="card-title">${t('right.debug_title')}</div>
       <div class="form-actions form-actions--row" style="flex-direction: column; align-items: stretch;">
-        <button type="button" id="btn-reset-held" class="btn-action">重置持物</button>
-        <button type="button" id="btn-sync-tracked" class="btn-secondary">同步场景（已跟踪）</button>
-        <button type="button" id="btn-sync-untracked" class="btn-secondary">同步场景（未跟踪）</button>
+        <button type="button" id="btn-reset-held" class="btn-action">${t('top.reset_held')}</button>
+        <button type="button" id="btn-sync-tracked" class="btn-secondary">${t('right.sync_tracked')}</button>
+        <button type="button" id="btn-sync-untracked" class="btn-secondary">${t('right.sync_untracked')}</button>
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--text-secondary);">
-          <input type="checkbox" id="debug-show-collision"> 显示碰撞体
+          <input type="checkbox" id="debug-show-collision"> ${t('right.show_collision')}
         </label>
       </div>
     </div>

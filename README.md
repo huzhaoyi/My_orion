@@ -277,6 +277,7 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 - `?ws=ws://host:port` — WebSocket 地址，默认 **`ws://127.0.0.1:9091`**（与 `pick_holoocean` / `rosbridge_websocket_keepalive` 默认端口一致；与页面从哪打开无关，避免误连局域网 IP）
 - `?ns=/manipulator` 或 `?topic_prefix=/manipulator` — 话题/服务命名空间，默认 `/manipulator`
 - `?joy_ui=/joy_manipulator` — 手柄桥接 UI 状态话题前缀（默认 `/joy_manipulator`，对应 `manual_mode`、`throttle_percent`）
+- `?lang=zh` / `?lang=en` — 网页 UI 语言（写入 `localStorage`，亦可顶栏 **中文 / English** 切换）
 
 **功能对应**：
 - **订阅话题**：`runtime_status`、`job_event`、`task_stage`、`held_object_state`、`recovery_event`、`object_pose`、`joint_states`、**`joy_manipulator/manual_mode`（Bool）**、**`joy_manipulator/throttle_percent`（Float32，臂油门 0～100%）**（需启动 `joy_manipulator_node` 且 `publish_ui_status: true`）

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import RobotScene from '../robot/RobotScene.js';
 import stateStore from '../data/stateStore.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 let sceneApi = null;
 let unsubscribeState = null;
@@ -49,47 +50,57 @@ function createLayerToggles(containerEl, sceneApiRef) {
   panel.className = 'viewport-3d__layer-panel';
   const title = document.createElement('div');
   title.className = 'viewport-3d__layer-panel-title';
-  title.textContent = '显示层';
+  title.textContent = t('viewport.layers');
   panel.appendChild(title);
   const div = document.createElement('div');
   div.className = 'viewport-3d__toolbar';
   const toggles = [
-    { id: 'show-axes', label: '坐标轴', key: 'showAxes', default: true },
-    { id: 'show-coord-frames', label: 'ROV/目标系', key: 'showCoordFrames', default: true },
-    { id: 'show-world', label: '场景物体', key: 'showWorldObject', default: true },
-    { id: 'show-attached', label: '附着物体', key: 'showAttachedObject', default: true },
-    { id: 'show-collision', label: '碰撞体', key: 'showCollision', default: false },
-    { id: 'show-trajectory', label: '轨迹', key: 'showTrajectory', default: true },
-    { id: 'show-targets', label: '目标点', key: 'showTargets', default: true },
-    { id: 'show-workspace', label: '工作空间', key: 'showWorkspace', default: false },
+    { id: 'show-axes', i18n: 'viewport.layer.axes', key: 'showAxes', default: true },
+    { id: 'show-coord-frames', i18n: 'viewport.layer.frames', key: 'showCoordFrames', default: true },
+    { id: 'show-world', i18n: 'viewport.layer.world', key: 'showWorldObject', default: true },
+    { id: 'show-attached', i18n: 'viewport.layer.attached', key: 'showAttachedObject', default: true },
+    { id: 'show-collision', i18n: 'viewport.layer.collision', key: 'showCollision', default: false },
+    { id: 'show-trajectory', i18n: 'viewport.layer.trajectory', key: 'showTrajectory', default: true },
+    { id: 'show-targets', i18n: 'viewport.layer.targets', key: 'showTargets', default: true },
+    { id: 'show-workspace', i18n: 'viewport.layer.workspace', key: 'showWorkspace', default: false },
   ];
   const state = {};
-  toggles.forEach((t) => {
-    state[t.key] = t.default;
+  const layerI18nRefs = [];
+  toggles.forEach((tInfo) => {
+    state[tInfo.key] = tInfo.default;
     const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" id="${t.id}" ${t.default ? 'checked' : ''}> ${t.label}`;
-    const cb = label.querySelector('input');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = tInfo.id;
+    input.checked = tInfo.default;
+    const span = document.createElement('span');
+    span.className = 'viewport-3d__layer-label-text';
+    span.textContent = ` ${t(tInfo.i18n)}`;
+    layerI18nRefs.push({ span, key: tInfo.i18n });
+    label.appendChild(input);
+    label.appendChild(span);
+    const cb = input;
     cb.addEventListener('change', () => {
-      state[t.key] = cb.checked;
-      if (layerToggles[t.key] !== undefined) layerToggles[t.key] = cb.checked;
+      state[tInfo.key] = cb.checked;
+      if (layerToggles[tInfo.key] !== undefined) layerToggles[tInfo.key] = cb.checked;
       if (sceneApiRef) {
-        if (t.key === 'showAxes') {
+        if (tInfo.key === 'showAxes') {
           const baseAxes = sceneApiRef.world.getObjectByName('base_axes');
           if (baseAxes) baseAxes.visible = cb.checked;
         }
-        if (t.key === 'showWorldObject') {
+        if (tInfo.key === 'showWorldObject') {
           const wo = sceneApiRef.targets.getObjectByName('world_object');
           if (wo) wo.visible = cb.checked && wo.userData.valid;
         }
-        if (t.key === 'showAttachedObject') {
+        if (tInfo.key === 'showAttachedObject') {
           const ao = sceneApiRef.targets.getObjectByName('attached_object');
           if (ao) ao.visible = cb.checked && ao.userData.valid;
         }
-        if (t.key === 'showCollision') {
+        if (tInfo.key === 'showCollision') {
           if (sceneApiRef.setCollisionDebugVisible) sceneApiRef.setCollisionDebugVisible(cb.checked);
         }
-        if (t.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
-        if (t.key === 'showTargets') {
+        if (tInfo.key === 'showTrajectory') sceneApiRef.trajectoryLine.visible = cb.checked;
+        if (tInfo.key === 'showTargets') {
           const st = stateStore.getState();
           sceneApiRef.pickMarker.visible = cb.checked && !!st.objectPoseValid;
           if (sceneApiRef.pickMarkerFused) {
@@ -113,11 +124,11 @@ function createLayerToggles(containerEl, sceneApiRef) {
               showKp && (st.keypointsTrace?.points?.length || 0) > 1;
           }
         }
-        if (t.key === 'showWorkspace') {
+        if (tInfo.key === 'showWorkspace') {
           const ws = sceneApiRef.world.getObjectByName('workspace_box');
           if (ws) ws.visible = cb.checked;
         }
-        if (t.key === 'showCoordFrames') {
+        if (tInfo.key === 'showCoordFrames') {
           if (sceneApiRef.rovAxesGroup) sceneApiRef.rovAxesGroup.visible = cb.checked;
         }
       }
@@ -125,6 +136,7 @@ function createLayerToggles(containerEl, sceneApiRef) {
     div.appendChild(label);
   });
   panel.appendChild(div);
+  panel._viewportI18n = { title, layerI18nRefs };
   return panel;
 }
 
@@ -136,13 +148,13 @@ function createJoystickTable(containerEl) {
   panel.className = 'viewport-3d__joystick-panel';
   const title = document.createElement('div');
   title.className = 'viewport-3d__joystick-panel-title';
-  title.textContent = '关节角度';
+  title.textContent = t('viewport.joints');
   panel.appendChild(title);
   const tableWrap = document.createElement('div');
   tableWrap.className = 'viewport-3d__joystick-table-wrap';
   const table = document.createElement('table');
   table.className = 'viewport-3d__joystick-table';
-  table.innerHTML = '<thead><tr><th>关节</th><th>rad</th><th>°</th></tr></thead><tbody id="joystick-table-body"></tbody>';
+  table.innerHTML = `<thead><tr><th>${t('viewport.joint_col')}</th><th>rad</th><th>°</th></tr></thead><tbody id="joystick-table-body"></tbody>`;
   tableWrap.appendChild(table);
   panel.appendChild(tableWrap);
   return { panel, tbody: table.querySelector('#joystick-table-body') };
@@ -156,7 +168,7 @@ function updateJoystickTable(tbody, jointNames, jointPositions) {
   const names = jointNames || [];
   const positions = jointPositions || [];
   if (names.length === 0 && positions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="viewport-3d__joystick-empty">暂无数据</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="3" class="viewport-3d__joystick-empty">${t('viewport.no_data')}</td></tr>`;
     return;
   }
   const rows = [];
@@ -169,10 +181,10 @@ function updateJoystickTable(tbody, jointNames, jointPositions) {
     const isHand = HAND_JOINT_NAMES.includes(name);
     if (isHand && i + 1 < names.length && HAND_JOINT_NAMES.includes(names[i + 1])) {
       /* 两个夹爪关节合并为一行「夹爪」，用 Link7 的值表示 */
-      rows.push(`<tr><td class="viewport-3d__joystick-name" title="夹爪 (Link7/Link8)">夹爪</td><td>${radStr}</td><td>${deg}</td></tr>`);
+      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${t('viewport.gripper_title')}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
       i += 2;
     } else if (isHand) {
-      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">夹爪</td><td>${radStr}</td><td>${deg}</td></tr>`);
+      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
       i += 1;
     } else {
       const shortName = name.replace(/^joint_/, '').replace(/Link/g, 'L');
@@ -189,14 +201,15 @@ function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   div.className = 'viewport-3d__view-buttons';
   div.style.cssText = 'position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px; z-index:10;';
   const views = [
-    { label: '顶视', pos: [0, 1.5, 0.01], target: [0, 0, 0] },
-    { label: '前视', pos: [1.2, 0, 0], target: [0, 0, 0] },
-    { label: '侧视', pos: [0, 0.5, 1.2], target: [0, 0, 0] },
-    { label: '默认', pos: [1.5, 1.2, 1.5], target: [0, 0, 0] },
+    { i18n: 'viewport.view_top', pos: [0, 1.5, 0.01], target: [0, 0, 0] },
+    { i18n: 'viewport.view_front', pos: [1.2, 0, 0], target: [0, 0, 0] },
+    { i18n: 'viewport.view_side', pos: [0, 0.5, 1.2], target: [0, 0, 0] },
+    { i18n: 'viewport.view_default', pos: [1.5, 1.2, 1.5], target: [0, 0, 0] },
   ];
   views.forEach((v) => {
     const btn = document.createElement('button');
-    btn.textContent = v.label;
+    btn.textContent = t(v.i18n);
+    btn.setAttribute('data-i18n', v.i18n);
     btn.type = 'button';
     btn.addEventListener('click', () => {
       if (sceneApiRef && sceneApiRef.setFollowTcp) sceneApiRef.setFollowTcp(false);
@@ -207,10 +220,16 @@ function createViewButtons(containerEl, controls, camera, sceneApiRef) {
   });
   const followLabel = document.createElement('label');
   followLabel.style.cssText = 'margin-top:6px; font-size:11px; color:var(--text-secondary); cursor:pointer;';
-  followLabel.innerHTML = '<input type="checkbox" id="view-follow-tcp"> 跟随末端';
-  const followCb = followLabel.querySelector('input');
-  followCb.addEventListener('change', () => {
-    if (sceneApiRef && sceneApiRef.setFollowTcp) sceneApiRef.setFollowTcp(followCb.checked);
+  const followInput = document.createElement('input');
+  followInput.type = 'checkbox';
+  followInput.id = 'view-follow-tcp';
+  const followSpan = document.createElement('span');
+  followSpan.className = 'viewport-3d__follow-label-text';
+  followSpan.textContent = ` ${t('viewport.follow_tcp')}`;
+  followLabel.appendChild(followInput);
+  followLabel.appendChild(followSpan);
+  followInput.addEventListener('change', () => {
+    if (sceneApiRef && sceneApiRef.setFollowTcp) sceneApiRef.setFollowTcp(followInput.checked);
   });
   div.appendChild(followLabel);
   return div;
@@ -237,6 +256,38 @@ function mount(containerId) {
   const { panel: joystickPanel, tbody: joystickTbody } = createJoystickTable(el);
   el.appendChild(joystickPanel);
 
+  function applyViewportI18n() {
+    const layerPanel = el.querySelector('.viewport-3d__layer-panel');
+    if (layerPanel && layerPanel._viewportI18n) {
+      const { title: layerTitle, layerI18nRefs } = layerPanel._viewportI18n;
+      layerTitle.textContent = t('viewport.layers');
+      layerI18nRefs.forEach(({ span, key }) => {
+        span.textContent = ` ${t(key)}`;
+      });
+    }
+    const joyTitle = el.querySelector('.viewport-3d__joystick-panel-title');
+    if (joyTitle) {
+      joyTitle.textContent = t('viewport.joints');
+    }
+    const joyThead = el.querySelector('.viewport-3d__joystick-table thead tr');
+    if (joyThead) {
+      joyThead.innerHTML = `<th>${t('viewport.joint_col')}</th><th>rad</th><th>°</th>`;
+    }
+    el.querySelectorAll('.viewport-3d__view-buttons button[data-i18n]').forEach((btn) => {
+      const k = btn.getAttribute('data-i18n');
+      if (k) {
+        btn.textContent = t(k);
+      }
+    });
+    const followSpan = el.querySelector('.viewport-3d__follow-label-text');
+    if (followSpan) {
+      followSpan.textContent = ` ${t('viewport.follow_tcp')}`;
+    }
+    updateJoystickTable(joystickTbody, stateStore.getState().jointNames, stateStore.getState().jointPositions);
+  }
+
+  subscribeLocale(applyViewportI18n);
+
   function updateFromState(s) {
     if (!sceneApi) return;
     updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions);
@@ -246,8 +297,8 @@ function mount(containerId) {
       return v;
     }
 
-    const t = rosToThreePosition(s.objectPose?.position);
-    const tScene = applyBaseLinkToScene(t);
+    const pickPos = rosToThreePosition(s.objectPose?.position);
+    const tScene = applyBaseLinkToScene(pickPos);
     sceneApi.pickMarker.position.copy(tScene);
     sceneApi.pickMarker.visible = layerToggles.showTargets && !!s.objectPoseValid;
     const tf = rosToThreePosition(s.fusedObjectPose?.position);

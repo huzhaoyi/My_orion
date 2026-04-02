@@ -5,17 +5,18 @@
 import stateStore from '../data/stateStore.js';
 import wsClient from '../data/wsClient.js';
 import toast from '../ui/toast.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 const SEV_PASS = 0;
 const SEV_WARNING = 1;
 const SEV_REJECT = 2;
 const DEFAULT_PICK_TARGET_INDEX = 0;
 
-/** CheckPick item.level → 中文等级。 */
+/** CheckPick item.level → 等级标签 */
 function levelLabel(level) {
-  if (level === 0) return '信息';
-  if (level === 1) return '警告';
-  return '错误';
+  if (level === 0) return t('approval.level.info');
+  if (level === 1) return t('approval.level.warn');
+  return t('approval.level.err');
 }
 
 /** item.level → 列表项 CSS 修饰类。 */
@@ -25,11 +26,11 @@ function levelClass(level) {
   return 'approval-item--error';
 }
 
-/** severity 枚举 → 通过/警告/禁止中文。 */
+/** severity 枚举 → 标签 */
 function severityLabel(severity) {
-  if (severity === SEV_PASS) return '通过';
-  if (severity === SEV_WARNING) return '可执行（有风险）';
-  return '禁止执行';
+  if (severity === SEV_PASS) return t('approval.pick_pass');
+  if (severity === SEV_WARNING) return t('approval.pick_warn');
+  return t('approval.pick_reject');
 }
 
 /** severity → 顶栏徽章样式类。 */
@@ -50,8 +51,8 @@ function handlePickClick(e) {
     return;
   }
   if (!wsClient.isConnected()) {
-    stateStore.pushSystemLog('warn', '未连接 ROS，无法审批抓取');
-    toast.warn('未连接，无法审批抓取');
+    stateStore.pushSystemLog('warn', t('approval.toast_no_ws'));
+    toast.warn(t('approval.toast_no_ws'));
     return;
   }
   const s = stateStore.getState();
@@ -59,8 +60,8 @@ function handlePickClick(e) {
     ? { header: { frame_id: 'base_link' }, pose: s.objectPose }
     : null;
   if (!objectPose) {
-    stateStore.pushSystemLog('warn', '无缆绳位姿 (object_pose)，无法审批抓取');
-    toast.warn('无物体位姿，无法审批抓取');
+    stateStore.pushSystemLog('warn', t('approval.toast_no_pose'));
+    toast.warn(t('approval.toast_no_pose'));
     return;
   }
   stateStore.setState({
@@ -80,22 +81,22 @@ function handlePickClick(e) {
         items: r.items || [],
         best_candidate_pose: r.best_candidate_pose || null,
       });
-      const line = r.summary || (r.approved ? '通过' : '未通过');
-      stateStore.pushSystemLog('info', `审批抓取: ${line}`);
+      const line = r.summary || (r.approved ? t('approval.pick_pass') : t('approval.fallback_reject'));
+      stateStore.pushSystemLog('info', `${t('approval.log_line_prefix')}${line}`);
       if (r.approved) {
-        toast.success(`审批完成：${line}`);
+        toast.success(`${t('approval.toast_done_ok')}${line}`);
       } else if (r.severity === SEV_REJECT) {
-        toast.warn(`审批未通过：${line}`);
+        toast.warn(`${t('approval.toast_done_reject')}${line}`);
       } else {
-        toast.info(`审批完成：${line}`);
+        toast.info(`${t('approval.toast_done_info')}${line}`);
       }
     } else {
-      stateStore.pushSystemLog('warn', '审批抓取无响应');
-      toast.warn('审批抓取无响应');
+      stateStore.pushSystemLog('warn', t('approval.log_no_response'));
+      toast.warn(t('approval.log_no_response'));
     }
   });
-  stateStore.pushSystemLog('info', '发起审批抓取…');
-  toast.info('已发送审批请求…');
+  stateStore.pushSystemLog('info', t('approval.log_sent'));
+  toast.info(t('approval.toast_sent'));
 }
 
 /**
@@ -110,13 +111,16 @@ function renderResult(resultContainerEl) {
     const loading = state.approvalLoading || false;
     const targetIndex = (state.approvalTargetIndex != null ? state.approvalTargetIndex : DEFAULT_PICK_TARGET_INDEX) + 1;
     const targetTotal = state.approvalTargetTotal != null ? state.approvalTargetTotal : 1;
-    const targetLabel = targetTotal > 0 ? `第 ${targetIndex} 个（共 ${targetTotal} 个）` : '';
+    const targetLabel =
+      targetTotal > 0
+        ? `${t('approval.target_pre')}${targetIndex}${t('approval.target_mid')}${targetTotal}${t('approval.target_post')}`
+        : '';
 
     const stepsHtml = `
       <div class="approval-steps">
-        <div class="approval-step">1. 几何范围检查</div>
-        <div class="approval-step">2. IK / 关节余量</div>
-        <div class="approval-step">3. 碰撞 / 安全性</div>
+        <div class="approval-step">${t('approval.step1')}</div>
+        <div class="approval-step">${t('approval.step2')}</div>
+        <div class="approval-step">${t('approval.step3')}</div>
       </div>
     `;
 
@@ -124,17 +128,18 @@ function renderResult(resultContainerEl) {
     if (loading && !res) {
       resultHtml = `
         <div class="approval-loading">
-          <div>审批中… ${targetLabel ? `(目标 ${targetLabel})` : ''}</div>
+          <div>${t('approval.loading')}${targetLabel ? ` (${t('approval.target')} ${targetLabel})` : ''}</div>
           ${stepsHtml}
         </div>
       `;
     } else if (res) {
       const badgeClass = severityClass(res.severity);
       const badgeTextBase = severityLabel(res.severity);
-      const badgeText = `抓取${badgeTextBase}`;
-      const summaryPrefix = '抓取审批';
+      const badgeText = `${t('approval.badge_pick_prefix')}${badgeTextBase}`;
+      const summaryPrefix = t('approval.summary_title');
       const summaryTextRaw = (res.summary || '').trim();
-      const summaryText = summaryTextRaw || (res.approved ? `${summaryPrefix}：所有检查通过` : `${summaryPrefix}：完成（无摘要）`);
+      const summaryText =
+        summaryTextRaw || (res.approved ? `${summaryPrefix}：${t('approval.summary_ok')}` : `${summaryPrefix}：${t('approval.summary_empty')}`);
       const items = (res.items || []).map((it) => {
         const msg = (it.message || '').trim();
         const sug = (it.suggestion || '').trim();
@@ -142,7 +147,7 @@ function renderResult(resultContainerEl) {
           <td class="approval-item__code">${(it.code || '').trim() || '—'}</td>
           <td class="approval-item__level">${levelLabel(it.level || 0)}</td>
           <td class="approval-item__msg">${msg || '—'}</td>
-          <td class="approval-item__sug">${sug ? `建议: ${sug}` : '—'}</td>
+          <td class="approval-item__sug">${sug ? `${t('approval.suggest_prefix')}${sug}` : '—'}</td>
         </tr>`;
         return row;
       }).join('');
@@ -153,14 +158,14 @@ function renderResult(resultContainerEl) {
           ${items.length ? `
             <div class="approval-items-wrap">
               <table class="approval-items">
-                <thead><tr><th>代码</th><th>级别</th><th>说明</th><th>建议</th></tr></thead>
+                <thead><tr><th>${t('approval.th_code')}</th><th>${t('approval.th_level')}</th><th>${t('approval.th_msg')}</th><th>${t('approval.th_sug')}</th></tr></thead>
                 <tbody>${items}</tbody>
               </table>
             </div>
           ` : ''}
           ${res.best_candidate_pose ? `
             <div class="approval-suggestion">
-              <span class="approval-suggestion__label">推荐抓取位姿:</span>
+              <span class="approval-suggestion__label">${t('approval.suggest_pose')}</span>
               <span class="approval-suggestion__pos">x=${(res.best_candidate_pose.pose?.position?.x ?? 0).toFixed(3)} y=${(res.best_candidate_pose.pose?.position?.y ?? 0).toFixed(3)} z=${(res.best_candidate_pose.pose?.position?.z ?? 0).toFixed(3)}</span>
             </div>
           ` : ''}
@@ -168,12 +173,13 @@ function renderResult(resultContainerEl) {
         </div>
       `;
     } else {
-      resultHtml = '<div class="approval-result approval-result--empty">点击「审批抓取」获取结果</div>';
+      resultHtml = `<div class="approval-result approval-result--empty">${t('approval.empty_hint')}</div>`;
     }
     resultContainerEl.innerHTML = resultHtml;
   }
   update();
   stateStore.subscribe(() => update());
+  subscribeLocale(() => update());
 }
 
 export default {

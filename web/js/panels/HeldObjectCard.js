@@ -3,6 +3,7 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 /** 持物与 planning scene 一致性摘要卡片。 */
 function render(parentEl) {
@@ -12,24 +13,33 @@ function render(parentEl) {
   wrap.id = 'held-object-card';
   parentEl.appendChild(wrap);
 
+  function yn(b) {
+    return b ? t('card.held.yes') : t('card.held.no');
+  }
+
+  function pr(b) {
+    return b ? t('card.held.present') : t('card.held.absent');
+  }
+
   function update() {
     const s = stateStore.getState();
     wrap.innerHTML = `
-      <div class="card-title">持物状态</div>
-      <div class="card-row"><span class="card-label">持物</span><span class="card-value">${s.hasHeldObject ? '是' : '否'}</span></div>
-      <div class="card-row"><span class="card-label">已跟踪</span><span class="card-value">${s.heldTracked ? '是' : '否'}</span></div>
-      <div class="card-row"><span class="card-label">物体ID</span><span class="card-value">${s.heldObjectId || '—'}</span></div>
-      <div class="card-row"><span class="card-label">场景附着ID</span><span class="card-value">${(s.heldSceneAttachId || '—').slice(0, 20)}</span></div>
-      <div class="card-title" style="margin-top: 10px;">场景一致性</div>
-      <div class="card-row"><span class="card-label">场景物体</span><span class="card-value">${s.worldObjectPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">附着物体</span><span class="card-value">${s.attachedObjectPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">已跟踪持物</span><span class="card-value">${s.heldTrackedPresent ? '有' : '无'}</span></div>
-      <div class="card-row"><span class="card-label">未跟踪持物</span><span class="card-value">${s.heldUntrackedPresent ? '有' : '无'}</span></div>
+      <div class="card-title">${t('card.held.title')}</div>
+      <div class="card-row"><span class="card-label">${t('card.held.holding')}</span><span class="card-value">${yn(s.hasHeldObject)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.tracked')}</span><span class="card-value">${yn(s.heldTracked)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.object_id')}</span><span class="card-value">${s.heldObjectId || '—'}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.scene_attach')}</span><span class="card-value">${(s.heldSceneAttachId || '—').slice(0, 20)}</span></div>
+      <div class="card-title" style="margin-top: 10px;">${t('card.held.scene_title')}</div>
+      <div class="card-row"><span class="card-label">${t('card.held.world_obj')}</span><span class="card-value">${pr(s.worldObjectPresent)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.attached_obj')}</span><span class="card-value">${pr(s.attachedObjectPresent)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.tracked_held')}</span><span class="card-value">${pr(s.heldTrackedPresent)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.held.untracked_held')}</span><span class="card-value">${pr(s.heldUntrackedPresent)}</span></div>
     `;
   }
 
   update();
   stateStore.subscribe(update);
+  subscribeLocale(update);
 }
 
 export default { render };

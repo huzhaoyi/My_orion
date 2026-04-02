@@ -3,6 +3,7 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 /** 位置对象格式化为 "x, y, z" 三位小数（rosbridge 可能给 string，用 Number）。 */
 function fmtPos(pos) {
@@ -51,13 +52,13 @@ function render(parentEl) {
     const fusedPos = fusedPose ? fusedPose.position : null;
     const fusedQuat = fusedPose ? fusedPose.orientation : null;
     const fusedValid = !!state.fusedObjectPoseValid;
-    const fusedInvalidHint = '无效（未收到或未解析 /manipulator/object_pose_fused）';
+    const fusedInvalidHint = t('card.perception.pose_fuse_invalid');
     const fusedPosDisp = fusedValid ? fmtPos(fusedPos) : fusedInvalidHint;
     const fusedQuatDisp = fusedValid ? (fusedQuat ? fmtQuat(fusedQuat) : '—') : fusedInvalidHint;
     const tfu = state.fusedPerceptionUpdatedAt
       ? new Date(state.fusedPerceptionUpdatedAt).toLocaleTimeString()
       : '—';
-    const fusedTimeDisp = fusedValid ? tfu : '—（无效，无有效更新时间）';
+    const fusedTimeDisp = fusedValid ? tfu : t('card.perception.fused_time_invalid');
     const kpTrace = state.keypointsTrace;
     const kpValid = !!state.keypointsTraceValid && kpTrace && Array.isArray(kpTrace.points);
     const kpPts = kpValid ? kpTrace.points : [];
@@ -77,7 +78,7 @@ function render(parentEl) {
         )
         .join('');
     } else {
-      kpRowsHtml = `<div class="card-row card-row--indent"><span class="card-value" style="font-size:10px;color:var(--text-secondary);">未收到 /manipulator/keypoints_base_link（需 keypoint_to_arm_tf）</span></div>`;
+      kpRowsHtml = `<div class="card-row card-row--indent"><span class="card-value" style="font-size:10px;color:var(--text-secondary);">${t('card.perception.kp_missing')}</span></div>`;
     }
     const rovBase = state.rovPoseInBaseLink || null;
     const rovWorld = state.rovPoseInWorld || null;
@@ -85,66 +86,67 @@ function render(parentEl) {
     const rovPosWorld = rovWorld ? rovWorld.position : null;
     const rovQuatBase = rovBase ? rovBase.orientation : null;
     const rovQuatWorld = rovWorld ? rovWorld.orientation : null;
-    const t = state.perceptionUpdatedAt
+    const perceptionTimeStr = state.perceptionUpdatedAt
       ? new Date(state.perceptionUpdatedAt).toLocaleTimeString()
       : '—';
 
     wrap.innerHTML = `
-      <div class="card-title">感知状态</div>
+      <div class="card-title">${t('card.perception.title')}</div>
       <div class="perception-card__pose-block">
         <div class="card-row">
-          <span class="card-label">原抓取方式 · 目标位姿</span>
-          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">/object_pose（感知桥接）· base_link</span>
+          <span class="card-label">${t('card.perception.legacy_label')}</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">${t('card.perception.legacy_hint')}</span>
         </div>
         <div class="card-row card-row--indent">
-          <span class="card-label">位置 (m)</span>
+          <span class="card-label">${t('card.perception.pos')}</span>
           <span class="card-value">${fmtPos(objPos)}</span>
         </div>
         <div class="card-row card-row--indent">
-          <span class="card-label">姿态 (四元数)</span>
+          <span class="card-label">${t('card.perception.quat')}</span>
           <span class="card-value perception-card__quat">${objQuat ? fmtQuat(objQuat) : '—'}</span>
         </div>
-        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${t}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.updated')}</span><span class="card-value">${perceptionTimeStr}</span></div>
       </div>
       <div class="perception-card__pose-block perception-card__pose-block--fused">
         <div class="card-row">
-          <span class="card-label">视觉+声呐 · 中心线抓取点</span>
-          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">/object_pose_fused · Keypoints · base_link · <span style="color:${fusedValid ? '#22c55e' : '#f97316'}">${fusedValid ? '有效' : '无效'}</span></span>
+          <span class="card-label">${t('card.perception.fused_label')}</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">${t('card.perception.fused_hint')}<span style="color:${fusedValid ? '#22c55e' : '#f97316'}">${fusedValid ? t('card.perception.valid') : t('card.perception.invalid')}</span></span>
         </div>
         <div class="card-row card-row--indent">
-          <span class="card-label">位置 (m)</span>
+          <span class="card-label">${t('card.perception.pos')}</span>
           <span class="card-value perception-card__fused-pos">${fusedPosDisp}</span>
         </div>
         <div class="card-row card-row--indent">
-          <span class="card-label">姿态</span>
+          <span class="card-label">${t('card.perception.pose_orient')}</span>
           <span class="card-value perception-card__quat">${fusedQuatDisp}</span>
         </div>
-        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${fusedTimeDisp}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.updated')}</span><span class="card-value">${fusedTimeDisp}</span></div>
       </div>
       <div class="perception-card__pose-block perception-card__pose-block--keypoints">
         <div class="card-row">
-          <span class="card-label">关键点点列</span>
-          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">${kpValid ? `${kpTrace.frameId} · ${kpPts.length} 点 · 3D 琥珀球+折线` : 'PoseArray · 与融合同坐标系'}</span>
+          <span class="card-label">${t('card.perception.kp_title')}</span>
+          <span class="card-value" style="font-size:10px;color:var(--text-secondary);">${kpValid ? `${kpTrace.frameId} · ${kpPts.length}${t('card.perception.kp_count_suffix')}${t('card.perception.kp_ok')}` : t('card.perception.kp_hint_suffix')}</span>
         </div>
         ${kpRowsHtml}
-        <div class="card-row card-row--indent"><span class="card-label">更新时间</span><span class="card-value">${kpValid ? kpTf : '—'}</span></div>
-        <div class="card-row card-row--indent"><span class="card-label">图例</span><span class="card-value" style="font-size:10px;">青=桥接抓取点 · 品红=拟合抓取点 · 琥珀=各关键点</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.updated')}</span><span class="card-value">${kpValid ? kpTf : '—'}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.legend')}</span><span class="card-value" style="font-size:10px;">${t('card.perception.legend_text')}</span></div>
       </div>
       <div class="perception-card__pose-block">
-        <div class="card-row"><span class="card-label">ROV位姿 (map)</span></div>
-        <div class="card-row card-row--indent"><span class="card-label">位置</span><span class="card-value">${rovPosWorld ? fmtPos(rovPosWorld) : '—'}</span></div>
-        <div class="card-row card-row--indent"><span class="card-label">姿态</span><span class="card-value perception-card__quat">${rovQuatWorld ? fmtQuat(rovQuatWorld) : '—'}</span></div>
+        <div class="card-row"><span class="card-label">${t('card.perception.rov_map')}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.pos')}</span><span class="card-value">${rovPosWorld ? fmtPos(rovPosWorld) : '—'}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.pose_orient')}</span><span class="card-value perception-card__quat">${rovQuatWorld ? fmtQuat(rovQuatWorld) : '—'}</span></div>
       </div>
       <div class="perception-card__pose-block">
-        <div class="card-row"><span class="card-label">ROV位姿 (base_link)</span></div>
-        <div class="card-row card-row--indent"><span class="card-label">位置</span><span class="card-value">${rovPosBase ? fmtPos(rovPosBase) : '—'}</span></div>
-        <div class="card-row card-row--indent"><span class="card-label">姿态</span><span class="card-value perception-card__quat">${rovQuatBase ? fmtQuat(rovQuatBase) : '—'}</span></div>
+        <div class="card-row"><span class="card-label">${t('card.perception.rov_base')}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.pos')}</span><span class="card-value">${rovPosBase ? fmtPos(rovPosBase) : '—'}</span></div>
+        <div class="card-row card-row--indent"><span class="card-label">${t('card.perception.pose_orient')}</span><span class="card-value perception-card__quat">${rovQuatBase ? fmtQuat(rovQuatBase) : '—'}</span></div>
       </div>
     `;
   }
 
   update();
   stateStore.subscribe((newState) => update(newState));
+  subscribeLocale(() => update());
 }
 
 export default { render };

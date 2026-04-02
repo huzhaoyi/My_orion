@@ -3,6 +3,7 @@
  */
 
 import stateStore from '../data/stateStore.js';
+import { t, subscribeLocale } from '../data/i18n.js';
 
 /** 展示 stateStore.lastError 单行。 */
 function render(parentEl) {
@@ -17,13 +18,14 @@ function render(parentEl) {
     const s = stateStore.getState();
     const err = s.lastError && s.lastError.trim();
     wrap.innerHTML = `
-      <div class="card-title">最近错误</div>
-      <div class="card-row"><span class="card-value" style="word-break: break-all;">${err ? err : '无'}</span></div>
+      <div class="card-title">${t('card.error.title')}</div>
+      <div class="card-row"><span class="card-value" style="word-break: break-all;">${err ? err : t('card.error.none')}</span></div>
     `;
   }
 
   update();
   stateStore.subscribe(update);
+  subscribeLocale(update);
 }
 
 export default { render };
