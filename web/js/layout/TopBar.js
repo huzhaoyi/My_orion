@@ -57,6 +57,20 @@ function throttleBadgeClass(percent) {
 
 let lastThrottlePulseSeq = 0;
 
+/** 顶栏展示仅依赖这些字段；避免 joint_states 等高频更新整段 innerHTML 导致语言按钮无法点击。 */
+function topBarRelevantSnapshot(s) {
+  const snap = s || stateStore.getState();
+  return [
+    snap.wsConnected ? 1 : 0,
+    snap.workerStatus || '',
+    snap.taskMode || '',
+    snap.queueSize ?? -1,
+    snap.joyManualMode === null || snap.joyManualMode === undefined ? 'x' : (snap.joyManualMode ? 1 : 0),
+    snap.joyThrottlePercent ?? 'n',
+    snap.joyThrottlePulseSeq ?? 0,
+  ].join('\x1e');
+}
+
 /** 渲染顶栏 HTML 并绑定「清空队列」「重置持物」为全局 CustomEvent。 */
 function render(el) {
   if (!el) return;
@@ -123,7 +137,15 @@ function mount(containerId) {
 
   const rerender = () => render(el);
   rerender();
-  stateStore.subscribe(rerender);
+  let lastSnap = topBarRelevantSnapshot(stateStore.getState());
+  stateStore.subscribe((s) => {
+    const snap = topBarRelevantSnapshot(s);
+    if (snap === lastSnap) {
+      return;
+    }
+    lastSnap = snap;
+    render(el);
+  });
   subscribeLocale(rerender);
 }
 
