@@ -37,7 +37,7 @@ cable_side_grasp:
 # 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped 判断抓稳。
 
 # ---------- 审批模式（CheckPick）工作空间与诊断阈值 ----------
-# 几何依据：orion_description/urdf/orion.urdf；6 臂关节 ±π 采样正运动学至 gripper_tcp（与 IK 链一致，不含开合爪）：
+# 几何依据：orion_description/urdf/orion.urdf（各关节限位见 URDF）；正运动学至 gripper_tcp（与 IK 链一致，不含开合爪）：
 #   |p|_max≈1.85 m，|p|_min≈0.02 m，z∈[-1.82,1.83] m（base_link）。
 # 下列值为「操作包络」：在统计最大/最小基础上留余量；校核对象为物体/缆绳中心，非 TCP，故径向硬限略低于 |p|_max。
 feasibility:

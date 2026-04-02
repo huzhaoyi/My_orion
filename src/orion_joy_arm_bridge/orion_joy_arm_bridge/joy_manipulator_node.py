@@ -9,7 +9,7 @@ Action：双臂与手部 FollowJointTrajectory。模式：左手按钮/轴切换
 """
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import rclpy
 from rclpy.action import ActionClient
@@ -70,48 +70,77 @@ def _joy_snapshot(msg: Joy) -> Tuple[Tuple[int, ...], Tuple[float, ...]]:
     return (buttons, axes)
 
 
-def _format_button_diff(old_b: Tuple[int, ...], new_b: Tuple[int, ...]) -> str:
-    """生成相邻两帧按钮变化的可读串，供 Joy 变更日志。"""
-    n = max(len(old_b), len(new_b))
+def _joy_snap_relevant_equal_mapped(
+    prev: Tuple[Tuple[int, ...], Tuple[float, ...]],
+    snap: Tuple[Tuple[int, ...], Tuple[float, ...]],
+    btn_idx: FrozenSet[int],
+    ax_idx: FrozenSet[int],
+    axis_eps: float,
+) -> bool:
+    """仅比较配置文件声明的按键/轴；未映射通道抖动不触发日志。"""
+    ob, oa = prev
+    nb, na = snap
+    for i in btn_idx:
+        o = int(ob[i]) if i < len(ob) else 0
+        n = int(nb[i]) if i < len(nb) else 0
+        if o != n:
+            return False
+    for i in ax_idx:
+        o = float(oa[i]) if i < len(oa) else 0.0
+        n = float(na[i]) if i < len(na) else 0.0
+        if abs(o - n) > axis_eps:
+            return False
+    return True
+
+
+def _format_button_diff_for_indices(
+    old_b: Tuple[int, ...], new_b: Tuple[int, ...], indices: FrozenSet[int]
+) -> str:
     parts: List[str] = []
-    for i in range(n):
-        o = int(old_b[i]) if i < len(old_b) else None
-        nv = int(new_b[i]) if i < len(new_b) else None
+    for i in sorted(indices):
+        o = int(old_b[i]) if i < len(old_b) else 0
+        nv = int(new_b[i]) if i < len(new_b) else 0
         if o != nv:
             parts.append("buttons[%d] %s→%s" % (i, o, nv))
     return "; ".join(parts)
 
 
-def _format_axis_diff(old_a: Tuple[float, ...], new_a: Tuple[float, ...], eps: float) -> str:
-    """逐轴差分超过 eps 时写入日志片段，过滤摇杆抖动。"""
-    n = max(len(old_a), len(new_a))
+def _format_axis_diff_for_indices(
+    old_a: Tuple[float, ...], new_a: Tuple[float, ...], eps: float, indices: FrozenSet[int]
+) -> str:
     parts: List[str] = []
-    for i in range(n):
-        o = float(old_a[i]) if i < len(old_a) else None
-        nv = float(new_a[i]) if i < len(new_a) else None
-        if o is None or nv is None:
-            parts.append("axes[%d] %s→%s" % (i, o, nv))
-        elif abs(o - nv) > eps:
+    for i in sorted(indices):
+        o = float(old_a[i]) if i < len(old_a) else 0.0
+        nv = float(new_a[i]) if i < len(new_a) else 0.0
+        if abs(o - nv) > eps:
             parts.append("axes[%d] %.4f→%.4f" % (i, o, nv))
     return "; ".join(parts)
 
 
-def _joy_snap_semantically_equal(
-    prev: Tuple[Tuple[int, ...], Tuple[float, ...]],
+def _format_mapped_joy_snapshot_line(
     snap: Tuple[Tuple[int, ...], Tuple[float, ...]],
-    axis_eps: float,
-) -> bool:
-    """与 log_joy_axis_epsilon 一致：按钮须完全相同；轴长度相同且逐维差值不超过 axis_eps 视为无变化（抑制摇杆噪声刷屏）。"""
-    ob, oa = prev
-    nb, na = snap
-    if ob != nb:
-        return False
-    if len(oa) != len(na):
-        return False
-    for i in range(len(oa)):
-        if abs(oa[i] - na[i]) > axis_eps:
-            return False
-    return True
+    btn_idx: FrozenSet[int],
+    ax_idx: FrozenSet[int],
+) -> str:
+    b, a = snap
+    bp: List[str] = []
+    for i in sorted(btn_idx):
+        if i < len(b):
+            bp.append("buttons[%d]=%d" % (i, int(b[i])))
+        else:
+            bp.append("buttons[%d]=（无）" % i)
+    ap: List[str] = []
+    for i in sorted(ax_idx):
+        if i < len(a):
+            ap.append("axes[%d]=%.4f" % (i, float(a[i])))
+        else:
+            ap.append("axes[%d]=（无）" % i)
+    chunks: List[str] = []
+    if bp:
+        chunks.append("; ".join(bp))
+    if ap:
+        chunks.append("; ".join(ap))
+    return " | ".join(chunks) if chunks else "（无已配置按键/轴）"
 
 
 class JoyManipulatorNode(Node):
@@ -280,6 +309,11 @@ class JoyManipulatorNode(Node):
         self._auto_ready_release_go = (
             self.get_parameter("on_auto_right_ready_release_call_go_to_ready").get_parameter_value().bool_value
         )
+        self._joy_log_left_btn: FrozenSet[int] = frozenset()
+        self._joy_log_left_ax: FrozenSet[int] = frozenset()
+        self._joy_log_right_btn: FrozenSet[int] = frozenset()
+        self._joy_log_right_ax: FrozenSet[int] = frozenset()
+        self._build_joy_log_index_sets()
         self._publish_ui_status_flag = self.get_parameter("publish_ui_status").get_parameter_value().bool_value
         self._pub_ui_manual: Optional[object] = None
         self._pub_ui_throttle: Optional[object] = None
@@ -369,6 +403,62 @@ class JoyManipulatorNode(Node):
         msg_t.data = float(_clamp(throttle_scale_arm * 100.0, 0.0, 100.0))
         self._pub_ui_throttle.publish(msg_t)
 
+    def _build_joy_log_index_sets(self) -> None:
+        """log_joy_on_change 仅监视、打印 yaml 中有功能的按键与轴下标（不含未声明通道）。"""
+        lb: List[int] = []
+        la: List[int] = []
+        rb: List[int] = []
+        ra: List[int] = []
+
+        if self._mode_source == "button":
+            if self._mode_button_index >= 0:
+                lb.append(self._mode_button_index)
+        elif self._mode_source == "axis":
+            if self._mode_axis_index >= 0:
+                la.append(self._mode_axis_index)
+
+        if self._speed_axis_index >= 0:
+            la.append(self._speed_axis_index)
+        if self._gripper_speed_joy == "left":
+            g_ax = self._gripper_speed_axis_index
+            if g_ax >= 0:
+                la.append(g_ax)
+        elif self._gripper_speed_joy == "right":
+            g_ax = self._gripper_speed_axis_index
+            if g_ax >= 0:
+                ra.append(g_ax)
+
+        for i in self._arm_plus:
+            if i >= 0:
+                lb.append(i)
+        for i in self._arm_minus:
+            if i >= 0:
+                lb.append(i)
+        if self._grip_open_i >= 0:
+            lb.append(self._grip_open_i)
+        if self._grip_close_i >= 0:
+            lb.append(self._grip_close_i)
+
+        if self._right_estop_btn_i >= 0:
+            rb.append(self._right_estop_btn_i)
+        if self._right_clear_btn_i >= 0:
+            rb.append(self._right_clear_btn_i)
+        if self._pick_btn >= 0:
+            rb.append(self._pick_btn)
+        if self._auto_g_open >= 0:
+            rb.append(self._auto_g_open)
+        if self._auto_g_close >= 0:
+            rb.append(self._auto_g_close)
+        if self._log_right_ready_btn >= 0:
+            rb.append(self._log_right_ready_btn)
+        if self._manual_r_grip_axis_i >= 0:
+            ra.append(self._manual_r_grip_axis_i)
+
+        self._joy_log_left_btn = frozenset(lb)
+        self._joy_log_left_ax = frozenset(la)
+        self._joy_log_right_btn = frozenset(rb)
+        self._joy_log_right_ax = frozenset(ra)
+
     def _joy_mode_log_suffix(self, hand_label: str, left_ref: Optional[Joy]) -> str:
         """Joy 调试日志尾部：标明自动/手动，避免误以为按键变化即会驱关节。"""
         manual = self._compute_manual_mode(left_ref)
@@ -394,41 +484,43 @@ class JoyManipulatorNode(Node):
         return bline
 
     def _log_joy_changed(self, hand_label: str, topic: str, prev_snap, msg: Joy) -> None:
-        """在 log_joy_on_change 开启时输出首帧或语义变化后的按钮/轴 diff，并附带模式后缀。"""
+        """在 log_joy_on_change 开启时：仅监控/打印参数中已映射的有功能按键与轴。"""
+        if hand_label == "左手柄":
+            btn_idx, ax_idx = self._joy_log_left_btn, self._joy_log_left_ax
+        else:
+            btn_idx, ax_idx = self._joy_log_right_btn, self._joy_log_right_ax
         snap = _joy_snapshot(msg)
         eps = self._log_joy_axis_eps
         left_for_mode = msg if hand_label == "左手柄" else self._left_joy
         mode_suffix = self._joy_mode_log_suffix(hand_label, left_for_mode)
-        if prev_snap is None:
-            bt, ax = snap
-            self.get_logger().info(
-                "【%s】话题=%s 首帧：buttons(len=%d)=%s | axes(len=%d)=%s%s"
-                % (
-                    hand_label,
-                    topic,
-                    len(bt),
-                    list(bt),
-                    len(ax),
-                    ["%.4f" % v for v in ax],
-                    mode_suffix,
+        if not btn_idx and not ax_idx:
+            if prev_snap is None:
+                self.get_logger().info(
+                    "【%s】话题=%s 首帧：当前参数未声明任何映射键/轴，跳过 Joy 详日志%s"
+                    % (hand_label, topic, mode_suffix)
                 )
+            return
+        if prev_snap is None:
+            detail = _format_mapped_joy_snapshot_line(snap, btn_idx, ax_idx)
+            self.get_logger().info(
+                "【%s】话题=%s 首帧（仅已映射）：%s%s" % (hand_label, topic, detail, mode_suffix)
             )
             return
-        if _joy_snap_semantically_equal(prev_snap, snap, eps):
+        if _joy_snap_relevant_equal_mapped(prev_snap, snap, btn_idx, ax_idx, eps):
             return
         ob, oa = prev_snap
         nb, na = snap
         bline = self._annotate_right_joy_ready_button(
-            hand_label, ob, nb, _format_button_diff(ob, nb)
+            hand_label, ob, nb, _format_button_diff_for_indices(ob, nb, btn_idx)
         )
-        aline = _format_axis_diff(oa, na, eps)
+        aline = _format_axis_diff_for_indices(oa, na, eps, ax_idx)
         detail_parts: List[str] = []
         if bline:
             detail_parts.append(bline)
         if aline:
             detail_parts.append(aline)
         if not detail_parts:
-            detail = "buttons/axes 布局变化（详见首帧与传感器文档）"
+            detail = "已映射通道有变化（diff 为空时请核对 log_joy_axis_epsilon）"
         else:
             detail = " | ".join(detail_parts)
         self.get_logger().info(

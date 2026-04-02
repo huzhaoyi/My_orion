@@ -9,6 +9,8 @@
 
 MTC/orion_mtc 可能对两臂控制器并行发送 goal；默认单线程 spin 会导致第二个 execute
 长期得不到调度。此处使用 MultiThreadedExecutor，并对 _left_arm_deg 与发布加互斥锁。
+
+调试：enable_trajectory_debug_log=true 时 INFO 打印 arm/hand 轨迹点（°）及节流打印 AgentCommand。
 """
 
 import math
@@ -89,7 +91,9 @@ class TrajectoryToAgentBridgeNode(Node):
         self.declare_parameter("agent_command_topic", "/holoocean/command/agent/arm")
         self.declare_parameter("agent_frame_id", "rov0")
         self.declare_parameter("publish_rate_hz", PUBLISH_RATE_HZ)
+        # true：INFO 打印 MoveIt 下发的轨迹点 + 节流打印发往 HoloOcean 的 AgentCommand（°）
         self.declare_parameter("enable_trajectory_debug_log", False)
+        self.declare_parameter("log_agent_command_throttle_sec", 0.25)
 
         topic = self.get_parameter("agent_command_topic").get_parameter_value().string_value
         self._frame_id = self.get_parameter("agent_frame_id").get_parameter_value().string_value
@@ -97,6 +101,10 @@ class TrajectoryToAgentBridgeNode(Node):
         self._dt = 1.0 / rate_hz if rate_hz > 0.0 else 0.02
         self._enable_trajectory_debug_log = (
             self.get_parameter("enable_trajectory_debug_log").get_parameter_value().bool_value
+        )
+        self._log_cmd_throttle = max(
+            0.05,
+            self.get_parameter("log_agent_command_throttle_sec").get_parameter_value().double_value,
         )
 
         self._command_pub = self.create_publisher(AgentCommand, topic, 10)
@@ -155,23 +163,45 @@ class TrajectoryToAgentBridgeNode(Node):
         cmd = list(self._left_arm_deg) + [0.0] * ARM_LEN
         msg.command = cmd
         self._command_pub.publish(msg)
+        if self._enable_trajectory_debug_log:
+            self.get_logger().info(
+                "→仿真 AgentCommand (°) 左[0:7]=%s 右[7:14]=%s"
+                % (
+                    " ".join("%.2f" % x for x in cmd[:ARM_LEN]),
+                    " ".join("%.2f" % x for x in cmd[ARM_LEN:]),
+                ),
+                throttle_duration_sec=self._log_cmd_throttle,
+            )
 
     def _log_trajectory_deg(self, joint_names, points, label: str) -> None:
-        """打印轨迹点（角度°），便于与 MTC 发送端对照。"""
+        """打印即将转为 AgentCommand 的 FollowJointTrajectory（关节名 + 各点时间 + 位姿 °）。"""
         if not self._enable_trajectory_debug_log:
             return
         if not joint_names or not points:
             return
-        self.get_logger().debug(
-            "%s: joints=%d points=%d (角度°)" % (label, len(joint_names), len(points))
+        t_end = points[-1].time_from_start.sec + points[-1].time_from_start.nanosec * 1.0e-9
+        names_line = ", ".join("%s[%d]" % (joint_names[i], i) for i in range(len(joint_names)))
+        self.get_logger().info(
+            "%s →仿真: points=%d duration=%.3fs | %s" % (label, len(points), t_end, names_line)
         )
-        for i, name in enumerate(joint_names):
-            self.get_logger().debug("  [%d] %s" % (i, name))
-        for p, pt in enumerate(points):
+        n = len(points)
+        head_n, tail_n = 24, 24
+        if n > head_n + tail_n + 1:
+            indices = list(range(head_n)) + list(range(n - tail_n, n))
+            self.get_logger().info(
+                "%s →仿真: 仅打印前 %d / 后 %d 点（共 %d 点）" % (label, head_n, tail_n, n)
+            )
+        else:
+            indices = list(range(n))
+        for p in indices:
+            pt = points[p]
             if not pt.positions:
                 continue
-            deg_str = " ".join("%.2f" % (float(x) * RAD_TO_DEG) for x in pt.positions[: len(joint_names)])
-            self.get_logger().debug("  point[%d] %s" % (p, deg_str))
+            t_sec = pt.time_from_start.sec + pt.time_from_start.nanosec * 1.0e-9
+            deg_str = " ".join(
+                "%.2f" % (float(x) * RAD_TO_DEG) for x in pt.positions[: len(joint_names)]
+            )
+            self.get_logger().info("%s →仿真: point[%d] t=%.3fs ° | %s" % (label, p, t_sec, deg_str))
 
     def _execute_arm_callback(self, goal_handle):
         """执行 arm 轨迹：按 joint_names 取位置，按 ARM_JOINT_NAMES 顺序写入 left_arm[0:6]，夹爪保持当前。"""

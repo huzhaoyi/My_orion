@@ -40,7 +40,7 @@ public:
 private:
   struct FeasibilityParams
   {
-    /* 与 orion_mtc_params.yaml 对齐：见 orion_description/urdf/orion.urdf 采样说明 */
+    /* 与 orion_mtc_params.yaml feasibility 段及 URDF/规划模型一致 */
     double max_reach_hard = 1.72;
     double max_reach_soft = 1.58;
     double min_reach_safe = 0.14;

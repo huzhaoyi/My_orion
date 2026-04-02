@@ -20,7 +20,7 @@ const JOINT_DEFS = [
   { name: 'joint_Link6_Link8', xyz: [-0.0363, 0, 0.047], rpy: [0, 0, 0], axis: [0, 1, 0] },
 ];
 
-/* 正运动学链：base_link → gripper_tcp（6 个 revolute + Link3 固定偏置 + TCP 平移），与 orion.urdf 一致；采样后按 feasibility 硬限过滤 */
+/* 正运动学链：base_link → gripper_tcp（5×revolute + 连续腕 roll + Link3 固定偏置 + TCP），与 orion.urdf 一致；采样后按 feasibility 硬限过滤 */
 const FK_ORIGINS = [
   [0, 0, 0],
   [-0.0105, 0, 0.0699],
@@ -44,8 +44,15 @@ const FK_AXES = [
 ];
 const FK_FIXED_RPY = [0, -3.97248, 0];
 
-const JOINT_LIMIT_MIN = -Math.PI;
-const JOINT_LIMIT_MAX = Math.PI;
+/* 与 orion_description/urdf/orion.urdf 标称一致：±120°、J4 ±270°、J6 continuous（包络采样取一周 [-π,π]） */
+const JOINT_SAMPLE_BOUNDS_RAD = [
+  { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },
+  { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },
+  { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },
+  { min: (-3.0 * Math.PI) / 2.0, max: (3.0 * Math.PI) / 2.0 },
+  { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },
+  { min: -Math.PI, max: Math.PI },
+];
 const SAMPLE_STEPS = 4;
 
 /** 简化的 7+1 段正运动学链：输出末端 4x4 累计变换（与 URDF 链一致，用于工作空间粗采样）。 */
@@ -88,21 +95,22 @@ function fkChain(jointAngles) {
 function sampleWorkspace() {
   const min = { x: Infinity, y: Infinity, z: Infinity };
   const max = { x: -Infinity, y: -Infinity, z: -Infinity };
-  const step = (JOINT_LIMIT_MAX - JOINT_LIMIT_MIN) / (SAMPLE_STEPS - 1);
+  const bounds = JOINT_SAMPLE_BOUNDS_RAD;
+  const stepK = (SAMPLE_STEPS - 1) > 0 ? (k) => (bounds[k].max - bounds[k].min) / (SAMPLE_STEPS - 1) : () => 0;
   const angles = new Array(6);
   const F = FEASIBILITY_WORKSPACE;
   for (let i0 = 0; i0 < SAMPLE_STEPS; i0++) {
-    angles[0] = JOINT_LIMIT_MIN + i0 * step;
+    angles[0] = bounds[0].min + i0 * stepK(0);
     for (let i1 = 0; i1 < SAMPLE_STEPS; i1++) {
-      angles[1] = JOINT_LIMIT_MIN + i1 * step;
+      angles[1] = bounds[1].min + i1 * stepK(1);
       for (let i2 = 0; i2 < SAMPLE_STEPS; i2++) {
-        angles[2] = JOINT_LIMIT_MIN + i2 * step;
+        angles[2] = bounds[2].min + i2 * stepK(2);
         for (let i3 = 0; i3 < SAMPLE_STEPS; i3++) {
-          angles[3] = JOINT_LIMIT_MIN + i3 * step;
+          angles[3] = bounds[3].min + i3 * stepK(3);
           for (let i4 = 0; i4 < SAMPLE_STEPS; i4++) {
-            angles[4] = JOINT_LIMIT_MIN + i4 * step;
+            angles[4] = bounds[4].min + i4 * stepK(4);
             for (let i5 = 0; i5 < SAMPLE_STEPS; i5++) {
-              angles[5] = JOINT_LIMIT_MIN + i5 * step;
+              angles[5] = bounds[5].min + i5 * stepK(5);
               const p = fkChain(angles);
               const r = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
               if (r < F.min_reach_safe_m || r > F.max_reach_hard_m) continue;

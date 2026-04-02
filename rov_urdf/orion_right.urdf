@@ -111,6 +111,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
+  <!-- 标称与 orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±270°，J6 continuous，夹爪 ±π -->
 
   <!-- base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
   <joint name="joint_base_link_Link1" type="revolute">
@@ -118,7 +119,7 @@
     <child link="Link1"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="1 0 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link1 -> Link2 : revolute, axis Y, origin (-0.0105, 0, 0.0699) -->
@@ -127,7 +128,7 @@
     <child link="Link2"/>
     <origin xyz="-0.0105 0.0 0.0699" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link2 -> Link3 : revolute, axis Y, origin (-0.2247, 0, 0.8662) -->
@@ -136,7 +137,7 @@
     <child link="Link3"/>
     <origin xyz="-0.2247 0.0 0.8662" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link3 -> LinkVirtual : fixed, origin (0.1835, 0, 0.0157), rotation y=-227.578deg -->
@@ -153,7 +154,7 @@
     <child link="Link4"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-4.71239" upper="4.71239" effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link4 -> Link5 : revolute, axis Y, origin (0, -0.0091, 0.3784) -->
@@ -162,16 +163,16 @@
     <child link="Link5"/>
     <origin xyz="0.0 -0.0091 0.3784" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
-  <!-- Link5 -> Link6 : revolute, axis Z, origin (-0.0113, 0.0091, 0.2516) -->
-  <joint name="joint_Link5_Link6" type="revolute">
+  <!-- Link5 -> Link6 : continuous, axis Z, origin (-0.0113, 0.0091, 0.2516) -->
+  <joint name="joint_Link5_Link6" type="continuous">
     <parent link="Link5"/>
     <child link="Link6"/>
     <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link6 -> Link7 : revolute, axis Y, origin (0.0363, 0, 0.0499) -->

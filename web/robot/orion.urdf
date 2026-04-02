@@ -138,13 +138,14 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
+  <!-- 与 orion_description/urdf/orion.urdf 标称关节范围一致 -->
 
   <joint name="joint_base_link_Link1" type="revolute">
     <parent link="base_link"/>
     <child link="Link1"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="1 0 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link1_Link2" type="revolute">
@@ -152,7 +153,7 @@
     <child link="Link2"/>
     <origin xyz="-0.0105 0.0 0.0699" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link2_Link3" type="revolute">
@@ -160,7 +161,7 @@
     <child link="Link3"/>
     <origin xyz="-0.2247 0.0 0.8662" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link3_LinkVirtual" type="fixed">
@@ -174,7 +175,7 @@
     <child link="Link4"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-4.71239" upper="4.71239" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link4_Link5" type="revolute">
@@ -182,15 +183,15 @@
     <child link="Link5"/>
     <origin xyz="0.0 -0.0091 0.3784" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
-  <joint name="joint_Link5_Link6" type="revolute">
+  <joint name="joint_Link5_Link6" type="continuous">
     <parent link="Link5"/>
     <child link="Link6"/>
     <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">

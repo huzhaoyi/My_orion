@@ -17,7 +17,7 @@
 ## Web 与 3D 示意
 
 - **任务栏**（`RightPanel.js`）：**两行**——① **工作空间**：`gripper_tcp` 采样∩硬限后的 X/Y/Z 示意 AABB（与 3D 线框同源）；② **目标（缆绳）**：`object_pose` 用的 ‖p‖、Z、软 ‖p‖（与 `feasibilityWorkspace.js` / yaml 一致）。
-- **3D 线框**：`RobotScene` 使用同源 `getWorkspaceBoundsScene()`。示意框角点未必全部可达；以 ‖p‖ 与 Z 硬限为准。
+- **3D 线框**：`RobotScene` 使用同源 `getWorkspaceBoundsScene()`。`RobotModelLoader.sampleWorkspace()` 按 **各关节 URDF 标称限位** 粗采样（与 `orion_description/urdf/orion.urdf` 一致），再与 ‖p‖、Z 硬限求交。示意框角点未必全部可达；以 ‖p‖ 与 Z 硬限为准。
 
 ## 配置提醒
 
