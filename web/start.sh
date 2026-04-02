@@ -5,11 +5,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 PORT="${1:-8080}"
-HOST="${2:-0.0.0.0}"
-# 绑定 0.0.0.0 时本机用 localhost，外机用本机 IP 访问
+# 默认仅监听本机；需局域网内其它设备访问时：./start.sh 8080 0.0.0.0
+HOST="${2:-127.0.0.1}"
 if [ "$HOST" = "0.0.0.0" ]; then
-  URL="http://localhost:${PORT}/"
-  # 尝试获取本机 IP 供外机/局域网访问
+  URL="http://127.0.0.1:${PORT}/"
   if command -v hostname >/dev/null 2>&1; then
     LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
   fi
@@ -20,14 +19,14 @@ if [ "$HOST" = "0.0.0.0" ]; then
     LOCAL_IP="<本机IP>"
   fi
   echo "Orion 上位机: 服务目录 $SCRIPT_DIR"
-  echo "访问地址: 本机 $URL  外机/局域网 http://${LOCAL_IP}:${PORT}/"
+  echo "访问地址: 本机 $URL  局域网可选 http://${LOCAL_IP}:${PORT}/"
 else
   URL="http://${HOST}:${PORT}/"
   echo "Orion 上位机: 服务目录 $SCRIPT_DIR"
-  echo "访问地址: $URL"
+  echo "访问地址: $URL（仅本机绑定 ${HOST}）"
 fi
 echo "连接 ROS: 需先启动 rosbridge，例如: ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
-echo "          WS 默认随页面主机（当前访问的 host）:9090，可用 ?ws=ws://host:port 或 ?ns=/manipulator 覆盖"
+echo "          WS 默认 ws://127.0.0.1:9090；跨机连 rosbridge 时用 ?ws=ws://实际IP:9090"
 echo "按 Ctrl+C 停止服务"
 echo ""
 

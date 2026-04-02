@@ -3,7 +3,7 @@
  *
  * - init：挂载五块布局、wsClient.connect、系统日志、全局 CustomEvent（清队列、reset held、急停等）。
  * - registerGlobalHandlers：orion:* 事件与键盘快捷键由这里统一派发。
- * WebSocket URL：?ws= 覆盖；ROS 话题前缀：?ns= 或 ?topic_prefix=；Keypoints 轨迹：?keypoints_topic= 或 ?keypoints=。
+ * WebSocket URL：默认 ws://127.0.0.1:9090；?ws= 覆盖；ROS 话题：?ns= / ?topic_prefix=；Keypoints：?keypoints_topic= / ?keypoints=。
  */
 
 import TopBar from './layout/TopBar.js';

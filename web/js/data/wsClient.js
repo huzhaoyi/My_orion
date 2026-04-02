@@ -20,12 +20,9 @@
 
 import stateStore from './stateStore.js';
 
-/** 默认 rosbridge：`ws://<页面 hostname>:9090`（无查询参数时）。 */
+/** 默认 rosbridge：固定本机回环，避免用局域网 IP 打开页面时 WS 跟到局域网（需连其它机器时用 ?ws= 覆盖）。 */
 function getDefaultWsUrl() {
-  const host = typeof window !== 'undefined' && window.location && window.location.hostname
-    ? window.location.hostname
-    : 'localhost';
-  return 'ws://' + host + ':9090';
+  return 'ws://127.0.0.1:9090';
 }
 
 let ws = null;

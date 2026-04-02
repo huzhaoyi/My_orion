@@ -22,6 +22,13 @@ ROS 2 工作空间，用于 Orion 机械臂与 **HoloOcean** 仿真联调：关�
 - holoocean-ros（含 `holoocean_interfaces`），通过环境变量 `HOLOOCEAN_ROS_INSTALL` 指定其 install 目录，或先 `source` 该工作区
 - **`keypoint_to_arm_tf_node`**：`sealien_ctrlpilot_msgmanagement`（与 `cable_detect` 发布的 `/keypoints` 类型一致）；编译前请先 `source` 该包的 `install/setup.bash`，或将该包放入同一工作区一并 `colcon build`
 
+**系统 / ROS apt 依赖的安装说明与列表**（含一键脚本）：见 [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)。在已安装 ROS 2 并配置 apt 源后，可在本仓库根目录执行：
+
+```bash
+chmod +x scripts/install_ros_dependencies.sh   # 首次
+./scripts/install_ros_dependencies.sh
+```
+
 ## 构建
 
 在 **colcon 工作空间根目录**（例如 `sealien_ws`，其下应有 `src/`、`install/`）编译。编译后**必须在同一终端** `source install/setup.bash`，否则会出现 `PackageNotFoundError`（如找不到 `orion_joy_arm_bridge`）。
@@ -266,8 +273,8 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 **前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 在 **MoveIt/桥接/MTC/keypoint 之后**再按 **`rosbridge_startup_delay_sec`（默认 5s）** 拉起 **`rosbridge_websocket_keepalive.launch.py`**，避免网页连上时 `/manipulator/get_queue_state` 尚未注册；可设 `rosbridge_startup_delay_sec:=0` 去掉延迟（仅顺序置后）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
 
-**打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。可选 URL 参数：
-- `?ws=ws://host:port` — WebSocket 地址，默认 `ws://localhost:9090`
+**打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。`web/start.sh` 默认监听 **127.0.0.1**（仅本机）；局域网访问需显式：`./start.sh 8080 0.0.0.0`。可选 URL 参数：
+- `?ws=ws://host:port` — WebSocket 地址，默认 **`ws://127.0.0.1:9090`**（与页面从哪打开无关，避免误连局域网 IP）
 - `?ns=/manipulator` 或 `?topic_prefix=/manipulator` — 话题/服务命名空间，默认 `/manipulator`
 - `?joy_ui=/joy_manipulator` — 手柄桥接 UI 状态话题前缀（默认 `/joy_manipulator`，对应 `manual_mode`、`throttle_percent`）
 
