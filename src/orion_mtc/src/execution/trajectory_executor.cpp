@@ -17,8 +17,35 @@ namespace orion_mtc
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
 
+/*
+ * async_get_result 等待时长：须覆盖桥接节点按轨迹时长插值执行的时间。
+ * 固定 60s 会导致 Pilz 长轨迹在仿真仍运动时客户端已超时（用户侧表现为“执行完了仍报 timeout”）。
+ */
+static std::chrono::milliseconds joint_trajectory_result_wait_budget(
+    const trajectory_msgs::msg::JointTrajectory& jt)
+{
+  double dur_sec = 0.0;
+  if (!jt.points.empty())
+  {
+    const auto& ts = jt.points.back().time_from_start;
+    dur_sec = static_cast<double>(ts.sec) + static_cast<double>(ts.nanosec) * 1e-9;
+  }
+  double budget_sec = dur_sec + 30.0;
+  if (budget_sec < 60.0)
+  {
+    budget_sec = 60.0;
+  }
+  if (budget_sec > 600.0)
+  {
+    budget_sec = 600.0;
+  }
+  return std::chrono::milliseconds(static_cast<int64_t>(budget_sec * 1000.0));
+}
+
 /* 保存 ROS 节点指针，用于创建/缓存 FollowJointTrajectory action client。 */
-TrajectoryExecutor::TrajectoryExecutor(rclcpp::Node* node) : node_(node)
+TrajectoryExecutor::TrajectoryExecutor(rclcpp::Node::SharedPtr node,
+                                         rclcpp::CallbackGroup::SharedPtr reentrant_action_group)
+  : node_shared_(std::move(node)), reentrant_action_group_(std::move(reentrant_action_group))
 {
 }
 
@@ -119,7 +146,7 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
     {
       std::string action_name = "/" + controller_name + "/follow_joint_trajectory";
       auto c = rclcpp_action::create_client<control_msgs::action::FollowJointTrajectory>(
-          node_, action_name);
+          node_shared_, action_name, reentrant_action_group_);
       follow_jt_clients_.emplace(controller_name, c);
       client = c;
       need_wait_server = true;
@@ -141,7 +168,7 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
   goal_msg.trajectory.header.stamp.sec = 0;
   goal_msg.trajectory.header.stamp.nanosec = 0;
   auto goal_handle_future = client->async_send_goal(goal_msg);
-  if (goal_handle_future.wait_for(std::chrono::seconds(15)) != std::future_status::ready)
+  if (goal_handle_future.wait_for(std::chrono::seconds(30)) != std::future_status::ready)
   {
     RCLCPP_ERROR(LOGGER, "sendJointTrajectory: send_goal timeout for %s", controller_name.c_str());
     return false;
@@ -153,10 +180,18 @@ bool TrajectoryExecutor::sendJointTrajectory(const std::string& controller_name,
     return false;
   }
   registerActiveGoal(client, goal_handle);
+  const std::chrono::milliseconds result_wait = joint_trajectory_result_wait_budget(jt);
+  RCLCPP_DEBUG(LOGGER, "sendJointTrajectory: %s get_result wait %ld ms (trajectory span ~%.2f s)",
+               controller_name.c_str(), static_cast<long>(result_wait.count()),
+               jt.points.empty()
+                   ? 0.0
+                   : static_cast<double>(jt.points.back().time_from_start.sec) +
+                         static_cast<double>(jt.points.back().time_from_start.nanosec) * 1e-9);
   auto result_future = client->async_get_result(goal_handle);
-  if (result_future.wait_for(std::chrono::seconds(60)) != std::future_status::ready)
+  if (result_future.wait_for(result_wait) != std::future_status::ready)
   {
-    RCLCPP_ERROR(LOGGER, "sendJointTrajectory: get_result timeout for %s", controller_name.c_str());
+    RCLCPP_ERROR(LOGGER, "sendJointTrajectory: get_result timeout for %s (waited %ld ms)",
+                 controller_name.c_str(), static_cast<long>(result_wait.count()));
     client->async_cancel_goal(goal_handle);
     unregisterActiveGoal(client, goal_handle);
     return false;

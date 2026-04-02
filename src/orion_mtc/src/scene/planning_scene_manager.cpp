@@ -12,11 +12,14 @@ namespace orion_mtc
 {
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.scene");
+static constexpr int APPLY_PLANNING_SCENE_WAIT_SEC = 30;
 
 /*
  * 仅保存 node 指针；apply_planning_scene 客户端按需惰性创建。
  */
-PlanningSceneManager::PlanningSceneManager(rclcpp::Node* node) : node_(node)
+PlanningSceneManager::PlanningSceneManager(rclcpp::Node::SharedPtr node,
+                                            rclcpp::CallbackGroup::SharedPtr reentrant_client_group)
+  : node_shared_(std::move(node)), reentrant_client_group_(std::move(reentrant_client_group))
 {
 }
 
@@ -25,14 +28,15 @@ PlanningSceneManager::PlanningSceneManager(rclcpp::Node* node) : node_(node)
  */
 bool PlanningSceneManager::ensureClient()
 {
-  if (!node_)
+  if (!node_shared_)
   {
     return false;
   }
   if (!apply_planning_scene_client_)
   {
-    apply_planning_scene_client_ =
-        node_->create_client<moveit_msgs::srv::ApplyPlanningScene>("/apply_planning_scene");
+    // Reentrant：go_to_ready 等在服务回调里同步 wait future 时，默认 MutuallyExclusive 会卡死异步响应
+    apply_planning_scene_client_ = node_shared_->create_client<moveit_msgs::srv::ApplyPlanningScene>(
+        "/apply_planning_scene", rmw_qos_profile_services_default, reentrant_client_group_);
   }
   if (!apply_planning_scene_client_->service_is_ready())
   {
@@ -57,9 +61,9 @@ bool PlanningSceneManager::applySceneDiff(const moveit_msgs::msg::PlanningScene&
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
   req->scene = scene_diff;
   auto fut = apply_planning_scene_client_->async_send_request(req);
-  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
-    RCLCPP_WARN(LOGGER, "apply_planning_scene timed out");
+    RCLCPP_WARN(LOGGER, "apply_planning_scene timed out (%ds)", APPLY_PLANNING_SCENE_WAIT_SEC);
     return false;
   }
   auto res = fut.get();
@@ -99,12 +103,12 @@ bool PlanningSceneManager::applyObjectPoseToPlanningScene(double px, double py, 
   target_pose.orientation.w = qw;
   moveit_msgs::msg::CollisionObject add_obj =
       makeTargetCollisionObject("object", target_pose, moveit_msgs::msg::CollisionObject::ADD);
-  add_obj.header.stamp = node_->now();
+  add_obj.header.stamp = node_shared_->now();
   scene.world.collision_objects.push_back(add_obj);
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
   req->scene = scene;
   auto fut = apply_planning_scene_client_->async_send_request(req);
-  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
     RCLCPP_WARN(LOGGER, "applyObjectPoseToPlanningScene: timed out");
     return false;
@@ -133,7 +137,7 @@ bool PlanningSceneManager::applyAttachedHeldUnknownToScene()
   att.link_name = "Link6";
   att.object.id = "held_unknown";
   att.object.header.frame_id = "Link6";
-  att.object.header.stamp = node_->now();
+  att.object.header.stamp = node_shared_->now();
   att.object.pose.position.x = 0.0;
   att.object.pose.position.y = 0.0;
   att.object.pose.position.z = 0.0;
@@ -164,7 +168,7 @@ bool PlanningSceneManager::applyAttachedHeldUnknownToScene()
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
   req->scene = scene;
   auto fut = apply_planning_scene_client_->async_send_request(req);
-  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
     RCLCPP_WARN(LOGGER, "applyAttachedHeldUnknownToScene: timed out");
     return false;
@@ -207,7 +211,7 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
   req->scene = scene;
   auto fut = apply_planning_scene_client_->async_send_request(req);
-  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
     RCLCPP_WARN(LOGGER, "clearAttachedObjectFromPlanningScene: timed out");
     return false;
@@ -295,7 +299,7 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   att.link_name = "gripper_tcp";
   att.object.id = "held_tracked";
   att.object.header.frame_id = "gripper_tcp";
-  att.object.header.stamp = node_->now();
+  att.object.header.stamp = node_shared_->now();
   att.object.pose.position.x = 0.0;
   att.object.pose.position.y = 0.0;
   att.object.pose.position.z = 0.0;
@@ -319,7 +323,7 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
   req->scene = scene;
   auto fut = apply_planning_scene_client_->async_send_request(req);
-  if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
     RCLCPP_WARN(LOGGER, "applyAttachedTrackedObjectToScene: timed out");
     return false;

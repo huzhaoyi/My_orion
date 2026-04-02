@@ -5,6 +5,8 @@
 
 #include <control_msgs/action/follow_joint_trajectory.hpp>
 #include <moveit_task_constructor_msgs/msg/sub_trajectory.hpp>
+#include <rclcpp/callback_group.hpp>
+#include <rclcpp/node.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
 #include <mutex>
@@ -12,11 +14,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-namespace rclcpp
-{
-class Node;
-}
 
 namespace orion_mtc
 {
@@ -29,7 +26,8 @@ namespace orion_mtc
 class TrajectoryExecutor
 {
 public:
-  explicit TrajectoryExecutor(rclcpp::Node* node);
+  explicit TrajectoryExecutor(rclcpp::Node::SharedPtr node,
+                              rclcpp::CallbackGroup::SharedPtr reentrant_action_group);
   ~TrajectoryExecutor() = default;
 
   bool sendJointTrajectory(const std::string& controller_name,
@@ -50,7 +48,8 @@ private:
   void registerActiveGoal(const FollowJointClient::SharedPtr& client, const GoalHandle& goal_handle);
   void unregisterActiveGoal(const FollowJointClient::SharedPtr& client, const GoalHandle& goal_handle);
 
-  rclcpp::Node* node_;
+  rclcpp::Node::SharedPtr node_shared_;
+  rclcpp::CallbackGroup::SharedPtr reentrant_action_group_;
   std::unordered_map<std::string, FollowJointClient::SharedPtr> follow_jt_clients_;
   std::mutex follow_jt_mutex_;
   std::mutex active_goals_mutex_;

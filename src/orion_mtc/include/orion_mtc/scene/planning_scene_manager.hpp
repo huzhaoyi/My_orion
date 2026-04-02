@@ -6,15 +6,12 @@
 #include <Eigen/Geometry>
 #include <memory>
 #include <string>
+#include <rclcpp/callback_group.hpp>
 #include <rclcpp/client.hpp>
+#include <rclcpp/node.hpp>
 #include <moveit_msgs/msg/planning_scene.hpp>
 #include <moveit_msgs/srv/apply_planning_scene.hpp>
 #include <geometry_msgs/msg/pose.hpp>
-
-namespace rclcpp
-{
-class Node;
-}
 
 namespace orion_mtc
 {
@@ -22,7 +19,8 @@ namespace orion_mtc
 class PlanningSceneManager
 {
 public:
-  explicit PlanningSceneManager(rclcpp::Node* node);
+  explicit PlanningSceneManager(rclcpp::Node::SharedPtr node,
+                                rclcpp::CallbackGroup::SharedPtr reentrant_client_group);
   ~PlanningSceneManager() = default;
 
   /* 将物体位姿更新到 planning scene（world 几何），供后续规划使用 */
@@ -47,7 +45,8 @@ public:
   bool applySceneDiff(const moveit_msgs::msg::PlanningScene& scene_diff);
 
 private:
-  rclcpp::Node* node_;
+  rclcpp::Node::SharedPtr node_shared_;
+  rclcpp::CallbackGroup::SharedPtr reentrant_client_group_;
   std::shared_ptr<rclcpp::Client<moveit_msgs::srv::ApplyPlanningScene>> apply_planning_scene_client_;
 
   bool ensureClient();

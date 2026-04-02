@@ -6,15 +6,20 @@
 
 提供 arm_controller 与 hand_controller 两个 FollowJointTrajectory ActionServer，
 按关节名从轨迹插值映射到 Holoocean 左臂度数与单值夹爪。
+
+MTC/orion_mtc 可能对两臂控制器并行发送 goal；默认单线程 spin 会导致第二个 execute
+长期得不到调度。此处使用 MultiThreadedExecutor，并对 _left_arm_deg 与发布加互斥锁。
 """
 
 import math
+import threading
 import time
 from typing import List, Tuple
 
 import rclpy
 from control_msgs.action import FollowJointTrajectory
 from rclpy.action import ActionServer, GoalResponse
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
 from holoocean_interfaces.msg import AgentCommand
@@ -97,6 +102,7 @@ class TrajectoryToAgentBridgeNode(Node):
         self._command_pub = self.create_publisher(AgentCommand, topic, 10)
         # 当前左臂 7 维（度）：6 关节 + 1 夹爪（合并），对应 command[0:7]
         self._left_arm_deg: List[float] = [0.0] * ARM_LEN
+        self._arm_state_lock = threading.Lock()
 
         self._arm_action = ActionServer(
             self,
@@ -140,13 +146,12 @@ class TrajectoryToAgentBridgeNode(Node):
     def _goal_callback(self, _goal_request) -> GoalResponse:
         return GoalResponse.ACCEPT
 
-    def _publish_agent_command(self) -> None:
-        """发布到 /holoocean/command/agent/arm：14 维，[0:7] 左臂，[7:14] 右臂，无推进器。"""
+    def _publish_agent_command_locked(self) -> None:
+        """在已持有 _arm_state_lock 时调用：发布 14 维 AgentCommand。"""
         msg = AgentCommand()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self._frame_id
-        # 14 维：左臂 7（6 关节 + 夹爪）+ 右臂 7（当前未用填 0）
         cmd = list(self._left_arm_deg) + [0.0] * ARM_LEN
         msg.command = cmd
         self._command_pub.publish(msg)
@@ -189,13 +194,14 @@ class TrajectoryToAgentBridgeNode(Node):
                     return result
                 elapsed = time.monotonic() - start_time
                 pos_rad, done = _interpolate_point(points, elapsed)
-                if len(pos_rad) == len(joint_names):
-                    for orion_i in range(6):
-                        idx = name_to_idx.get(ARM_JOINT_NAMES[orion_i])
-                        if idx is not None:
-                            sign = ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN[orion_i]
-                            self._left_arm_deg[orion_i] = sign * float(pos_rad[idx]) * RAD_TO_DEG
-                self._publish_agent_command()
+                with self._arm_state_lock:
+                    if len(pos_rad) == len(joint_names):
+                        for orion_i in range(6):
+                            idx = name_to_idx.get(ARM_JOINT_NAMES[orion_i])
+                            if idx is not None:
+                                sign = ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN[orion_i]
+                                self._left_arm_deg[orion_i] = sign * float(pos_rad[idx]) * RAD_TO_DEG
+                    self._publish_agent_command_locked()
                 if done:
                     break
                 time.sleep(self._dt)
@@ -241,21 +247,22 @@ class TrajectoryToAgentBridgeNode(Node):
                     return result
                 elapsed = time.monotonic() - start_time
                 pos_rad, done = _interpolate_point(points, elapsed)
-                if len(pos_rad) == len(joint_names):
-                    vals = []
-                    for name in HAND_JOINT_NAMES:
-                        idx = name_to_idx.get(name)
-                        if idx is not None:
-                            vals.append(float(pos_rad[idx]))
-                    if len(vals) >= 2:
-                        self._left_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
-                            vals[0], vals[1]
-                        )
-                    elif len(vals) == 1:
-                        self._left_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
-                            vals[0], vals[0]
-                        )
-                self._publish_agent_command()
+                with self._arm_state_lock:
+                    if len(pos_rad) == len(joint_names):
+                        vals = []
+                        for name in HAND_JOINT_NAMES:
+                            idx = name_to_idx.get(name)
+                            if idx is not None:
+                                vals.append(float(pos_rad[idx]))
+                        if len(vals) >= 2:
+                            self._left_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
+                                vals[0], vals[1]
+                            )
+                        elif len(vals) == 1:
+                            self._left_arm_deg[6] = self._orion_hand_to_holoocean_gripper_deg(
+                                vals[0], vals[0]
+                            )
+                    self._publish_agent_command_locked()
                 if done:
                     break
                 time.sleep(self._dt)
@@ -270,14 +277,21 @@ class TrajectoryToAgentBridgeNode(Node):
 
 
 def main(args=None):
-    """节点入口：spin TrajectoryToAgentBridgeNode（双 ActionServer）。"""
+    """节点入口：多线程 executor，便于 arm/hand 两个 Action 的 execute 并发运行。"""
     rclpy.init(args=args)
     node = TrajectoryToAgentBridgeNode()
+    node.get_logger().info(
+        "trajectory_to_agent_bridge: MultiThreadedExecutor(num_threads=4)（并行 arm/hand goal）"
+    )
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        executor.remove_node(node)
+        executor.shutdown()
         node.destroy_node()
         try:
             rclpy.shutdown()

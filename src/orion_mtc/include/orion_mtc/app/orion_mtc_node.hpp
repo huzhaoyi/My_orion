@@ -6,6 +6,7 @@
 #include "orion_mtc/config/mtc_config.hpp"
 #include "orion_mtc/config/runtime_policy.hpp"
 #include "orion_mtc/core/constants.hpp"
+#include <rclcpp/callback_group.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -37,6 +38,7 @@ public:
     explicit OrionMTCNode(const rclcpp::NodeOptions& options);
     ~OrionMTCNode();
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getPlanningNodeBaseInterface();
     void setupPlanningScene();
 
 private:
@@ -45,6 +47,7 @@ private:
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Node::SharedPtr action_client_node_;
+    rclcpp::CallbackGroup::SharedPtr action_client_reentrant_cb_group_;
     MTCConfig config_;
     RuntimePolicy runtime_policy_;
     std::shared_ptr<PoseCache> object_pose_cache_;

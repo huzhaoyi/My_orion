@@ -61,8 +61,12 @@ void OrionMTCNode::initModules()
     perception_snapshot_ = std::make_shared<PerceptionSnapshotProvider>(
         object_pose_cache_, target_cache_, action_client_node_->get_clock());
     target_selector_ = std::make_shared<TargetSelector>();
-    scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_.get());
-    trajectory_executor_ = std::make_shared<TrajectoryExecutor>(action_client_node_.get());
+    action_client_reentrant_cb_group_ =
+        action_client_node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    scene_manager_ = std::make_shared<PlanningSceneManager>(action_client_node_,
+                                                            action_client_reentrant_cb_group_);
+    trajectory_executor_ =
+        std::make_shared<TrajectoryExecutor>(action_client_node_, action_client_reentrant_cb_group_);
     solution_executor_ =
         std::make_shared<SolutionExecutor>(scene_manager_.get(), trajectory_executor_.get());
 
@@ -156,10 +160,15 @@ void OrionMTCNode::initInterfaces()
     manipulator_iface_->registerStatusPublishersAndCallbacks();
 }
 
-/* MultiThreadedExecutor spin 使用 action_client 节点，因其持有绝大多数 ROS 接口。 */
+/* MultiThreadedExecutor：action_client 承载订阅/服务/TF；orion_mtc_node 承载 FeasibilityChecker 的 joint_states 等。 */
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getNodeBaseInterface()
 {
     return action_client_node_->get_node_base_interface();
+}
+
+rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getPlanningNodeBaseInterface()
+{
+    return node_->get_node_base_interface();
 }
 
 /*
