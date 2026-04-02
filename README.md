@@ -70,8 +70,6 @@ source install/setup.bash
 | 发布 | `/manipulator/task_stage` | `orion_mtc_msgs/TaskStage` | MTC 阶段名与状态 |
 | 发布 | `/manipulator/held_object_state` | `orion_mtc_msgs/HeldObjectState` | 持物同步态 |
 | 发布 | `/manipulator/recovery_event` | `orion_mtc_msgs/RecoveryEvent` | 恢复动作记录 |
-| 发布 | `/reconstructed_object_pose` | `geometry_msgs/PoseStamped` | 调试：任务管理器重建/展示用目标位姿（无 `manipulator` 前缀） |
-| 发布 | `/reconstructed_approach_axis` | `geometry_msgs/Vector3Stamped` | 调试：接近轴 |
 | Action 服务 | `/manipulator/pick` | `orion_mtc_msgs/action/Pick` | 即时抓取 |
 | 服务 | `/manipulator/get_robot_state`、`get_queue_state`、`get_recent_jobs`、`submit_job`、`cancel_job`、`reset_held_object`、`sync_held_object`、`open_gripper`、`close_gripper`、`check_pick` | 见下表 | 与接口说明一致 |
 | 服务 | `/manipulator/emergency_stop`、`/manipulator/clear_estop`、`/manipulator/go_to_ready` | `std_srvs/Trigger` | 急停 / 解闭锁 / 回 SRDF ready（**非话题**） |
@@ -280,10 +278,10 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 - `?lang=zh` / `?lang=en` — 网页 UI 语言（写入 `localStorage`，亦可顶栏 **中文 / English** 切换）
 
 **功能对应**：
-- **订阅话题**：`runtime_status`、`job_event`、`task_stage`、`held_object_state`、`recovery_event`、`object_pose`、`joint_states`、**`joy_manipulator/manual_mode`（Bool）**、**`joy_manipulator/throttle_percent`（Float32，臂油门 0～100%）**（需启动 `joy_manipulator_node` 且 `publish_ui_status: true`）
+- **订阅话题**：`/manipulator` 下 `runtime_status`、`job_event`、`task_stage`、`held_object_state`、`object_pose`、`object_pose_fused`、**`{ns}/keypoints_base_link`（PoseArray，可用 `?keypoints_topic=` 覆写）**、`perception_state`；全局 **`/joint_states`**（与桥接一致，无数据时不要求 `/manipulator/joint_states`）；**`joy_manipulator/manual_mode`（Bool）**、**`joy_manipulator/throttle_percent`（Float32）**（需 `joy_manipulator_node` 且 `publish_ui_status: true`）。**不向网页转发** `recovery_event`（后端仍对外发布，供其它节点或 `ros2 topic echo`）。
 - **急停/回 ready**：通过 rosbridge **调用服务** `emergency_stop`、`go_to_ready`（类型均为 `std_srvs/Trigger`，空请求 `{}`）；顶部栏按钮与此一致
-- **调用服务**：`get_robot_state`（连接时同步）、`get_queue_state`、`get_recent_jobs`（底部「最近执行」Tab）、`submit_job`、`cancel_job`、`reset_held_object`、`sync_held_object`、`open_gripper`、`close_gripper`、`check_pick`
-- **界面**：左侧当前执行/队列/持物/感知/最近错误，中间 3D 视图与视角/显示层（原点 **base_link** RGB 轴与 `RobotModelLoader` 根一致；**ROV** 小坐标系为 `Z_UP_TO_Y_UP`×`rov_pose_in_base_link` 姿态），右侧任务操作（抓取、夹爪、审批抓取）与调试工具，底部事件流/最近执行/系统日志
+- **调用服务**：`get_queue_state`、`get_recent_jobs`（底部「最近执行」Tab）、`submit_job`、`cancel_job`、`reset_held_object`、`sync_held_object`、`open_gripper`、`close_gripper`、`check_pick`；`get_robot_state` 仍由节点提供，网页当前未调用
+- **界面**：左侧当前执行/队列/感知/**订阅话题收包**/持物/最近错误，中间 3D 视图与视角/显示层（原点 **base_link** RGB 轴与 `RobotModelLoader` 根一致；**ROV** 小坐标系为 `Z_UP_TO_Y_UP`×`rov_pose_in_base_link` 姿态），右侧任务操作（抓取、夹爪、审批抓取）与调试工具，底部事件流/最近执行/系统日志
 
 ## 如何测试
 

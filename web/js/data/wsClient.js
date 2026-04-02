@@ -9,7 +9,7 @@
  *   /manipulator/object_pose_fused（视觉+声呐 Keypoints 中心线）
  *   /manipulator/keypoints_base_link（geometry_msgs/PoseArray：各关键点已变换到 base_link 等，供 UI）
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
- *   /joint_states                 (JointState，通常由 robot_state_publisher 发布)
+ *   /joint_states                 (JointState；pick_holoocean 下由桥接发布，非 /manipulator/joint_states)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
  * 服务（与 orion_mtc_node 一致）：
@@ -176,7 +176,37 @@ function isKeypointsTraceTopic(topic) {
   return topic === base || topic.endsWith(base);
 }
 
-/** 向 rosbridge 发送 subscribe，覆盖 manipulator 状态/感知/joint_states 与手柄 UI 话题。 */
+/** 与 subscribeTopics 相同顺序、已去重的话题全名（供 UI 列出订阅 coverage）。 */
+function getSubscribedTopicsFlat() {
+  const prefix = getTopicPrefix();
+  const joyUi = getJoyUiPrefix();
+  const kp = getKeypointsSubscribeTopic();
+  const topics = [
+    prefix + '/runtime_status',
+    prefix + '/job_event',
+    prefix + '/task_stage',
+    prefix + '/held_object_state',
+    prefix + '/object_pose_fused',
+    kp,
+    prefix + '/object_pose',
+    prefix + '/perception_state',
+    '/joint_states',
+    joyUi + '/manual_mode',
+    joyUi + '/throttle_percent',
+  ];
+  const seen = new Set();
+  const out = [];
+  topics.forEach((topic) => {
+    if (seen.has(topic)) {
+      return;
+    }
+    seen.add(topic);
+    out.push(topic);
+  });
+  return out;
+}
+
+/** 向 rosbridge 发送 subscribe：manipulator 状态/感知/全局 joint_states/手柄 UI（无 recovery、无 /manipulator/joint_states）。 */
 function subscribeTopics() {
   const prefix = getTopicPrefix();
   const joyUi = getJoyUiPrefix();
@@ -190,7 +220,6 @@ function subscribeTopics() {
     subscribedKeypointsTopic,
     prefix + '/object_pose',
     prefix + '/perception_state',
-    prefix + '/joint_states',
     '/joint_states',
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
@@ -229,6 +258,7 @@ function inferType(topic) {
 /** 单条 rosbridge 入站：分发到 stateStore（runtime_status、job_event、task_stage、持物、位姿、关节等）。 */
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
+  stateStore.touchRosTopicRx(data.topic);
   if (data.topic.endsWith('/manual_mode') && Object.prototype.hasOwnProperty.call(data.msg, 'data')) {
     stateStore.setJoyBridgeManual(data.msg.data === true);
     return;
@@ -302,16 +332,6 @@ function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(obj));
   }
-}
-
-/** rosbridge：发布到 topic（msg 与话题类型一致，如 std_msgs/Empty 用 {}） */
-function publish(topic, msg = {}) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    stateStore.pushSystemLog('warn', '未连接，无法发布话题');
-    return false;
-  }
-  send({ op: 'publish', topic, msg });
-  return true;
 }
 
 /** 与 open_gripper 相同：std_srvs/Trigger，args 为空对象 */
@@ -452,11 +472,6 @@ function getQueueState(callback) {
   callService(getTopicPrefix() + '/get_queue_state', {}, callback, { service_missing_retries: 10 });
 }
 
-/** get_robot_state：模式、当前任务、持物与 last_error。 */
-function getRobotState(callback) {
-  callService(getTopicPrefix() + '/get_robot_state', {}, callback);
-}
-
 /** get_recent_jobs：max_count 钳位 1～200，超时 5s。 */
 function getRecentJobs(maxCount, callback) {
   const n = Math.max(1, Math.min(200, Number(maxCount) || 50));
@@ -490,20 +505,19 @@ export default {
   connect,
   disconnect,
   send,
-  publish,
   callEmergencyStop,
   callGoToReady,
   callService,
   getTopicPrefix,
   getKeypointsSubscribeTopic,
   getJoyUiPrefix,
+  getSubscribedTopicsFlat,
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
   JOB_TYPE,
   GRASP_SOURCE,
   buildPoseStamped,
   submitJob,
   getQueueState,
-  getRobotState,
   getRecentJobs,
   checkPick,
 };

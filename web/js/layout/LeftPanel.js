@@ -5,11 +5,12 @@
 import RuntimeStatusCard from '../panels/RuntimeStatusCard.js';
 import QueueCard from '../panels/QueueCard.js';
 import PerceptionCard from '../panels/PerceptionCard.js';
+import RosTopicsCard from '../panels/RosTopicsCard.js';
 import HeldObjectCard from '../panels/HeldObjectCard.js';
 import LastErrorCard from '../panels/LastErrorCard.js';
 
 /**
- * 左侧栏：依次挂载 RuntimeStatus / Queue / Perception / HeldObject / LastError 卡片。
+ * 左侧栏：依次挂载 RuntimeStatus / Queue / Perception / 订阅话题 / HeldObject / LastError 卡片。
  * 各卡片自行 subscribe stateStore。
  */
 function mount(containerId) {
@@ -23,6 +24,7 @@ function mount(containerId) {
   RuntimeStatusCard.render(inner);
   QueueCard.render(inner);
   PerceptionCard.render(inner);
+  RosTopicsCard.render(inner);
   HeldObjectCard.render(inner);
   LastErrorCard.render(inner);
 }

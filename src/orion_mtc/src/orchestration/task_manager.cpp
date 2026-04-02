@@ -61,15 +61,8 @@ static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
     "close hand (at pregrasp)",
 };
 
-namespace
-{
-static constexpr const char* RECON_POSE_TOPIC = "reconstructed_object_pose";
-static constexpr const char* RECON_APPROACH_TOPIC = "reconstructed_approach_axis";
-}  // namespace
-
 /*
- * TaskManager 构造：保存规划与执行子系统指针，创建 PickTaskBuilder、任务队列、RecoveryActions；
- * 并创建 reconstructed_object_pose / reconstructed_approach_axis 两个调试用 publisher。
+ * TaskManager 构造：保存规划与执行子系统指针，创建 PickTaskBuilder、任务队列、RecoveryActions。
  * wait_for_gripped_fn 在闭合夹爪阶段用于等待夹爪反馈；scene_manager 仅被恢复与持物逻辑使用。
  */
 TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
@@ -88,10 +81,6 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
   , queue_(std::make_shared<TaskQueue>())
   , recovery_actions_(std::make_unique<RecoveryActions>(scene_manager, this))
 {
-  pub_reconstructed_object_pose_ =
-      node_->create_publisher<geometry_msgs::msg::PoseStamped>(RECON_POSE_TOPIC, 10);
-  pub_reconstructed_approach_axis_ =
-      node_->create_publisher<geometry_msgs::msg::Vector3Stamped>(RECON_APPROACH_TOPIC, 10);
 }
 
 /* 析构：停止 Worker 线程，避免与正在退出的 ROS 上下文竞态。 */

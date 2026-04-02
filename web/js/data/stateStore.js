@@ -4,10 +4,7 @@
  */
 
 const initialState = {
-  // 连接
-  rosConnected: false,
   wsConnected: false,
-  backendConnected: false,
 
   // RuntimeStatus 对应字段
   workerStatus: '',
@@ -59,6 +56,9 @@ const initialState = {
   rovPoseInBaseLink: null,  // ROV 在 base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
 
+  /* 感知相关话题最后一次收到 rosbridge 消息的时间戳（ms，与 data.topic 全名一致） */
+  rosTopicLastRxAt: {},
+
   // 关节状态（来自 joint_states，驱动 3D）
   jointNames: [],
   jointPositions: [],
@@ -71,12 +71,6 @@ const initialState = {
   attachedObjectPresent: false,
   heldTrackedPresent: false,
   heldUntrackedPresent: false,
-
-  // 恢复（来自 /manipulator/recovery_event，RecoveryEvent.msg）
-  lastRecoveryType: '',
-  lastRecoverySuccess: false,
-  lastRecoveryDetail: '',
-  lastRecoveryTrigger: '',
 
   // 最近执行记录（来自 get_recent_jobs 服务，JobExecutionRecord[]）
   recentJobs: [],
@@ -194,16 +188,6 @@ function applyHeldObjectState(msg) {
   });
 }
 
-/* 与 orion_mtc_msgs/msg/RecoveryEvent.msg 字段一一对应 */
-function applyRecoveryEvent(msg) {
-  setState({
-    lastRecoveryType: msg.recovery_type ?? state.lastRecoveryType,
-    lastRecoverySuccess: msg.success ?? state.lastRecoverySuccess,
-    lastRecoveryDetail: msg.detail ?? state.lastRecoveryDetail,
-    lastRecoveryTrigger: msg.trigger_reason ?? state.lastRecoveryTrigger,
-  });
-}
-
 function setRecentJobs(list) {
   setState({ recentJobs: Array.isArray(list) ? list : [] });
 }
@@ -246,11 +230,40 @@ function setQueueList(list) {
 }
 
 function setConnection(which, value) {
-  const partial = {};
-  if (which === 'ros') partial.rosConnected = value;
-  if (which === 'ws') partial.wsConnected = value;
-  if (which === 'backend') partial.backendConnected = value;
+  if (which !== 'ws') {
+    return;
+  }
+  const partial = { wsConnected: value };
+  if (!value) {
+    partial.rosTopicLastRxAt = {};
+  }
   setState(partial);
+}
+
+/** 与 wsClient 列表一致：统一带前导 /，避免 rosbridge 与订阅名不一致导致对不上。 */
+function normalizeRosTopicKey(topic) {
+  if (!topic || typeof topic !== 'string')
+  {
+    return '';
+  }
+  const t = topic.trim();
+  if (!t)
+  {
+    return '';
+  }
+  return t.startsWith('/') ? t : `/${t}`;
+}
+
+/** 记录某 ROS 话题收到一帧（键名为 normalize 后的全路径）。 */
+function touchRosTopicRx(topic) {
+  const key = normalizeRosTopicKey(topic);
+  if (!key)
+  {
+    return;
+  }
+  const map = { ...(state.rosTopicLastRxAt || {}) };
+  map[key] = Date.now();
+  setState({ rosTopicLastRxAt: map });
 }
 
 /*
@@ -548,10 +561,11 @@ export default {
   setTrajectoryPoints,
   setRovPoseInBaseLink,
   setPerceptionState,
-  applyRecoveryEvent,
   setRecentJobs,
   applyGetRobotStateResponse,
   setApprovalResult,
   setJoyBridgeManual,
   setJoyBridgeThrottle,
+  touchRosTopicRx,
+  normalizeRosTopicKey,
 };

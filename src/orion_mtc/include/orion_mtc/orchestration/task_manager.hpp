@@ -191,8 +191,6 @@ private:
   TransformToBaseLinkFn transform_to_base_link_fn_;
   FeasibilityChecker* feasibility_checker_ = nullptr;
 
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_reconstructed_object_pose_;
-  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_reconstructed_approach_axis_;
   JobEventFn job_event_fn_;
   HeldObjectStateFn held_object_state_fn_;
   RecoveryEventFn recovery_event_fn_;

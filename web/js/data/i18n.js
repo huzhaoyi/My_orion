@@ -155,6 +155,13 @@ const MESSAGES = {
     'card.error.title': '最近错误',
     'card.error.none': '无',
 
+    'card.topics.title': '订阅话题（收包）',
+    'card.topics.hint': '与当前 rosbridge 订阅列表一致；状态按最后收到消息的时间（久无新帧标黄）。',
+    'card.topics.ws_off': '桥接未连接',
+    'card.topics.waiting': '等待首帧',
+    'card.topics.live': '有数据',
+    'card.topics.stale': '无新数据',
+
     'approval.toast_no_ws': '未连接 ROS，无法审批抓取',
     'approval.toast_no_pose': '无物体位姿，无法审批抓取',
     'approval.log_no_response': '审批抓取无响应',
@@ -378,6 +385,13 @@ const MESSAGES = {
 
     'card.error.title': 'Last error',
     'card.error.none': 'None',
+
+    'card.topics.title': 'Subscribed topics (RX)',
+    'card.topics.hint': 'Matches rosbridge subscribe list; status from last message time (stale if idle).',
+    'card.topics.ws_off': 'WS offline',
+    'card.topics.waiting': 'No frame yet',
+    'card.topics.live': 'Receiving',
+    'card.topics.stale': 'Stale',
 
     'approval.toast_no_ws': 'Not connected; cannot approve pick',
     'approval.toast_no_pose': 'No object pose; cannot approve pick',

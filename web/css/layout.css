@@ -166,6 +166,65 @@
   margin-bottom: 0;
 }
 
+/* 左侧：订阅话题收包列表 */
+.ros-topics-card .ros-topics__hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0 0 8px 0;
+  line-height: 1.35;
+}
+
+.ros-topics__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(40vh, 320px);
+  overflow-y: auto;
+}
+
+.ros-topics__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ros-topics__row:last-child {
+  border-bottom: none;
+}
+
+.ros-topics__name {
+  color: var(--text-secondary);
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.ros-topics__status {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.ros-topics__status--live {
+  color: var(--color-success);
+}
+
+.ros-topics__status--stale {
+  color: var(--color-warning);
+}
+
+.ros-topics__status--wait {
+  color: var(--text-muted);
+}
+
+.ros-topics__status--off {
+  color: var(--text-muted);
+}
+
 /* 中间 3D 视图 */
 .viewport-3d__canvas-wrap {
   position: absolute;
