@@ -62,7 +62,10 @@ def _append_rosbridge_after_stack(context, *_args, **_kwargs):
     rosbridge_keepalive = os.path.join(share, "launch", "rosbridge_websocket_keepalive.launch.py")
     if not os.path.isfile(rosbridge_keepalive):
         return []
-    include_rb = IncludeLaunchDescription(PythonLaunchDescriptionSource(rosbridge_keepalive))
+    include_rb = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(rosbridge_keepalive),
+        launch_arguments=[("port", LaunchConfiguration("rosbridge_port"))],
+    )
     delay_str = LaunchConfiguration("rosbridge_startup_delay_sec").perform(context)
     try:
         delay = float(delay_str)
@@ -255,6 +258,11 @@ def generate_launch_description():
             "0 表示仅顺序置后、无 Timer"
         ),
     )
+    arg_rosbridge_port = DeclareLaunchArgument(
+        "rosbridge_port",
+        default_value="9091",
+        description="rosbridge WebSocket 端口（默认 9091；与同事 9090 并存时可不改，网页默认已对齐）",
+    )
 
     keypoint_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(keypoint_launch),
@@ -276,6 +284,7 @@ def generate_launch_description():
         arg_keypoint_platform,
         arg_keypoint_preset,
         arg_rosbridge_delay,
+        arg_rosbridge_port,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_launch),
             launch_arguments=[

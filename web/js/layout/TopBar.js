@@ -82,7 +82,7 @@ function render(el) {
       <img src="SEALIEN-LOGO.png" alt="Orion" class="top-bar__logo" />
       <span class="top-bar__brand-title">Orion</span>
     </div>
-    ${section(tag(wsBadge, '●', conn.wsConnected ? '已连接' : '未连接', conn.wsConnected ? '' : '需先启动 rosbridge（默认 ws://127.0.0.1:9090，可用 ?ws= 覆盖）'))}
+    ${section(tag(wsBadge, '●', conn.wsConnected ? '已连接' : '未连接', conn.wsConnected ? '' : '需先启动 rosbridge（默认 ws://127.0.0.1:9091，可用 ?ws= 覆盖）'))}
     ${section(tag(workerBadge, '⚙', '工作线程 ' + statusToLabel(conn.workerStatus)))}
     ${section(tag(taskBadge, '◇', '任务 ' + statusToLabel(conn.taskMode)))}
     ${section(tag('badge-queue', '☰', '队列 ' + queueCount))}

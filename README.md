@@ -271,10 +271,10 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 **机器人模型同步**：修改 `orion_description` 或 `rov_urdf` 的 URDF/STL 后，运行 `web/sync_robot_model.sh` 将 `src/orion_description` 与可选 `rov_urdf/meshes/stl` 同步到 `web/robot/`（URDF + meshes/stl），供 3D 视图加载。
 
-**前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 在 **MoveIt/桥接/MTC/keypoint 之后**再按 **`rosbridge_startup_delay_sec`（默认 5s）** 拉起 **`rosbridge_websocket_keepalive.launch.py`**，避免网页连上时 `/manipulator/get_queue_state` 尚未注册；可设 `rosbridge_startup_delay_sec:=0` 去掉延迟（仅顺序置后）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
+**前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 在 **MoveIt/桥接/MTC/keypoint 之后**再按 **`rosbridge_startup_delay_sec`（默认 5s）** 拉起 **`rosbridge_websocket_keepalive.launch.py`**（**WebSocket 默认端口 `rosbridge_port:=9091`**，与同机他人常用 9090 区分；可改为 `rosbridge_port:=9090` 等）。避免网页连上时 `/manipulator/get_queue_state` 尚未注册；可设 `rosbridge_startup_delay_sec:=0` 去掉延迟（仅顺序置后）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
 
 **打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。`web/start.sh` 默认监听 **127.0.0.1**（仅本机）；局域网访问需显式：`./start.sh 8080 0.0.0.0`。可选 URL 参数：
-- `?ws=ws://host:port` — WebSocket 地址，默认 **`ws://127.0.0.1:9090`**（与页面从哪打开无关，避免误连局域网 IP）
+- `?ws=ws://host:port` — WebSocket 地址，默认 **`ws://127.0.0.1:9091`**（与 `pick_holoocean` / `rosbridge_websocket_keepalive` 默认端口一致；与页面从哪打开无关，避免误连局域网 IP）
 - `?ns=/manipulator` 或 `?topic_prefix=/manipulator` — 话题/服务命名空间，默认 `/manipulator`
 - `?joy_ui=/joy_manipulator` — 手柄桥接 UI 状态话题前缀（默认 `/joy_manipulator`，对应 `manual_mode`、`throttle_percent`）
 

@@ -26,7 +26,7 @@ else
   echo "访问地址: $URL（仅本机绑定 ${HOST}）"
 fi
 echo "连接 ROS: 需先启动 rosbridge，例如: ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
-echo "          WS 默认 ws://127.0.0.1:9090；跨机连 rosbridge 时用 ?ws=ws://实际IP:9090"
+echo "          WS 默认 ws://127.0.0.1:9091（与 pick_holoocean rosbridge 一致）；跨机时用 ?ws=ws://实际IP:9091"
 echo "按 Ctrl+C 停止服务"
 echo ""
 

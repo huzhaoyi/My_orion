@@ -547,7 +547,6 @@ private:
         msg->euler_angles[0] = 0.0f;
         msg->euler_angles[1] = 0.0f;
         msg->euler_angles[2] = 0.0f;
-        msg->yaw_degree = 0.0f;
         msg->score = 0.0f;
         msg->score_threshold = 0.0f;
         msg->use_score_threshold = false;

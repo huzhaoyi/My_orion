@@ -68,7 +68,11 @@ def _setup(context, *_args, **_kwargs):
 def generate_launch_description():
     return LaunchDescription(
         [
-            DeclareLaunchArgument("port", default_value="9090", description="rosbridge WebSocket 端口"),
+            DeclareLaunchArgument(
+                "port",
+                default_value="9091",
+                description="rosbridge WebSocket 端口（默认 9091，避免与同事常用 9090 冲突；网页默认 ws 需一致或用 ?ws=）",
+            ),
             DeclareLaunchArgument(
                 "websocket_ping_interval",
                 default_value="25.0",

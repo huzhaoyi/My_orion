@@ -14,6 +14,9 @@ __pycache__/
 # IDE / 编辑器
 .idea/
 .vscode/
+
+# 本地日报对话记录（不同步到 git）
+cursor_chat/
 *.swp
 *.swo
 *~
