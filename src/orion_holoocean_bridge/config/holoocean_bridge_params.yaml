@@ -14,9 +14,6 @@ trajectory_to_agent_bridge:
     agent_command_topic: "/holoocean/command/agent/arm"
     agent_frame_id: "rov0"
     publish_rate_hz: 50.0
-    # true：INFO 打印 FollowJointTrajectory 各点（°）+ 节流打印发往仿真的 AgentCommand 14 维（°）
-    enable_trajectory_debug_log: true
-    log_agent_command_throttle_sec: 0.25
 
 # TargetSensor 世界系 xyz + direction → base_link 下 object_pose（MTC 抓取）+ perception_state（旧多目标逻辑，可选）
 target_sensor_to_object_pose:
