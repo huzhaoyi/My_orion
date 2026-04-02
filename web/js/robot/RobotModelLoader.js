@@ -8,6 +8,25 @@ import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 
 const MESH_DIR = '/robot/meshes/stl/';
 
+/* 夹爪：SRDF open≈±0.4 rad 时实机已全开；STL 按 URDF 1:1 显示偏「夹紧」。仅用于 3D 视觉放大（不影响 FK 采样）。 */
+const GRIPPER_JOINT_NAMES = new Set(['joint_Link6_Link7', 'joint_Link6_Link8']);
+const GRIPPER_MECH_FULL_OPEN_RAD = 0.4;
+const GRIPPER_VISUAL_MAX_RAD = Math.PI * 0.62;
+
+/**
+ * @param {number} rad /joint_states 读到的角（Link7 正开、Link8 负开）
+ * @returns {number} 用于 mesh 显示的角
+ */
+function gripperAngleForDisplay(rad) {
+  if (!Number.isFinite(rad)) {
+    return 0.0;
+  }
+  const sign = rad >= 0.0 ? 1.0 : -1.0;
+  const mag = Math.min(Math.abs(rad), GRIPPER_MECH_FULL_OPEN_RAD * 1.5);
+  const t = mag / GRIPPER_MECH_FULL_OPEN_RAD;
+  return sign * Math.min(t * GRIPPER_VISUAL_MAX_RAD, GRIPPER_VISUAL_MAX_RAD);
+}
+
 const JOINT_DEFS = [
   { name: 'joint_base_link_Link1', xyz: [0, 0, 0], rpy: [0, 0, 0], axis: [1, 0, 0] },
   { name: 'joint_Link1_Link2', xyz: [-0.0105, 0, 0.0699], rpy: [0, 0, 0], axis: [0, 1, 0] },
@@ -291,8 +310,9 @@ export function loadRobotModel() {
         if (raw === undefined || raw === null) return;
         const angle = Number(raw);
         if (!Number.isFinite(angle)) return;
+        const displayAngle = GRIPPER_JOINT_NAMES.has(name) ? gripperAngleForDisplay(angle) : angle;
         axisVec.set(axis[0], axis[1], axis[2]);
-        group.quaternion.setFromAxisAngle(axisVec, angle);
+        group.quaternion.setFromAxisAngle(axisVec, displayAngle);
       });
     };
     return root;
