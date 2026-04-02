@@ -5,8 +5,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 PORT="${1:-8080}"
-# 默认仅监听本机；需局域网内其它设备访问时：./start.sh 8080 0.0.0.0
-HOST="${2:-127.0.0.1}"
+# 默认监听 0.0.0.0，局域网内可访问；仅本机时：./start.sh 8080 127.0.0.1
+HOST="${2:-0.0.0.0}"
 if [ "$HOST" = "0.0.0.0" ]; then
   URL="http://127.0.0.1:${PORT}/"
   if command -v hostname >/dev/null 2>&1; then

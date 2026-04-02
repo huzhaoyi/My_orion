@@ -20,9 +20,25 @@
 
 import stateStore from './stateStore.js';
 
-/** 默认 rosbridge：固定本机回环，避免用局域网 IP 打开页面时 WS 跟到局域网（需连其它机器时用 ?ws= 覆盖）。 */
+/** 页面为 localhost / file / 空 host 时用回环；否则 WS 与页面同主机（同机开网页 + rosbridge 时局域网浏览器可连）。其它机器上的 rosbridge 用 ?ws= 覆盖。 */
+function isLocalPageHost(hostname) {
+  if (hostname == null || hostname === '') {
+    return true;
+  }
+  const h = String(hostname).toLowerCase();
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+}
+
 function getDefaultWsUrl() {
-  return 'ws://127.0.0.1:9091';
+  if (typeof window === 'undefined' || !window.location) {
+    return 'ws://127.0.0.1:9091';
+  }
+  const hostname = window.location.hostname;
+  if (isLocalPageHost(hostname)) {
+    return 'ws://127.0.0.1:9091';
+  }
+  const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${scheme}//${hostname}:9091`;
 }
 
 let ws = null;

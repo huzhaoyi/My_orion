@@ -70,7 +70,7 @@ ROS_DISTRO=jazzy ./scripts/install_ros_dependencies.sh
 
 静态页面 + Python 标准库 HTTP 服务，无 npm 依赖。需要系统自带 **Python 3**。
 
-联调 ROS 时需本机或局域网内可访问 **`rosbridge_server`**（已在 `orion_mtc` 的 `exec_depend` 中列出，可由安装脚本或 `rosdep` 安装）。默认 WebSocket 端口为 **9091**（`rosbridge_websocket_keepalive` / `pick_holoocean` 参数 `rosbridge_port`），`web/` 默认 `ws://127.0.0.1:9091`；与同机 9090 并存时用 `?ws=` 或统一改 `rosbridge_port`。
+联调 ROS 时需本机或局域网内可访问 **`rosbridge_server`**（已在 `orion_mtc` 的 `exec_depend` 中列出，可由安装脚本或 `rosdep` 安装）。默认 WebSocket 端口为 **9091**（`rosbridge_websocket_keepalive` / `pick_holoocean` 参数 `rosbridge_port`）；页面从本机打开时 Web 默认 `ws://127.0.0.1:9091`，从局域网 IP 打开时默认与页面同主机 `ws://<该IP>:9091`。**rosbridge 在其它机器**或端口不一致时用 `?ws=`；与同机 9090 并存时可统一改 `rosbridge_port`。
 
 ---
 
