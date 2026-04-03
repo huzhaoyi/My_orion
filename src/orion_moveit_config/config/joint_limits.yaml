@@ -23,6 +23,9 @@ joint_limits:
     has_deceleration_limits: true
     max_deceleration: -0.5
   joint_LinkVirtual_Link4:
+    has_position_limits: true
+    min_position: -3.14159
+    max_position: 3.14159
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true

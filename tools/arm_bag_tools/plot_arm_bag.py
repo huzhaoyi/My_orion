@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import csv
 import math
-import os
 import sys
 from pathlib import Path
 
@@ -185,6 +184,54 @@ def _stats_table(
     return rows
 
 
+def _wrap_deg_delta(delta_deg: np.ndarray) -> np.ndarray:
+    """将角度差折叠到 (-180, 180]°（与最短弧一致），非有限值保持 nan。"""
+    out = np.full_like(delta_deg, np.nan, dtype=float)
+    m = np.isfinite(delta_deg)
+    if not np.any(m):
+        return out
+    rad = np.deg2rad(delta_deg[m])
+    out[m] = np.rad2deg(np.arctan2(np.sin(rad), np.cos(rad)))
+    return out
+
+
+def _first_spike_rows(
+    t_s: np.ndarray,
+    err_raw: np.ndarray,
+    err_wrap: np.ndarray,
+    cmd: np.ndarray,
+    sens: np.ndarray,
+    labels: list[str],
+    n_arm_wrap: int,
+    threshold_deg: float,
+) -> list[tuple[str, float, float, float, float, float]]:
+    """各关节首次 |err_wrap|>阈值（J1–Jn_arm）；夹爪用 |err_raw|>阈值。返回 (name,t,raw,wrap,cmd,sens)。"""
+    rows = []
+    n = err_raw.shape[1]
+    for j in range(n):
+        if j < n_arm_wrap:
+            e = err_wrap[:, j]
+            use = np.isfinite(e) & (np.abs(e) > threshold_deg)
+        else:
+            e = err_raw[:, j]
+            use = np.isfinite(e) & (np.abs(e) > threshold_deg)
+        if not np.any(use):
+            continue
+        k = int(np.flatnonzero(use)[0])
+        wrap_at = float(err_wrap[k, j]) if j < n_arm_wrap else float(err_raw[k, j])
+        rows.append(
+            (
+                labels[j],
+                float(t_s[k]),
+                float(err_raw[k, j]),
+                wrap_at,
+                float(cmd[k, j]),
+                float(sens[k, j]),
+            )
+        )
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="画臂 rosbag 对比曲线并导出 CSV")
     parser.add_argument("bag_dir", type=Path, help="ros2 bag 目录（内含 .db3）")
@@ -193,6 +240,12 @@ def main() -> int:
         type=Path,
         default=Path("arm_bag_analysis"),
         help="输出目录（图 + CSV）",
+    )
+    parser.add_argument(
+        "--spike-deg",
+        type=float,
+        default=60.0,
+        help="anomaly_report.txt：J1–J6 用 |折叠误差|>此值(°)、夹爪用 |原始误差|>此值，记首次时刻",
     )
     args = parser.parse_args()
 
@@ -255,6 +308,7 @@ def main() -> int:
         axes = [axes]
 
     err_for_csv = np.full((t_plot.size, n), np.nan)
+    err_wrap_csv = np.full((t_plot.size, n), np.nan)
 
     for i in range(6):
         ax = axes[i]
@@ -278,13 +332,23 @@ def main() -> int:
             and sens_i.shape[0] == t_plot.size
         ):
             err_for_csv[:, i] = cmd_plot[:, i] - sens_i[:, i]
+            err_wrap_csv[:, i] = _wrap_deg_delta(err_for_csv[:, i])
             ax.plot(
                 t_plot,
                 err_for_csv[:, i],
-                label="cmd-sensor (deg)",
-                linewidth=0.8,
+                label="cmd-sensor raw",
+                linewidth=0.7,
                 color="C3",
-                alpha=0.7,
+                alpha=0.55,
+                linestyle="--",
+            )
+            ax.plot(
+                t_plot,
+                err_wrap_csv[:, i],
+                label="cmd-sensor wrap ±180°",
+                linewidth=0.9,
+                color="C4",
+                alpha=0.85,
             )
         ax.set_ylabel(LABELS_ARM[i])
         ax.legend(loc="upper right", fontsize=7)
@@ -311,13 +375,15 @@ def main() -> int:
         and sens_i.shape[0] == t_plot.size
     ):
         err_for_csv[:, 6] = cmd_plot[:, 6] - sens_i[:, 6]
+        err_wrap_csv[:, 6] = err_for_csv[:, 6]
         ax_g.plot(
             t_plot,
             err_for_csv[:, 6],
-            label="cmd-sensor (deg)",
-            linewidth=0.8,
+            label="cmd-sensor raw (grip)",
+            linewidth=0.7,
             color="C3",
-            alpha=0.7,
+            alpha=0.55,
+            linestyle="--",
         )
     ax_g.set_ylabel(LABELS_ARM[6])
     ax_g.set_xlabel("t (s) from bag start")
@@ -338,8 +404,101 @@ def main() -> int:
         for name, rmse, mx in stats:
             w.writerow([name, "%.6f" % rmse if math.isfinite(rmse) else "", "%.6f" % mx if math.isfinite(mx) else ""])
 
+    stats_wrapped = _stats_table(LABELS_ARM, err_wrap_csv)
+    summary_wrapped_csv = out_dir / "summary_stats_wrapped.csv"
+    with summary_wrapped_csv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(
+            [
+                "joint",
+                "rmse_wrapped_deg",
+                "max_abs_wrapped_deg",
+                "note",
+            ]
+        )
+        for idx, (name, rmse, mx) in enumerate(stats_wrapped):
+            note = ""
+            if idx < 6:
+                note = "J1–J6: shortest-angle cmd−sensor"
+            elif idx == 6:
+                note = "Grip: same as raw (非周期，不折叠)"
+            w.writerow(
+                [
+                    name,
+                    "%.6f" % rmse if math.isfinite(rmse) else "",
+                    "%.6f" % mx if math.isfinite(mx) else "",
+                    note,
+                ]
+            )
+
     def _fmt_cell(v: float) -> str:
         return "%.6f" % v if math.isfinite(v) else ""
+
+    err_sidecar = out_dir / "cmd_sensor_error.csv"
+    with err_sidecar.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        h = ["t_s"]
+        for j in range(6):
+            h.extend(["j%d_err_raw_deg" % (j + 1), "j%d_err_wrap_deg" % (j + 1)])
+        h.append("grip_err_raw_deg")
+        w.writerow(h)
+        for k in range(int(t_plot.size)):
+            row = ["%.6f" % t_plot[k]]
+            for j in range(6):
+                row.extend(
+                    [
+                        _fmt_cell(float(err_for_csv[k, j])),
+                        _fmt_cell(float(err_wrap_csv[k, j])),
+                    ]
+                )
+            row.append(_fmt_cell(float(err_for_csv[k, 6])))
+            w.writerow(row)
+
+    anomaly_path = out_dir / "anomaly_report.txt"
+    if (
+        cmd_plot is not None
+        and sens_i is not None
+        and cmd_plot.shape[0] == t_plot.size
+        and sens_i.shape[0] == t_plot.size
+    ):
+        spikes = _first_spike_rows(
+            t_plot,
+            err_for_csv,
+            err_wrap_csv,
+            cmd_plot,
+            sens_i,
+            LABELS_ARM,
+            6,
+            float(args.spike_deg),
+        )
+        lines = [
+            "cmd−sensor 首次超过阈值（J1–J6: |折叠误差|>%.3f°；Grip: |原始误差|>%.3f°）"
+            % (args.spike_deg, args.spike_deg),
+            "时间 t_s 为与 aligned_series / png 一致的原点相对秒。",
+            "",
+        ]
+        j4_row = next((s for s in spikes if s[0] == "J4"), None)
+        if j4_row is not None:
+            _n, _ts, _rw, _wp, _c, _sn = j4_row
+            lines.append(
+                "J4 首次超阈值: t=%.6f s, err_raw=%.4f°, err_wrap=%.4f°, cmd=%.4f°, sensor=%.4f°"
+                % (_ts, _rw, _wp, _c, _sn)
+            )
+            lines.append("")
+        if not spikes:
+            lines.append("全程无超过阈值的采样点。")
+        else:
+            lines.append(
+                "joint\tt_s\terr_raw_deg\terr_wrap_or_grip_deg\tcmd_deg\tsensor_deg"
+            )
+            for name, ts, raw_d, wrap_d, cmd_d, sens_d in spikes:
+                lines.append(
+                    "%s\t%.6f\t%.4f\t%.4f\t%.4f\t%.4f"
+                    % (name, ts, raw_d, wrap_d, cmd_d, sens_d)
+                )
+        anomaly_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    else:
+        anomaly_path.write_text("无 cmd/sensor 对齐数据，跳过 spike 检测。\n", encoding="utf-8")
 
     aligned_csv = out_dir / "aligned_series.csv"
     with aligned_csv.open("w", newline="", encoding="utf-8") as f:
@@ -360,6 +519,9 @@ def main() -> int:
 
     print("已写入: %s" % png_path)
     print("已写入: %s" % summary_csv)
+    print("已写入: %s" % summary_wrapped_csv)
+    print("已写入: %s" % err_sidecar)
+    print("已写入: %s" % anomaly_path)
     print("已写入: %s" % aligned_csv)
     return 0
 

@@ -3,7 +3,7 @@
 # 默认: 使用 bags/ 下「最近修改」的子目录；也可传入子目录名或绝对路径。
 # 依赖: 当前 shell 已 source ROS2 与含 holoocean_interfaces 的 install；可选 pip install -r requirements.txt
 # 输出: analysis/<bag 目录名>/（png + csv）
-# 可选: 环境变量 ARM_BAG_OPEN=1 时尝试用图像查看器打开 png（需 DISPLAY）
+# 可选: ARM_BAG_OPEN=1 打开 png；ARM_BAG_SPIKE_DEG=45 传给 plot_arm_bag.py 的 --spike-deg（默认 60）
 
 set -euo pipefail
 
@@ -56,7 +56,12 @@ mkdir -p "${OUT_DIR}"
 echo "[analyze_arm_bag] 输入: ${BAG_DIR}"
 echo "[analyze_arm_bag] 输出: ${OUT_DIR}"
 
-python3 "${SCRIPT_DIR}/plot_arm_bag.py" "${BAG_DIR}" --out "${OUT_DIR}"
+SPIKE_ARGS=()
+if [ -n "${ARM_BAG_SPIKE_DEG:-}" ]
+then
+    SPIKE_ARGS=(--spike-deg "${ARM_BAG_SPIKE_DEG}")
+fi
+python3 "${SCRIPT_DIR}/plot_arm_bag.py" "${BAG_DIR}" --out "${OUT_DIR}" "${SPIKE_ARGS[@]}"
 
 echo "[analyze_arm_bag] 完成。"
 

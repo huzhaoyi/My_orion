@@ -155,7 +155,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
-  <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±270°；腕 roll 连续；夹爪 ±π（可与实机一致后改写） -->
+  <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±180°；腕 roll 连续；夹爪 ±π（可与实机一致后改写） -->
 
   <joint name="joint_base_link_Link1" type="revolute">
     <parent link="base_link"/>
@@ -187,12 +187,13 @@
     <origin xyz="0.1835 0.0 0.0157" rpy="0.0 -3.97248 0.0"/>
   </joint>
 
+  <!-- J4：标称由 ±270° 收紧为 ±180°，与规划/仿真环绕稳定性一致 -->
   <joint name="joint_LinkVirtual_Link4" type="revolute">
     <parent link="LinkVirtual"/>
     <child link="Link4"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-4.71239" upper="4.71239" effort="100" velocity="1.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link4_Link5" type="revolute">

@@ -111,7 +111,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
-  <!-- 标称与 orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±270°，J6 continuous，夹爪 ±π -->
+  <!-- 标称与 orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±180°，J6 continuous，夹爪 ±π -->
 
   <!-- base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
   <joint name="joint_base_link_Link1" type="revolute">
@@ -154,7 +154,7 @@
     <child link="Link4"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-4.71239" upper="4.71239" effort="100" velocity="1.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
   </joint>
 
   <!-- Link4 -> Link5 : revolute, axis Y, origin (0, -0.0091, 0.3784) -->
