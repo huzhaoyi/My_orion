@@ -4,10 +4,12 @@
 依赖: 已 source 的 ROS2 环境 + 工作空间（holoocean_interfaces、sensor_msgs）。
 可选: pip install -r requirements.txt（numpy、matplotlib）
 
-用法:
+一键分析（推荐）: 在 tools/arm_bag_tools/ 下已 source ROS+工作空间后执行 ./analyze_arm_bag.sh
+
+手动:
   source /opt/ros/$ROS_DISTRO/setup.bash
   source <ws>/install/setup.bash
-  python3 plot_arm_bag.py tools/arm_bag_tools/bags/sim_arm_debug_xxx [--out ./arm_bag_analysis]
+  python3 plot_arm_bag.py <bag 目录> [--out 目录]
 """
 
 from __future__ import annotations

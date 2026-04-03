@@ -28,6 +28,10 @@ cursor_chat/
 tools/arm_bag_tools/bags/*
 !tools/arm_bag_tools/bags/.gitkeep
 
+# arm_bag_tools 一键分析输出（保留 analysis/.gitkeep）
+tools/arm_bag_tools/analysis/*
+!tools/arm_bag_tools/analysis/.gitkeep
+
 # 系统与临时
 .DS_Store
 *.log

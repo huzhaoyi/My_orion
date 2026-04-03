@@ -6,6 +6,7 @@
 #   ./record_arm_chain.sh my_run             # bags/my_run
 #   ./record_arm_chain.sh /tmp/custom_bag    # 绝对路径仍按原样
 # 停止: Ctrl+C
+# 分析: 在同目录已 source ROS+工作空间后执行 ./analyze_arm_bag.sh
 
 set -euo pipefail
 
