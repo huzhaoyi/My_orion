@@ -12,6 +12,10 @@ const SEV_WARNING = 1;
 const SEV_REJECT = 2;
 const DEFAULT_PICK_TARGET_INDEX = 0;
 
+/** 右栏任务 Tab 切换/语言切换会重复调用 renderResult，须释放上轮订阅避免监听器泄漏。 */
+let approvalUnsubscribeState = null;
+let approvalUnsubscribeLocale = null;
+
 /** CheckPick item.level → 等级标签 */
 function levelLabel(level) {
   if (level === 0) return t('approval.level.info');
@@ -104,6 +108,14 @@ function handlePickClick(e) {
  */
 function renderResult(resultContainerEl) {
   if (!resultContainerEl) return;
+  if (approvalUnsubscribeState) {
+    approvalUnsubscribeState();
+    approvalUnsubscribeState = null;
+  }
+  if (approvalUnsubscribeLocale) {
+    approvalUnsubscribeLocale();
+    approvalUnsubscribeLocale = null;
+  }
   function update() {
     if (!resultContainerEl.isConnected) return;
     const state = stateStore.getState();
@@ -178,8 +190,8 @@ function renderResult(resultContainerEl) {
     resultContainerEl.innerHTML = resultHtml;
   }
   update();
-  stateStore.subscribe(() => update());
-  subscribeLocale(() => update());
+  approvalUnsubscribeState = stateStore.subscribe(() => update());
+  approvalUnsubscribeLocale = subscribeLocale(() => update());
 }
 
 export default {

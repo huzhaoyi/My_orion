@@ -163,36 +163,45 @@ function createJoystickTable(containerEl) {
 /* Orion：6 臂关节 + 2 夹爪关节(Link7/Link8)，表格显示为 6+1=7 行 */
 const HAND_JOINT_NAMES = ['joint_Link6_Link7', 'joint_Link6_Link8'];
 
-function updateJoystickTable(tbody, jointNames, jointPositions) {
+/** @param {{ html: string }} [cacheRef] 与上一帧 HTML 相同时跳过 innerHTML，减轻高频 joint_states 下的 DOM 压力。 */
+function updateJoystickTable(tbody, jointNames, jointPositions, cacheRef) {
   if (!tbody) return;
   const names = jointNames || [];
   const positions = jointPositions || [];
+  let html;
   if (names.length === 0 && positions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="viewport-3d__joystick-empty">${t('viewport.no_data')}</td></tr>`;
+    html = `<tr><td colspan="3" class="viewport-3d__joystick-empty">${t('viewport.no_data')}</td></tr>`;
+  } else {
+    const rows = [];
+    let i = 0;
+    while (i < names.length) {
+      const name = names[i];
+      const rad = positions[i] != null ? Number(positions[i]) : 0;
+      const deg = (rad * RAD_TO_DEG).toFixed(2);
+      const radStr = rad.toFixed(4);
+      const isHand = HAND_JOINT_NAMES.includes(name);
+      if (isHand && i + 1 < names.length && HAND_JOINT_NAMES.includes(names[i + 1])) {
+        /* 两个夹爪关节合并为一行「夹爪」，用 Link7 的值表示 */
+        rows.push(`<tr><td class="viewport-3d__joystick-name" title="${t('viewport.gripper_title')}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
+        i += 2;
+      } else if (isHand) {
+        rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
+        i += 1;
+      } else {
+        const shortName = name.replace(/^joint_/, '').replace(/Link/g, 'L');
+        rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">${shortName}</td><td>${radStr}</td><td>${deg}</td></tr>`);
+        i += 1;
+      }
+    }
+    html = rows.join('');
+  }
+  if (cacheRef && cacheRef.html === html) {
     return;
   }
-  const rows = [];
-  let i = 0;
-  while (i < names.length) {
-    const name = names[i];
-    const rad = positions[i] != null ? Number(positions[i]) : 0;
-    const deg = (rad * RAD_TO_DEG).toFixed(2);
-    const radStr = rad.toFixed(4);
-    const isHand = HAND_JOINT_NAMES.includes(name);
-    if (isHand && i + 1 < names.length && HAND_JOINT_NAMES.includes(names[i + 1])) {
-      /* 两个夹爪关节合并为一行「夹爪」，用 Link7 的值表示 */
-      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${t('viewport.gripper_title')}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
-      i += 2;
-    } else if (isHand) {
-      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">${t('viewport.gripper')}</td><td>${radStr}</td><td>${deg}</td></tr>`);
-      i += 1;
-    } else {
-      const shortName = name.replace(/^joint_/, '').replace(/Link/g, 'L');
-      rows.push(`<tr><td class="viewport-3d__joystick-name" title="${name}">${shortName}</td><td>${radStr}</td><td>${deg}</td></tr>`);
-      i += 1;
-    }
+  if (cacheRef) {
+    cacheRef.html = html;
   }
-  tbody.innerHTML = rows.join('');
+  tbody.innerHTML = html;
 }
 
 /** 预设机位按钮 +「跟随末端」勾选。 */
@@ -256,6 +265,8 @@ function mount(containerId) {
   const { panel: joystickPanel, tbody: joystickTbody } = createJoystickTable(el);
   el.appendChild(joystickPanel);
 
+  const joystickTableHtmlCache = { html: '' };
+
   function applyViewportI18n() {
     const layerPanel = el.querySelector('.viewport-3d__layer-panel');
     if (layerPanel && layerPanel._viewportI18n) {
@@ -283,14 +294,20 @@ function mount(containerId) {
     if (followSpan) {
       followSpan.textContent = ` ${t('viewport.follow_tcp')}`;
     }
-    updateJoystickTable(joystickTbody, stateStore.getState().jointNames, stateStore.getState().jointPositions);
+    joystickTableHtmlCache.html = '';
+    updateJoystickTable(
+      joystickTbody,
+      stateStore.getState().jointNames,
+      stateStore.getState().jointPositions,
+      null
+    );
   }
 
   subscribeLocale(applyViewportI18n);
 
   function updateFromState(s) {
     if (!sceneApi) return;
-    updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions);
+    updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions, joystickTableHtmlCache);
     function applyBaseLinkToScene(pos) {
       const v = new THREE.Vector3(pos.x, pos.y, pos.z);
       v.applyQuaternion(Z_UP_TO_Y_UP);

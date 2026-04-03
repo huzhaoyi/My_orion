@@ -274,7 +274,10 @@ function inferType(topic) {
 /** 单条 rosbridge 入站：分发到 stateStore（runtime_status、job_event、task_stage、持物、位姿、关节等）。 */
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
-  stateStore.touchRosTopicRx(data.topic);
+  /* joint_states 高频：收包时间戳与关节值在 setJointState 内合并或节流，避免每帧两次 setState。 */
+  if (!data.topic.endsWith('/joint_states')) {
+    stateStore.touchRosTopicRx(data.topic);
+  }
   if (data.topic.endsWith('/manual_mode') && Object.prototype.hasOwnProperty.call(data.msg, 'data')) {
     stateStore.setJoyBridgeManual(data.msg.data === true);
     return;
@@ -334,7 +337,7 @@ function handleMessage(data) {
   if (data.topic && data.topic.endsWith('/joint_states') && data.msg) {
     const names = data.msg.name || [];
     const pos = data.msg.position || [];
-    stateStore.setJointState(names, pos);
+    stateStore.setJointState(names, pos, data.topic);
     return;
   }
   if (data.topic && data.topic.endsWith('/perception_state') && data.msg) {

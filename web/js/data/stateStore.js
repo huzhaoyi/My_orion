@@ -427,8 +427,63 @@ function setFusedObjectPose(poseStampedOrNull) {
   });
 }
 
-function setJointState(names, positions) {
-  setState({ jointNames: names || [], jointPositions: positions || [] });
+const JOINT_POS_EPS = 1e-5;
+const JOINT_TOPIC_RX_MIN_MS = 250;
+let _jointTopicRxThrottleAt = 0;
+
+function _jointsUnchanged(prevNames, prevPos, nextNames, nextPos) {
+  const pn = prevNames || [];
+  const pp = prevPos || [];
+  const nn = nextNames || [];
+  const np = nextPos || [];
+  if (pn.length !== nn.length || pp.length !== np.length || nn.length !== np.length) {
+    return false;
+  }
+  for (let i = 0; i < nn.length; i += 1) {
+    if (pn[i] !== nn[i]) {
+      return false;
+    }
+    const a = Number(pp[i]);
+    const b = Number(np[i]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+      return false;
+    }
+    if (Math.abs(a - b) > JOINT_POS_EPS) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @param {string[]} names
+ * @param {number[]} positions
+ * @param {string} [topicForRx] 若为 joint_states 全路径，则与关节在同一拍合并刷新 rosTopicLastRxAt
+ */
+function setJointState(names, positions, topicForRx) {
+  const n = names || [];
+  const p = (positions || []).map((v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0.0;
+  });
+  if (_jointsUnchanged(state.jointNames, state.jointPositions, n, p)) {
+    if (topicForRx) {
+      const now = Date.now();
+      if (now - _jointTopicRxThrottleAt >= JOINT_TOPIC_RX_MIN_MS) {
+        _jointTopicRxThrottleAt = now;
+        touchRosTopicRx(topicForRx);
+      }
+    }
+    return;
+  }
+  const partial = { jointNames: n, jointPositions: p };
+  if (topicForRx) {
+    const key = normalizeRosTopicKey(topicForRx);
+    if (key) {
+      partial.rosTopicLastRxAt = { ...(state.rosTopicLastRxAt || {}), [key]: Date.now() };
+    }
+  }
+  setState(partial);
 }
 
 function setTrajectoryPoints(points) {
