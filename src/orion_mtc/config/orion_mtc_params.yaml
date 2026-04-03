@@ -1,74 +1,110 @@
-# orion_mtc 应用参数（抓取几何 + 运行策略），由 pick_holoocean.launch.py 合并到 orion_mtc_node。
-# 原 split：pick_params.yaml 与 runtime_policy.yaml 已合并为单文件。
+# =============================================================================
+# orion_mtc 应用参数（抓取几何 + 可行性 + 运行策略）
+# 由 pick_holoocean.launch.py 经 load_composable_node / 参数文件合并注入 orion_mtc_node。
+# 历史：原 pick_params.yaml 与 runtime_policy.yaml 已合并为本单文件。
 #
-# pick_holoocean.launch.py 会读取下列键（仅作 launch，不传入 mtc_node）：
-#   use_joy_manipulator — 是否启动手柄桥接
-#   start_rviz — 是否启动 RViz（demo.launch）；命令行可 start_rviz:=true 覆盖
+# 下列仅被 launch 读取、不进入 orion_mtc_node 的参数见文件末尾：
+#   use_joy_manipulator、start_rviz。
+#
+# 同步提示：feasibility 径向/z 与网页展示一致时，需同时维护
+#   web/js/data/feasibilityWorkspace.js、docs/workspace_limits.md。
+# 感知侧目标偏置（关键点融合 z/姿态、HoloOcean sensor→object_pose）不在本文件，
+#   见 keypoint_arm_tf.launch.py、holoocean_bridge_params.yaml。
+# =============================================================================
 
-# ---------- 抓取规划（MTCConfig / cable_side_grasp）----------
-# 若机械臂姿态“扭曲”、不像真实机械臂：
-# 1) 核对 orion.urdf 各关节 origin/axis/limit 与实机一致，零位与 SRDF ready 一致；
-# 2) 在 orion_moveit_config/config/joint_limits.yaml 为各关节加 has_position_limits/min_position/max_position（实机限位），避免规划到不可达姿态；
-# 3) 同一笛卡尔位姿有多组 IK 解（肘上/肘下等），KDL 可能选到不自然解，可尝试 TRAC-IK 或 path_constraints 限制肘/腕范围。
+# ---------- 抓取规划（MTCConfig：载入 mtc_config.cpp / TaskManager / Pick 链）----------
+# 臂姿“扭曲”、IK 解不自然时排查顺序：
+# 1) orion_description/urdf/orion.urdf：关节 origin/axis/limit、零位与 SRDF ready；
+# 2) orion_moveit_config/config/joint_limits.yaml：实机建议补全 has_position_limits/min/max；
+# 3) 多解肘态：可试 TRAC-IK、path_constraints 或缩小关节搜索包络。
 
-# 长杆夹持点沿物体 Z 相对几何中心的偏移 [m]，正=物体+Z 方向；0=中心
+# 夹持点沿缆绳/物体轴向相对几何中心的偏移 [m]（规划附着与 scene 用）；
+# 正方向为物体/缆绳局部 +Z（电缆轴向定义见 Pick 构建）；0 表示落在中心。
 grasp_offset_along_axis: 0.0
 
-# 缆绳侧向抓取候选参数（5cm 缆绳推荐）+ 分段碰撞
+# 缆绳侧向抓取：多维候选 + 简化缆段碰撞包络（细缆绳场景可保留默认数量级）。
 cable_side_grasp:
-  # 侧向接近法向符号：Holoocean/当前 URDF 下若表现为从缆绳下方向上夹，置 -1 改为从另一侧接近（翻转接近侧）
+  # 侧向接近法向符号：+1 为默认几何；仿真若出现“从下往上顶缆绳夹”，可改为 -1 翻转到另一侧接近。
   approach_normal_sign: -1.0
+  # 预抓阶段沿接近方向相对 grasp 的额外距离候选 [m]（由小到大多候选尝试）。
   pregrasp_offset_candidates: [0.030, 0.040, 0.050]
+  # 闭合前指尖沿接近方向吃进缆绳的深度候选 [m]。
   grasp_depth_candidates: [0.010, 0.015, 0.020]
+  # 预抓位与缆轴的侧向距离候选 [m]（由远到近）。
   approach_dist_candidates: [0.10, 0.08, 0.06, 0.04]
+  # 相对 gripper_tcp 的姿态偏置 [deg]，顺序 roll/pitch/yaw，用于抓姿“夹爪补偿”微调。
   tcp_bias_rpy_deg: [0.0, 0.0, 0.0]
+  # 抓取后撤回沿接近反方向的位移 [m]。
   retreat_dist: 0.05
+  # 沿缆轴平移 grasp 中心候选 [m]（与 grasp 点沿缆绳对中微调）。
   axial_shift_candidates: [-0.05, 0.0, 0.05]
+  # 腕部绕接近轴滚转候选 [deg]（侧向姿态多解）。
   roll_candidates_deg: [0.0]
+  # 绕缆轴向旋转接近方向的候选 [deg]（八方位等）。
   approach_around_axis_candidates_deg: [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+  # 缆绳总长、分段长度、半径 [m]：用于生成线股碰撞原语（非精细网格）。
   cable_total_length: 3.0
   cable_segment_length: 0.25
   cable_radius: 0.025
+  # 抓取点邻近±几段参与碰撞粗模。
   grasp_neighbor_segments: 1
+  # Pilz/接近段线速度、线加速度相对默认的缩放系数（0~1 常用）。
   approach_lin_velocity_scaling: 0.5
   approach_lin_acceleration_scaling: 0.35
 
-# 物体位姿由 /object_pose 话题提供（geometry_msgs/PoseStamped），不在此配置
-# 动态抓取：夹爪不硬性保持闭合；执行“闭合”段后根据 /left_arm_gripped 判断抓稳。
+# 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
+# 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
 
-# ---------- 审批模式（CheckPick）工作空间与诊断阈值 ----------
-# 几何依据：orion_description/urdf/orion.urdf（各关节限位见 URDF）；正运动学至 gripper_tcp（与 IK 链一致，不含开合爪）：
-#   |p|_max≈1.85 m，|p|_min≈0.02 m，z∈[-1.82,1.83] m（base_link）。
-# 下列值为「操作包络」：在统计最大/最小基础上留余量；校核对象为物体/缆绳中心，非 TCP，故径向硬限略低于 |p|_max。
+# ---------- 可行性审批（FeasibilityChecker：check_pick / 入队前工作空间）----------
+# 几何参考：orion_description/urdf/orion.urdf，末端为 gripper_tcp（与 MoveIt IK 一致，不含开合爪）。
+# 全包络量级（base_link）：|p|_max≈1.85 m，|p|_min≈0.02 m，z 约 [-1.82, 1.83] m。
+# 下列为操作包络：校核的是目标点（物体/缆绳中心）相对基座的距离与高度，不是 TCP。
 feasibility:
-  max_reach_hard: 1.72   # ≈1.85 m 留 ~13 cm：奇异/IK/侧抓偏移
-  max_reach_soft: 1.58   # 进入硬限前的推荐告警带
-  min_reach_safe: 0.14   # 高于 ~0.02 m 极度折叠位，减小肩根/自碰与病态 IK
-  z_min: -0.55           # 低于 URDF 可达下限但窄于 -1.8，兼顾 ROV/场景碰撞经验包络
-  z_max: 1.55            # 低于 ~1.83，留 TCP-目标点与规划余量
+  # 径向 ‖p‖ 硬上限 [m]：超过则拒绝（WORKSPACE）；略低于 URDF 统计最大以留 IK/奇异/侧抓余量。
+  max_reach_hard: 1.8
+  # 软上限 [m]：‖p‖ 介于 soft~hard 时通过但告警（可执行但接近边界）。
+  max_reach_soft: 1.66
+  # 径向 ‖p‖ 安全下限 [m]：过近拒绝，缓解折叠自碰与病态 IK。
+  min_reach_safe: 0.14
+  # 目标点 base_link z [m] 允许下限（经验包络，窄于 URDF 极端 z）。
+  z_min: -0.55
+  # 目标点 base_link z [m] 允许上限。
+  z_max: 1.55
+  # 主动关节距 URDF 限位小于该值 [rad] 时审批给出关节余量警告。
   joint_margin_warning_rad: 0.10
+  # 审批用 IK 单次超时 [s]。
   ik_timeout: 0.2
+  # 接近方向与竖直向下夹角超过该值 [deg] 则提示姿态风险。
   approach_angle_max_deg: 55.0
+  # 审批失败时建议微调目标的步长 [m] / [rad]（日志与提示用）。
   suggestion_perturb_xy: 0.02
   suggestion_perturb_z: 0.03
   suggestion_perturb_yaw_rad: 0.15
-  # 与 orion_joy_arm_bridge 发布的 /joy_manipulator/manual_mode 对齐；auto<->manual 边沿后跳过 IK 审批与缆绳预检的时间窗 [s]
+  # 手柄自动/手动话题（须与 orion_joy_arm_bridge 发布名一致）。
   joy_manual_mode_topic: "/joy_manipulator/manual_mode"
+  # 模式切换边沿后跳过 IK 审批与缆绳预检的时间窗 [s]，避免 joint_states 未稳误拒。
   joy_mode_switch_ik_skip_sec: 1.5
+  # 非空时：审批链拉 planning_scene 做自碰/环境碰检测（服务全名）；默认 "" 关闭。
   get_planning_scene_service: ""
 
-# ---------- 运行策略（worker / 恢复 / 入队）----------
+# ---------- 运行策略（TaskManager / worker / 入队过滤）----------
 runtime_policy:
+  # launch 后是否自动起 worker 消费队列。
   auto_start_worker: true
+  # 规划失败是否对同一任务自动重试（与 max_retries 配合）。
   retry_on_plan_failure: false
   max_retries: 1
+  # SYNC 等前是否先清 scene 再同步（减少陈旧碰模型）。
   auto_clear_scene_before_sync: true
+  # 轨迹执行失败后是否自动 reset 场景/状态（具体行为见 TaskManager）。
   auto_reset_after_execution_failure: true
+  # 失败后是否自动 go_home（回 ready）；false 时常配合人工介入。
   auto_go_home_after_failure: false
+  # true：worker 忙时拒绝新 SubmitJob（策略门控）。
   reject_new_jobs_while_busy: false
 
-# ---------- pick_holoocean.launch.py（仅 launch 使用，不进入 mtc_node）----------
-# 为 true 时默认启动 orion_joy_arm_bridge（/left_joy、/right_joy）
+# ---------- 仅 pick_holoocean.launch.py 使用（不注入 orion_mtc_node）----------
+# true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）。
 use_joy_manipulator: true
-# 为 true 时启动 RViz；默认 false 便于无头/网页联调
+# true：启动 RViz；默认 false 便于无头仿真与网页联调。
 start_rviz: false

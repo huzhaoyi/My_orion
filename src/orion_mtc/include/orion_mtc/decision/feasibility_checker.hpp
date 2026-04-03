@@ -47,8 +47,8 @@ private:
   struct FeasibilityParams
   {
     /* 与 orion_mtc_params.yaml feasibility 段及 URDF/规划模型一致 */
-    double max_reach_hard = 1.72;
-    double max_reach_soft = 1.58;
+    double max_reach_hard = 1.8;
+    double max_reach_soft = 1.66;
     double min_reach_safe = 0.14;
     double z_min = -0.55;
     double z_max = 1.55;
