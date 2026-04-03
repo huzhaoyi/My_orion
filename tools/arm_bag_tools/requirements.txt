@@ -1,0 +1,3 @@
+# 分析脚本 plot_arm_bag.py（与 ROS2 并存，建议 venv）
+numpy>=1.20.0
+matplotlib>=3.5.0

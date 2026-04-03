@@ -24,6 +24,10 @@ cursor_chat/
 # 本地安装包（可选，若需提交请删除此行）
 *.deb
 
+# arm_bag_tools 默认录制（保留 bags/.gitkeep）
+tools/arm_bag_tools/bags/*
+!tools/arm_bag_tools/bags/.gitkeep
+
 # 系统与临时
 .DS_Store
 *.log
