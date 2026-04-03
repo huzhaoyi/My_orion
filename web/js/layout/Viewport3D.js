@@ -305,6 +305,17 @@ function mount(containerId) {
 
   subscribeLocale(applyViewportI18n);
 
+  let viewportRaf = null;
+  function scheduleUpdateFromState() {
+    if (viewportRaf != null) {
+      return;
+    }
+    viewportRaf = requestAnimationFrame(() => {
+      viewportRaf = null;
+      updateFromState(stateStore.getState());
+    });
+  }
+
   function updateFromState(s) {
     if (!sceneApi) return;
     updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions, joystickTableHtmlCache);
@@ -414,7 +425,7 @@ function mount(containerId) {
     }
   }
 
-  unsubscribeState = stateStore.subscribe(updateFromState);
+  unsubscribeState = stateStore.subscribe(scheduleUpdateFromState);
   updateFromState(stateStore.getState());
 
   window.addEventListener('resize', () => sceneApi.resize());

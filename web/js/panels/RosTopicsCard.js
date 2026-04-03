@@ -44,6 +44,17 @@ function render(parentEl) {
     return { cls: 'ros-topics__status--live', text: t('card.topics.live'), age: ageStr };
   }
 
+  let topicRxRaf = null;
+  function scheduleUpdateFromTopicRx() {
+    if (topicRxRaf != null) {
+      return;
+    }
+    topicRxRaf = requestAnimationFrame(() => {
+      topicRxRaf = null;
+      update();
+    });
+  }
+
   function update() {
     if (!wrap.isConnected) {
       return;
@@ -74,16 +85,27 @@ function render(parentEl) {
     `;
   }
 
+  let prevWs = stateStore.getState().wsConnected;
   update();
-  stateStore.subscribe(() => update());
+  stateStore.subscribe((s) => {
+    if (s.wsConnected !== prevWs) {
+      prevWs = s.wsConnected;
+      update();
+    }
+  });
+  stateStore.subscribeRosTopicRx(() => scheduleUpdateFromTopicRx());
   subscribeLocale(() => update());
 
-  tickTimer = setInterval(update, 1000);
+  tickTimer = setInterval(update, 200);
 
   window.addEventListener('pagehide', () => {
     if (tickTimer) {
       clearInterval(tickTimer);
       tickTimer = null;
+    }
+    if (topicRxRaf != null) {
+      cancelAnimationFrame(topicRxRaf);
+      topicRxRaf = null;
     }
   });
 }

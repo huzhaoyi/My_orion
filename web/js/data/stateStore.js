@@ -99,6 +99,8 @@ const initialState = {
 
 let state = { ...initialState };
 const listeners = new Set();
+/* 仅刷新「ROS 话题收包时间」列表面板，避免 touchRosTopicRx 触发全量 subscribe（拖慢 3D / 关节表）。 */
+const rosTopicRxListeners = new Set();
 
 /** 浅拷贝当前 state（避免外部直接改引用时可再封装）。 */
 function getState() {
@@ -115,6 +117,12 @@ function setState(partial) {
 function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+/** 仅订阅话题最后收包时间变化（不经过全量 setState）。 */
+function subscribeRosTopicRx(fn) {
+  rosTopicRxListeners.add(fn);
+  return () => rosTopicRxListeners.delete(fn);
 }
 
 /* 与 orion_mtc_msgs/msg/RuntimeStatus.msg 字段一一对应（ROS 为 snake_case） */
@@ -254,16 +262,28 @@ function normalizeRosTopicKey(topic) {
   return t.startsWith('/') ? t : `/${t}`;
 }
 
-/** 记录某 ROS 话题收到一帧（键名为 normalize 后的全路径）。 */
+/** 记录某 ROS 话题收到一帧（键名为 normalize 后的全路径）；只通知 rosTopicRxListeners，不触发全量面板刷新。 */
 function touchRosTopicRx(topic) {
   const key = normalizeRosTopicKey(topic);
   if (!key)
   {
     return;
   }
-  const map = { ...(state.rosTopicLastRxAt || {}) };
-  map[key] = Date.now();
-  setState({ rosTopicLastRxAt: map });
+  if (!state.rosTopicLastRxAt)
+  {
+    state.rosTopicLastRxAt = {};
+  }
+  state.rosTopicLastRxAt[key] = Date.now();
+  rosTopicRxListeners.forEach((fn) => {
+    try
+    {
+      fn();
+    }
+    catch (err)
+    {
+      /* 单面板回调异常不影响其它订阅者 */
+    }
+  });
 }
 
 /*
@@ -428,8 +448,42 @@ function setFusedObjectPose(poseStampedOrNull) {
 }
 
 const JOINT_POS_EPS = 1e-5;
-const JOINT_TOPIC_RX_MIN_MS = 250;
-let _jointTopicRxThrottleAt = 0;
+let _jointRafId = null;
+let _pendingJointFlush = null;
+
+function _effectiveJointNamesPositions() {
+  if (_pendingJointFlush)
+  {
+    return {
+      names: _pendingJointFlush.names,
+      pos: _pendingJointFlush.positions,
+    };
+  }
+  return {
+    names: state.jointNames || [],
+    pos: state.jointPositions || [],
+  };
+}
+
+function _flushPendingJointState() {
+  _jointRafId = null;
+  const p = _pendingJointFlush;
+  _pendingJointFlush = null;
+  if (!p)
+  {
+    return;
+  }
+  const partial = { jointNames: p.names, jointPositions: p.positions };
+  if (p.topicForRx)
+  {
+    const key = normalizeRosTopicKey(p.topicForRx);
+    if (key)
+    {
+      partial.rosTopicLastRxAt = { ...(state.rosTopicLastRxAt || {}), [key]: Date.now() };
+    }
+  }
+  setState(partial);
+}
 
 function _jointsUnchanged(prevNames, prevPos, nextNames, nextPos) {
   const pn = prevNames || [];
@@ -466,24 +520,24 @@ function setJointState(names, positions, topicForRx) {
     const x = Number(v);
     return Number.isFinite(x) ? x : 0.0;
   });
-  if (_jointsUnchanged(state.jointNames, state.jointPositions, n, p)) {
-    if (topicForRx) {
-      const now = Date.now();
-      if (now - _jointTopicRxThrottleAt >= JOINT_TOPIC_RX_MIN_MS) {
-        _jointTopicRxThrottleAt = now;
-        touchRosTopicRx(topicForRx);
-      }
+  const eff = _effectiveJointNamesPositions();
+  if (_jointsUnchanged(eff.names, eff.pos, n, p))
+  {
+    if (topicForRx)
+    {
+      touchRosTopicRx(topicForRx);
     }
     return;
   }
-  const partial = { jointNames: n, jointPositions: p };
-  if (topicForRx) {
-    const key = normalizeRosTopicKey(topicForRx);
-    if (key) {
-      partial.rosTopicLastRxAt = { ...(state.rosTopicLastRxAt || {}), [key]: Date.now() };
-    }
+  _pendingJointFlush = {
+    names: n,
+    positions: p,
+    topicForRx: topicForRx || null,
+  };
+  if (_jointRafId == null)
+  {
+    _jointRafId = requestAnimationFrame(_flushPendingJointState);
   }
-  setState(partial);
 }
 
 function setTrajectoryPoints(points) {
@@ -569,16 +623,29 @@ function setApprovalResult(payload) {
 function setJoyBridgeManual(isManual) {
   if (isManual === null || isManual === undefined)
   {
+    if (state.joyManualMode === null)
+    {
+      return;
+    }
     setState({ joyManualMode: null });
     return;
   }
-  setState({ joyManualMode: isManual === true });
+  const next = isManual === true;
+  if (state.joyManualMode === next)
+  {
+    return;
+  }
+  setState({ joyManualMode: next });
 }
 
 /** 臂油门 0～100；变化超阈值时递增 joyThrottlePulseSeq 供顶栏动画。 */
 function setJoyBridgeThrottle(percent) {
   if (percent === null || percent === undefined)
   {
+    if (state.joyThrottlePercent === null)
+    {
+      return;
+    }
     setState({ joyThrottlePercent: null });
     return;
   }
@@ -594,6 +661,15 @@ function setJoyBridgeThrottle(percent) {
   {
     seq = seq + 1;
   }
+  if (
+    prev !== null
+    && Number.isFinite(prev)
+    && Math.abs(clamped - prev) < 0.02
+    && seq === state.joyThrottlePulseSeq
+  )
+  {
+    return;
+  }
   setState({ joyThrottlePercent: clamped, joyThrottlePulseSeq: seq });
 }
 
@@ -601,6 +677,7 @@ export default {
   getState,
   setState,
   subscribe,
+  subscribeRosTopicRx,
   applyRuntimeStatus,
   applyQueueStateResponse,
   applyHeldObjectState,
