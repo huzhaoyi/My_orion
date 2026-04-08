@@ -64,6 +64,7 @@ function render(parentEl) {
   let shellBuilt = false;
   let throttleTimer = null;
   let flushImmediate = false;
+  let pendingState = null;
 
   function ensureShell() {
     if (shellBuilt) {
