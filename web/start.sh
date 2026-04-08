@@ -4,6 +4,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PORT="${1:-8080}"
 # 默认监听 0.0.0.0，局域网内可访问；仅本机时：./start.sh 8080 127.0.0.1
 HOST="${2:-0.0.0.0}"
@@ -43,6 +44,11 @@ if [ ! -f "$SCRIPT_DIR/node_modules/three/build/three.module.js" ]; then
   fi
   echo "【完成】Three.js 依赖安装成功。"
   echo ""
+fi
+
+mkdir -p "$SCRIPT_DIR/robot/meshes/stl"
+if [ -f "$REPO_ROOT/src/orion_description/target.stl" ]; then
+  cp -u "$REPO_ROOT/src/orion_description/target.stl" "$SCRIPT_DIR/robot/meshes/stl/target.stl"
 fi
 
 if command -v xdg-open >/dev/null 2>&1; then

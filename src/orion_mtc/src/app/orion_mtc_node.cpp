@@ -109,7 +109,8 @@ void OrionMTCNode::initModules()
     task_manager_->setGetLatestTargetSetCallback(
         [this]() { return target_cache_ ? target_cache_->latest() : std::optional<orion_mtc_msgs::msg::TargetSet>(); });
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(action_client_node_->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, false);
+    tf_buffer_->setUsingDedicatedThread(true);
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, true);
     task_manager_->setTransformToBaseLinkCallback(
         [this](geometry_msgs::msg::PoseStamped& pose, geometry_msgs::msg::Vector3Stamped* axis) {
             try

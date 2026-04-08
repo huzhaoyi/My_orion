@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { loadRobotModel, getWorkspaceBoundsScene } from './RobotModelLoader.js';
 
 const LAYER_NAMES = {
@@ -27,6 +28,7 @@ const OUTLINE_COLOR = 0x64748b;
 const AXIS_COLOR_X = 0xe53935;
 const AXIS_COLOR_Y = 0x43a047;
 const AXIS_COLOR_Z = 0x1e88e5;
+const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target.stl';
 
 function makeAxisLabel(text, hexColor) {
   const canvas = document.createElement('canvas');
@@ -44,6 +46,13 @@ function makeAxisLabel(text, hexColor) {
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(AXIS_LABEL_SCALE, AXIS_LABEL_SCALE, 1);
   return sprite;
+}
+
+function loadStlGeometry(url) {
+  return new Promise((resolve, reject) => {
+    const loader = new STLLoader();
+    loader.load(url, resolve, undefined, reject);
+  });
 }
 
 /**
@@ -272,73 +281,45 @@ function createScene(containerEl) {
   targets.add(pickMarkerTargetSensor);
 
   /*
-   * TargetSensor 目标物组合模型（简化 T 型插销）：由 perception_state.target_sensor_object_pose 驱动。
-   * 使用与话题一致的侧抓姿态（局部 Z 轴沿杆轴），便于观察姿态与插孔方向。
+   * TargetSensor 目标物模型：直接加载 orion_description/target.stl（由 sync/start 脚本同步到 web）。
+   * 位姿直接使用 perception_state.target_sensor_object_pose，避免前端临时建模导致的轴向偏差。
    */
   const targetSensorObjectComposed = new THREE.Group();
   targetSensorObjectComposed.name = 'target_sensor_object_composed';
   targetSensorObjectComposed.visible = false;
   targetSensorObjectComposed.userData.valid = false;
-  const tsMetalMat = new THREE.MeshStandardMaterial({
-    color: 0xbfc5d2,
-    metalness: 0.75,
-    roughness: 0.3,
-  });
-  const tsBodyMat = new THREE.MeshStandardMaterial({
+  const tsStlMaterial = new THREE.MeshStandardMaterial({
     color: 0xb87333,
     metalness: 0.6,
     roughness: 0.35,
   });
-  const tsGuardMat = new THREE.MeshStandardMaterial({
-    color: 0xe0a11a,
-    metalness: 0.25,
-    roughness: 0.55,
+  loadStlGeometry(TARGET_SENSOR_STL_URL).then((geometry) => {
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    if (geometry.boundingBox) {
+      const center = new THREE.Vector3();
+      geometry.boundingBox.getCenter(center);
+      geometry.translate(-center.x, -center.y, -center.z);
+    }
+    const tsMesh = new THREE.Mesh(geometry, tsStlMaterial);
+    tsMesh.castShadow = true;
+    tsMesh.receiveShadow = true;
+    tsMesh.name = 'target_sensor_stl';
+    targetSensorObjectComposed.add(tsMesh);
+  }).catch((err) => {
+    console.warn('RobotScene: target.stl 加载失败，回退简化模型', err);
+    const fallbackMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.015, 0.015, 0.32, 24),
+      new THREE.MeshStandardMaterial({
+        color: 0xb87333,
+        metalness: 0.5,
+        roughness: 0.4,
+      })
+    );
+    /* Cylinder 默认沿 Y 轴，这里旋转到 X 轴，便于和侧抓姿态的切向约定一致。 */
+    fallbackMesh.rotation.z = -Math.PI / 2;
+    targetSensorObjectComposed.add(fallbackMesh);
   });
-  const TS_SHAFT_RADIUS = 0.0148;
-  const TS_SHAFT_LENGTH = 0.2952;
-  const TS_NECK_RADIUS = 0.0105;
-  const TS_NECK_LENGTH = 0.0820;
-  const TS_HEAD_RADIUS = 0.0185;
-  const TS_HEAD_LENGTH = 0.0420;
-  const TS_GUARD_RADIUS = 0.0700;
-  const TS_GUARD_TUBE = 0.0065;
-  const TS_GUARD_Z = TS_SHAFT_LENGTH + TS_NECK_LENGTH + TS_HEAD_LENGTH * 0.5 + 0.026;
-  const tsBody = new THREE.Mesh(
-    new THREE.CylinderGeometry(TS_SHAFT_RADIUS, TS_SHAFT_RADIUS, TS_SHAFT_LENGTH, 24),
-    tsBodyMat
-  );
-  tsBody.position.set(0, 0, TS_SHAFT_LENGTH * 0.5);
-  targetSensorObjectComposed.add(tsBody);
-  const tsNeck = new THREE.Mesh(
-    new THREE.CylinderGeometry(TS_NECK_RADIUS, TS_NECK_RADIUS, TS_NECK_LENGTH, 24),
-    tsMetalMat
-  );
-  tsNeck.position.set(0, 0, TS_SHAFT_LENGTH + TS_NECK_LENGTH * 0.5);
-  targetSensorObjectComposed.add(tsNeck);
-  const tsHead = new THREE.Mesh(
-    new THREE.CylinderGeometry(TS_HEAD_RADIUS, TS_HEAD_RADIUS, TS_HEAD_LENGTH, 24),
-    tsMetalMat
-  );
-  tsHead.position.set(0, 0, TS_SHAFT_LENGTH + TS_NECK_LENGTH + TS_HEAD_LENGTH * 0.5);
-  targetSensorObjectComposed.add(tsHead);
-  const tsTip = new THREE.Mesh(
-    new THREE.SphereGeometry(TS_SHAFT_RADIUS * 1.02, 20, 20),
-    tsBodyMat
-  );
-  tsTip.position.set(0, 0, 0);
-  targetSensorObjectComposed.add(tsTip);
-  const tsGuard = new THREE.Mesh(
-    new THREE.TorusGeometry(TS_GUARD_RADIUS, TS_GUARD_TUBE, 16, 48),
-    tsGuardMat
-  );
-  tsGuard.position.set(0, 0, TS_GUARD_Z);
-  targetSensorObjectComposed.add(tsGuard);
-  const tsHandle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 0.012, 0.045),
-    tsGuardMat
-  );
-  tsHandle.position.set(0, 0, TS_GUARD_Z + 0.005);
-  targetSensorObjectComposed.add(tsHandle);
   targets.add(targetSensorObjectComposed);
 
   /* Keypoints 轨迹：琥珀球（与品红融合点、fused 区分）+ 折线 */
