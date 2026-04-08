@@ -361,6 +361,20 @@ function send(obj) {
   }
 }
 
+/** 发布任意 ROS 话题（rosbridge op=publish）。 */
+function publishTopic(topic, msg = {}) {
+  send({
+    op: 'publish',
+    topic,
+    msg,
+  });
+}
+
+/** 发布 std_msgs/Empty（msg 为 {}）。 */
+function publishEmpty(topic) {
+  publishTopic(topic, {});
+}
+
 /** 与 open_gripper 相同：std_srvs/Trigger，args 为空对象 */
 function callEmergencyStop(callback) {
   callService(getTopicPrefix() + '/emergency_stop', {}, callback);
@@ -448,6 +462,7 @@ const JOB_TYPE = {
   SYNC_HELD_OBJECT: 2,
   OPEN_GRIPPER: 3,
   CLOSE_GRIPPER: 4,
+  TARGET_INSERT: 5,
 };
 
 /** 与 ManipulationJob.grasp_source 一致：0=LEGACY，1=FUSED。 */
@@ -535,6 +550,8 @@ export default {
   callEmergencyStop,
   callGoToReady,
   callService,
+  publishTopic,
+  publishEmpty,
   getTopicPrefix,
   getKeypointsSubscribeTopic,
   getJoyUiPrefix,

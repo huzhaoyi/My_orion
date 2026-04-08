@@ -1,5 +1,5 @@
 # 异步入队：仅负责入队，不等待执行结果。与 action 的“即时执行”语义分离。
-# job_type: 0=PICK, 1=RESET_HELD_OBJECT, 2=SYNC_HELD_OBJECT, 3=OPEN_GRIPPER, 4=CLOSE_GRIPPER
+# job_type: 0=PICK, 1=RESET_HELD_OBJECT, 2=SYNC_HELD_OBJECT, 3=OPEN_GRIPPER, 4=CLOSE_GRIPPER, 5=TARGET_INSERT
 uint8 job_type
 # PICK：0=LEGACY(/object_pose)，1=FUSED(/object_pose_fused)；其它 job 类型忽略
 uint8 grasp_source

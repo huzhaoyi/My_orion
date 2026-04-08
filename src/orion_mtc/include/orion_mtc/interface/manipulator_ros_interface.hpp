@@ -69,6 +69,8 @@ public:
 private:
     void publishRuntimeStatus();
     void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerCableReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerTargetSensorReceived(const std_msgs::msg::Empty::SharedPtr msg);
     void onPickTriggerFusedReceived(const std_msgs::msg::Empty::SharedPtr msg);
 
     bool isGripperLocked() const;
@@ -115,6 +117,8 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_;
     rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_fused_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_cable_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_targetsensor_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_fused_;
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
 
@@ -139,6 +143,11 @@ private:
     rclcpp::Publisher<orion_mtc_msgs::msg::HeldObjectState>::SharedPtr pub_held_object_state_;
     rclcpp::Publisher<orion_mtc_msgs::msg::RecoveryEvent>::SharedPtr pub_recovery_event_;
     rclcpp::TimerBase::SharedPtr runtime_status_timer_;
+
+    PoseCache cable_pose_cache_{"base_link"};
+    PoseCache targetsensor_pose_cache_{"base_link"};
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_cable_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_targetsensor_;
 };
 
 }  // namespace orion_mtc

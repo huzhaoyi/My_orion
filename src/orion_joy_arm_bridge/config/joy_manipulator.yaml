@@ -96,8 +96,10 @@
     hand_joint_names:
       - "joint_Link6_Link7"
       - "joint_Link6_Link8"
-    arm_joint_lower_limits_deg: [-180.0, -180.0, -180.0, -180.0, -180.0, -180.0]
-    arm_joint_upper_limits_deg: [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+    # 与 orion.urdf 关节范围对齐：J1/J2/J3/J5 为 ±120°，J4 为 ±180°，J6 当前按 ±180° 管理
+    # （J6 在 URDF 为 continuous，手柄微动侧仍建议设置工程限位避免无限累积）。
+    arm_joint_lower_limits_deg: [-120.0, -120.0, -120.0, -180.0, -120.0, -180.0]
+    arm_joint_upper_limits_deg: [ 120.0,  120.0,  120.0,  180.0,  120.0,  180.0]
     # 手指关节手动积分目标（度），与 SRDF open/close 一致（约 ±22.92° 对应 ±0.4 rad）
     hand_q7_open_deg: 22.92
     hand_q8_open_deg: -22.92

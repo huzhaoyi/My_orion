@@ -61,6 +61,40 @@ static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
     "close hand (at pregrasp)",
 };
 
+static const std::vector<std::string> TARGET_INSERT_STAGE_NAMES = {
+    "current",
+    "move to pre-insert",
+    "insert approach",
+    "insert descend",
+    "open hand",
+    "retreat up",
+};
+
+static int parseSlotFromObjectId(const std::string& object_id)
+{
+  std::size_t pos = object_id.find("slot_");
+  if (pos == std::string::npos)
+  {
+    return -1;
+  }
+  pos += 5;
+  if (pos >= object_id.size())
+  {
+    return -1;
+  }
+  int slot = 0;
+  for (std::size_t i = pos; i < object_id.size(); ++i)
+  {
+    const char c = object_id[i];
+    if (c < '0' || c > '9')
+    {
+      break;
+    }
+    slot = slot * 10 + static_cast<int>(c - '0');
+  }
+  return slot;
+}
+
 /*
  * TaskManager 构造：保存规划与执行子系统指针，创建 PickTaskBuilder、任务队列、RecoveryActions。
  * wait_for_gripped_fn 在闭合夹爪阶段用于等待夹爪反馈；scene_manager 仅被恢复与持物逻辑使用。
@@ -697,6 +731,213 @@ bool TaskManager::handleCloseGripper()
   return true;
 }
 
+/*
+ * TargetSensor 插孔：目标为 target_pose（通常 map/world 固定孔位，内部可 TF 到 base_link）。
+ * 流程：pre-insert（上方）-> 下降到孔口 -> 继续短插 -> 开爪 -> 上撤。
+ */
+bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id)
+{
+  if (estop_requested_.load())
+  {
+    setStateError("E_STOP");
+    estop_requested_.store(false);
+    return false;
+  }
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (!held_object_.valid && !isHolding(task_mode_))
+    {
+      last_error_ = "TARGET_INSERT: no held object";
+      RCLCPP_ERROR(LOGGER, "handleTargetInsert: no held object, reject");
+      return false;
+    }
+    current_task_id_ = genTaskId("insert");
+  }
+
+  geometry_msgs::msg::PoseStamped pose_base = target_pose;
+  if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+  {
+    if (!transform_to_base_link_fn_(pose_base, nullptr))
+    {
+      RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
+                   target_pose.header.frame_id.c_str());
+      return false;
+    }
+  }
+  if (pose_base.header.frame_id != "base_link")
+  {
+    RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_pose frame must be base_link (got %s)",
+                 pose_base.header.frame_id.c_str());
+    return false;
+  }
+
+  const double pre_offset_m = 0.10;
+  const double insert_depth_m = 0.04;
+  const double retreat_m = 0.12;
+
+  mtc::Task task;
+  task.stages()->setName("target insert");
+  task.loadRobotModel(node_);
+  const std::string arm_group_name = "arm";
+  const std::string hand_group_name = "hand";
+  const std::string hand_frame = "gripper_tcp";
+  task.setProperty("group", arm_group_name);
+  task.setProperty("eef", hand_group_name);
+  task.setProperty("ik_frame", hand_frame);
+  task.stages()->properties().set("group", arm_group_name);
+  task.stages()->properties().set("eef", hand_group_name);
+  task.stages()->properties().set("ik_frame", hand_frame);
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+
+  auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  ptp_planner->setPlannerId("PTP");
+  auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  lin_planner->setPlannerId("LIN");
+  lin_planner->setMaxVelocityScalingFactor(0.2);
+  lin_planner->setMaxAccelerationScalingFactor(0.2);
+  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
+  auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
+  cartesian_planner->setMaxVelocityScalingFactor(0.25);
+  cartesian_planner->setMaxAccelerationScalingFactor(0.25);
+  cartesian_planner->setStepSize(0.005);
+
+  geometry_msgs::msg::PoseStamped pre_pose = pose_base;
+  pre_pose.pose.position.z += pre_offset_m;
+  pre_pose.header.stamp = node_->now();
+  auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
+  move_pre->setGroup(arm_group_name);
+  move_pre->setGoal(pre_pose);
+  move_pre->setIKFrame(hand_frame);
+  task.add(std::move(move_pre));
+
+  geometry_msgs::msg::Vector3Stamped down_v;
+  down_v.header.stamp = node_->now();
+  down_v.header.frame_id = "base_link";
+  down_v.vector.x = 0.0;
+  down_v.vector.y = 0.0;
+  down_v.vector.z = -1.0;
+  auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", lin_planner);
+  descend_to_slot->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  descend_to_slot->setIKFrame(hand_frame);
+  descend_to_slot->setDirection(down_v);
+  descend_to_slot->setMinMaxDistance(static_cast<float>(pre_offset_m), static_cast<float>(pre_offset_m));
+  task.add(std::move(descend_to_slot));
+
+  auto insert_descend = std::make_unique<mtc::stages::MoveRelative>("insert descend", cartesian_planner);
+  insert_descend->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  insert_descend->setIKFrame(hand_frame);
+  insert_descend->setDirection(down_v);
+  insert_descend->setMinMaxDistance(static_cast<float>(insert_depth_m), static_cast<float>(insert_depth_m));
+  task.add(std::move(insert_descend));
+
+  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
+  stage_open->setGroup(hand_group_name);
+  stage_open->setGoal("open");
+  task.add(std::move(stage_open));
+
+  geometry_msgs::msg::Vector3Stamped up_v = down_v;
+  up_v.vector.z = 1.0;
+  auto retreat_up = std::make_unique<mtc::stages::MoveRelative>("retreat up", cartesian_planner);
+  retreat_up->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  retreat_up->setIKFrame(hand_frame);
+  retreat_up->setDirection(up_v);
+  retreat_up->setMinMaxDistance(static_cast<float>(retreat_m), static_cast<float>(retreat_m));
+  task.add(std::move(retreat_up));
+
+  try
+  {
+    task.init();
+    task.enableIntrospection(true);
+  }
+  catch (mtc::InitStageException& e)
+  {
+    RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed: " << e);
+    return false;
+  }
+  moveit::core::MoveItErrorCode plan_result = task.plan(5);
+  if (!plan_result || task.solutions().empty())
+  {
+    std::ostringstream os;
+    task.explainFailure(os);
+    RCLCPP_ERROR_STREAM(LOGGER, "target insert plan failed: " << os.str());
+    return false;
+  }
+
+  moveit_task_constructor_msgs::msg::Solution solution_msg;
+  task.solutions().front()->toMsg(solution_msg, &task.introspection());
+  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
+                                          current_task_id_, "TARGET_INSERT", TARGET_INSERT_STAGE_NAMES,
+                                          makeEstopAbortFn()))
+  {
+    RCLCPP_ERROR(LOGGER, "target insert execution failed");
+    return false;
+  }
+
+  const int slot = parseSlotFromObjectId(object_id);
+  const int latch_idx = slot - 1;
+  if (slot > 0)
+  {
+    if (!get_latest_target_set_fn_)
+    {
+      RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_set callback not configured");
+      return false;
+    }
+    bool latch_ok = false;
+    const int max_retry = 10;
+    for (int i = 0; i < max_retry; ++i)
+    {
+      const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+      if (!latest.has_value())
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        continue;
+      }
+      if (latch_idx < 0 || static_cast<std::size_t>(latch_idx) >= latest->latches.size())
+      {
+        RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch index out of range slot=%d idx=%d latches=%zu",
+                     slot, latch_idx, latest->latches.size());
+        return false;
+      }
+      const float latch_value = latest->latches[static_cast<std::size_t>(latch_idx)];
+      latch_ok = std::isfinite(static_cast<double>(latch_value)) && (latch_value > 0.5f);
+      if (latch_ok)
+      {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (!latch_ok)
+    {
+      RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch check failed slot=%d (object_id=%s)",
+                   slot, object_id.c_str());
+      return false;
+    }
+    RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
+  }
+  else
+  {
+    RCLCPP_WARN(LOGGER, "handleTargetInsert: object_id(%s) has no slot_xx; skip latch check", object_id.c_str());
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    clearHeldObject(held_object_);
+    task_mode_ = RobotTaskMode::IDLE;
+    last_error_.clear();
+  }
+  if (scene_manager_)
+  {
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
+    scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
+  }
+  if (held_object_state_fn_)
+  {
+    held_object_state_fn_(getHeldObject());
+  }
+  RCLCPP_INFO(LOGGER, "handleTargetInsert: finished, released object_id=%s", object_id.c_str());
+  return true;
+}
+
 /* 外部注入「夹爪是否已有物」谓词；为 true 时 handlePick 拒绝，防止重复规划。 */
 void TaskManager::setGripperLockedCallback(std::function<bool()> fn)
 {
@@ -733,6 +974,12 @@ void TaskManager::setGraspChainPerceptionCallbacks(
 void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
 {
   transform_to_base_link_fn_ = std::move(fn);
+}
+
+void TaskManager::setGetLatestTargetSetCallback(
+    std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> fn)
+{
+  get_latest_target_set_fn_ = std::move(fn);
 }
 
 /* 任务生命周期事件（SUBMITTED/STARTED/SUCCEEDED/FAILED/REJECTED/CANCELLED）发布到 /manipulator/job_event。 */
@@ -1335,50 +1582,63 @@ void TaskManager::workerLoop()
   }
 }
 
-/* 按 JobType 分派：PICK 拉最新 object_pose 调 handlePick；RESET/OPEN/CLOSE/SYNC 调对应 handle 系列。 */
+/* 按 JobType 分派：PICK 优先用 submit_job 传入 object_pose，否则回落最新话题；RESET/OPEN/CLOSE/SYNC 调对应 handle 系列。 */
 bool TaskManager::executeJob(const ManipulationJob& job)
 {
   switch (job.type)
   {
     case JobType::PICK:
     {
-      std::function<std::optional<geometry_msgs::msg::PoseStamped>()> pose_fn;
-      if (job.grasp_source == GraspSource::FUSED)
+      std::optional<geometry_msgs::msg::PoseStamped> pick_pose;
+      if (job.object_pose.has_value())
       {
-        pose_fn = get_latest_object_pose_fused_fn_;
+        pick_pose = job.object_pose.value();
+        RCLCPP_INFO(LOGGER,
+                    "executeJob PICK: using submit_job object_pose frame_id=%s x=%.3f y=%.3f z=%.3f grasp_source=%s",
+                    pick_pose->header.frame_id.c_str(),
+                    pick_pose->pose.position.x, pick_pose->pose.position.y, pick_pose->pose.position.z,
+                    graspSourceToCString(job.grasp_source));
       }
       else
       {
-        pose_fn = get_latest_object_pose_legacy_fn_;
-      }
-      if (!pose_fn)
-      {
-        RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose callback for grasp_source=%s, cannot plan",
-                     graspSourceToCString(job.grasp_source));
-        return false;
-      }
-      std::optional<geometry_msgs::msg::PoseStamped> latest = pose_fn();
-      if (!latest.has_value())
-      {
-        RCLCPP_ERROR(LOGGER,
-                     "executeJob PICK: no object_pose from topic for grasp_source=%s (no target), skip plan",
-                     graspSourceToCString(job.grasp_source));
-        return false;
+        std::function<std::optional<geometry_msgs::msg::PoseStamped>()> pose_fn;
+        if (job.grasp_source == GraspSource::FUSED)
+        {
+          pose_fn = get_latest_object_pose_fused_fn_;
+        }
+        else
+        {
+          pose_fn = get_latest_object_pose_legacy_fn_;
+        }
+        if (!pose_fn)
+        {
+          RCLCPP_ERROR(LOGGER, "executeJob PICK: no object_pose callback for grasp_source=%s, cannot plan",
+                       graspSourceToCString(job.grasp_source));
+          return false;
+        }
+        pick_pose = pose_fn();
+        if (!pick_pose.has_value())
+        {
+          RCLCPP_ERROR(LOGGER,
+                       "executeJob PICK: no object_pose from topic for grasp_source=%s (no target), skip plan",
+                       graspSourceToCString(job.grasp_source));
+          return false;
+        }
       }
 
       /* 缆绳侧向抓取：object_pose/object_axis 由对应链话题提供，规划时用侧抓候选。 */
-      double lx = latest->pose.position.x;
-      double ly = latest->pose.position.y;
-      double lz = latest->pose.position.z;
+      double lx = pick_pose->pose.position.x;
+      double ly = pick_pose->pose.position.y;
+      double lz = pick_pose->pose.position.z;
       RCLCPP_INFO(LOGGER,
                   "executeJob PICK: grasp_source=%s 目标点 frame_id=%s x=%.3f y=%.3f z=%.3f "
                   "(缆绳中心，approach 后 gripper_tcp 将到此点)",
-                  graspSourceToCString(job.grasp_source), latest->header.frame_id.c_str(), lx, ly, lz);
+                  graspSourceToCString(job.grasp_source), pick_pose->header.frame_id.c_str(), lx, ly, lz);
       if (std::abs(lx) < 1e-6 && std::abs(ly) < 1e-6 && std::abs(lz) < 1e-6)
       {
         RCLCPP_WARN(LOGGER, "executeJob PICK: 目标点接近 (0,0,0)，请检查对应抓取链是否发布有效 object_pose");
       }
-      return handlePick(latest.value(), job.object_id, job.grasp_source);
+      return handlePick(pick_pose.value(), job.object_id, job.grasp_source);
     }
     case JobType::RESET_HELD_OBJECT:
     {
@@ -1414,6 +1674,15 @@ bool TaskManager::executeJob(const ManipulationJob& job)
         empty_pose.orientation.z = 0.0;
         return handleSyncHeldObject(true, false, job.object_id, empty_pose, empty_pose, msg);
       }
+    }
+    case JobType::TARGET_INSERT:
+    {
+      if (!job.target_pose.has_value())
+      {
+        RCLCPP_ERROR(LOGGER, "executeJob TARGET_INSERT: target_pose required");
+        return false;
+      }
+      return handleTargetInsert(job.target_pose.value(), job.object_id);
     }
     default:
       RCLCPP_ERROR(LOGGER, "executeJob: unknown type %d", static_cast<int>(job.type));

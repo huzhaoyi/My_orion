@@ -16,6 +16,17 @@ import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
 import { initI18n, t } from './data/i18n.js';
 
+/* TargetSensor peg-in-hole 固定孔位（世界坐标，按需求保留原始值）。 */
+const TARGET_INSERT_SLOTS = {
+  1: { x: -113.93, y: 129.1, z: -132.1 },
+  2: { x: -113.93, y: 128.9, z: -132.1 },
+  3: { x: -113.93, y: 129.1, z: -132.36 },
+  4: { x: -113.93, y: 128.9, z: -132.35 },
+  5: { x: -113.93, y: 128.6, z: -132.36 },
+  6: { x: -113.93, y: 127.8, z: -130.89 },
+  7: { x: -113.93, y: 127.8, z: -131.12 },
+};
+
 /** 创建各面板 DOM 挂载点、建立 rosbridge 连接并注册全局快捷键与服务封装事件。 */
 function init() {
   initI18n();
@@ -126,30 +137,10 @@ function registerGlobalHandlers() {
         toast.warn(t('toast.not_connected_pick'));
         return;
       }
-      const s = stateStore.getState();
-      const objPose = s.cableObjectPoseValid && s.cableObjectPose ? s.cableObjectPose : null;
-      if (!objPose) {
-        stateStore.pushSystemLog('warn', t('toast.no_pose_cable'));
-        toast.warn(t('toast.no_pose_cable'));
-        return;
-      }
-      const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
-      wsClient.submitJob({
-        job_type: wsClient.JOB_TYPE.PICK,
-        grasp_source: wsClient.GRASP_SOURCE.LEGACY,
-        object_pose,
-        object_id: '',
-      }, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const jid = (v && v.job_id) || '';
-        const msg =
-          (v && v.message) ||
-          (ok ? `${t('toast.pick_cable_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
+      const topic = wsClient.getTopicPrefix() + '/pick_trigger_cable';
+      wsClient.publishEmpty(topic);
+      stateStore.pushSystemLog('info', `publish ${topic}`);
+      toast.success(t('toast.pick_cable_ok'));
     },
     'orion:pick:target_sensor': () => {
       if (!wsClient.isConnected()) {
@@ -157,31 +148,10 @@ function registerGlobalHandlers() {
         toast.warn(t('toast.not_connected_pick'));
         return;
       }
-      const s = stateStore.getState();
-      const objPose =
-        s.targetSensorObjectPoseValid && s.targetSensorObjectPose ? s.targetSensorObjectPose : null;
-      if (!objPose) {
-        stateStore.pushSystemLog('warn', t('toast.no_pose_target_sensor'));
-        toast.warn(t('toast.no_pose_target_sensor'));
-        return;
-      }
-      const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
-      wsClient.submitJob({
-        job_type: wsClient.JOB_TYPE.PICK,
-        grasp_source: wsClient.GRASP_SOURCE.LEGACY,
-        object_pose,
-        object_id: '',
-      }, (res) => {
-        const v = res && res.values ? res.values : res;
-        const ok = v && (v.success === true || v.success === undefined);
-        const jid = (v && v.job_id) || '';
-        const msg =
-          (v && v.message) ||
-          (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
-        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
-        if (ok) toast.success(msg); else toast.error(msg);
-        if (ok) wsClient.getQueueState(applyQueueStateToStore);
-      });
+      const topic = wsClient.getTopicPrefix() + '/pick_trigger_targetsensor';
+      wsClient.publishEmpty(topic);
+      stateStore.pushSystemLog('info', `publish ${topic}`);
+      toast.success(t('toast.pick_target_sensor_ok'));
     },
     'orion:pick:fused': () => {
       if (!wsClient.isConnected()) {
@@ -215,6 +185,56 @@ function registerGlobalHandlers() {
         stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
         if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
+      });
+    },
+    'orion:targetsensor:insert': (e) => {
+      const slot = Number(e.detail?.slot);
+      const slotPose = TARGET_INSERT_SLOTS[slot];
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
+        toast.warn(t('toast.not_connected_pick'));
+        return;
+      }
+      if (!slotPose) {
+        stateStore.pushSystemLog('warn', `TargetSensor insert: invalid slot ${String(slot)}`);
+        toast.warn(`无效孔位: ${String(slot)}`);
+        return;
+      }
+      const s = stateStore.getState();
+      if (!s.hasHeldObject && !s.heldValid) {
+        stateStore.pushSystemLog('warn', `TargetSensor insert: no held object, slot=${slot}`);
+        toast.warn('请先完成 TargetSensor 抓取，再执行插孔');
+        return;
+      }
+      const targetOrientation = s.targetSensorObjectPose?.orientation
+        || s.objectPose?.orientation
+        || { x: 0, y: 0, z: 0, w: 1 };
+      const target_pose = wsClient.buildPoseStamped(
+        { x: slotPose.x, y: slotPose.y, z: slotPose.z },
+        targetOrientation,
+        'map'
+      );
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.TARGET_INSERT,
+        target_pose,
+        object_id: `targetsensor_slot_${slot}`,
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const jid = (v && v.job_id) || '';
+        const msg =
+          (v && v.message) ||
+          (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
+        stateStore.pushSystemLog(
+          ok ? 'info' : 'error',
+          `TargetSensor insert slot=${slot} world=(${slotPose.x.toFixed(2)}, ${slotPose.y.toFixed(2)}, ${slotPose.z.toFixed(2)}): ${msg}`
+        );
+        if (ok) {
+          toast.success(msg);
+          wsClient.getQueueState(applyQueueStateToStore);
+        } else {
+          toast.error(msg);
+        }
       });
     },
     'orion:sync-held': (e) => {

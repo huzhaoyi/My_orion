@@ -112,6 +112,10 @@ function createLayerToggles(containerEl, sceneApiRef) {
             sceneApiRef.pickMarkerTargetSensor.visible =
               cb.checked && !!st.targetSensorObjectPoseValid;
           }
+          if (sceneApiRef.targetSensorObjectComposed) {
+            sceneApiRef.targetSensorObjectComposed.visible =
+              cb.checked && !!st.targetSensorObjectPoseValid;
+          }
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
             const fv = !!st.fusedObjectPoseValid;
@@ -364,6 +368,23 @@ function mount(containerId) {
         sceneApi.pickMarkerTargetSensor.quaternion.identity();
       }
       sceneApi.pickMarkerTargetSensor.visible =
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+    }
+    if (sceneApi.targetSensorObjectComposed) {
+      sceneApi.targetSensorObjectComposed.position.copy(tsScene);
+      const tsObjOrient = s.targetSensorObjectPose?.orientation;
+      if (tsObjOrient) {
+        const tqo = rosToThreeQuaternion(tsObjOrient);
+        if (tqo) {
+          sceneApi.targetSensorObjectComposed.quaternion.copy(
+            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tqo)
+          );
+        }
+      } else {
+        sceneApi.targetSensorObjectComposed.quaternion.identity();
+      }
+      sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
+      sceneApi.targetSensorObjectComposed.visible =
         layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
     }
 

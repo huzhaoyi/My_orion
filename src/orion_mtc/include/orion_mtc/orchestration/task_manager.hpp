@@ -13,6 +13,7 @@
 #include "orion_mtc/orchestration/job_deduplicator.hpp"
 #include "orion_mtc/orchestration/manipulation_state_machine.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
+#include <orion_mtc_msgs/msg/target_set.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
@@ -86,6 +87,8 @@ public:
   using TransformToBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
   void setTransformToBaseLinkCallback(TransformToBaseLinkFn fn);
+  void setGetLatestTargetSetCallback(
+      std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> fn);
 
   /** 与 check_pick 相同 feasibility 硬限；nullptr 则不校验 */
   void setFeasibilityChecker(FeasibilityChecker* checker);
@@ -173,6 +176,7 @@ private:
 
   bool handleOpenGripper();
   bool handleCloseGripper();
+  bool handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id);
 
   static constexpr std::size_t MAX_RECENT_RECORDS = 50;
 
@@ -188,6 +192,7 @@ private:
   std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_legacy_fn_;
   std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fused_fn_;
   std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fused_fn_;
+  std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> get_latest_target_set_fn_;
   TransformToBaseLinkFn transform_to_base_link_fn_;
   FeasibilityChecker* feasibility_checker_ = nullptr;
 

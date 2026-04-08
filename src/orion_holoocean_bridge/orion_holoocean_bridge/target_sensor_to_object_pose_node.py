@@ -146,6 +146,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("target_sensor_topic", "/holoocean/rov0/TargetSensor")
         self.declare_parameter("rov_pose_topic", "/holoocean/rov0/PoseSensor")
         self.declare_parameter("object_pose_topic", "object_pose")
+        self.declare_parameter("object_pose_targetsensor_topic", "object_pose_targetsensor")
         self.declare_parameter("world_frame_id", "map")
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
@@ -168,6 +169,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
         self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
         self._object_pose_topic = self.get_parameter("object_pose_topic").get_parameter_value().string_value
+        self._object_pose_targetsensor_topic = self.get_parameter("object_pose_targetsensor_topic").get_parameter_value().string_value
         self._world_frame_id = self.get_parameter("world_frame_id").get_parameter_value().string_value
         self._publish_tf = self.get_parameter("publish_tf").get_parameter_value().bool_value
         self._perception_state_topic = self.get_parameter("perception_state_topic").get_parameter_value().string_value
@@ -211,6 +213,7 @@ class TargetSensorToObjectPoseNode(Node):
             10,
         )
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
+        self._pub_pose_targetsensor = self.create_publisher(PoseStamped, self._object_pose_targetsensor_topic, 10)
         self._pub_axis = self.create_publisher(Vector3Stamped, self._object_axis_topic, 10)
         self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
         self._pub_target_set = self.create_publisher(TargetSet, self._target_set_topic, 10)
@@ -372,6 +375,7 @@ class TargetSensorToObjectPoseNode(Node):
         ts_msg = TargetSet()
         ts_msg.header.stamp = stamp
         ts_msg.header.frame_id = self._output_frame_id
+        ts_msg.latches = list(msg.latches)
         for k in range(n):
             ib = k * 3
             p_b = np.array(positions_base[ib : ib + 3], dtype=float)
@@ -428,6 +432,7 @@ class TargetSensorToObjectPoseNode(Node):
         out.pose.orientation.z = q_grasp[2]
         out.pose.orientation.w = q_grasp[3]
         self._pub_pose.publish(out)
+        self._pub_pose_targetsensor.publish(out)
         self._last_object_pose = out
         axis_msg = Vector3Stamped()
         axis_msg.header.stamp = stamp

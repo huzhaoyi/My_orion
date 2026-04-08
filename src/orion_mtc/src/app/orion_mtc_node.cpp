@@ -106,6 +106,8 @@ void OrionMTCNode::initModules()
         [this]() { return object_axis_cache_->latest(); },
         [this]() { return object_pose_fused_cache_->latest(); },
         [this]() { return object_axis_fused_cache_->latest(); });
+    task_manager_->setGetLatestTargetSetCallback(
+        [this]() { return target_cache_ ? target_cache_->latest() : std::optional<orion_mtc_msgs::msg::TargetSet>(); });
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(action_client_node_->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, false);
     task_manager_->setTransformToBaseLinkCallback(

@@ -271,6 +271,76 @@ function createScene(containerEl) {
   pickMarkerTargetSensor.visible = false;
   targets.add(pickMarkerTargetSensor);
 
+  /*
+   * TargetSensor 目标物组合模型（简化 T 型插销）：由 perception_state.target_sensor_object_pose 驱动。
+   * 使用与话题一致的侧抓姿态（局部 Z 轴沿杆轴），便于观察姿态与插孔方向。
+   */
+  const targetSensorObjectComposed = new THREE.Group();
+  targetSensorObjectComposed.name = 'target_sensor_object_composed';
+  targetSensorObjectComposed.visible = false;
+  targetSensorObjectComposed.userData.valid = false;
+  const tsMetalMat = new THREE.MeshStandardMaterial({
+    color: 0xbfc5d2,
+    metalness: 0.75,
+    roughness: 0.3,
+  });
+  const tsBodyMat = new THREE.MeshStandardMaterial({
+    color: 0xb87333,
+    metalness: 0.6,
+    roughness: 0.35,
+  });
+  const tsGuardMat = new THREE.MeshStandardMaterial({
+    color: 0xe0a11a,
+    metalness: 0.25,
+    roughness: 0.55,
+  });
+  const TS_SHAFT_RADIUS = 0.0148;
+  const TS_SHAFT_LENGTH = 0.2952;
+  const TS_NECK_RADIUS = 0.0105;
+  const TS_NECK_LENGTH = 0.0820;
+  const TS_HEAD_RADIUS = 0.0185;
+  const TS_HEAD_LENGTH = 0.0420;
+  const TS_GUARD_RADIUS = 0.0700;
+  const TS_GUARD_TUBE = 0.0065;
+  const TS_GUARD_Z = TS_SHAFT_LENGTH + TS_NECK_LENGTH + TS_HEAD_LENGTH * 0.5 + 0.026;
+  const tsBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(TS_SHAFT_RADIUS, TS_SHAFT_RADIUS, TS_SHAFT_LENGTH, 24),
+    tsBodyMat
+  );
+  tsBody.position.set(0, 0, TS_SHAFT_LENGTH * 0.5);
+  targetSensorObjectComposed.add(tsBody);
+  const tsNeck = new THREE.Mesh(
+    new THREE.CylinderGeometry(TS_NECK_RADIUS, TS_NECK_RADIUS, TS_NECK_LENGTH, 24),
+    tsMetalMat
+  );
+  tsNeck.position.set(0, 0, TS_SHAFT_LENGTH + TS_NECK_LENGTH * 0.5);
+  targetSensorObjectComposed.add(tsNeck);
+  const tsHead = new THREE.Mesh(
+    new THREE.CylinderGeometry(TS_HEAD_RADIUS, TS_HEAD_RADIUS, TS_HEAD_LENGTH, 24),
+    tsMetalMat
+  );
+  tsHead.position.set(0, 0, TS_SHAFT_LENGTH + TS_NECK_LENGTH + TS_HEAD_LENGTH * 0.5);
+  targetSensorObjectComposed.add(tsHead);
+  const tsTip = new THREE.Mesh(
+    new THREE.SphereGeometry(TS_SHAFT_RADIUS * 1.02, 20, 20),
+    tsBodyMat
+  );
+  tsTip.position.set(0, 0, 0);
+  targetSensorObjectComposed.add(tsTip);
+  const tsGuard = new THREE.Mesh(
+    new THREE.TorusGeometry(TS_GUARD_RADIUS, TS_GUARD_TUBE, 16, 48),
+    tsGuardMat
+  );
+  tsGuard.position.set(0, 0, TS_GUARD_Z);
+  targetSensorObjectComposed.add(tsGuard);
+  const tsHandle = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.012, 0.045),
+    tsGuardMat
+  );
+  tsHandle.position.set(0, 0, TS_GUARD_Z + 0.005);
+  targetSensorObjectComposed.add(tsHandle);
+  targets.add(targetSensorObjectComposed);
+
   /* Keypoints 轨迹：琥珀球（与品红融合点、fused 区分）+ 折线 */
   const KP_TRACE_COLOR = 0xf59e0b;
   const KP_TRACE_RADIUS = 0.028;
@@ -386,6 +456,7 @@ function createScene(containerEl) {
     pickMarker,
     pickMarkerFused,
     pickMarkerTargetSensor,
+    targetSensorObjectComposed,
     keypointsTraceGroup,
     kpTraceSpheres,
     keypointsPolyline,

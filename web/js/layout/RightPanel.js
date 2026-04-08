@@ -70,6 +70,10 @@ function renderTaskTab(container) {
   const ws = getWorkspaceBoundsForDoc();
   const u = ws.urdf_frame;
   const f2 = (v) => Number(v).toFixed(2);
+  const slot_options_html = Array.from({ length: 7 }, (_, i) => {
+    const idx = i + 1;
+    return `<option value="${idx}">${t('right.target_slot_prefix')}${idx}</option>`;
+  }).join('');
   container.innerHTML = `
     <div class="card">
       <div class="card-title">${t('right.emergency_ready_title')}</div>
@@ -88,13 +92,30 @@ function renderTaskTab(container) {
       <div id="approval-result-container"></div>
     </div>
     <div class="card">
-      <div class="card-title">${t('right.pick_title')}</div>
+      <div class="card-title">${t('right.cable_title')}</div>
       <div class="form-actions form-actions--row" style="margin-bottom:8px;">
         <button type="button" id="btn-pick-cable" class="primary btn-action" style="flex:1;min-width:0;" title="${t('right.pick_cable_title')}">${t('right.pick_cable')}</button>
       </div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0;">${t('right.cable_hint')}</p>
+    </div>
+    <div class="card">
+      <div class="card-title">${t('right.targetsensor_title')}</div>
       <div class="form-actions form-actions--row" style="margin-bottom:8px;">
         <button type="button" id="btn-pick-target-sensor" class="primary btn-action" style="flex:1;min-width:0;background:#c2410c;border-color:#9a3412;" title="${t('right.pick_target_sensor_title')}">${t('right.pick_target_sensor')}</button>
       </div>
+      <div class="card-row" style="margin-bottom:8px;">
+        <span class="card-label">${t('right.target_slot_label')}</span>
+        <select id="select-target-slot" class="input" style="min-width:120px;">
+          ${slot_options_html}
+        </select>
+      </div>
+      <div class="form-actions form-actions--row" style="margin-bottom:8px;">
+        <button type="button" id="btn-target-sensor-insert" class="btn-secondary" style="flex:1;min-width:0;">${t('right.target_insert')}</button>
+      </div>
+      <p style="font-size:11px; color:var(--text-muted); margin:0;">${t('right.targetsensor_hint')}</p>
+    </div>
+    <div class="card">
+      <div class="card-title">${t('right.pick_title')}</div>
       <div class="form-actions form-actions--row">
         <button type="button" id="btn-pick-fused" class="primary btn-action" style="flex:1;min-width:0;background:#a21caf;border-color:#86198f;" title="${t('right.pick_fused_title')}">${t('right.pick_fused')}</button>
       </div>
@@ -123,6 +144,11 @@ function renderTaskTab(container) {
   `;
   container.querySelector('#btn-pick-cable')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:cable')));
   container.querySelector('#btn-pick-target-sensor')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:target_sensor')));
+  container.querySelector('#btn-target-sensor-insert')?.addEventListener('click', () => {
+    const sel = container.querySelector('#select-target-slot');
+    const slot = sel ? Number(sel.value) : 1;
+    window.dispatchEvent(new CustomEvent('orion:targetsensor:insert', { detail: { slot } }));
+  });
   container.querySelector('#btn-pick-fused')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:fused')));
   container.querySelector('#btn-task-emergency-stop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:emergency-stop')));
   container.querySelector('#btn-task-go-ready')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-to-ready')));

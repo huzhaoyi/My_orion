@@ -50,6 +50,14 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         ns + "/object_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
             ctx_.object_pose_cache->update(*msg);
         });
+    sub_object_pose_cable_ = ctx_.action_client_node->create_subscription<geometry_msgs::msg::PoseStamped>(
+        ns + "/object_pose_cable", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+            cable_pose_cache_.update(*msg);
+        });
+    sub_object_pose_targetsensor_ = ctx_.action_client_node->create_subscription<geometry_msgs::msg::PoseStamped>(
+        ns + "/object_pose_targetsensor", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+            targetsensor_pose_cache_.update(*msg);
+        });
     sub_target_set_ = ctx_.action_client_node->create_subscription<orion_mtc_msgs::msg::TargetSet>(
         ns + "/target_set", 10, [this](const orion_mtc_msgs::msg::TargetSet::SharedPtr msg) {
             if (ctx_.target_cache)
@@ -78,6 +86,14 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
     sub_pick_trigger_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
         ns + "/pick_trigger", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
             onPickTriggerReceived(msg);
+        });
+    sub_pick_trigger_cable_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
+        ns + "/pick_trigger_cable", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
+            onPickTriggerCableReceived(msg);
+        });
+    sub_pick_trigger_targetsensor_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
+        ns + "/pick_trigger_targetsensor", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
+            onPickTriggerTargetSensorReceived(msg);
         });
     sub_pick_trigger_fused_ = ctx_.action_client_node->create_subscription<std_msgs::msg::Empty>(
         ns + "/pick_trigger_fused", 10, [this](const std_msgs::msg::Empty::SharedPtr msg) {
@@ -342,6 +358,88 @@ void ManipulatorRosInterface::onPickTriggerReceived(const std_msgs::msg::Empty::
     }).detach();
 }
 
+/* pick_trigger_cable：缆绳链；仅用 /object_pose_cable（实时） */
+void ManipulatorRosInterface::onPickTriggerCableReceived(const std_msgs::msg::Empty::SharedPtr)
+{
+    std::thread([this]() {
+        if (isGripperLocked())
+        {
+            RCLCPP_WARN(ctx_.logger,
+                        "topic_pick_trigger_cable: gripper locked (has object), not enqueued (reset_held_object or "
+                        "open_gripper first)");
+            return;
+        }
+        ManipulationJob job;
+        job.type = JobType::PICK;
+        job.grasp_source = GraspSource::LEGACY;
+        job.object_id = "";
+        job.source = "topic_pick_trigger_cable";
+        std::optional<geometry_msgs::msg::PoseStamped> topic_pose = cable_pose_cache_.latest();
+        if (!topic_pose.has_value())
+        {
+            geometry_msgs::msg::PoseStamped pose;
+            if (!cable_pose_cache_.waitForPose(std::chrono::milliseconds(3000), pose))
+            {
+                RCLCPP_WARN(ctx_.logger, "topic_pick_trigger_cable: no object_pose_cable after wait, not enqueued");
+                return;
+            }
+            topic_pose = pose;
+        }
+        job.object_pose = *topic_pose;
+        std::string reject_reason;
+        std::string job_id = ctx_.task_manager->submitJob(job, &reject_reason);
+        if (job_id.empty())
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_cable: rejected (%s)", reject_reason.c_str());
+        }
+        else
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_cable: accepted job_id=%s", job_id.c_str());
+        }
+    }).detach();
+}
+
+/* pick_trigger_targetsensor：TargetSensor 链；仅用 /object_pose_targetsensor（实时） */
+void ManipulatorRosInterface::onPickTriggerTargetSensorReceived(const std_msgs::msg::Empty::SharedPtr)
+{
+    std::thread([this]() {
+        if (isGripperLocked())
+        {
+            RCLCPP_WARN(ctx_.logger,
+                        "topic_pick_trigger_targetsensor: gripper locked (has object), not enqueued (reset_held_object or "
+                        "open_gripper first)");
+            return;
+        }
+        ManipulationJob job;
+        job.type = JobType::PICK;
+        job.grasp_source = GraspSource::LEGACY;
+        job.object_id = "";
+        job.source = "topic_pick_trigger_targetsensor";
+        std::optional<geometry_msgs::msg::PoseStamped> topic_pose = targetsensor_pose_cache_.latest();
+        if (!topic_pose.has_value())
+        {
+            geometry_msgs::msg::PoseStamped pose;
+            if (!targetsensor_pose_cache_.waitForPose(std::chrono::milliseconds(3000), pose))
+            {
+                RCLCPP_WARN(ctx_.logger, "topic_pick_trigger_targetsensor: no object_pose_targetsensor after wait, not enqueued");
+                return;
+            }
+            topic_pose = pose;
+        }
+        job.object_pose = *topic_pose;
+        std::string reject_reason;
+        std::string job_id = ctx_.task_manager->submitJob(job, &reject_reason);
+        if (job_id.empty())
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_targetsensor: rejected (%s)", reject_reason.c_str());
+        }
+        else
+        {
+            RCLCPP_INFO(ctx_.logger, "topic_pick_trigger_targetsensor: accepted job_id=%s", job_id.c_str());
+        }
+    }).detach();
+}
+
 /*
  * pick_trigger_fused：FUSED 链；仅用 object_pose_fused 缓存（不用 TargetSelector）。
  */
@@ -540,10 +638,10 @@ void ManipulatorRosInterface::handleSubmitJob(
     const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,
     std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Response> res)
 {
-    if (req->job_type > 4u)
+    if (req->job_type > 5u)
     {
         res->success = false;
-        res->message = "invalid job_type (0=PICK,1=RESET_HELD_OBJECT,2=SYNC_HELD_OBJECT,3=OPEN_GRIPPER,4=CLOSE_GRIPPER)";
+        res->message = "invalid job_type (0=PICK,1=RESET_HELD_OBJECT,2=SYNC_HELD_OBJECT,3=OPEN_GRIPPER,4=CLOSE_GRIPPER,5=TARGET_INSERT)";
         return;
     }
     if (req->job_type == static_cast<uint8_t>(JobType::PICK) && isGripperLocked())

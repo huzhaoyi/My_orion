@@ -2,4 +2,5 @@
 std_msgs/Header header
 geometry_msgs/PoseStamped[] targets
 string[] object_ids
+float32[] latches
 
