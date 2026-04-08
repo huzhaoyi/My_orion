@@ -87,7 +87,7 @@ source install/setup.bash
 | | 订阅 | `/holoocean/rov0/PoseSensor` | `geometry_msgs/PoseWithCovarianceStamped` | ROV 位姿，换算到 `base_link` |
 | | 发布 | `/manipulator/object_pose`、`/manipulator/object_axis` | 同上表 | MTC 抓取输入 |
 | | 发布 | `/manipulator/perception_state` | `orion_mtc_msgs/PerceptionState` | **MTC 未订阅**；给上位机或其它节点 |
-| `target_sensor_to_object_pose` | （配置项） | `/holoocean/rov0/TargetSensor` 等 | — | **当前 `pick_holoocean.launch.py` 未启动该可执行体**；需多目标 TargetSensor 时在 launch 中另加节点 |
+| `target_sensor_to_object_pose` | 订阅/发布 | `/holoocean/rov0/TargetSensor` 等 → `/manipulator/object_pose` 等 | 同缆绳桥 | **`pick_holoocean.launch.py` 与缆绳桥一并启动**；与 `cable_sensor_to_object_pose` 同写 `/object_pose` 时以后发布为准；分源位姿见 `perception_state` |
 
 若 `publish_tf: true`（默认），`target_sensor` / `cable` 节点还会广播 **动态 TF**（如 `map`→`rov0`、`base_link`→`cable` 等），与 **sealien_ctrlpilot_location** 同跑时注意避免重复定义；实车可关 `publish_tf` 仅用位姿话题。
 
@@ -267,11 +267,13 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 仓库内提供基于浏览器的上位机界面（`web/`），通过 **rosbridge** 与 orion_mtc 通信，与上文「orion_mtc 接口说明」中的话题/服务一一对应。
 
+**Three.js（3D 视图）**：在 `web/` 目录执行一次 **`npm install`**（依赖见 `web/package.json`），从本地 `node_modules` 加载，避免外链 CDN 的 CORS/离线问题。`web/node_modules/` 已列入 `.gitignore`。
+
 **机器人模型同步**：修改 `orion_description` 或 `rov_urdf` 的 URDF/STL 后，运行 `web/sync_robot_model.sh` 将 `src/orion_description` 与可选 `rov_urdf/meshes/stl` 同步到 `web/robot/`（URDF + meshes/stl），供 3D 视图加载。
 
 **前置**：先启动 rosbridge 与 orion_mtc。`pick_holoocean.launch.py` 在 **MoveIt/桥接/MTC/keypoint 之后**再按 **`rosbridge_startup_delay_sec`（默认 5s）** 拉起 **`rosbridge_websocket_keepalive.launch.py`**（**WebSocket 默认端口 `rosbridge_port:=9091`**，与同机他人常用 9090 区分；可改为 `rosbridge_port:=9090` 等）。避免网页连上时 `/manipulator/get_queue_state` 尚未注册；可设 `rosbridge_startup_delay_sec:=0` 去掉延迟（仅顺序置后）。单独调试网页时可：`ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py`
 
-**打开**：用浏览器打开 `web/index.html`（或由任意 HTTP 服务器托管 `web/`）。`web/start.sh` **默认监听 `0.0.0.0`**（局域网内其它设备可用 `http://<上位机IP>:8080/` 访问）；仅本机可写：`./start.sh 8080 127.0.0.1`。注意防火墙放行 HTTP 端口。可选 URL 参数：
+**打开**：请用 **HTTP** 访问（`web/start.sh` 或任意静态服务器托管 `web/`），勿仅用 **`file://` 打开 `index.html`**（ES 模块与 `importmap` 可能异常）。`web/start.sh` **默认监听 `0.0.0.0`**（局域网内其它设备可用 `http://<上位机IP>:8080/` 访问）；仅本机可写：`./start.sh 8080 127.0.0.1`。注意防火墙放行 HTTP 端口。可选 URL 参数：
 - `?ws=ws://host:port` — WebSocket 地址；本机打开页面时默认 **`ws://127.0.0.1:9091`**；用局域网 IP 打开页面时默认 **`ws://<页面主机名>:9091`**（与 HTTP 同源主机，便于同机 rosbridge）。**rosbridge 在另一台机器上**时必须显式 `?ws=ws://那台机IP:9091`
 - `?ns=/manipulator` 或 `?topic_prefix=/manipulator` — 话题/服务命名空间，默认 `/manipulator`
 - `?joy_ui=/joy_manipulator` — 手柄桥接 UI 状态话题前缀（默认 `/joy_manipulator`，对应 `manual_mode`、`throttle_percent`）

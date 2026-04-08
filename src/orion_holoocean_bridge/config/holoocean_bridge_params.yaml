@@ -23,6 +23,7 @@ target_sensor_to_object_pose:
     object_pose_topic: "/manipulator/object_pose"
     object_axis_topic: "/manipulator/object_axis"
     perception_state_topic: "/manipulator/perception_state"
+    target_set_topic: "/manipulator/target_set"
     world_frame_id: "map"
     publish_tf: true
     output_frame_id: "base_link"

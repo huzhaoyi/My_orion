@@ -89,11 +89,16 @@ function renderTaskTab(container) {
     </div>
     <div class="card">
       <div class="card-title">${t('right.pick_title')}</div>
-      <div class="form-actions form-actions--row">
-        <button type="button" id="btn-pick-legacy" class="primary btn-action" title="${t('right.pick_legacy_title')}">${t('right.pick_legacy')}</button>
-        <button type="button" id="btn-pick-fused" class="primary btn-action" style="background:#a21caf;border-color:#86198f;" title="${t('right.pick_fused_title')}">${t('right.pick_fused')}</button>
+      <div class="form-actions form-actions--row" style="margin-bottom:8px;">
+        <button type="button" id="btn-pick-cable" class="primary btn-action" style="flex:1;min-width:0;" title="${t('right.pick_cable_title')}">${t('right.pick_cable')}</button>
       </div>
-      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 0;">${t('right.pick_hint')}</p>
+      <div class="form-actions form-actions--row" style="margin-bottom:8px;">
+        <button type="button" id="btn-pick-target-sensor" class="primary btn-action" style="flex:1;min-width:0;background:#c2410c;border-color:#9a3412;" title="${t('right.pick_target_sensor_title')}">${t('right.pick_target_sensor')}</button>
+      </div>
+      <div class="form-actions form-actions--row">
+        <button type="button" id="btn-pick-fused" class="primary btn-action" style="flex:1;min-width:0;background:#a21caf;border-color:#86198f;" title="${t('right.pick_fused_title')}">${t('right.pick_fused')}</button>
+      </div>
+      <p style="font-size:11px; color:var(--text-muted); margin:8px 0 0 0;">${t('right.pick_hint')}</p>
     </div>
     <div class="card">
       <div class="card-title">${t('right.gripper_title')}</div>
@@ -116,7 +121,8 @@ function renderTaskTab(container) {
       </div>
     </div>
   `;
-  container.querySelector('#btn-pick-legacy')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick')));
+  container.querySelector('#btn-pick-cable')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:cable')));
+  container.querySelector('#btn-pick-target-sensor')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:target_sensor')));
   container.querySelector('#btn-pick-fused')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:fused')));
   container.querySelector('#btn-task-emergency-stop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:emergency-stop')));
   container.querySelector('#btn-task-go-ready')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-to-ready')));

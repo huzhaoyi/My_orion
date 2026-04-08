@@ -9,6 +9,7 @@
  *   /manipulator/object_pose_fused（视觉+声呐 Keypoints 中心线）
  *   /manipulator/keypoints_base_link（geometry_msgs/PoseArray：各关键点已变换到 base_link 等，供 UI）
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
+ *   /manipulator/target_set (TargetSet：TargetSensor 多目标 base_link，与 MTC 一致)
  *   /joint_states                 (JointState；pick_holoocean 下由桥接发布，非 /manipulator/joint_states)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
@@ -206,6 +207,7 @@ function getSubscribedTopicsFlat() {
     kp,
     prefix + '/object_pose',
     prefix + '/perception_state',
+    prefix + '/target_set',
     '/joint_states',
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
@@ -236,6 +238,7 @@ function subscribeTopics() {
     subscribedKeypointsTopic,
     prefix + '/object_pose',
     prefix + '/perception_state',
+    prefix + '/target_set',
     '/joint_states',
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
@@ -259,6 +262,7 @@ function inferType(topic) {
   if (topic.includes('task_stage')) return 'orion_mtc_msgs/msg/TaskStage';
   if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
+  if (topic.endsWith('/target_set')) return 'orion_mtc_msgs/msg/TargetSet';
   if (topic.endsWith('/object_pose_fused')) return 'geometry_msgs/msg/PoseStamped';
   if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
     return 'geometry_msgs/msg/PoseArray';
@@ -342,6 +346,10 @@ function handleMessage(data) {
   }
   if (data.topic && data.topic.endsWith('/perception_state') && data.msg) {
     stateStore.setPerceptionState(data.msg);
+    return;
+  }
+  if (data.topic && data.topic.endsWith('/target_set') && data.msg) {
+    stateStore.setTargetSet(data.msg);
     return;
   }
 }

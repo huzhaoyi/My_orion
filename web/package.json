@@ -1,0 +1,8 @@
+{
+  "name": "orion-web-console",
+  "private": true,
+  "description": "上位机静态页依赖；在 web 目录执行 npm install 后 Three.js 从本地加载，避免 unpkg CORS",
+  "dependencies": {
+    "three": "0.160.0"
+  }
+}

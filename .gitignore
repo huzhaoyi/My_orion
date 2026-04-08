@@ -35,3 +35,6 @@ tools/arm_bag_tools/analysis/*
 # 系统与临时
 .DS_Store
 *.log
+
+# Web 前端：Three.js 等（见 web/package.json，首次在 web/ 下 npm install）
+web/node_modules/

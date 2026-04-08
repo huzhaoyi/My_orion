@@ -404,6 +404,42 @@ label {
   word-break: break-all;
 }
 
+/* 感知状态：缆绳 / TargetSensor 分栏切换 */
+.perception-card__source-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.perception-card__source-tab {
+  flex: 1;
+  padding: 6px 8px;
+  margin-bottom: -1px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: center;
+}
+.perception-card__source-tab:hover {
+  color: var(--text-primary);
+}
+.perception-card__source-tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 500;
+}
+.perception-card__source-tab-dot {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 8px;
+  line-height: 1;
+  vertical-align: middle;
+  color: #22c55e;
+}
+
 /* 感知状态卡片：目标物/ROV 位姿块（位置+姿态） */
 .perception-card__pose-block {
   margin-bottom: 6px;
@@ -444,6 +480,14 @@ label {
 }
 .perception-card__table td {
   color: var(--text-value);
+}
+.perception-card__table tr.perception-card__row--selected td {
+  background: rgba(34, 197, 94, 0.12);
+}
+.perception-card__table-caption {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin: 4px 0 2px 0;
 }
 
 /* 审批结果卡片 */

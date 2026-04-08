@@ -91,6 +91,11 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (tInfo.key === 'showWorldObject') {
           const wo = sceneApiRef.targets.getObjectByName('world_object');
           if (wo) wo.visible = cb.checked && wo.userData.valid;
+          const stW = stateStore.getState();
+          if (sceneApiRef.targetObjectComposed) {
+            sceneApiRef.targetObjectComposed.visible =
+              cb.checked && !!stW.cableObjectPoseValid;
+          }
         }
         if (tInfo.key === 'showAttachedObject') {
           const ao = sceneApiRef.targets.getObjectByName('attached_object');
@@ -103,6 +108,10 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (tInfo.key === 'showTargets') {
           const st = stateStore.getState();
           sceneApiRef.pickMarker.visible = cb.checked && !!st.objectPoseValid;
+          if (sceneApiRef.pickMarkerTargetSensor) {
+            sceneApiRef.pickMarkerTargetSensor.visible =
+              cb.checked && !!st.targetSensorObjectPoseValid;
+          }
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
             const fv = !!st.fusedObjectPoseValid;
@@ -339,6 +348,25 @@ function mount(containerId) {
       fmat.opacity = s.fusedObjectPoseValid ? 1.0 : 0.38;
     }
 
+    const tsPickPos = rosToThreePosition(s.targetSensorObjectPose?.position);
+    const tsScene = applyBaseLinkToScene(tsPickPos);
+    if (sceneApi.pickMarkerTargetSensor) {
+      sceneApi.pickMarkerTargetSensor.position.copy(tsScene);
+      const tsOrient = s.targetSensorObjectPose?.orientation;
+      if (tsOrient) {
+        const tq = rosToThreeQuaternion(tsOrient);
+        if (tq) {
+          sceneApi.pickMarkerTargetSensor.quaternion.copy(
+            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tq)
+          );
+        }
+      } else {
+        sceneApi.pickMarkerTargetSensor.quaternion.identity();
+      }
+      sceneApi.pickMarkerTargetSensor.visible =
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+    }
+
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];
     const showKpTrace = layerToggles.showTargets && kpPts.length > 0;
     if (Array.isArray(sceneApi.kpTraceSpheres)) {
@@ -379,18 +407,22 @@ function mount(containerId) {
       sceneApi.rovAxesGroup.quaternion.copy(qScene);
       sceneApi.rovAxesGroup.visible = layerToggles.showCoordFrames && !!s.rovPoseInBaseLink;
     }
+    const cablePosRos = rosToThreePosition(
+      s.cableObjectPoseValid ? s.cableObjectPose?.position : null
+    );
+    const cableScenePos = applyBaseLinkToScene(cablePosRos);
     const wo = sceneApi.targets.getObjectByName('world_object');
     if (wo) {
-      wo.position.copy(tScene);
-      wo.userData.valid = !!s.objectPoseValid;
+      wo.position.copy(cableScenePos);
+      wo.userData.valid = !!s.cableObjectPoseValid;
       wo.visible = false;
     }
     const composed = sceneApi.targetObjectComposed;
     if (composed) {
-      composed.position.copy(tScene);
-      const orient = s.objectPose?.pose?.orientation || s.objectPose?.orientation;
-      if (orient) {
-        const quat = rosToThreeQuaternion(orient);
+      composed.position.copy(cableScenePos);
+      const cOrient = s.cableObjectPoseValid ? s.cableObjectPose?.orientation : null;
+      if (cOrient) {
+        const quat = rosToThreeQuaternion(cOrient);
         if (quat) {
           const qScene = new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(quat);
           composed.quaternion.copy(qScene);
@@ -398,8 +430,8 @@ function mount(containerId) {
       } else {
         composed.quaternion.identity();
       }
-      composed.userData.valid = !!s.objectPoseValid;
-      composed.visible = layerToggles.showWorldObject && !!s.objectPoseValid;
+      composed.userData.valid = !!s.cableObjectPoseValid;
+      composed.visible = layerToggles.showWorldObject && !!s.cableObjectPoseValid;
     }
     const heldPos = rosToThreePosition(s.heldObjectPoseAtGrasp?.position || s.heldObjectPoseAtGrasp);
     const ao = sceneApi.targets.getObjectByName('attached_object');

@@ -16,7 +16,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped, Vector3Stamped
 from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
-from orion_mtc_msgs.msg import PerceptionState
+from orion_mtc_msgs.msg import PerceptionState, TargetSet
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 
 
@@ -149,6 +149,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("world_frame_id", "map")
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
+        self.declare_parameter("target_set_topic", "target_set")
         self.declare_parameter("output_frame_id", "base_link")
         self.declare_parameter("object_axis_topic", "object_axis")
         self.declare_parameter("target_index", 1)
@@ -170,6 +171,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._world_frame_id = self.get_parameter("world_frame_id").get_parameter_value().string_value
         self._publish_tf = self.get_parameter("publish_tf").get_parameter_value().bool_value
         self._perception_state_topic = self.get_parameter("perception_state_topic").get_parameter_value().string_value
+        self._target_set_topic = self.get_parameter("target_set_topic").get_parameter_value().string_value
         self._output_frame_id = self.get_parameter("output_frame_id").get_parameter_value().string_value
         self._object_axis_topic = self.get_parameter("object_axis_topic").get_parameter_value().string_value
         self._target_index = self.get_parameter("target_index").get_parameter_value().integer_value
@@ -194,6 +196,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._last_rov_in_base: Optional[PoseStamped] = None
         self._last_rov_pose_in_world: Optional[PoseStamped] = None
         self._last_object_pose: Optional[PoseStamped] = None
+        self._last_target_sensor_index: int = -1
 
         self._sub_target = self.create_subscription(
             TargetSensor,
@@ -210,6 +213,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._pub_pose = self.create_publisher(PoseStamped, self._object_pose_topic, 10)
         self._pub_axis = self.create_publisher(Vector3Stamped, self._object_axis_topic, 10)
         self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
+        self._pub_target_set = self.create_publisher(TargetSet, self._target_set_topic, 10)
         if self._publish_tf:
             self._tf_broadcaster = TransformBroadcaster(self)
             self._tf_static_broadcaster = StaticTransformBroadcaster(self)
@@ -288,6 +292,8 @@ class TargetSensorToObjectPoseNode(Node):
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
         ps.object_pose = self._last_object_pose
+        ps.target_sensor_object_pose = self._last_object_pose
+        ps.target_sensor_selected_index = int(self._last_target_sensor_index)
         ps.rov_pose_in_base_link = rov_in_base
         ps.rov_pose_in_world = rov_in_world
         self._pub_perception_state.publish(ps)
@@ -363,8 +369,32 @@ class TargetSensorToObjectPoseNode(Node):
             positions_base.extend([float(p_base[0]), float(p_base[1]), float(p_base[2])])
             directions_base.extend([float(d_base[0]), float(d_base[1]), float(d_base[2])])
 
+        ts_msg = TargetSet()
+        ts_msg.header.stamp = stamp
+        ts_msg.header.frame_id = self._output_frame_id
+        for k in range(n):
+            ib = k * 3
+            p_b = np.array(positions_base[ib : ib + 3], dtype=float)
+            d_b = np.array(directions_base[ib : ib + 3], dtype=float)
+            r_g = _rotation_matrix_side_grasp_from_direction(d_b)
+            q_g = _quat_from_rotation_matrix(r_g)
+            pst = PoseStamped()
+            pst.header.stamp = stamp
+            pst.header.frame_id = self._output_frame_id
+            pst.pose.position.x = float(p_b[0])
+            pst.pose.position.y = float(p_b[1])
+            pst.pose.position.z = float(p_b[2])
+            pst.pose.orientation.x = q_g[0]
+            pst.pose.orientation.y = q_g[1]
+            pst.pose.orientation.z = q_g[2]
+            pst.pose.orientation.w = q_g[3]
+            ts_msg.targets.append(pst)
+            ts_msg.object_ids.append("target_{}".format(k))
+        self._pub_target_set.publish(ts_msg)
+
         # 单目标 object_pose（选定 target_index）：位置为物体中心，姿态为侧向抓取系（y=闭合方向，z=接近方向，均垂直于圆柱轴）
         idx = max(0, min(self._target_index, n - 1))
+        self._last_target_sensor_index = int(idx)
         i = idx * 3
         px = msg.positions[i]
         py = msg.positions[i + 1]
@@ -412,10 +442,12 @@ class TargetSensorToObjectPoseNode(Node):
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
         ps.object_pose = out
+        ps.target_sensor_object_pose = out
         ps.object_axis_direction.x = float(d_base[0])
         ps.object_axis_direction.y = float(d_base[1])
         ps.object_axis_direction.z = float(d_base[2])
         ps.object_confidence = 1.0
+        ps.target_sensor_selected_index = int(self._last_target_sensor_index)
         ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base is not None else PoseStamped()
         if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
             ps.rov_pose_in_base_link.header.stamp = stamp

@@ -302,6 +302,7 @@ class CableSensorToObjectPoseNode(Node):
         ps.header.stamp = stamp
         ps.header.frame_id = self._output_frame_id
         ps.object_pose = self._last_object_pose
+        ps.cable_object_pose = self._last_object_pose
         if self._last_axis_direction_base is not None:
             ps.object_axis_direction.x = float(self._last_axis_direction_base[0])
             ps.object_axis_direction.y = float(self._last_axis_direction_base[1])
@@ -311,6 +312,7 @@ class CableSensorToObjectPoseNode(Node):
             ps.object_axis_direction.y = 0.0
             ps.object_axis_direction.z = 1.0
         ps.object_confidence = 1.0
+        ps.target_sensor_selected_index = -1
         ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base else PoseStamped()
         if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
             ps.rov_pose_in_base_link.header.stamp = stamp

@@ -120,20 +120,17 @@ function registerGlobalHandlers() {
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
-    'orion:pick': () => {
+    'orion:pick:cable': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
         toast.warn(t('toast.not_connected_pick'));
         return;
       }
       const s = stateStore.getState();
-      const objPose = s.objectPose;
+      const objPose = s.cableObjectPoseValid && s.cableObjectPose ? s.cableObjectPose : null;
       if (!objPose) {
-        stateStore.pushSystemLog(
-          'warn',
-          'Legacy pick: no object_pose; ensure ' + wsClient.getTopicPrefix() + '/object_pose'
-        );
-        toast.warn(t('toast.no_pose_legacy'));
+        stateStore.pushSystemLog('warn', t('toast.no_pose_cable'));
+        toast.warn(t('toast.no_pose_cable'));
         return;
       }
       const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
@@ -145,7 +142,42 @@ function registerGlobalHandlers() {
       }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? `LEGACY 抓取已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
+        const jid = (v && v.job_id) || '';
+        const msg =
+          (v && v.message) ||
+          (ok ? `${t('toast.pick_cable_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) toast.success(msg); else toast.error(msg);
+        if (ok) wsClient.getQueueState(applyQueueStateToStore);
+      });
+    },
+    'orion:pick:target_sensor': () => {
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
+        toast.warn(t('toast.not_connected_pick'));
+        return;
+      }
+      const s = stateStore.getState();
+      const objPose =
+        s.targetSensorObjectPoseValid && s.targetSensorObjectPose ? s.targetSensorObjectPose : null;
+      if (!objPose) {
+        stateStore.pushSystemLog('warn', t('toast.no_pose_target_sensor'));
+        toast.warn(t('toast.no_pose_target_sensor'));
+        return;
+      }
+      const object_pose = wsClient.buildPoseStamped(objPose.position, objPose.orientation);
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.PICK,
+        grasp_source: wsClient.GRASP_SOURCE.LEGACY,
+        object_pose,
+        object_id: '',
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const jid = (v && v.job_id) || '';
+        const msg =
+          (v && v.message) ||
+          (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
         stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
         if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
@@ -176,7 +208,10 @@ function registerGlobalHandlers() {
       }, (res) => {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
-        const msg = (v && v.message) || (ok ? `「视觉+声呐中心线」已提交 ${(v && v.job_id) || ''}` : '抓取提交失败');
+        const jid = (v && v.job_id) || '';
+        const msg =
+          (v && v.message) ||
+          (ok ? `${t('toast.pick_fused_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
         stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
         if (ok) toast.success(msg); else toast.error(msg);
         if (ok) wsClient.getQueueState(applyQueueStateToStore);

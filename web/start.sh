@@ -30,6 +30,11 @@ echo "          WS 默认 ws://127.0.0.1:9091（与 pick_holoocean rosbridge 一
 echo "按 Ctrl+C 停止服务"
 echo ""
 
+if [ ! -f "$SCRIPT_DIR/node_modules/three/build/three.module.js" ]; then
+  echo "【提示】未检测到 Three.js：请在 web 目录执行 npm install 后再打开页面（3D 视图需要）。"
+  echo ""
+fi
+
 if command -v xdg-open >/dev/null 2>&1; then
   (sleep 1.5 && xdg-open "$URL" 2>/dev/null) &
 elif command -v open >/dev/null 2>&1; then

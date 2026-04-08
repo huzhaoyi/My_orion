@@ -261,6 +261,16 @@ function createScene(containerEl) {
   pickMarkerFused.visible = false;
   targets.add(pickMarkerFused);
 
+  /* TargetSensor 目标物（perception_state.target_sensor_object_pose）— 橙球，与缆绳/青抓取点区分 */
+  const TARGET_SENSOR_MARKER_COLOR = 0xf97316;
+  const pickMarkerTargetSensor = new THREE.Mesh(
+    new THREE.SphereGeometry(PICK_MARKER_RADIUS * 1.08, 20, 20),
+    new THREE.MeshBasicMaterial({ color: TARGET_SENSOR_MARKER_COLOR })
+  );
+  pickMarkerTargetSensor.name = 'pick_target_sensor';
+  pickMarkerTargetSensor.visible = false;
+  targets.add(pickMarkerTargetSensor);
+
   /* Keypoints 轨迹：琥珀球（与品红融合点、fused 区分）+ 折线 */
   const KP_TRACE_COLOR = 0xf59e0b;
   const KP_TRACE_RADIUS = 0.028;
@@ -375,6 +385,7 @@ function createScene(containerEl) {
     overlays,
     pickMarker,
     pickMarkerFused,
+    pickMarkerTargetSensor,
     keypointsTraceGroup,
     kpTraceSpheres,
     keypointsPolyline,

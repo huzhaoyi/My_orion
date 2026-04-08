@@ -43,7 +43,15 @@ const initialState = {
   // 感知状态（来自话题 object_pose）
   objectPoseValid: false,
   perceptionUpdatedAt: null,
-  objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link
+  objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link，与 /object_pose 一致
+  cableObjectPoseValid: false,
+  cableObjectPose: null,   // perception_state.cable_object_pose（缆绳）
+  targetSensorObjectPoseValid: false,
+  targetSensorObjectPose: null,   // perception_state.target_sensor_object_pose（TargetSensor）
+  targetSensorSelectedIndex: -1, // perception_state.target_sensor_selected_index；-1 无
+  targetSetTargets: [],          // /target_set 解析：{ index, objectId, position, orientation }[]
+  targetSetValid: false,
+  targetSetUpdatedAt: null,
   // 视觉+声呐中心线融合链：/manipulator/object_pose_fused
   fusedObjectPoseValid: false,
   fusedObjectPose: null,
@@ -244,6 +252,9 @@ function setConnection(which, value) {
   const partial = { wsConnected: value };
   if (!value) {
     partial.rosTopicLastRxAt = {};
+    partial.targetSetTargets = [];
+    partial.targetSetValid = false;
+    partial.targetSetUpdatedAt = null;
   }
   setState(partial);
 }
@@ -567,7 +578,7 @@ function _isMeaningfulPosition(pos) {
   return Math.abs(x) > eps || Math.abs(y) > eps || Math.abs(z) > eps;
 }
 
-/* 从 /manipulator/perception_state 一次更新：物体位姿、ROV 在 base_link 下位姿、多目标集合 */
+/* 从 /manipulator/perception_state 一次更新：分源位姿、ROV；未带某字段时不覆盖该源（避免双节点交替清空） */
 function setPerceptionState(msg) {
   if (!msg) return;
   const patch = { perceptionUpdatedAt: Date.now() };
@@ -582,6 +593,32 @@ function setPerceptionState(msg) {
       };
       patch.objectPoseValid = true;
     }
+  }
+  if (msg.cable_object_pose && msg.cable_object_pose.pose) {
+    const cp = msg.cable_object_pose.pose;
+    const cpos = cp.position || { x: 0, y: 0, z: 0 };
+    if (_isMeaningfulPosition(cpos)) {
+      patch.cableObjectPose = {
+        position: cpos,
+        orientation: cp.orientation || { x: 0, y: 0, z: 0, w: 1 },
+      };
+      patch.cableObjectPoseValid = true;
+    }
+  }
+  if (msg.target_sensor_object_pose && msg.target_sensor_object_pose.pose) {
+    const tp = msg.target_sensor_object_pose.pose;
+    const tpos = tp.position || { x: 0, y: 0, z: 0 };
+    if (_isMeaningfulPosition(tpos)) {
+      patch.targetSensorObjectPose = {
+        position: tpos,
+        orientation: tp.orientation || { x: 0, y: 0, z: 0, w: 1 },
+      };
+      patch.targetSensorObjectPoseValid = true;
+    }
+  }
+  if (msg.target_sensor_selected_index !== undefined && msg.target_sensor_selected_index !== null) {
+    const si = Number(msg.target_sensor_selected_index);
+    patch.targetSensorSelectedIndex = Number.isFinite(si) ? si : -1;
   }
   if (msg.rov_pose_in_base_link && msg.rov_pose_in_base_link.pose) {
     const p = msg.rov_pose_in_base_link.pose;
@@ -602,6 +639,49 @@ function setPerceptionState(msg) {
     patch.rovPoseInWorld = null;
   }
   setState(patch);
+}
+
+/** /manipulator/target_set：多目标 base_link 位姿表（与 MTC TargetSelector 同源）。 */
+function setTargetSet(msg) {
+  if (!msg) {
+    setState({
+      targetSetTargets: [],
+      targetSetValid: false,
+      targetSetUpdatedAt: null,
+    });
+    return;
+  }
+  const raw = msg.targets;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    setState({
+      targetSetTargets: [],
+      targetSetValid: false,
+      targetSetUpdatedAt: Date.now(),
+    });
+    return;
+  }
+  const ids = Array.isArray(msg.object_ids) ? msg.object_ids : [];
+  const rows = raw.map((pst, i) => {
+    const pose = pst && pst.pose ? pst.pose : pst;
+    const pos = pose && pose.position ? pose.position : { x: 0, y: 0, z: 0 };
+    const orient = pose && pose.orientation ? pose.orientation : { x: 0, y: 0, z: 0, w: 1 };
+    return {
+      index: i,
+      objectId: ids[i] != null && ids[i] !== '' ? String(ids[i]) : '',
+      position: { x: Number(pos.x), y: Number(pos.y), z: Number(pos.z) },
+      orientation: {
+        x: Number(orient.x),
+        y: Number(orient.y),
+        z: Number(orient.z),
+        w: Number(orient.w),
+      },
+    };
+  });
+  setState({
+    targetSetTargets: rows,
+    targetSetValid: true,
+    targetSetUpdatedAt: Date.now(),
+  });
 }
 
 /** 写入最后一次 CheckPick 结构化结果（含 items、best_candidate_pose）。 */
@@ -693,6 +773,7 @@ export default {
   setTrajectoryPoints,
   setRovPoseInBaseLink,
   setPerceptionState,
+  setTargetSet,
   setRecentJobs,
   applyGetRobotStateResponse,
   setApprovalResult,

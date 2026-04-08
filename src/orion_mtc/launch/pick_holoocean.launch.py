@@ -3,6 +3,7 @@
 抓取（MTC）与 HoloOcean 联调：关节状态来自 /holoocean/rov0/ArmSensor（right_arm 6DOF+夹爪）。
 启动 MoveIt + RViz + HoloOcean 桥接节点、MTC；rosbridge 在栈末**延迟**拉起（默认可改 `rosbridge_startup_delay_sec`），避免网页早于 `/manipulator/get_queue_state` 注册。
 默认同时包含 keypoint_to_arm_tf（融合抓取话题 object_pose_fused），可用 start_keypoint_to_arm_tf:=false 关闭。
+默认同时启动 cable_sensor_to_object_pose 与 target_sensor_to_object_pose；二者均可能写 /manipulator/object_pose（后发布覆盖先发布），分源位姿见 perception_state；抓取源由前端 submit_job 所选位姿决定。
 MTC 执行：orion_mtc_node 将规划得到的轨迹发送到 arm_controller / hand_controller 的
 FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 AgentCommand 发布到
 /holoocean/command/agent/arm，在 HoloOcean 中驱动机械臂（顺序：0=左臂，1=右臂）。
@@ -187,6 +188,15 @@ def generate_launch_description():
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
         **shutdown_timeouts,
     )
+    target_sensor_to_pose_node = Node(
+        package="orion_holoocean_bridge",
+        executable="target_sensor_to_object_pose",
+        name="target_sensor_to_object_pose",
+        output="screen",
+        parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
+        additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        **shutdown_timeouts,
+    )
     # prefix 使用 stdbuf 无缓冲(0)，确保 MTC 任务树与 Failing stage(s) 等全部实时输出
     mtc_node = Node(
         package="orion_mtc",
@@ -296,6 +306,7 @@ def generate_launch_description():
         bridge_node,
         trajectory_bridge_node,
         cable_sensor_to_pose_node,
+        target_sensor_to_pose_node,
         joy_node,
         mtc_node,
         keypoint_include,
