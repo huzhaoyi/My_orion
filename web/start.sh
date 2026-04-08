@@ -31,7 +31,17 @@ echo "按 Ctrl+C 停止服务"
 echo ""
 
 if [ ! -f "$SCRIPT_DIR/node_modules/three/build/three.module.js" ]; then
-  echo "【提示】未检测到 Three.js：请在 web 目录执行 npm install 后再打开页面（3D 视图需要）。"
+  echo "【提示】未检测到 Three.js 依赖，开始自动安装（npm install）..."
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "【错误】未找到 npm，请先安装 Node.js/npm 后重试。"
+    exit 1
+  fi
+  npm install --no-audit --no-fund
+  if [ ! -f "$SCRIPT_DIR/node_modules/three/build/three.module.js" ]; then
+    echo "【错误】Three.js 安装后仍未找到目标文件，无法启动 3D 页面。"
+    exit 1
+  fi
+  echo "【完成】Three.js 依赖安装成功。"
   echo ""
 fi
 
