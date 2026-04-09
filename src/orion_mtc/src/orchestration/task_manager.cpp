@@ -971,6 +971,29 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
   geometry_msgs::msg::PoseStamped pose_base = target_pose;
   const rclcpp::Time stamp_now = node_->now();
+  const int slot = parseSlotFromObjectId(object_id);
+  if (config_.peg_insert.target_insert_use_configured_hole_positions_map && slot >= 1 && slot <= 7)
+  {
+    const std::vector<double>& hp =
+        config_.peg_insert.targetsensor_slot_position_map[static_cast<std::size_t>(slot - 1)];
+    if (hp.size() != 3u)
+    {
+      RCLCPP_ERROR(LOGGER,
+                   "handleTargetInsert: peg_insert.targetsensor_slot_%d_position_map must have 3 elements (got %zu)",
+                   slot, hp.size());
+      return false;
+    }
+    pose_base.pose.position.x = hp[0];
+    pose_base.pose.position.y = hp[1];
+    pose_base.pose.position.z = hp[2];
+    pose_base.header.frame_id = "map";
+    pose_base.header.stamp = stamp_now;
+    RCLCPP_INFO(LOGGER,
+                "handleTargetInsert: hole XYZ from peg_insert.targetsensor_slot_%d_position_map (map), "
+                "orientation from request",
+                slot);
+  }
+
   const std::string& src_frame = pose_base.header.frame_id;
   const bool frame_is_map_like = (src_frame == "map" || src_frame == "world");
   const bool use_static_insert = config_.peg_insert.use_static_map_to_base_for_target_insert;
@@ -1042,7 +1065,6 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     return false;
   }
 
-  const int slot = parseSlotFromObjectId(object_id);
   const int latch_idx = slot - 1;
   if (slot > 0)
   {

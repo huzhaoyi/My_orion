@@ -3,6 +3,7 @@
 #ifndef ORION_MTC_CONFIG_MTC_CONFIG_HPP
 #define ORION_MTC_CONFIG_MTC_CONFIG_HPP
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,11 @@ struct PegInsertConfig
    */
   bool use_static_map_to_base_for_target_insert = false;
   std::vector<double> static_transform_map_to_base_link;
+  /*
+   * true 且 object_id 含 slot_1..7：孔心位置用下列 map 系参数，忽略 SubmitJob 里 target_pose 的平移（姿态仍用请求内四元数）。
+   */
+  bool target_insert_use_configured_hole_positions_map = false;
+  std::array<std::vector<double>, 7> targetsensor_slot_position_map{};
 };
 
 struct MTCConfig

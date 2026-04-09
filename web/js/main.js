@@ -16,7 +16,10 @@ import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
 import { initI18n, t } from './data/i18n.js';
 
-/* TargetSensor peg-in-hole 固定孔位（世界坐标，按需求保留原始值）。 */
+/*
+ * TargetSensor 插孔：孔心 [m] map 系（与 yaml peg_insert.targetsensor_slot_*_position_map / UE FVector 一致）。
+ * orion_mtc 在 target_insert_use_configured_hole_positions_map=true 时用参数表覆盖 SubmitJob 中的位置，仅采用此处姿态源。
+ */
 const TARGET_INSERT_SLOTS = {
   1: { x: -113.93, y: 129.1, z: -132.1 },
   2: { x: -113.93, y: 128.9, z: -132.1 },
