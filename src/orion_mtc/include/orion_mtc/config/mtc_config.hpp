@@ -36,6 +36,18 @@ struct CableGraspConfig
 };
 
 /*
+ * TargetSensor 抓取（peg）：与缆绳共用 gripper_tcp 约定；接近方向符号与 cable_side_grasp.approach_normal_sign 一致。
+ */
+struct TargetSensorPickConfig
+{
+  /** 沿物体局部 +Z 定义的接近方向再乘此符号（<0 取反），与 HoloOcean/缆绳侧抓对齐 */
+  double approach_normal_sign = -1.0;
+  /** 预抓距候选 [m]，由大到小尝试（更远预抓更易在臂工作空间内求 IK） */
+  std::vector<double> pregrasp_distances_m{ 0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06 };
+  double retreat_distance_m = 0.12;
+};
+
+/*
  * TargetSensor 插孔（peg-in-hole）：几何沿 target_pose 姿态的局部 -Z 为插入轴（与历史 base_link 竖直孔一致）。
  */
 struct PegInsertConfig
@@ -57,6 +69,7 @@ struct MTCConfig
 {
   double grasp_offset_along_axis = 0.0f;
   CableGraspConfig cable_grasp;
+  TargetSensorPickConfig target_sensor_pick;
   PegInsertConfig peg_insert;
 };
 

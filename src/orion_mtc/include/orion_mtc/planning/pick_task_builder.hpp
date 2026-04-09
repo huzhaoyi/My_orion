@@ -27,10 +27,12 @@ public:
       const CableGraspCandidate& candidate,
       const std::string& plan_frame);
 
-  /* TargetSensor 目标抓取：peg 场景体 + 与缆绳同构的 SerialContainer pick 链（不修改缆绳 buildFromCableCandidate）。 */
+  /* TargetSensor 目标抓取：peg 场景体 + 与缆绳同构的 SerialContainer pick 链（不修改缆绳 buildFromCableCandidate）。
+   * pregrasp_distance_m：沿 approach 方向 grasp→pregrasp 的距离 [m]，与缆绳 pregrasp_offset 含义一致。 */
   moveit::task_constructor::Task buildFromTargetSensorPose(
       const geometry_msgs::msg::PoseStamped& object_pose,
-      const std::string& plan_frame);
+      const std::string& plan_frame,
+      double pregrasp_distance_m);
 
 private:
   rclcpp::Node::SharedPtr node_;

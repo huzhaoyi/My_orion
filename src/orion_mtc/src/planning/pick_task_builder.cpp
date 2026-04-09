@@ -21,11 +21,12 @@ namespace
 {
 /*
  * 与 cable_side_grasp::makeBaseRotation 同构：gripper_tcp 约定 y=栓/缆轴、z=接近方向（从预抓指向抓取）。
- * 栓轴取物体 +X 在垂直于接近（物体 +Z）平面上的投影；若退化则换 +Y 再不行则 arbitrary 正交。
+ * approach_dir 为已含 approach_normal_sign 的世界系单位方向；栓轴取物体 +X 在 ⊥approach 平面上的投影。
  */
-Eigen::Matrix3d targetSensorToolRotationFromObjectFrame(const Eigen::Quaterniond& q_object)
+Eigen::Matrix3d targetSensorToolRotation(const Eigen::Quaterniond& q_object,
+                                        const Eigen::Vector3d& approach_dir)
 {
-  const Eigen::Vector3d n = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  const Eigen::Vector3d n = approach_dir.normalized();
   Eigen::Vector3d peg_axis = (q_object * Eigen::Vector3d::UnitX()).normalized();
   Eigen::Vector3d y_axis = peg_axis - peg_axis.dot(n) * n;
   if (y_axis.norm() < 1e-3)
@@ -222,7 +223,8 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
  */
 mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     const geometry_msgs::msg::PoseStamped& object_pose,
-    const std::string& plan_frame)
+    const std::string& plan_frame,
+    double pregrasp_distance_m)
 {
   mtc::Task task;
   task.stages()->setName("orion pick (targetsensor)");
@@ -286,17 +288,18 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
       object_pose.pose.orientation.y,
       object_pose.pose.orientation.z);
   q_object.normalize();
-  const Eigen::Vector3d approach_dir = (q_object * Eigen::Vector3d::UnitZ()).normalized();
-  const Eigen::Matrix3d R_tool = targetSensorToolRotationFromObjectFrame(q_object);
+  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  const double approach_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
+  const Eigen::Vector3d approach_dir = n_geom * approach_sign;
+  const Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
 
-  const double pregrasp_distance = 0.10;
-  const double retreat_distance = 0.12;
+  const double retreat_distance = config_.target_sensor_pick.retreat_distance_m;
   const Eigen::Vector3d p_grasp(object_pose.pose.position.x, object_pose.pose.position.y,
                                 object_pose.pose.position.z);
 
   Eigen::Isometry3d pregrasp_iso = Eigen::Isometry3d::Identity();
   pregrasp_iso.linear() = R_tool;
-  pregrasp_iso.translation() = p_grasp - approach_dir * pregrasp_distance;
+  pregrasp_iso.translation() = p_grasp - approach_dir * pregrasp_distance_m;
 
   const rclcpp::Time now = node_->now();
   geometry_msgs::msg::PoseStamped pregrasp_pose = toPoseStamped(pregrasp_iso, plan_frame, now);
@@ -333,8 +336,8 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
   approach_v.vector.z = approach_dir.z();
   auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach to grasp (LIN)", lin_planner);
   stage_approach->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  stage_approach->setMinMaxDistance(static_cast<float>(pregrasp_distance),
-                                    static_cast<float>(pregrasp_distance));
+  stage_approach->setMinMaxDistance(static_cast<float>(pregrasp_distance_m),
+                                    static_cast<float>(pregrasp_distance_m));
   stage_approach->setIKFrame(hand_frame);
   stage_approach->setDirection(approach_v);
   grasp->insert(std::move(stage_approach));

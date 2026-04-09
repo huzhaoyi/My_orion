@@ -307,10 +307,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         pose_base.pose.orientation.z);
     bool plan_ok = false;
     std::size_t plan_candidate_index = 0;
+    double plan_pregrasp_m = 0.0;
     std::string last_plan_detail = "";
     geometry_msgs::msg::PoseStamped pick_pose_plan = pose_base;
     moveit_task_constructor_msgs::msg::Solution solution_msg;
     moveit::core::RobotModelConstPtr task_robot_model;
+    const std::vector<double>& ts_pre = config_.target_sensor_pick.pregrasp_distances_m;
     for (std::size_t i = 0; i < roll_candidates.size(); ++i)
     {
       const double roll = roll_candidates[i];
@@ -322,40 +324,52 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       pose_try.pose.orientation.z = q_try.z();
       pose_try.pose.orientation.w = q_try.w();
 
-      mtc::Task task = pick_builder_->buildFromTargetSensorPose(pose_try, plan_frame);
-      try
+      for (double pre_m : ts_pre)
       {
-        task.init();
-        task.enableIntrospection(true);
-        task.introspection().publishTaskDescription();
-      }
-      catch (mtc::InitStageException& e)
-      {
-        last_plan_detail = e.what();
-        RCLCPP_WARN(LOGGER,
-                    "handlePick: targetsensor candidate %zu init failed (roll=%.1f deg): %s",
-                    i, roll * 180.0 / M_PI, e.what());
-        continue;
-      }
+        if (pre_m <= 1e-6)
+        {
+          continue;
+        }
+        mtc::Task task = pick_builder_->buildFromTargetSensorPose(pose_try, plan_frame, pre_m);
+        try
+        {
+          task.init();
+          task.enableIntrospection(true);
+          task.introspection().publishTaskDescription();
+        }
+        catch (mtc::InitStageException& e)
+        {
+          last_plan_detail = e.what();
+          RCLCPP_WARN(LOGGER,
+                      "handlePick: targetsensor init failed (roll=%.1f deg pre=%.3fm): %s",
+                      roll * 180.0 / M_PI, pre_m, e.what());
+          continue;
+        }
 
-      moveit::core::MoveItErrorCode plan_result = task.plan(5);
-      if (!plan_result || task.solutions().empty())
-      {
-        std::ostringstream os;
-        task.explainFailure(os);
-        last_plan_detail = os.str();
-        RCLCPP_WARN(LOGGER,
-                    "handlePick: targetsensor candidate %zu plan failed (roll=%.1f deg): %s",
-                    i, roll * 180.0 / M_PI, last_plan_detail.c_str());
-        continue;
-      }
+        moveit::core::MoveItErrorCode plan_result = task.plan(5);
+        if (!plan_result || task.solutions().empty())
+        {
+          std::ostringstream os;
+          task.explainFailure(os);
+          last_plan_detail = os.str();
+          RCLCPP_WARN(LOGGER,
+                      "handlePick: targetsensor plan failed (roll=%.1f deg pre=%.3fm): %s",
+                      roll * 180.0 / M_PI, pre_m, last_plan_detail.c_str());
+          continue;
+        }
 
-      task.solutions().front()->toMsg(solution_msg, &task.introspection());
-      task_robot_model = task.getRobotModel();
-      pick_pose_plan = pose_try;
-      plan_candidate_index = i;
-      plan_ok = true;
-      break;
+        task.solutions().front()->toMsg(solution_msg, &task.introspection());
+        task_robot_model = task.getRobotModel();
+        pick_pose_plan = pose_try;
+        plan_candidate_index = i;
+        plan_pregrasp_m = pre_m;
+        plan_ok = true;
+        break;
+      }
+      if (plan_ok)
+      {
+        break;
+      }
     }
     if (!plan_ok)
     {
@@ -373,7 +387,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         pick_pose_plan.pose.orientation.z));
     geometry_msgs::msg::Pose object_pose_at_grasp;
     isometryToPose(grasp_pose, object_pose_at_grasp);
-    RCLCPP_INFO(LOGGER, "handlePick: targetsensor selected roll candidate=%zu", plan_candidate_index);
+    RCLCPP_INFO(LOGGER,
+                "handlePick: targetsensor selected roll_idx=%zu pregrasp_dist=%.3fm",
+                plan_candidate_index, plan_pregrasp_m);
     StageReportFn stage_report = nullptr;
     if (stage_report_fn_)
     {

@@ -52,6 +52,12 @@ cable_side_grasp:
   approach_lin_velocity_scaling: 0.5
   approach_lin_acceleration_scaling: 0.35
 
+# TargetSensor 抓取 peg：接近方向符号与上列 cable_side_grasp.approach_normal_sign 语义一致（HO 常需 -1）。
+target_sensor_pick:
+  approach_normal_sign: -1.0
+  pregrasp_distances_m: [0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06]
+  retreat_distance_m: 0.12
+
 # TargetSensor 插孔（peg-in-hole）：插入轴 = 孔位姿态的局部 -Z（单位姿态时与历史「沿 base_link -Z」一致）。
 peg_insert:
   pre_offset_m: 0.10
