@@ -17,6 +17,37 @@ namespace mtc = moveit::task_constructor;
 namespace orion_mtc
 {
 
+namespace
+{
+/*
+ * 与 cable_side_grasp::makeBaseRotation 同构：gripper_tcp 约定 y=栓/缆轴、z=接近方向（从预抓指向抓取）。
+ * 栓轴取物体 +X 在垂直于接近（物体 +Z）平面上的投影；若退化则换 +Y 再不行则 arbitrary 正交。
+ */
+Eigen::Matrix3d targetSensorToolRotationFromObjectFrame(const Eigen::Quaterniond& q_object)
+{
+  const Eigen::Vector3d n = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  Eigen::Vector3d peg_axis = (q_object * Eigen::Vector3d::UnitX()).normalized();
+  Eigen::Vector3d y_axis = peg_axis - peg_axis.dot(n) * n;
+  if (y_axis.norm() < 1e-3)
+  {
+    peg_axis = (q_object * Eigen::Vector3d::UnitY()).normalized();
+    y_axis = peg_axis - peg_axis.dot(n) * n;
+  }
+  if (y_axis.norm() < 1e-3)
+  {
+    y_axis = n.unitOrthogonal();
+  }
+  y_axis.normalize();
+  const Eigen::Vector3d z_axis = n;
+  const Eigen::Vector3d x_axis = y_axis.cross(z_axis).normalized();
+  Eigen::Matrix3d R;
+  R.col(0) = x_axis;
+  R.col(1) = y_axis;
+  R.col(2) = z_axis;
+  return R;
+}
+}  // namespace
+
 /*
  * 保存 node 与 MTCConfig 引用；不拷贝重型资源，由调用方保证 node 存活期覆盖 Task 规划全程。
  */
@@ -171,6 +202,174 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
   auto stage_pregrasp_holding = std::make_unique<mtc::stages::MoveTo>("move to pregrasp (holding)", ptp_planner);
   stage_pregrasp_holding->setGroup(arm_group_name);
   stage_pregrasp_holding->setGoal(pregrasp_ps);
+  stage_pregrasp_holding->setIKFrame(hand_frame);
+  grasp->insert(std::move(stage_pregrasp_holding));
+
+  {
+    auto stage_close_final = std::make_unique<mtc::stages::MoveTo>("close hand (at pregrasp)", interpolation_planner);
+    stage_close_final->setGroup(hand_group_name);
+    stage_close_final->setGoal("close");
+    grasp->insert(std::move(stage_close_final));
+  }
+
+  task.add(std::move(grasp));
+  return task;
+}
+
+/*
+ * TargetSensor 抓取：阶段顺序与缆绳 buildFromCableCandidate 同构（不加缆段）；规划全程 Pilz PTP/LIN。
+ * 预抓位姿与缆绳侧抓一致：TCP y=栓轴（物体 +X 在 ⊥接近 平面内投影）、z=接近（物体 +Z），再沿 -z 退预抓距。
+ */
+mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
+    const geometry_msgs::msg::PoseStamped& object_pose,
+    const std::string& plan_frame)
+{
+  mtc::Task task;
+  task.stages()->setName("orion pick (targetsensor)");
+  task.loadRobotModel(node_);
+  const auto& arm_group_name = "arm";
+  const auto& hand_group_name = "hand";
+  const auto& hand_frame = "gripper_tcp";
+  task.setProperty("group", arm_group_name);
+  task.setProperty("eef", hand_group_name);
+  task.setProperty("ik_frame", hand_frame);
+  task.stages()->properties().set("group", arm_group_name);
+  task.stages()->properties().set("eef", hand_group_name);
+  task.stages()->properties().set("ik_frame", hand_frame);
+
+  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+
+  auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  ptp_planner->setPlannerId("PTP");
+  auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
+  lin_planner->setPlannerId("LIN");
+  lin_planner->setMaxVelocityScalingFactor(config_.cable_grasp.approach_lin_velocity_scaling);
+  lin_planner->setMaxAccelerationScalingFactor(config_.cable_grasp.approach_lin_acceleration_scaling);
+  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
+  auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
+  cartesian_planner->setMaxVelocityScalingFactor(1.0);
+  cartesian_planner->setMaxAccelerationScalingFactor(1.0);
+  cartesian_planner->setStepSize(0.01);
+
+  auto stage_ready = std::make_unique<mtc::stages::MoveTo>("move to ready", ptp_planner);
+  stage_ready->setGroup(arm_group_name);
+  stage_ready->setGoal("ready");
+  task.add(std::move(stage_ready));
+
+  {
+    auto stage_add_peg = std::make_unique<mtc::stages::ModifyPlanningScene>("add targetsensor peg mesh");
+    moveit_msgs::msg::CollisionObject peg = makeTargetSensorPegCollisionObject(
+        TARGET_SENSOR_PEG_COLLISION_ID, plan_frame, object_pose.pose, moveit_msgs::msg::CollisionObject::ADD);
+    peg.header.stamp = node_->now();
+    stage_add_peg->addObject(peg);
+    task.add(std::move(stage_add_peg));
+  }
+
+  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
+  stage_open->setGroup(hand_group_name);
+  stage_open->setGoal("open");
+  task.add(std::move(stage_open));
+
+  {
+    auto stage_acm = std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
+    stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link6", "Link7", "Link8" }, true);
+    stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
+    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
+    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "Link2" }, true);
+    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
+    task.add(std::move(stage_acm));
+  }
+
+  Eigen::Quaterniond q_object(
+      object_pose.pose.orientation.w,
+      object_pose.pose.orientation.x,
+      object_pose.pose.orientation.y,
+      object_pose.pose.orientation.z);
+  q_object.normalize();
+  const Eigen::Vector3d approach_dir = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  const Eigen::Matrix3d R_tool = targetSensorToolRotationFromObjectFrame(q_object);
+
+  const double pregrasp_distance = 0.10;
+  const double retreat_distance = 0.12;
+  const Eigen::Vector3d p_grasp(object_pose.pose.position.x, object_pose.pose.position.y,
+                                object_pose.pose.position.z);
+
+  Eigen::Isometry3d pregrasp_iso = Eigen::Isometry3d::Identity();
+  pregrasp_iso.linear() = R_tool;
+  pregrasp_iso.translation() = p_grasp - approach_dir * pregrasp_distance;
+
+  const rclcpp::Time now = node_->now();
+  geometry_msgs::msg::PoseStamped pregrasp_pose = toPoseStamped(pregrasp_iso, plan_frame, now);
+
+  auto grasp = std::make_unique<mtc::SerialContainer>("pick object");
+  task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
+  grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
+
+  {
+    auto stage_allow_peg = std::make_unique<mtc::stages::ModifyPlanningScene>(
+        "allow collision (targetsensor peg) for pregrasp");
+    stage_allow_peg->allowCollisions(TARGET_SENSOR_PEG_COLLISION_ID, TARGET_SENSOR_PEG_ALLOWED_LINKS, true);
+    grasp->insert(std::move(stage_allow_peg));
+  }
+
+  auto stage_pregrasp = std::make_unique<mtc::stages::MoveTo>("move to pregrasp", ptp_planner);
+  stage_pregrasp->setGroup(arm_group_name);
+  stage_pregrasp->setGoal(pregrasp_pose);
+  stage_pregrasp->setIKFrame(hand_frame);
+  grasp->insert(std::move(stage_pregrasp));
+
+  {
+    auto stage_allow_approach = std::make_unique<mtc::stages::ModifyPlanningScene>(
+        "allow collision (targetsensor peg) for approach");
+    stage_allow_approach->allowCollisions(TARGET_SENSOR_PEG_COLLISION_ID, TARGET_SENSOR_PEG_ALLOWED_LINKS, true);
+    grasp->insert(std::move(stage_allow_approach));
+  }
+
+  geometry_msgs::msg::Vector3Stamped approach_v;
+  approach_v.header.stamp = now;
+  approach_v.header.frame_id = plan_frame;
+  approach_v.vector.x = approach_dir.x();
+  approach_v.vector.y = approach_dir.y();
+  approach_v.vector.z = approach_dir.z();
+  auto stage_approach = std::make_unique<mtc::stages::MoveRelative>("approach to grasp (LIN)", lin_planner);
+  stage_approach->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  stage_approach->setMinMaxDistance(static_cast<float>(pregrasp_distance),
+                                    static_cast<float>(pregrasp_distance));
+  stage_approach->setIKFrame(hand_frame);
+  stage_approach->setDirection(approach_v);
+  grasp->insert(std::move(stage_approach));
+
+  {
+    auto stage_close = std::make_unique<mtc::stages::MoveTo>("close hand", interpolation_planner);
+    stage_close->setGroup(hand_group_name);
+    stage_close->setGoal("close");
+    grasp->insert(std::move(stage_close));
+  }
+
+  {
+    auto stage_rm_peg = std::make_unique<mtc::stages::ModifyPlanningScene>("remove targetsensor peg mesh");
+    stage_rm_peg->removeObject(TARGET_SENSOR_PEG_COLLISION_ID);
+    grasp->insert(std::move(stage_rm_peg));
+  }
+
+  geometry_msgs::msg::Vector3Stamped retreat_v;
+  retreat_v.header.stamp = now;
+  retreat_v.header.frame_id = plan_frame;
+  retreat_v.vector.x = -approach_dir.x();
+  retreat_v.vector.y = -approach_dir.y();
+  retreat_v.vector.z = -approach_dir.z();
+  auto stage_retreat = std::make_unique<mtc::stages::MoveRelative>("retreat short", cartesian_planner);
+  stage_retreat->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+  stage_retreat->setMinMaxDistance(static_cast<float>(retreat_distance),
+                                   static_cast<float>(retreat_distance));
+  stage_retreat->setIKFrame(hand_frame);
+  stage_retreat->setDirection(retreat_v);
+  grasp->insert(std::move(stage_retreat));
+
+  pregrasp_pose.header.stamp = node_->now();
+  auto stage_pregrasp_holding = std::make_unique<mtc::stages::MoveTo>("move to pregrasp (holding)", ptp_planner);
+  stage_pregrasp_holding->setGroup(arm_group_name);
+  stage_pregrasp_holding->setGoal(pregrasp_pose);
   stage_pregrasp_holding->setIKFrame(hand_frame);
   grasp->insert(std::move(stage_pregrasp_holding));
 

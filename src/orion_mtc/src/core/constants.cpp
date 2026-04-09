@@ -31,6 +31,20 @@ const std::vector<std::string> CABLE_LOCAL_APPROACH_ALLOWED_LINKS = {
     "gripper_tcp", "Link6", "Link7", "Link8"
 };
 
+const std::vector<std::string> TARGET_SENSOR_PEG_ALLOWED_LINKS = {
+    "base_link",
+    "Link1",
+    "Link2",
+    "Link3",
+    "LinkVirtual",
+    "Link4",
+    "Link5",
+    "gripper_tcp",
+    "Link6",
+    "Link7",
+    "Link8",
+};
+
 /*
  * MoveIt group「arm」关节名顺序，与轨迹/自碰判断一致。
  */

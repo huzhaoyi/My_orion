@@ -412,7 +412,7 @@ void ManipulatorRosInterface::onPickTriggerTargetSensorReceived(const std_msgs::
         }
         ManipulationJob job;
         job.type = JobType::PICK;
-        job.grasp_source = GraspSource::LEGACY;
+        job.grasp_source = GraspSource::TARGET_SENSOR;
         job.object_id = "";
         job.source = "topic_pick_trigger_targetsensor";
         std::optional<geometry_msgs::msg::PoseStamped> topic_pose = targetsensor_pose_cache_.latest();
@@ -541,7 +541,15 @@ void ManipulatorRosInterface::handlePickGoalAccepted(
 {
     std::thread([this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
-        const GraspSource gs = (goal->grasp_source == 1U) ? GraspSource::FUSED : GraspSource::LEGACY;
+        GraspSource gs = GraspSource::LEGACY;
+        if (goal->grasp_source == 1U)
+        {
+            gs = GraspSource::FUSED;
+        }
+        else if (goal->grasp_source == 2U)
+        {
+            gs = GraspSource::TARGET_SENSOR;
+        }
         bool ok = ctx_.task_manager->handlePick(goal->object_pose,
                                                 goal->object_id.empty() ? "object" : goal->object_id, gs);
         auto result = std::make_shared<orion_mtc_msgs::action::Pick::Result>();
@@ -653,7 +661,18 @@ void ManipulatorRosInterface::handleSubmitJob(
     ManipulationJob job;
     job.job_id = req->job_id;
     job.type = static_cast<JobType>(req->job_type);
-    job.grasp_source = (req->grasp_source == 1U) ? GraspSource::FUSED : GraspSource::LEGACY;
+    if (req->grasp_source == 1U)
+    {
+        job.grasp_source = GraspSource::FUSED;
+    }
+    else if (req->grasp_source == 2U)
+    {
+        job.grasp_source = GraspSource::TARGET_SENSOR;
+    }
+    else
+    {
+        job.grasp_source = GraspSource::LEGACY;
+    }
     job.object_id = req->object_id;
     job.tracked = req->tracked;
     job.priority = req->priority;

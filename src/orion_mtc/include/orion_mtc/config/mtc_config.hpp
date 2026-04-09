@@ -35,10 +35,29 @@ struct CableGraspConfig
   double approach_normal_sign = 1.0;
 };
 
+/*
+ * TargetSensor 插孔（peg-in-hole）：几何沿 target_pose 姿态的局部 -Z 为插入轴（与历史 base_link 竖直孔一致）。
+ */
+struct PegInsertConfig
+{
+  double pre_offset_m = 0.10;
+  double insert_depth_m = 0.04;
+  double retreat_m = 0.12;
+  double lin_velocity_scaling = 0.2;
+  double lin_acceleration_scaling = 0.2;
+  double cartesian_velocity_scaling = 0.25;
+  double cartesian_acceleration_scaling = 0.25;
+  double cartesian_step_size = 0.005;
+  bool enable_chamfer_plane_search = false;
+  double chamfer_plane_delta_m = 0.002;
+  int insert_axial_segments = 1;
+};
+
 struct MTCConfig
 {
   double grasp_offset_along_axis = 0.0f;
   CableGraspConfig cable_grasp;
+  PegInsertConfig peg_insert;
 };
 
 void declareParameters(rclcpp::Node* node);

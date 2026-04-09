@@ -145,6 +145,83 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.pre_offset_m", 0.10);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.insert_depth_m", 0.04);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.retreat_m", 0.12);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.lin_velocity_scaling", 0.2);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.lin_acceleration_scaling", 0.2);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.cartesian_velocity_scaling", 0.25);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.cartesian_acceleration_scaling", 0.25);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.cartesian_step_size", 0.005);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.enable_chamfer_plane_search", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.chamfer_plane_delta_m", 0.002);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<int>("peg_insert.insert_axial_segments", 1);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 /*
@@ -180,6 +257,21 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("cable_side_grasp.approach_lin_acceleration_scaling",
                       config.cable_grasp.approach_lin_acceleration_scaling);
   node->get_parameter("cable_side_grasp.approach_normal_sign", config.cable_grasp.approach_normal_sign);
+  node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
+  node->get_parameter("peg_insert.insert_depth_m", config.peg_insert.insert_depth_m);
+  node->get_parameter("peg_insert.retreat_m", config.peg_insert.retreat_m);
+  node->get_parameter("peg_insert.lin_velocity_scaling", config.peg_insert.lin_velocity_scaling);
+  node->get_parameter("peg_insert.lin_acceleration_scaling", config.peg_insert.lin_acceleration_scaling);
+  node->get_parameter("peg_insert.cartesian_velocity_scaling", config.peg_insert.cartesian_velocity_scaling);
+  node->get_parameter("peg_insert.cartesian_acceleration_scaling", config.peg_insert.cartesian_acceleration_scaling);
+  node->get_parameter("peg_insert.cartesian_step_size", config.peg_insert.cartesian_step_size);
+  node->get_parameter("peg_insert.enable_chamfer_plane_search", config.peg_insert.enable_chamfer_plane_search);
+  node->get_parameter("peg_insert.chamfer_plane_delta_m", config.peg_insert.chamfer_plane_delta_m);
+  node->get_parameter("peg_insert.insert_axial_segments", config.peg_insert.insert_axial_segments);
+  if (config.peg_insert.insert_axial_segments < 1)
+  {
+    config.peg_insert.insert_axial_segments = 1;
+  }
 }
 
 }  // namespace orion_mtc

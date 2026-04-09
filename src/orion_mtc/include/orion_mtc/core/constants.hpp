@@ -11,10 +11,16 @@ namespace orion_mtc
 
 constexpr const char* const MANIPULATOR_NS = "/manipulator";
 
+/* TargetSensor 规划场景中的 peg 网格 id（与缆绳 object 区分） */
+constexpr const char TARGET_SENSOR_PEG_COLLISION_ID[] = "targetsensor_peg";
+
 extern const std::vector<std::string> OBJECT_GRASP_ALLOWED_LINKS;
 extern const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS;
 extern const std::vector<std::string> CABLE_LOCAL_PREGRASP_ALLOWED_LINKS;
 extern const std::vector<std::string> CABLE_LOCAL_APPROACH_ALLOWED_LINKS;
+
+/* TargetSensor peg 场景：臂全链路与 peg 网格可碰，避免预抓 PTP 因连杆扫过物体而 NO_IK_SOLUTION */
+extern const std::vector<std::string> TARGET_SENSOR_PEG_ALLOWED_LINKS;
 
 extern const std::vector<std::string> ARM_JOINTS;
 extern const std::vector<std::string> HAND_JOINTS;

@@ -465,10 +465,11 @@ const JOB_TYPE = {
   TARGET_INSERT: 5,
 };
 
-/** 与 ManipulationJob.grasp_source 一致：0=LEGACY，1=FUSED。 */
+/** 与 ManipulationJob.grasp_source 一致：0=LEGACY，1=FUSED，2=TARGET_SENSOR。 */
 const GRASP_SOURCE = {
   LEGACY: 0,
   FUSED: 1,
+  TARGET_SENSOR: 2,
 };
 
 /** 构造简化 geometry_msgs/PoseStamped 字面量（供 submit_job 嵌套）。 */

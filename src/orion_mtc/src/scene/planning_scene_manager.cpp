@@ -228,7 +228,8 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
 }
 
 /*
- * world 碰撞体按 id REMOVE；内部复用 applySceneDiff。
+ * world 碰撞体按 id REMOVE。MoveIt 对「移除场景中不存在的 id」常返回 success=false，
+ * 对清理路径应幂等成功，故仅在超时/无服务时返回 false。
  */
 bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
 {
@@ -248,10 +249,20 @@ bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
   obj.header.frame_id = "base_link";
   obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
   scene.world.collision_objects.push_back(obj);
-  if (!applySceneDiff(scene))
+  auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();
+  req->scene = scene;
+  auto fut = apply_planning_scene_client_->async_send_request(req);
+  if (fut.wait_for(std::chrono::seconds(APPLY_PLANNING_SCENE_WAIT_SEC)) != std::future_status::ready)
   {
-    RCLCPP_WARN(LOGGER, "removeWorldObject: apply failed for id=%s", object_id.c_str());
+    RCLCPP_WARN(LOGGER, "removeWorldObject: timed out for id=%s", object_id.c_str());
     return false;
+  }
+  auto res = fut.get();
+  if (!res || !res->success)
+  {
+    RCLCPP_DEBUG(LOGGER, "removeWorldObject: apply returned false for id=%s (absent or sync; idempotent ok)",
+                 object_id.c_str());
+    return true;
   }
   RCLCPP_INFO(LOGGER, "removeWorldObject: removed world id=%s", object_id.c_str());
   return true;

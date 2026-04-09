@@ -6,6 +6,7 @@
 #include "orion_mtc/config/mtc_config.hpp"
 #include "orion_mtc/planning/cable_segments.hpp"
 #include "orion_mtc/planning/cable_side_grasp.hpp"
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <moveit/task_constructor/task.h>
 #include <string>
 #include <vector>
@@ -24,6 +25,11 @@ public:
   moveit::task_constructor::Task buildFromCableCandidate(
       const std::vector<CableSegment>& segments,
       const CableGraspCandidate& candidate,
+      const std::string& plan_frame);
+
+  /* TargetSensor 目标抓取：peg 场景体 + 与缆绳同构的 SerialContainer pick 链（不修改缆绳 buildFromCableCandidate）。 */
+  moveit::task_constructor::Task buildFromTargetSensorPose(
+      const geometry_msgs::msg::PoseStamped& object_pose,
       const std::string& plan_frame);
 
 private:

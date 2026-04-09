@@ -316,7 +316,9 @@ bool SolutionExecutor::executePickSolution(
     }
     const bool has_attach = sceneDiffHasAttach(sub);
     const bool is_remove_cable_segments = (name == "remove_cable_segments");
-    if ((has_attach || is_remove_cable_segments) && !last_trajectory.points.empty())
+    const bool is_remove_targetsensor_peg = (name == "remove targetsensor peg mesh");
+    if ((has_attach || is_remove_cable_segments || is_remove_targetsensor_peg) &&
+        !last_trajectory.points.empty())
     {
       if (has_attach && scene_manager_)
       {
@@ -328,6 +330,10 @@ bool SolutionExecutor::executePickSolution(
         {
           scene_manager_->removeWorldObject(seg_id);
         }
+      }
+      if (is_remove_targetsensor_peg && scene_manager_)
+      {
+        scene_manager_->removeWorldObject(TARGET_SENSOR_PEG_COLLISION_ID);
       }
       geometry_msgs::msg::Pose tcp_pose;
       if (computeTcpPoseFromTrajectoryEnd(robot_model, last_trajectory, hand_frame, tcp_pose))

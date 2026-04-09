@@ -52,6 +52,21 @@ cable_side_grasp:
   approach_lin_velocity_scaling: 0.5
   approach_lin_acceleration_scaling: 0.35
 
+# TargetSensor 插孔（peg-in-hole）：插入轴 = 孔位姿态的局部 -Z（单位姿态时与历史「沿 base_link -Z」一致）。
+peg_insert:
+  pre_offset_m: 0.10
+  insert_depth_m: 0.04
+  retreat_m: 0.12
+  lin_velocity_scaling: 0.2
+  lin_acceleration_scaling: 0.2
+  cartesian_velocity_scaling: 0.25
+  cartesian_acceleration_scaling: 0.25
+  cartesian_step_size: 0.005
+  # 倒角阶段平面微动（无力控时的几何搜索）；默认关，需时在仿真中扫参再开。
+  enable_chamfer_plane_search: false
+  chamfer_plane_delta_m: 0.002
+  insert_axial_segments: 1
+
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
 # 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
 
@@ -107,4 +122,4 @@ runtime_policy:
 # true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）。
 use_joy_manipulator: true
 # true：启动 RViz；默认 false 便于无头仿真与网页联调。
-start_rviz: false
+start_rviz: true

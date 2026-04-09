@@ -12,11 +12,12 @@
 namespace orion_mtc
 {
 
-/* PICK 感知链：legacy=原 vision/桥接 object_pose；fused=keypoint 中心线等第二路话题。 */
+/* PICK 感知链：legacy=原桥接；fused=中心线；target_sensor=TargetSensor 目标抓取链。 */
 enum class GraspSource : uint8_t
 {
   LEGACY = 0,
   FUSED = 1,
+  TARGET_SENSOR = 2,
 };
 
 enum class JobType
@@ -65,6 +66,8 @@ inline const char* graspSourceToCString(GraspSource g)
   {
     case GraspSource::FUSED:
       return "FUSED";
+    case GraspSource::TARGET_SENSOR:
+      return "TARGET_SENSOR";
     case GraspSource::LEGACY:
     default:
       return "LEGACY";

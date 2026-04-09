@@ -36,6 +36,7 @@ class FeasibilityChecker;
 class PlanningSceneManager;
 class TrajectoryExecutor;
 class PickTaskBuilder;
+class InsertTaskBuilder;
 class TaskQueue;
 class RecoveryActions;
 }
@@ -201,6 +202,7 @@ private:
   RecoveryEventFn recovery_event_fn_;
   StageReportFn stage_report_fn_;
   std::unique_ptr<PickTaskBuilder> pick_builder_;
+  std::unique_ptr<InsertTaskBuilder> insert_builder_;
   std::shared_ptr<TaskQueue> queue_;
   std::unique_ptr<RecoveryActions> recovery_actions_;
   JobDeduplicator job_deduplicator_;

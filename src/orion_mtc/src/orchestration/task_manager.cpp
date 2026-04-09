@@ -4,6 +4,7 @@
 #include "orion_mtc/orchestration/task_queue.hpp"
 #include "orion_mtc/orchestration/recovery_actions.hpp"
 #include "orion_mtc/planning/pick_task_builder.hpp"
+#include "orion_mtc/planning/insert_task_builder.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
@@ -61,13 +62,22 @@ static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
     "close hand (at pregrasp)",
 };
 
-static const std::vector<std::string> TARGET_INSERT_STAGE_NAMES = {
+/* 与缆绳链同构：add peg → open → 自碰 ACM → SerialContainer 内子阶段（与 sub_trajectory 顺序一致） */
+static const std::vector<std::string> PICK_STAGE_NAMES_TARGET_SENSOR = {
     "current",
-    "move to pre-insert",
-    "insert approach",
-    "insert descend",
+    "move to ready",
+    "add targetsensor peg mesh",
     "open hand",
-    "retreat up",
+    "allow self-collision (pregrasp)",
+    "allow collision (targetsensor peg) for pregrasp",
+    "move to pregrasp",
+    "allow collision (targetsensor peg) for approach",
+    "approach to grasp (LIN)",
+    "close hand",
+    "remove targetsensor peg mesh",
+    "retreat short",
+    "move to pregrasp (holding)",
+    "close hand (at pregrasp)",
 };
 
 static int parseSlotFromObjectId(const std::string& object_id)
@@ -112,6 +122,7 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
   , solution_executor_(solution_executor)
   , wait_for_gripped_fn_(std::move(wait_for_gripped_fn))
   , pick_builder_(std::make_unique<PickTaskBuilder>(node, config))
+  , insert_builder_(std::make_unique<InsertTaskBuilder>(node, config))
   , queue_(std::make_shared<TaskQueue>())
   , recovery_actions_(std::make_unique<RecoveryActions>(scene_manager, this))
 {
@@ -218,12 +229,14 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               object_pose.pose.position.z,
               graspSourceToCString(grasp_source));
   geometry_msgs::msg::PoseStamped pose_base = object_pose;
+  const bool use_cable_side_flow =
+      (grasp_source == GraspSource::LEGACY || grasp_source == GraspSource::FUSED);
   std::optional<geometry_msgs::msg::Vector3Stamped> axis_stamped;
-  if (grasp_source == GraspSource::FUSED && get_latest_object_axis_fused_fn_)
+  if (use_cable_side_flow && grasp_source == GraspSource::FUSED && get_latest_object_axis_fused_fn_)
   {
     axis_stamped = get_latest_object_axis_fused_fn_();
   }
-  else if (grasp_source != GraspSource::FUSED && get_latest_object_axis_legacy_fn_)
+  else if (use_cable_side_flow && grasp_source != GraspSource::FUSED && get_latest_object_axis_legacy_fn_)
   {
     axis_stamped = get_latest_object_axis_legacy_fn_();
   }
@@ -260,13 +273,162 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                 pose_base.header.frame_id.c_str());
   }
   RCLCPP_INFO(LOGGER,
-              "handlePick: 规划使用 frame=%s 缆绳中心 pos=(%.4f, %.4f, %.4f)",
+              "handlePick: 规划使用 frame=%s target pos=(%.4f, %.4f, %.4f), source=%s",
               pose_base.header.frame_id.c_str(),
-              pose_base.pose.position.x, pose_base.pose.position.y, pose_base.pose.position.z);
+              pose_base.pose.position.x, pose_base.pose.position.y, pose_base.pose.position.z,
+              graspSourceToCString(grasp_source));
 
   double obj_x = pose_base.pose.position.x;
   double obj_y = pose_base.pose.position.y;
   double obj_z = pose_base.pose.position.z;
+
+  if (!use_cable_side_flow)
+  {
+    if (scene_manager_)
+    {
+      scene_manager_->removeWorldObject(TARGET_SENSOR_PEG_COLLISION_ID);
+    }
+    const std::string held_id = object_id.empty() ? "targetsensor" : object_id;
+    const std::string plan_frame = "base_link";
+    const std::vector<double> roll_candidates = {
+        0.0,
+        M_PI / 2.0,
+        -M_PI / 2.0,
+        M_PI,
+        M_PI / 4.0,
+        -M_PI / 4.0,
+        3.0 * M_PI / 4.0,
+        -3.0 * M_PI / 4.0,
+    };
+    const Eigen::Quaterniond q_base(
+        pose_base.pose.orientation.w,
+        pose_base.pose.orientation.x,
+        pose_base.pose.orientation.y,
+        pose_base.pose.orientation.z);
+    bool plan_ok = false;
+    std::size_t plan_candidate_index = 0;
+    std::string last_plan_detail = "";
+    geometry_msgs::msg::PoseStamped pick_pose_plan = pose_base;
+    moveit_task_constructor_msgs::msg::Solution solution_msg;
+    moveit::core::RobotModelConstPtr task_robot_model;
+    for (std::size_t i = 0; i < roll_candidates.size(); ++i)
+    {
+      const double roll = roll_candidates[i];
+      const Eigen::Quaterniond q_roll(Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitZ()));
+      const Eigen::Quaterniond q_try = (q_base * q_roll).normalized();
+      geometry_msgs::msg::PoseStamped pose_try = pose_base;
+      pose_try.pose.orientation.x = q_try.x();
+      pose_try.pose.orientation.y = q_try.y();
+      pose_try.pose.orientation.z = q_try.z();
+      pose_try.pose.orientation.w = q_try.w();
+
+      mtc::Task task = pick_builder_->buildFromTargetSensorPose(pose_try, plan_frame);
+      try
+      {
+        task.init();
+        task.enableIntrospection(true);
+        task.introspection().publishTaskDescription();
+      }
+      catch (mtc::InitStageException& e)
+      {
+        last_plan_detail = e.what();
+        RCLCPP_WARN(LOGGER,
+                    "handlePick: targetsensor candidate %zu init failed (roll=%.1f deg): %s",
+                    i, roll * 180.0 / M_PI, e.what());
+        continue;
+      }
+
+      moveit::core::MoveItErrorCode plan_result = task.plan(5);
+      if (!plan_result || task.solutions().empty())
+      {
+        std::ostringstream os;
+        task.explainFailure(os);
+        last_plan_detail = os.str();
+        RCLCPP_WARN(LOGGER,
+                    "handlePick: targetsensor candidate %zu plan failed (roll=%.1f deg): %s",
+                    i, roll * 180.0 / M_PI, last_plan_detail.c_str());
+        continue;
+      }
+
+      task.solutions().front()->toMsg(solution_msg, &task.introspection());
+      task_robot_model = task.getRobotModel();
+      pick_pose_plan = pose_try;
+      plan_candidate_index = i;
+      plan_ok = true;
+      break;
+    }
+    if (!plan_ok)
+    {
+      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor PLAN_FAILED(all candidates): %s",
+                   last_plan_detail.c_str());
+      setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
+      return false;
+    }
+    Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
+    grasp_pose.translate(Eigen::Vector3d(obj_x, obj_y, obj_z));
+    grasp_pose.rotate(Eigen::Quaterniond(
+        pick_pose_plan.pose.orientation.w,
+        pick_pose_plan.pose.orientation.x,
+        pick_pose_plan.pose.orientation.y,
+        pick_pose_plan.pose.orientation.z));
+    geometry_msgs::msg::Pose object_pose_at_grasp;
+    isometryToPose(grasp_pose, object_pose_at_grasp);
+    RCLCPP_INFO(LOGGER, "handlePick: targetsensor selected roll candidate=%zu", plan_candidate_index);
+    StageReportFn stage_report = nullptr;
+    if (stage_report_fn_)
+    {
+      stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                            const std::string& name, const std::string& state, const std::string& detail) {
+        if (stage_report_fn_)
+        {
+          stage_report_fn_(jid, tt, ix, name, state, detail);
+        }
+      };
+    }
+    HeldObjectContext new_held;
+    bool failed_no_grip = false;
+    if (solution_executor_->executePickSolution(
+            solution_msg, object_pose_at_grasp, held_id, task_robot_model, new_held, wait_for_gripped_fn_,
+            stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_TARGET_SENSOR, {},
+            makeEstopAbortFn(), &failed_no_grip))
+    {
+      HeldObjectContext held_copy;
+      {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        held_object_ = new_held;
+        held_copy = held_object_;
+      }
+      setState(RobotTaskMode::HOLDING_TRACKED);
+      if (held_object_state_fn_)
+      {
+        held_object_state_fn_(held_copy);
+      }
+      RCLCPP_INFO(LOGGER, "handlePick: targetsensor pick success");
+      return true;
+    }
+    if (estop_requested_.load())
+    {
+      setStateError("E_STOP");
+      estop_requested_.store(false);
+      return false;
+    }
+    if (failed_no_grip)
+    {
+      if (!retreatToReady())
+      {
+        setStateError("TARGET_SENSOR_PICK: NO_GRIP_AND_RETREAT_FAILED");
+      }
+      else
+      {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "TARGET_SENSOR_PICK: no grip, retreated to ready";
+        task_mode_ = RobotTaskMode::IDLE;
+      }
+      return false;
+    }
+    setStateError("TARGET_SENSOR_PICK: EXECUTION_FAILED");
+    return false;
+  }
 
   geometry_msgs::msg::Vector3 axis_v;
   axis_v.x = 1.0;
@@ -732,8 +894,7 @@ bool TaskManager::handleCloseGripper()
 }
 
 /*
- * TargetSensor 插孔：目标为 target_pose（通常 map/world 固定孔位，内部可 TF 到 base_link）。
- * 流程：pre-insert（上方）-> 下降到孔口 -> 继续短插 -> 开爪 -> 上撤。
+ * TargetSensor 插孔：由 InsertTaskBuilder 构图；插入轴为 target_pose 姿态的局部 -Z（竖直孔且单位姿态时等同原 -world Z）。
  */
 bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id)
 {
@@ -770,79 +931,11 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                  pose_base.header.frame_id.c_str());
     return false;
   }
+  pose_base.header.stamp = node_->now();
 
-  const double pre_offset_m = 0.10;
-  const double insert_depth_m = 0.04;
-  const double retreat_m = 0.12;
-
-  mtc::Task task;
-  task.stages()->setName("target insert");
-  task.loadRobotModel(node_);
-  const std::string arm_group_name = "arm";
-  const std::string hand_group_name = "hand";
-  const std::string hand_frame = "gripper_tcp";
-  task.setProperty("group", arm_group_name);
-  task.setProperty("eef", hand_group_name);
-  task.setProperty("ik_frame", hand_frame);
-  task.stages()->properties().set("group", arm_group_name);
-  task.stages()->properties().set("eef", hand_group_name);
-  task.stages()->properties().set("ik_frame", hand_frame);
-  task.add(std::make_unique<mtc::stages::CurrentState>("current"));
-
-  auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
-  ptp_planner->setPlannerId("PTP");
-  auto lin_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
-  lin_planner->setPlannerId("LIN");
-  lin_planner->setMaxVelocityScalingFactor(0.2);
-  lin_planner->setMaxAccelerationScalingFactor(0.2);
-  auto interpolation_planner = std::make_shared<mtc::solvers::JointInterpolationPlanner>();
-  auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
-  cartesian_planner->setMaxVelocityScalingFactor(0.25);
-  cartesian_planner->setMaxAccelerationScalingFactor(0.25);
-  cartesian_planner->setStepSize(0.005);
-
-  geometry_msgs::msg::PoseStamped pre_pose = pose_base;
-  pre_pose.pose.position.z += pre_offset_m;
-  pre_pose.header.stamp = node_->now();
-  auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
-  move_pre->setGroup(arm_group_name);
-  move_pre->setGoal(pre_pose);
-  move_pre->setIKFrame(hand_frame);
-  task.add(std::move(move_pre));
-
-  geometry_msgs::msg::Vector3Stamped down_v;
-  down_v.header.stamp = node_->now();
-  down_v.header.frame_id = "base_link";
-  down_v.vector.x = 0.0;
-  down_v.vector.y = 0.0;
-  down_v.vector.z = -1.0;
-  auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", lin_planner);
-  descend_to_slot->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  descend_to_slot->setIKFrame(hand_frame);
-  descend_to_slot->setDirection(down_v);
-  descend_to_slot->setMinMaxDistance(static_cast<float>(pre_offset_m), static_cast<float>(pre_offset_m));
-  task.add(std::move(descend_to_slot));
-
-  auto insert_descend = std::make_unique<mtc::stages::MoveRelative>("insert descend", cartesian_planner);
-  insert_descend->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  insert_descend->setIKFrame(hand_frame);
-  insert_descend->setDirection(down_v);
-  insert_descend->setMinMaxDistance(static_cast<float>(insert_depth_m), static_cast<float>(insert_depth_m));
-  task.add(std::move(insert_descend));
-
-  auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
-  stage_open->setGroup(hand_group_name);
-  stage_open->setGoal("open");
-  task.add(std::move(stage_open));
-
-  geometry_msgs::msg::Vector3Stamped up_v = down_v;
-  up_v.vector.z = 1.0;
-  auto retreat_up = std::make_unique<mtc::stages::MoveRelative>("retreat up", cartesian_planner);
-  retreat_up->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  retreat_up->setIKFrame(hand_frame);
-  retreat_up->setDirection(up_v);
-  retreat_up->setMinMaxDistance(static_cast<float>(retreat_m), static_cast<float>(retreat_m));
-  task.add(std::move(retreat_up));
+  InsertTaskBuildResult built = insert_builder_->buildTargetInsertTask(pose_base);
+  mtc::Task& task = built.task;
+  const std::vector<std::string>& insert_stage_names = built.stage_names;
 
   try
   {
@@ -866,7 +959,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
   if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
-                                          current_task_id_, "TARGET_INSERT", TARGET_INSERT_STAGE_NAMES,
+                                          current_task_id_, "TARGET_INSERT", insert_stage_names,
                                           makeEstopAbortFn()))
   {
     RCLCPP_ERROR(LOGGER, "target insert execution failed");
@@ -1134,6 +1227,7 @@ bool TaskManager::handleResetHeldObject(std::string& out_message)
     scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
     scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
     scene_manager_->clearAttachedObjectFromPlanningScene("object");
+    scene_manager_->removeWorldObject(TARGET_SENSOR_PEG_COLLISION_ID);
   }
   if (held_object_state_fn_)
   {

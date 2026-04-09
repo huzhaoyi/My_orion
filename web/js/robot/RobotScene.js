@@ -29,6 +29,35 @@ const AXIS_COLOR_X = 0xe53935;
 const AXIS_COLOR_Y = 0x43a047;
 const AXIS_COLOR_Z = 0x1e88e5;
 const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target.stl';
+/* 长轴对齐到局部 +Y 后，再绕局部 X 转 90°，使 peg 平躺在场景水平面（XZ）上 */
+const TARGET_SENSOR_LIE_DOWN_RX = Math.PI / 2;
+
+/**
+ * 将 target.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
+ * 约定：细圆柱类 peg 在 CAD 里常见沿 X 或 Z；只要 X 向包络不小于 Y，按「主轴沿 X」绕 Z 转 90° 对齐到 +Y。
+ */
+function getTargetSensorAlignQuaternionByGeometry(geometry) {
+  if (!geometry || !geometry.boundingBox) {
+    return new THREE.Quaternion();
+  }
+  const size = new THREE.Vector3();
+  geometry.boundingBox.getSize(size);
+  const ex = size.x;
+  const ey = size.y;
+  const ez = size.z;
+  const qRz90 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2));
+  const qRxN90 = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+  /* X 不小于 Y：主轴视为沿 X → 绕 Z +90° 到 +Y */
+  if (ex >= ey) {
+    return qRz90;
+  }
+  /* 否则 Z 为主轴时沿 Z → 绕 X -90° 到 +Y */
+  if (ez >= ey && ez >= ex) {
+    return qRxN90;
+  }
+  /* 真正 Y 最长：与 perception 叠加后常见仍像沿场景 X，再绕局部 Z +90° */
+  return qRz90;
+}
 
 function makeAxisLabel(text, hexColor) {
   const canvas = document.createElement('canvas');
@@ -296,12 +325,17 @@ function createScene(containerEl) {
   loadStlGeometry(TARGET_SENSOR_STL_URL).then((geometry) => {
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
+    const alignQuat = getTargetSensorAlignQuaternionByGeometry(geometry);
     if (geometry.boundingBox) {
       const center = new THREE.Vector3();
       geometry.boundingBox.getCenter(center);
       geometry.translate(-center.x, -center.y, -center.z);
     }
     const tsMesh = new THREE.Mesh(geometry, tsStlMaterial);
+    const qLieDown = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
+    );
+    tsMesh.quaternion.copy(alignQuat).multiply(qLieDown);
     tsMesh.castShadow = true;
     tsMesh.receiveShadow = true;
     tsMesh.name = 'target_sensor_stl';
@@ -316,8 +350,10 @@ function createScene(containerEl) {
         roughness: 0.4,
       })
     );
-    /* Cylinder 默认沿 Y 轴，这里旋转到 X 轴，便于和侧抓姿态的切向约定一致。 */
-    fallbackMesh.rotation.z = -Math.PI / 2;
+    const qLieDownFb = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
+    );
+    fallbackMesh.quaternion.copy(qLieDownFb);
     targetSensorObjectComposed.add(fallbackMesh);
   });
   targets.add(targetSensorObjectComposed);

@@ -6,6 +6,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(moveit_task_constructor_core REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
@@ -45,6 +46,7 @@ set(ORION_MTC_SOURCES
   src/planning/cable_segments.cpp
   src/planning/cable_side_grasp.cpp
   src/planning/pick_task_builder.cpp
+  src/planning/insert_task_builder.cpp
   src/scene/planning_scene_manager.cpp
   src/execution/trajectory_executor.cpp
   src/execution/solution_executor.cpp
@@ -75,6 +77,7 @@ target_include_directories(mtc_node PRIVATE
   ${Eigen3_INCLUDE_DIRS}
 )
 ament_target_dependencies(mtc_node
+  ament_index_cpp
   builtin_interfaces
   rclcpp
   moveit_task_constructor_core

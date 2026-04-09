@@ -2,6 +2,7 @@
 
 #include "orion_mtc/orchestration/recovery_actions.hpp"
 #include "orion_mtc/orchestration/task_manager.hpp"
+#include "orion_mtc/core/constants.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include <rclcpp/rclcpp.hpp>
 
@@ -41,6 +42,11 @@ bool RecoveryActions::clearSceneResiduals()
   if (!scene_manager_->clearAttachedObjectFromPlanningScene("object"))
   {
     RCLCPP_WARN(LOGGER, "clearSceneResiduals: clear object failed");
+    ok = false;
+  }
+  if (!scene_manager_->removeWorldObject(TARGET_SENSOR_PEG_COLLISION_ID))
+  {
+    RCLCPP_WARN(LOGGER, "clearSceneResiduals: remove targetsensor peg failed");
     ok = false;
   }
   if (ok)

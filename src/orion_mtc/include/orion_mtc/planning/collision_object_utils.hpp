@@ -20,6 +20,15 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
                                                              const geometry_msgs::msg::Pose& object_pose,
                                                              uint8_t operation);
 
+/*
+ * TargetSensor peg：package://orion_description/meshes/stl/target.stl，mesh 局部旋转与前端 RobotScene.js
+ *（bbox 对齐长轴到 +Y + 绕局部 X 躺平）一致；object_pose 为感知物体位姿（base_link）。
+ */
+moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::string& object_id,
+                                                                      const std::string& frame_id,
+                                                                      const geometry_msgs::msg::Pose& object_pose,
+                                                                      uint8_t operation);
+
 /* 单段缆绳短圆柱碰撞体：局部 Z 对齐 segment.axis，中心在 segment.center */
 moveit_msgs::msg::CollisionObject makeSegmentCollisionObject(const CableSegment& segment,
                                                               const std::string& frame_id,
