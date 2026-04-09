@@ -49,13 +49,13 @@ cable_side_grasp:
   # 抓取点邻近±几段参与碰撞粗模。
   grasp_neighbor_segments: 1
   # Pilz/接近段线速度、线加速度相对默认的缩放系数（0~1 常用）。
-  approach_lin_velocity_scaling: 0.5
-  approach_lin_acceleration_scaling: 0.35
+  approach_lin_velocity_scaling: 0.12
+  approach_lin_acceleration_scaling: 0.06
 
 # TargetSensor 抓取 peg：接近方向符号与上列 cable_side_grasp.approach_normal_sign 语义一致（HO 常需 -1）。
 target_sensor_pick:
   approach_normal_sign: -1.0
-  pregrasp_distances_m: [0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06]
+  pregrasp_distances_m: [0.14, 0.10, 0.08, 0.06]
   retreat_distance_m: 0.12
 
 # TargetSensor 插孔：孔心 map 系 [m] 以 peg_insert.targetsensor_slot_*_position_map 为准（与 UE FVector 一致）。
