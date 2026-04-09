@@ -81,7 +81,7 @@ peg_insert:
   targetsensor_slot_5_position_map: [-113.93, 128.6, -132.36]
   targetsensor_slot_6_position_map: [-113.93, 127.8, -130.89]
   targetsensor_slot_7_position_map: [-113.93, 127.8, -131.12]
-  # true：map/world 目标用下列七元组静态变到 base_link；须与 `ros2 run tf2_ros tf2_echo base_link map` 一致；勿写空列表 []。
+  # true：map/world 目标优先用下列七元组变到 base_link；与单位阵等价或未配满 7 个数时自动改走 TF（HoloOcean 有 map→rov→base 时与占位搭配可用）。
   use_static_map_to_base_for_target_insert: true
   static_transform_map_to_base_link: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 

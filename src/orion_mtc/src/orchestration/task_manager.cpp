@@ -108,6 +108,21 @@ static int parseSlotFromObjectId(const std::string& object_id)
 }
 
 /*
+ * 未配置或与单位阵等价：若仍用其做 map→base，会把 UE 量级坐标误标为 base_link。此时应回退 TF。
+ */
+static bool isPlaceholderIdentityMapToBaseTransform(const std::vector<double>& st)
+{
+  if (st.size() != 7u)
+  {
+    return true;
+  }
+  const double eps = 1.0e-5;
+  return std::fabs(st[0]) < eps && std::fabs(st[1]) < eps && std::fabs(st[2]) < eps
+      && std::fabs(st[3]) < eps && std::fabs(st[4]) < eps && std::fabs(st[5]) < eps
+      && std::fabs(st[6] - 1.0) < eps;
+}
+
+/*
  * 与 tf2 lookupTransform(\"base_link\", source_frame) 语义一致：parent=base_link，child=source_frame。
  */
 static bool applyStaticTransformMapLikeToBaseLink(const std::vector<double>& st,
@@ -994,35 +1009,52 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 slot);
   }
 
-  const std::string& src_frame = pose_base.header.frame_id;
-  const bool frame_is_map_like = (src_frame == "map" || src_frame == "world");
+  const std::string src_frame_before_xform = pose_base.header.frame_id;
+  const bool frame_is_map_like =
+      (src_frame_before_xform == "map" || src_frame_before_xform == "world");
   const bool use_static_insert = config_.peg_insert.use_static_map_to_base_for_target_insert;
   const std::vector<double>& st_map_base = config_.peg_insert.static_transform_map_to_base_link;
+  const bool static_transform_usable =
+      (st_map_base.size() == 7u && !isPlaceholderIdentityMapToBaseTransform(st_map_base));
 
-  if (use_static_insert && frame_is_map_like)
+  if (use_static_insert && frame_is_map_like && static_transform_usable)
   {
     if (!applyStaticTransformMapLikeToBaseLink(st_map_base, stamp_now, pose_base))
     {
       RCLCPP_ERROR(LOGGER,
-                   "handleTargetInsert: use_static_map_to_base_for_target_insert set but "
-                   "static_transform_map_to_base_link invalid (need 7 floats, non-zero quat); frame=%s",
-                   src_frame.c_str());
+                   "handleTargetInsert: static_transform_map_to_base_link invalid (need 7 floats, "
+                   "non-zero quat); frame=%s",
+                   src_frame_before_xform.c_str());
       return false;
     }
     RCLCPP_INFO(LOGGER,
-                "handleTargetInsert: pose transformed with peg_insert.static_transform_map_to_base_link "
+                "handleTargetInsert: map/world -> base_link via peg_insert.static_transform_map_to_base_link "
                 "(source frame %s)",
-                src_frame.c_str());
+                src_frame_before_xform.c_str());
   }
   else if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
   {
+    if (use_static_insert && frame_is_map_like && !static_transform_usable)
+    {
+      RCLCPP_WARN(LOGGER,
+                  "handleTargetInsert: static_transform_map_to_base_link 未配置或为占位单位阵，"
+                  "改用 TF 查询 %s -> base_link（填入真实七元组后可强制走静态外参）",
+                  src_frame_before_xform.c_str());
+    }
     pose_base.header.stamp = stamp_now;
     if (!transform_to_base_link_fn_(pose_base, nullptr))
     {
       RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
-                   target_pose.header.frame_id.c_str());
+                   src_frame_before_xform.c_str());
       return false;
     }
+  }
+  else if (frame_is_map_like && use_static_insert && !static_transform_usable
+           && !transform_to_base_link_fn_)
+  {
+    RCLCPP_ERROR(LOGGER,
+                 "handleTargetInsert: map/world 目标需要 base_link，但 static 为占位且未注入 TF 回调");
+    return false;
   }
   if (pose_base.header.frame_id != "base_link")
   {
