@@ -133,8 +133,32 @@ void OrionMTCNode::initModules()
             }
             catch (const std::exception& e)
             {
-                RCLCPP_WARN(LOGGER, "transform to base_link failed: %s", e.what());
-                return false;
+                try
+                {
+                    // 当请求时刻略超 TF 最新时刻（常见于 now() 与桥接发布存在毫秒级抖动），回退 latest 以避免未来外推失败。
+                    geometry_msgs::msg::TransformStamped T_latest =
+                        tf_buffer_->lookupTransform("base_link", pose.header.frame_id, tf2::TimePointZero);
+                    geometry_msgs::msg::PoseStamped out_latest;
+                    tf2::doTransform(pose, out_latest, T_latest);
+                    pose = out_latest;
+                    pose.header.frame_id = "base_link";
+                    if (axis != nullptr)
+                    {
+                        geometry_msgs::msg::Vector3Stamped axis_out;
+                        tf2::doTransform(*axis, axis_out, T_latest);
+                        axis->vector = axis_out.vector;
+                        axis->header.frame_id = "base_link";
+                    }
+                    RCLCPP_WARN(LOGGER,
+                                "transform to base_link fallback to latest TF due to stamped lookup failure: %s",
+                                e.what());
+                    return true;
+                }
+                catch (const std::exception& e2)
+                {
+                    RCLCPP_WARN(LOGGER, "transform to base_link failed: %s; fallback failed: %s", e.what(), e2.what());
+                    return false;
+                }
             }
         });
     feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
