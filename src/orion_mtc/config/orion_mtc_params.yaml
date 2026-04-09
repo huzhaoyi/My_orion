@@ -72,6 +72,10 @@ peg_insert:
   enable_chamfer_plane_search: false
   chamfer_plane_delta_m: 0.002
   insert_axial_segments: 1
+  # true：TARGET_INSERT 的 target_pose 为 map/world 时，用下列静态变换转到 base_link，不查 TF（无 PoseSensor/map→rov 时常用）。
+  # 七元组与 `ros2 run tf2_ros tf2_echo base_link map` 在 ROV 停泊姿态下读出的 translation + rotation(xyzw) 一致。
+  use_static_map_to_base_for_target_insert: true
+  static_transform_map_to_base_link: []
 
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
 # 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。

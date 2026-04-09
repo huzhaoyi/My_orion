@@ -245,6 +245,21 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.use_static_map_to_base_for_target_insert", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>("peg_insert.static_transform_map_to_base_link",
+                                                 std::vector<double>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 /*
@@ -302,6 +317,10 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.peg_insert.insert_axial_segments = 1;
   }
+  node->get_parameter("peg_insert.use_static_map_to_base_for_target_insert",
+                       config.peg_insert.use_static_map_to_base_for_target_insert);
+  node->get_parameter("peg_insert.static_transform_map_to_base_link",
+                       config.peg_insert.static_transform_map_to_base_link);
 }
 
 }  // namespace orion_mtc

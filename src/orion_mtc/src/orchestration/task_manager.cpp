@@ -28,6 +28,8 @@
 #include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <chrono>
@@ -103,6 +105,42 @@ static int parseSlotFromObjectId(const std::string& object_id)
     slot = slot * 10 + static_cast<int>(c - '0');
   }
   return slot;
+}
+
+/*
+ * 与 tf2 lookupTransform(\"base_link\", source_frame) 语义一致：parent=base_link，child=source_frame。
+ */
+static bool applyStaticTransformMapLikeToBaseLink(const std::vector<double>& st,
+                                                  const rclcpp::Time& stamp,
+                                                  geometry_msgs::msg::PoseStamped& pose_io)
+{
+  if (st.size() != 7u)
+  {
+    return false;
+  }
+  tf2::Quaternion q(st[3], st[4], st[5], st[6]);
+  if (q.length2() < 1.0e-20)
+  {
+    return false;
+  }
+  q.normalize();
+  geometry_msgs::msg::TransformStamped T;
+  T.header.stamp = stamp;
+  T.header.frame_id = "base_link";
+  T.child_frame_id = pose_io.header.frame_id;
+  T.transform.translation.x = st[0];
+  T.transform.translation.y = st[1];
+  T.transform.translation.z = st[2];
+  T.transform.rotation.x = q.x();
+  T.transform.rotation.y = q.y();
+  T.transform.rotation.z = q.z();
+  T.transform.rotation.w = q.w();
+  geometry_msgs::msg::PoseStamped out;
+  tf2::doTransform(pose_io, out, T);
+  pose_io = out;
+  pose_io.header.frame_id = "base_link";
+  pose_io.header.stamp = stamp;
+  return true;
 }
 
 /*
@@ -932,8 +970,30 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   }
 
   geometry_msgs::msg::PoseStamped pose_base = target_pose;
-  if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+  const rclcpp::Time stamp_now = node_->now();
+  const std::string& src_frame = pose_base.header.frame_id;
+  const bool frame_is_map_like = (src_frame == "map" || src_frame == "world");
+  const bool use_static_insert = config_.peg_insert.use_static_map_to_base_for_target_insert;
+  const std::vector<double>& st_map_base = config_.peg_insert.static_transform_map_to_base_link;
+
+  if (use_static_insert && frame_is_map_like)
   {
+    if (!applyStaticTransformMapLikeToBaseLink(st_map_base, stamp_now, pose_base))
+    {
+      RCLCPP_ERROR(LOGGER,
+                   "handleTargetInsert: use_static_map_to_base_for_target_insert set but "
+                   "static_transform_map_to_base_link invalid (need 7 floats, non-zero quat); frame=%s",
+                   src_frame.c_str());
+      return false;
+    }
+    RCLCPP_INFO(LOGGER,
+                "handleTargetInsert: pose transformed with peg_insert.static_transform_map_to_base_link "
+                "(source frame %s)",
+                src_frame.c_str());
+  }
+  else if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+  {
+    pose_base.header.stamp = stamp_now;
     if (!transform_to_base_link_fn_(pose_base, nullptr))
     {
       RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
@@ -947,7 +1007,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                  pose_base.header.frame_id.c_str());
     return false;
   }
-  pose_base.header.stamp = node_->now();
+  pose_base.header.stamp = stamp_now;
 
   InsertTaskBuildResult built = insert_builder_->buildTargetInsertTask(pose_base);
   mtc::Task& task = built.task;
