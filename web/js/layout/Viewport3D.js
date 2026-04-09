@@ -354,9 +354,6 @@ function mount(containerId) {
 
     const tsPickPos = rosToThreePosition(s.targetSensorObjectPose?.position);
     const tsScene = applyBaseLinkToScene(tsPickPos);
-    const held_id = String(s.heldObjectId || '').toLowerCase();
-    const is_holding_target_sensor =
-      !!s.heldValid && (held_id.includes('targetsensor') || held_id.includes('target_sensor'));
     if (sceneApi.pickMarkerTargetSensor) {
       sceneApi.pickMarkerTargetSensor.position.copy(tsScene);
       const tsOrient = s.targetSensorObjectPose?.orientation;
@@ -371,24 +368,34 @@ function mount(containerId) {
         sceneApi.pickMarkerTargetSensor.quaternion.identity();
       }
       sceneApi.pickMarkerTargetSensor.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !is_holding_target_sensor;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
     }
     if (sceneApi.targetSensorObjectComposed) {
       sceneApi.targetSensorObjectComposed.position.copy(tsScene);
+      const compQ = sceneApi.targetSensorObjectComposed.userData.model_compensation_quaternion;
+      let modelCompensationQuat = new THREE.Quaternion(0, 0, 0, 1);
+      if (Array.isArray(compQ) && compQ.length === 4) {
+        modelCompensationQuat = new THREE.Quaternion(
+          Number(compQ[0]) || 0,
+          Number(compQ[1]) || 0,
+          Number(compQ[2]) || 0,
+          Number(compQ[3]) || 1
+        );
+      }
       const tsObjOrient = s.targetSensorObjectPose?.orientation;
       if (tsObjOrient) {
         const tqo = rosToThreeQuaternion(tsObjOrient);
         if (tqo) {
           sceneApi.targetSensorObjectComposed.quaternion.copy(
-            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tqo)
+            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tqo).multiply(modelCompensationQuat)
           );
         }
       } else {
-        sceneApi.targetSensorObjectComposed.quaternion.identity();
+        sceneApi.targetSensorObjectComposed.quaternion.copy(modelCompensationQuat);
       }
       sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
       sceneApi.targetSensorObjectComposed.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !is_holding_target_sensor;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
     }
 
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];

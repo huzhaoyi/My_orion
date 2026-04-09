@@ -317,6 +317,7 @@ function createScene(containerEl) {
   targetSensorObjectComposed.name = 'target_sensor_object_composed';
   targetSensorObjectComposed.visible = false;
   targetSensorObjectComposed.userData.valid = false;
+  targetSensorObjectComposed.userData.model_compensation_quaternion = [0, 0, 0, 1];
   const tsStlMaterial = new THREE.MeshStandardMaterial({
     color: 0xb87333,
     metalness: 0.6,
@@ -335,7 +336,10 @@ function createScene(containerEl) {
     const qLieDown = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
     );
-    tsMesh.quaternion.copy(alignQuat).multiply(qLieDown);
+    const qComp = new THREE.Quaternion().copy(alignQuat).multiply(qLieDown);
+    targetSensorObjectComposed.userData.model_compensation_quaternion =
+      [qComp.x, qComp.y, qComp.z, qComp.w];
+    tsMesh.quaternion.identity();
     tsMesh.castShadow = true;
     tsMesh.receiveShadow = true;
     tsMesh.name = 'target_sensor_stl';
@@ -353,7 +357,9 @@ function createScene(containerEl) {
     const qLieDownFb = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
     );
-    fallbackMesh.quaternion.copy(qLieDownFb);
+    targetSensorObjectComposed.userData.model_compensation_quaternion =
+      [qLieDownFb.x, qLieDownFb.y, qLieDownFb.z, qLieDownFb.w];
+    fallbackMesh.quaternion.identity();
     targetSensorObjectComposed.add(fallbackMesh);
   });
   targets.add(targetSensorObjectComposed);
