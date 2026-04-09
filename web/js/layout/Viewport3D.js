@@ -354,6 +354,9 @@ function mount(containerId) {
 
     const tsPickPos = rosToThreePosition(s.targetSensorObjectPose?.position);
     const tsScene = applyBaseLinkToScene(tsPickPos);
+    const held_id = String(s.heldObjectId || '').toLowerCase();
+    const is_holding_target_sensor =
+      !!s.heldValid && (held_id.includes('targetsensor') || held_id.includes('target_sensor'));
     if (sceneApi.pickMarkerTargetSensor) {
       sceneApi.pickMarkerTargetSensor.position.copy(tsScene);
       const tsOrient = s.targetSensorObjectPose?.orientation;
@@ -368,7 +371,7 @@ function mount(containerId) {
         sceneApi.pickMarkerTargetSensor.quaternion.identity();
       }
       sceneApi.pickMarkerTargetSensor.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !is_holding_target_sensor;
     }
     if (sceneApi.targetSensorObjectComposed) {
       sceneApi.targetSensorObjectComposed.position.copy(tsScene);
@@ -385,7 +388,7 @@ function mount(containerId) {
       }
       sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
       sceneApi.targetSensorObjectComposed.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !is_holding_target_sensor;
     }
 
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];
