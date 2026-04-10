@@ -165,6 +165,23 @@ static bool applyStaticTransformMapLikeToBaseLink(const std::vector<double>& st,
   return true;
 }
 
+Eigen::Vector3d normalizedInsertAxisLocalFromConfig(const PegInsertConfig& pi)
+{
+  if (pi.insert_axis_local_xyz.size() != 3u)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  const Eigen::Vector3d axis_local(pi.insert_axis_local_xyz[0], pi.insert_axis_local_xyz[1],
+                                   pi.insert_axis_local_xyz[2]);
+  const double n = axis_local.norm();
+  if (!std::isfinite(axis_local.x()) || !std::isfinite(axis_local.y()) || !std::isfinite(axis_local.z())
+      || n < 1e-9)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  return axis_local / n;
+}
+
 /*
  * TaskManager 构造：保存规划与执行子系统指针，创建 PickTaskBuilder、任务队列、RecoveryActions。
  * wait_for_gripped_fn 在闭合夹爪阶段用于等待夹爪反馈；scene_manager 仅被恢复与持物逻辑使用。
@@ -1055,31 +1072,69 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   }
   pose_base.header.stamp = stamp_now;
 
-  InsertTaskBuildResult built = insert_builder_->buildTargetInsertTask(pose_base);
-  mtc::Task& task = built.task;
-  const std::vector<std::string>& insert_stage_names = built.stage_names;
-
-  try
-  {
-    task.init();
-    task.enableIntrospection(true);
-  }
-  catch (mtc::InitStageException& e)
-  {
-    RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed: " << e);
-    return false;
-  }
-  moveit::core::MoveItErrorCode plan_result = task.plan(5);
-  if (!plan_result || task.solutions().empty())
-  {
-    std::ostringstream os;
-    task.explainFailure(os);
-    RCLCPP_ERROR_STREAM(LOGGER, "target insert plan failed: " << os.str());
-    return false;
-  }
-
   moveit_task_constructor_msgs::msg::Solution solution_msg;
-  task.solutions().front()->toMsg(solution_msg, &task.introspection());
+  std::vector<std::string> insert_stage_names;
+  auto try_plan_with_pose = [&](const geometry_msgs::msg::PoseStamped& pose_try,
+                                const std::string& plan_tag) -> bool
+  {
+    InsertTaskBuildResult built_local = insert_builder_->buildTargetInsertTask(pose_try);
+    mtc::Task& task_local = built_local.task;
+    try
+    {
+      task_local.init();
+      task_local.enableIntrospection(true);
+    }
+    catch (mtc::InitStageException& e)
+    {
+      RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed (" << plan_tag << "): " << e);
+      return false;
+    }
+    moveit::core::MoveItErrorCode plan_result_local = task_local.plan(5);
+    if (!plan_result_local || task_local.solutions().empty())
+    {
+      std::ostringstream os;
+      task_local.explainFailure(os);
+      RCLCPP_WARN_STREAM(LOGGER, "target insert plan failed (" << plan_tag << "): " << os.str());
+      return false;
+    }
+    task_local.solutions().front()->toMsg(solution_msg, &task_local.introspection());
+    insert_stage_names = built_local.stage_names;
+    return true;
+  };
+
+  bool planned = try_plan_with_pose(pose_base, "nominal");
+  if (!planned)
+  {
+    const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(config_.peg_insert);
+    const Eigen::Quaterniond q_nominal(pose_base.pose.orientation.w,
+                                       pose_base.pose.orientation.x,
+                                       pose_base.pose.orientation.y,
+                                       pose_base.pose.orientation.z);
+    Eigen::Vector3d axis_world = q_nominal * axis_local;
+    const double axis_norm = axis_world.norm();
+    if (axis_norm > 1e-9)
+    {
+      axis_world /= axis_norm;
+      const Eigen::Quaterniond q_flip(Eigen::AngleAxisd(M_PI, axis_world));
+      const Eigen::Quaterniond q_try = q_flip * q_nominal;
+      geometry_msgs::msg::PoseStamped pose_flip = pose_base;
+      pose_flip.pose.orientation.x = q_try.x();
+      pose_flip.pose.orientation.y = q_try.y();
+      pose_flip.pose.orientation.z = q_try.z();
+      pose_flip.pose.orientation.w = q_try.w();
+      planned = try_plan_with_pose(pose_flip, "flip_180_about_insert_axis");
+      if (planned)
+      {
+        RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with 180deg orientation fallback");
+      }
+    }
+  }
+  if (!planned)
+  {
+    RCLCPP_ERROR(LOGGER, "target insert plan failed after orientation fallback");
+    return false;
+  }
+
   if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
                                           current_task_id_, "TARGET_INSERT", insert_stage_names,
                                           makeEstopAbortFn()))
@@ -1204,6 +1259,7 @@ std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHol
   const std::vector<double>& st_map_base = config_.peg_insert.static_transform_map_to_base_link;
   const bool static_transform_usable =
       (st_map_base.size() == 7u && !isPlaceholderIdentityMapToBaseTransform(st_map_base));
+  bool dynamic_tf_probe_attempted = false;
   for (std::size_t i = 0; i < config_.peg_insert.targetsensor_slot_position_map.size(); ++i)
   {
     const std::vector<double>& hp = config_.peg_insert.targetsensor_slot_position_map[i];
@@ -1229,10 +1285,19 @@ std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHol
     }
     else if (transform_to_base_link_fn_)
     {
+      if (!dynamic_tf_probe_attempted)
+      {
+        dynamic_tf_probe_attempted = true;
+      }
       ok = transform_to_base_link_fn_(pose_base, nullptr);
     }
     if (!ok || pose_base.header.frame_id != "base_link")
     {
+      if (!static_transform_usable && dynamic_tf_probe_attempted)
+      {
+        /* 启动早期 TF 树未就绪时，避免 7 个槽位逐个打印同类告警。 */
+        return out;
+      }
       if (emit_log)
       {
         RCLCPP_WARN_THROTTLE(LOGGER, *node_->get_clock(), 3000,
