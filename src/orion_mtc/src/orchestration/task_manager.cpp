@@ -1940,7 +1940,12 @@ void TaskManager::workerLoop()
         {
           recovery_event_fn_("RESET_HELD", trigger, r1, r1 ? "ok" : "failed");
         }
-        bool r2 = recovery_actions_->clearSceneResiduals();
+        bool r2 = true;
+        if (!r1)
+        {
+          /* resetHeldState 已含场景清理，失败时才额外补一轮 clearSceneResiduals。 */
+          r2 = recovery_actions_->clearSceneResiduals();
+        }
         if (recovery_event_fn_)
         {
           recovery_event_fn_("CLEAR_SCENE", trigger, r2, r2 ? "ok" : "failed");
@@ -1956,7 +1961,9 @@ void TaskManager::workerLoop()
         }
         if (recovery_event_fn_)
         {
-          recovery_event_fn_("AUTO_RECOVERY", trigger, r1 && r2 && r3, "reset_held + clear_scene + go_home");
+          recovery_event_fn_("AUTO_RECOVERY", trigger, r1 && r2 && r3,
+                             (!r1 ? "reset_held(failed)+clear_scene+go_home"
+                                  : "reset_held(includes clear_scene)+go_home"));
         }
         std::lock_guard<std::mutex> lock(worker_mutex_);
         worker_status_ = WorkerStatus::IDLE;

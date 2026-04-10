@@ -123,7 +123,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
 
   geometry_msgs::msg::Vector3Stamped axis_msg;
   append_vector3_stamped(now, plan_frame, axis_insert, axis_msg);
-  auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", lin_planner);
+  auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", cartesian_planner);
   descend_to_slot->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
   descend_to_slot->setIKFrame(hand_frame);
   descend_to_slot->setDirection(axis_msg);
