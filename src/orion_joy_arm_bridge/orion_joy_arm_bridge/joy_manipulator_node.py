@@ -747,9 +747,7 @@ class JoyManipulatorNode(Node):
             q0 = self._joint_pos[name]
             sg = self._arm_pair_sign(left, self._arm_plus[i], self._arm_minus[i])
             dq = float(sg) * self._arm_max_speed * scale_arm * self._dt
-            lo = self._arm_low[i]
-            hi = self._arm_high[i]
-            arm_q.append(_clamp(q0 + dq, lo, hi))
+            arm_q.append(q0 + dq)
 
         h7n = self._hand_joint_names[0]
         h8n = self._hand_joint_names[1]

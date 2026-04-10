@@ -80,7 +80,10 @@ def _rotation_matrix_from_direction(direction: np.ndarray) -> np.ndarray:
     return R
 
 
-def _rotation_matrix_side_grasp_from_direction(direction: np.ndarray) -> np.ndarray:
+def _rotation_matrix_side_grasp_from_direction(
+    direction: np.ndarray,
+    y_axis_hint: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """
     由圆柱轴方向构造侧向抓取坐标系（base_link 下）的旋转矩阵。
     约定：y = 夹爪闭合方向（垂直于圆柱轴），z = 末端接近方向（垂直于圆柱轴，从外侧指向物体）。
@@ -95,17 +98,30 @@ def _rotation_matrix_side_grasp_from_direction(direction: np.ndarray) -> np.ndar
         a = a / n
     if a[2] < 0.0:
         a = -a
-    ref = np.array([0.0, 0.0, 1.0])
-    if abs(float(np.dot(a, ref))) > 0.95:
-        ref = np.array([1.0, 0.0, 0.0])
-    y = np.cross(a, ref)
-    ny = np.linalg.norm(y)
-    if ny < 1e-9:
-        y = np.array([1.0, 0.0, 0.0]) if abs(a[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
-        y = y - np.dot(y, a) * a
-        y = y / np.linalg.norm(y)
-    else:
-        y = y / ny
+    y = None
+    if y_axis_hint is not None:
+        y_hint = np.asarray(y_axis_hint, dtype=float).ravel()[:3]
+        if np.linalg.norm(y_hint) > 1e-9:
+            y_hint = y_hint / np.linalg.norm(y_hint)
+            y_proj = y_hint - np.dot(y_hint, a) * a
+            ny_proj = np.linalg.norm(y_proj)
+            if ny_proj > 1e-9:
+                y = y_proj / ny_proj
+                # 保证与历史 y 轴方向一致，避免等价基向量符号翻转造成离散跳变
+                if float(np.dot(y, y_hint)) < 0.0:
+                    y = -y
+    if y is None:
+        ref = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(a, ref))) > 0.95:
+            ref = np.array([1.0, 0.0, 0.0])
+        y = np.cross(a, ref)
+        ny = np.linalg.norm(y)
+        if ny < 1e-9:
+            y = np.array([1.0, 0.0, 0.0]) if abs(a[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+            y = y - np.dot(y, a) * a
+            y = y / np.linalg.norm(y)
+        else:
+            y = y / ny
     z = np.cross(y, a)
     z = z / np.linalg.norm(z)
     x = np.cross(y, z)
@@ -133,6 +149,33 @@ def _quat_to_rotation_matrix(qx: float, qy: float, qz: float, qw: float) -> np.n
             1.0 - 2.0 * (qx * qx + qy * qy),
         ],
     ])
+
+
+def _rotation_matrix_from_rpy(roll: float, pitch: float, yaw: float) -> np.ndarray:
+    """RPY 弧度 -> 3x3 旋转矩阵（内旋 ZYX）。"""
+    cx = math.cos(roll)
+    sx = math.sin(roll)
+    cy = math.cos(pitch)
+    sy = math.sin(pitch)
+    cz = math.cos(yaw)
+    sz = math.sin(yaw)
+    return np.array([
+        [cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx],
+        [sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx],
+        [-sy, cy * sx, cy * cx],
+    ])
+
+
+def _angles_to_radians(a0: float, a1: float, a2: float) -> Tuple[float, float, float]:
+    """
+    角度自适应转弧度：
+    - 若任一分量绝对值大于 2π+裕量，视为“度”并转弧度；
+    - 否则按“弧度”直接使用。
+    """
+    vals = [float(a0), float(a1), float(a2)]
+    if any(abs(v) > (2.0 * math.pi + 0.1) for v in vals):
+        return (math.radians(vals[0]), math.radians(vals[1]), math.radians(vals[2]))
+    return (vals[0], vals[1], vals[2])
 
 
 class TargetSensorToObjectPoseNode(Node):
@@ -199,6 +242,7 @@ class TargetSensorToObjectPoseNode(Node):
         self._last_rov_pose_in_world: Optional[PoseStamped] = None
         self._last_object_pose: Optional[PoseStamped] = None
         self._last_target_sensor_index: int = -1
+        self._last_side_grasp_y_by_index: dict[int, np.ndarray] = {}
 
         self._sub_target = self.create_subscription(
             TargetSensor,
@@ -346,8 +390,10 @@ class TargetSensorToObjectPoseNode(Node):
                 self._tf_broadcaster.sendTransform(t)
 
         # 发布多目标集合（base_link），供 MTC 目标选择 + 抓取候选
+        has_euler = hasattr(msg, "euler_angles") and len(msg.euler_angles) >= n * 3
         positions_base = []
         directions_base = []
+        rotations_base = []
         for k in range(n):
             i = k * 3
             px = msg.positions[i]
@@ -371,6 +417,15 @@ class TargetSensorToObjectPoseNode(Node):
             d_base = d_base / np.linalg.norm(d_base)
             positions_base.extend([float(p_base[0]), float(p_base[1]), float(p_base[2])])
             directions_base.extend([float(d_base[0]), float(d_base[1]), float(d_base[2])])
+            R_obj_base = None
+            if has_euler:
+                er = msg.euler_angles[i]
+                ep = msg.euler_angles[i + 1]
+                ey = msg.euler_angles[i + 2]
+                rr, rp, ry = _angles_to_radians(er, ep, ey)
+                R_obj_world = _rotation_matrix_from_rpy(rr, rp, ry)
+                R_obj_base = R_rov.T @ R_obj_world
+            rotations_base.append(R_obj_base)
 
         ts_msg = TargetSet()
         ts_msg.header.stamp = stamp
@@ -380,7 +435,11 @@ class TargetSensorToObjectPoseNode(Node):
             ib = k * 3
             p_b = np.array(positions_base[ib : ib + 3], dtype=float)
             d_b = np.array(directions_base[ib : ib + 3], dtype=float)
-            r_g = _rotation_matrix_side_grasp_from_direction(d_b)
+            r_g = rotations_base[k]
+            if r_g is None:
+                y_hint = self._last_side_grasp_y_by_index.get(k)
+                r_g = _rotation_matrix_side_grasp_from_direction(d_b, y_hint)
+                self._last_side_grasp_y_by_index[k] = np.array(r_g[:, 1], dtype=float)
             q_g = _quat_from_rotation_matrix(r_g)
             pst = PoseStamped()
             pst.header.stamp = stamp
@@ -419,7 +478,11 @@ class TargetSensorToObjectPoseNode(Node):
         )
         d_base = R_rov.T @ d_world
         d_base = d_base / np.linalg.norm(d_base)
-        R_grasp_base = _rotation_matrix_side_grasp_from_direction(d_base)
+        R_grasp_base = rotations_base[idx] if idx < len(rotations_base) else None
+        if R_grasp_base is None:
+            y_hint_selected = self._last_side_grasp_y_by_index.get(idx)
+            R_grasp_base = _rotation_matrix_side_grasp_from_direction(d_base, y_hint_selected)
+            self._last_side_grasp_y_by_index[idx] = np.array(R_grasp_base[:, 1], dtype=float)
         q_grasp = _quat_from_rotation_matrix(R_grasp_base)
         out = PoseStamped()
         out.header.stamp = stamp
