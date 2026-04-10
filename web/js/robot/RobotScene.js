@@ -90,22 +90,18 @@ function makeAxisLabel(text, hexColor) {
 
 function makeHoleIndexLabel(text) {
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = 96;
+  canvas.height = 96;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  ctx.arc(64, 64, 40, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255, 214, 0, 0.98)';
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(15, 23, 42, 0.98)';
-  ctx.stroke();
-  ctx.font = 'bold 56px sans-serif';
-  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 66px sans-serif';
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.96)';
+  ctx.fillStyle = 'rgba(255, 245, 157, 0.98)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 64, 66);
+  ctx.strokeText(text, 48, 50);
+  ctx.fillText(text, 48, 50);
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
   const mat = new THREE.SpriteMaterial({
@@ -117,7 +113,7 @@ function makeHoleIndexLabel(text) {
   });
   const sprite = new THREE.Sprite(mat);
   sprite.renderOrder = 999;
-  sprite.scale.set(0.16, 0.16, 1);
+  sprite.scale.set(0.09, 0.09, 1);
   return sprite;
 }
 
@@ -457,8 +453,8 @@ function createScene(containerEl) {
     inner.name = 'target_insert_hole_inner';
     ring.add(inner);
     const holeIndexLabel = makeHoleIndexLabel(String(i + 1));
-    holeIndexLabel.position.set(0, 0.20, 0);
-    holePoseNode.add(holeIndexLabel);
+    holeIndexLabel.position.set(0, 0.002, 0);
+    ring.add(holeIndexLabel);
     holePoseNode.add(ring);
     targetInsertHolesGroup.add(holePoseNode);
   }

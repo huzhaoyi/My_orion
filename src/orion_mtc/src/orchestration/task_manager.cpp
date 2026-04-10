@@ -1199,6 +1199,7 @@ std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHol
     return out;
   }
   const rclcpp::Time stamp_now = node_->now();
+  const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
   const bool use_static_insert = config_.peg_insert.use_static_map_to_base_for_target_insert;
   const std::vector<double>& st_map_base = config_.peg_insert.static_transform_map_to_base_link;
   const bool static_transform_usable =
@@ -1212,7 +1213,7 @@ std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHol
     }
     geometry_msgs::msg::PoseStamped pose_base;
     pose_base.header.frame_id = "map";
-    pose_base.header.stamp = stamp_now;
+    pose_base.header.stamp = stamp_latest_tf;
     pose_base.pose.position.x = hp[0];
     pose_base.pose.position.y = hp[1];
     pose_base.pose.position.z = hp[2];
@@ -1223,6 +1224,7 @@ std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHol
     bool ok = false;
     if (use_static_insert && static_transform_usable)
     {
+      pose_base.header.stamp = stamp_now;
       ok = applyStaticTransformMapLikeToBaseLink(st_map_base, stamp_now, pose_base);
     }
     else if (transform_to_base_link_fn_)
