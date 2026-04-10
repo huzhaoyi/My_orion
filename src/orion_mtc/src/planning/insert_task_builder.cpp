@@ -16,14 +16,31 @@ namespace orion_mtc
 namespace
 {
 
-Eigen::Vector3d insert_axis_from_hole_pose(const geometry_msgs::msg::Pose& p)
+Eigen::Vector3d normalized_insert_axis_local(const std::vector<double>& axis_local_param)
 {
+  if (axis_local_param.size() != 3u)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  const Eigen::Vector3d axis(axis_local_param[0], axis_local_param[1], axis_local_param[2]);
+  const double n = axis.norm();
+  if (!std::isfinite(axis.x()) || !std::isfinite(axis.y()) || !std::isfinite(axis.z()) || n < 1e-9)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  return axis / n;
+}
+
+Eigen::Vector3d insert_axis_from_hole_pose(const geometry_msgs::msg::Pose& p,
+                                           const std::vector<double>& axis_local_param)
+{
+  const Eigen::Vector3d axis_local = normalized_insert_axis_local(axis_local_param);
   const Eigen::Quaterniond q(p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z);
-  Eigen::Vector3d v = q * Eigen::Vector3d(0.0, 0.0, -1.0);
+  Eigen::Vector3d v = q * axis_local;
   const double n = v.norm();
   if (n < 1e-9)
   {
-    return Eigen::Vector3d(0.0, 0.0, -1.0);
+    return axis_local;
   }
   return v / n;
 }
@@ -87,7 +104,8 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   cartesian_planner->setMaxAccelerationScalingFactor(static_cast<double>(pi.cartesian_acceleration_scaling));
   cartesian_planner->setStepSize(static_cast<double>(pi.cartesian_step_size));
 
-  const Eigen::Vector3d axis_insert = insert_axis_from_hole_pose(target_pose.pose);
+  const Eigen::Vector3d axis_insert =
+      insert_axis_from_hole_pose(target_pose.pose, pi.insert_axis_local_xyz);
 
   geometry_msgs::msg::PoseStamped pre_pose = target_pose;
   pre_pose.pose.position.x -= axis_insert.x() * pre_offset;

@@ -51,13 +51,15 @@ struct TargetSensorPickConfig
 };
 
 /*
- * TargetSensor 插孔（peg-in-hole）：几何沿 target_pose 姿态的局部 -Z 为插入轴（与历史 base_link 竖直孔一致）。
+ * TargetSensor 插孔（peg-in-hole）：插入轴由 target_pose 旋转后的局部轴向定义（insert_axis_local_xyz）。
  */
 struct PegInsertConfig
 {
   double pre_offset_m = 0.10;
   double insert_depth_m = 0.04;
   double retreat_m = 0.12;
+  /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */
+  std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };
   double lin_velocity_scaling = 0.2;
   double lin_acceleration_scaling = 0.2;
   double cartesian_velocity_scaling = 0.25;

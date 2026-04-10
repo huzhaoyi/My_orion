@@ -389,6 +389,7 @@ function mount(containerId) {
     }
     if (sceneApi.targetInsertHolesGroup) {
       const holePoses = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses : [];
+      const hasHolePoses = holePoses.length > 0;
       for (let i = 0; i < sceneApi.targetInsertHolesGroup.children.length; i += 1) {
         const ring = sceneApi.targetInsertHolesGroup.children[i];
         const h = holePoses[i];
@@ -405,9 +406,9 @@ function mount(containerId) {
         } else {
           ring.quaternion.identity();
         }
-        ring.visible = !!s.targetInsertHolesValid;
+        ring.visible = hasHolePoses;
       }
-      sceneApi.targetInsertHolesGroup.visible = !!s.targetInsertHolesValid;
+      sceneApi.targetInsertHolesGroup.visible = hasHolePoses;
     }
 
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];

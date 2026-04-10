@@ -199,6 +199,14 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<double>>("peg_insert.insert_axis_local_xyz",
+                                                 std::vector<double>{ 1.0, 0.0, 0.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("peg_insert.lin_velocity_scaling", 0.2);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -345,6 +353,11 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
   node->get_parameter("peg_insert.insert_depth_m", config.peg_insert.insert_depth_m);
   node->get_parameter("peg_insert.retreat_m", config.peg_insert.retreat_m);
+  node->get_parameter("peg_insert.insert_axis_local_xyz", config.peg_insert.insert_axis_local_xyz);
+  if (config.peg_insert.insert_axis_local_xyz.size() != 3u)
+  {
+    config.peg_insert.insert_axis_local_xyz = { 1.0, 0.0, 0.0 };
+  }
   node->get_parameter("peg_insert.lin_velocity_scaling", config.peg_insert.lin_velocity_scaling);
   node->get_parameter("peg_insert.lin_acceleration_scaling", config.peg_insert.lin_acceleration_scaling);
   node->get_parameter("peg_insert.cartesian_velocity_scaling", config.peg_insert.cartesian_velocity_scaling);
