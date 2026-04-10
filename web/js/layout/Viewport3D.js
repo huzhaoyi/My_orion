@@ -116,10 +116,6 @@ function createLayerToggles(containerEl, sceneApiRef) {
             sceneApiRef.targetSensorObjectComposed.visible =
               cb.checked && !!st.targetSensorObjectPoseValid;
           }
-          if (sceneApiRef.targetInsertHolesGroup) {
-            sceneApiRef.targetInsertHolesGroup.visible =
-              cb.checked && !!st.targetInsertHolesValid;
-          }
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
             const fv = !!st.fusedObjectPoseValid;
@@ -409,9 +405,9 @@ function mount(containerId) {
         } else {
           ring.quaternion.identity();
         }
-        ring.visible = layerToggles.showTargets && !!s.targetInsertHolesValid;
+        ring.visible = !!s.targetInsertHolesValid;
       }
-      sceneApi.targetInsertHolesGroup.visible = layerToggles.showTargets && !!s.targetInsertHolesValid;
+      sceneApi.targetInsertHolesGroup.visible = !!s.targetInsertHolesValid;
     }
 
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];

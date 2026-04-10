@@ -240,6 +240,7 @@ private:
   std::deque<JobExecutionRecordEntry> recent_records_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr target_insert_holes_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr target_insert_hole_markers_pub_;
+  rclcpp::TimerBase::SharedPtr target_insert_hole_debug_timer_;
 };
 
 }  // namespace orion_mtc

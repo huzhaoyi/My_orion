@@ -190,6 +190,8 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
   target_insert_holes_pub_ = node_->create_publisher<geometry_msgs::msg::PoseArray>(TARGET_INSERT_HOLES_TOPIC, qos);
   target_insert_hole_markers_pub_ =
       node_->create_publisher<visualization_msgs::msg::MarkerArray>(TARGET_INSERT_HOLE_MARKERS_TOPIC, qos);
+  target_insert_hole_debug_timer_ = node_->create_wall_timer(
+      std::chrono::milliseconds(1000), [this]() { publishTargetInsertHoleDebug(); });
   publishTargetInsertHoleDebug();
 }
 
@@ -1247,7 +1249,7 @@ void TaskManager::publishTargetInsertHoleDebug()
   {
     return;
   }
-  const auto holes = collectTargetInsertHolePosesBaseLink(false);
+  const auto holes = collectTargetInsertHolePosesBaseLink(true);
   geometry_msgs::msg::PoseArray pose_array;
   pose_array.header.frame_id = "base_link";
   pose_array.header.stamp = node_->now();

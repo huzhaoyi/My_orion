@@ -38,6 +38,10 @@ const TARGET_INSERT_HOLE_INNER_RADIUS = TARGET_INSERT_HOLE_DIAMETER_M * 0.5;
 const TARGET_INSERT_HOLE_RING_THICKNESS = 0.006;
 const TARGET_INSERT_HOLE_OUTER_RADIUS = TARGET_INSERT_HOLE_INNER_RADIUS + TARGET_INSERT_HOLE_RING_THICKNESS;
 const TARGET_INSERT_HOLE_THICKNESS = 0.012;
+/* 插孔模型局部轴向补偿（可调参）：当前仅绕 Z 轴 +90°。 */
+const TARGET_INSERT_HOLE_AXIS_FLIP_RX = 0.0;
+const TARGET_INSERT_HOLE_AXIS_FLIP_RY = 0.0;
+const TARGET_INSERT_HOLE_AXIS_FLIP_RZ = Math.PI / 2.0;
 
 /**
  * 将 target.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
@@ -375,6 +379,9 @@ function createScene(containerEl) {
   targetInsertHolesGroup.name = 'target_insert_holes_group';
   targetInsertHolesGroup.visible = false;
   for (let i = 0; i < 7; i += 1) {
+    const holePoseNode = new THREE.Group();
+    holePoseNode.name = `target_insert_hole_${i}`;
+    holePoseNode.visible = false;
     const ring = new THREE.Mesh(
       new THREE.CylinderGeometry(
         TARGET_INSERT_HOLE_OUTER_RADIUS,
@@ -394,6 +401,13 @@ function createScene(containerEl) {
         opacity: 0.55,
       })
     );
+    ring.quaternion.setFromEuler(
+      new THREE.Euler(
+        TARGET_INSERT_HOLE_AXIS_FLIP_RX,
+        TARGET_INSERT_HOLE_AXIS_FLIP_RY,
+        TARGET_INSERT_HOLE_AXIS_FLIP_RZ
+      )
+    );
     const inner = new THREE.Mesh(
       new THREE.CylinderGeometry(
         TARGET_INSERT_HOLE_INNER_RADIUS,
@@ -406,10 +420,9 @@ function createScene(containerEl) {
       })
     );
     inner.name = 'target_insert_hole_inner';
-    ring.name = `target_insert_hole_${i}`;
-    ring.visible = false;
     ring.add(inner);
-    targetInsertHolesGroup.add(ring);
+    holePoseNode.add(ring);
+    targetInsertHolesGroup.add(holePoseNode);
   }
   targets.add(targetInsertHolesGroup);
 
