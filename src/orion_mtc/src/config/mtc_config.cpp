@@ -155,6 +155,13 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<double>("target_sensor_pick.grasp_depth_m", 0.015);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<std::vector<double>>(
         "target_sensor_pick.pregrasp_distances_m",
         std::vector<double>{ 0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06 });
@@ -328,6 +335,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                       config.cable_grasp.approach_lin_acceleration_scaling);
   node->get_parameter("cable_side_grasp.approach_normal_sign", config.cable_grasp.approach_normal_sign);
   node->get_parameter("target_sensor_pick.approach_normal_sign", config.target_sensor_pick.approach_normal_sign);
+  node->get_parameter("target_sensor_pick.grasp_depth_m", config.target_sensor_pick.grasp_depth_m);
   node->get_parameter("target_sensor_pick.pregrasp_distances_m", config.target_sensor_pick.pregrasp_distances_m);
   node->get_parameter("target_sensor_pick.retreat_distance_m", config.target_sensor_pick.retreat_distance_m);
   if (config.target_sensor_pick.pregrasp_distances_m.empty())

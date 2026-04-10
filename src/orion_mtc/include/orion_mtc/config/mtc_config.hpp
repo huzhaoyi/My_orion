@@ -43,6 +43,8 @@ struct TargetSensorPickConfig
 {
   /** 沿物体局部 +Z 定义的接近方向再乘此符号（<0 取反），与 HoloOcean/缆绳侧抓对齐 */
   double approach_normal_sign = -1.0;
+  /** 终抓阶段沿接近方向前推的“吃入深度” [m]（参考缆绳 grasp_depth 语义）。 */
+  double grasp_depth_m = 0.015;
   /** 预抓距候选 [m]，由大到小尝试（更远预抓更易在臂工作空间内求 IK） */
   std::vector<double> pregrasp_distances_m{ 0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06 };
   double retreat_distance_m = 0.12;

@@ -55,6 +55,7 @@ cable_side_grasp:
 # TargetSensor 抓取 peg：接近方向符号与上列 cable_side_grasp.approach_normal_sign 语义一致（HO 常需 -1）。
 target_sensor_pick:
   approach_normal_sign: -1.0
+  grasp_depth_m: 0.015
   pregrasp_distances_m: [0.14]
   retreat_distance_m: 0.12
 

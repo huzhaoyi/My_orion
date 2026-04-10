@@ -294,8 +294,10 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
   const Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
 
   const double retreat_distance = config_.target_sensor_pick.retreat_distance_m;
-  const Eigen::Vector3d p_grasp(object_pose.pose.position.x, object_pose.pose.position.y,
-                                object_pose.pose.position.z);
+  const double grasp_depth = std::max(0.0, config_.target_sensor_pick.grasp_depth_m);
+  const Eigen::Vector3d p_object(object_pose.pose.position.x, object_pose.pose.position.y,
+                                 object_pose.pose.position.z);
+  const Eigen::Vector3d p_grasp = p_object + approach_dir * grasp_depth;
 
   Eigen::Isometry3d pregrasp_iso = Eigen::Isometry3d::Identity();
   pregrasp_iso.linear() = R_tool;
