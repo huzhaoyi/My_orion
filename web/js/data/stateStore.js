@@ -683,18 +683,10 @@ function setTargetSet(msg) {
       },
     };
   });
-  const hole_rows = rows.map((r) => ({
-    position: r.position,
-    orientation: r.orientation,
-  }));
   setState({
     targetSetTargets: rows,
     targetSetValid: true,
     targetSetUpdatedAt: Date.now(),
-    /* 前端孔位常显兜底：当 /target_insert_holes 尚未到达时，先用 target_set 位姿显示孔位。 */
-    targetInsertHolePoses: hole_rows,
-    targetInsertHolesValid: hole_rows.length > 0,
-    targetInsertHolesUpdatedAt: Date.now(),
   });
 }
 
