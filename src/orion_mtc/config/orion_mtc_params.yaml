@@ -140,4 +140,4 @@ runtime_policy:
 # true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）。
 use_joy_manipulator: true
 # true：启动 RViz；默认 false 便于无头仿真与网页联调。
-start_rviz: false
+start_rviz: true

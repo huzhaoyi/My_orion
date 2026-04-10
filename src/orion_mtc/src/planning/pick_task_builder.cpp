@@ -20,19 +20,19 @@ namespace orion_mtc
 namespace
 {
 /*
- * 与 cable_side_grasp::makeBaseRotation 同构：gripper_tcp 约定 y=栓/缆轴、z=接近方向（从预抓指向抓取）。
- * approach_dir 为已含 approach_normal_sign 的世界系单位方向；栓轴取物体 +X 在 ⊥approach 平面上的投影。
+ * TargetSensor 顶抓构姿：gripper_tcp 的 z 为接近方向（沿 peg 轴），
+ * y 由物体局部 +Z 在 ⊥z 平面上的投影确定，保证姿态解连续且可复现。
  */
 Eigen::Matrix3d targetSensorToolRotation(const Eigen::Quaterniond& q_object,
                                         const Eigen::Vector3d& approach_dir)
 {
   const Eigen::Vector3d n = approach_dir.normalized();
-  Eigen::Vector3d peg_axis = (q_object * Eigen::Vector3d::UnitX()).normalized();
-  Eigen::Vector3d y_axis = peg_axis - peg_axis.dot(n) * n;
+  Eigen::Vector3d ref = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  Eigen::Vector3d y_axis = ref - ref.dot(n) * n;
   if (y_axis.norm() < 1e-3)
   {
-    peg_axis = (q_object * Eigen::Vector3d::UnitY()).normalized();
-    y_axis = peg_axis - peg_axis.dot(n) * n;
+    ref = (q_object * Eigen::Vector3d::UnitY()).normalized();
+    y_axis = ref - ref.dot(n) * n;
   }
   if (y_axis.norm() < 1e-3)
   {
@@ -219,7 +219,7 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
 
 /*
  * TargetSensor 抓取：阶段顺序与缆绳 buildFromCableCandidate 同构（不加缆段）；规划全程 Pilz PTP/LIN。
- * 预抓位姿与缆绳侧抓一致：TCP y=栓轴（物体 +X 在 ⊥接近 平面内投影）、z=接近（物体 +Z），再沿 -z 退预抓距。
+ * 顶抓定义：接近方向沿物体局部 +X（乘 approach_normal_sign），再沿 -z 退预抓距。
  */
 mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     const geometry_msgs::msg::PoseStamped& object_pose,
@@ -288,7 +288,7 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
       object_pose.pose.orientation.y,
       object_pose.pose.orientation.z);
   q_object.normalize();
-  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
   const double approach_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
   const Eigen::Vector3d approach_dir = n_geom * approach_sign;
   const Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
