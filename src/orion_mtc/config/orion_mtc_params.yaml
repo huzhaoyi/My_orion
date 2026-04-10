@@ -55,7 +55,7 @@ cable_side_grasp:
 # TargetSensor 抓取 peg：接近方向符号与上列 cable_side_grasp.approach_normal_sign 语义一致（HO 常需 -1）。
 target_sensor_pick:
   approach_normal_sign: -1.0
-  pregrasp_distances_m: [0.14, 0.10, 0.08, 0.06]
+  pregrasp_distances_m: [0.14]
   retreat_distance_m: 0.12
 
 # TargetSensor 插孔：孔心 map 系 [m] 以 peg_insert.targetsensor_slot_*_position_map 为准（与 UE FVector 一致）。

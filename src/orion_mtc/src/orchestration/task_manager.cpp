@@ -343,94 +343,52 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     const std::string held_id = object_id.empty() ? "targetsensor" : object_id;
     const std::string plan_frame = "base_link";
-    const std::vector<double> roll_candidates = {
-        0.0,
-        M_PI / 2.0,
-        -M_PI / 2.0,
-        M_PI,
-        M_PI / 4.0,
-        -M_PI / 4.0,
-        3.0 * M_PI / 4.0,
-        -3.0 * M_PI / 4.0,
-    };
-    const Eigen::Quaterniond q_base(
-        pose_base.pose.orientation.w,
-        pose_base.pose.orientation.x,
-        pose_base.pose.orientation.y,
-        pose_base.pose.orientation.z);
-    bool plan_ok = false;
-    std::size_t plan_candidate_index = 0;
-    double plan_pregrasp_m = 0.0;
     std::string last_plan_detail = "";
     geometry_msgs::msg::PoseStamped pick_pose_plan = pose_base;
     moveit_task_constructor_msgs::msg::Solution solution_msg;
     moveit::core::RobotModelConstPtr task_robot_model;
+
+    double plan_pregrasp_m = 0.10;
     const std::vector<double>& ts_pre = config_.target_sensor_pick.pregrasp_distances_m;
-    for (std::size_t i = 0; i < roll_candidates.size(); ++i)
+    for (double pre_m : ts_pre)
     {
-      const double roll = roll_candidates[i];
-      const Eigen::Quaterniond q_roll(Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitZ()));
-      const Eigen::Quaterniond q_try = (q_base * q_roll).normalized();
-      geometry_msgs::msg::PoseStamped pose_try = pose_base;
-      pose_try.pose.orientation.x = q_try.x();
-      pose_try.pose.orientation.y = q_try.y();
-      pose_try.pose.orientation.z = q_try.z();
-      pose_try.pose.orientation.w = q_try.w();
-
-      for (double pre_m : ts_pre)
+      if (pre_m > 1e-6)
       {
-        if (pre_m <= 1e-6)
-        {
-          continue;
-        }
-        mtc::Task task = pick_builder_->buildFromTargetSensorPose(pose_try, plan_frame, pre_m);
-        try
-        {
-          task.init();
-          task.enableIntrospection(true);
-          task.introspection().publishTaskDescription();
-        }
-        catch (mtc::InitStageException& e)
-        {
-          last_plan_detail = e.what();
-          RCLCPP_WARN(LOGGER,
-                      "handlePick: targetsensor init failed (roll=%.1f deg pre=%.3fm): %s",
-                      roll * 180.0 / M_PI, pre_m, e.what());
-          continue;
-        }
-
-        moveit::core::MoveItErrorCode plan_result = task.plan(5);
-        if (!plan_result || task.solutions().empty())
-        {
-          std::ostringstream os;
-          task.explainFailure(os);
-          last_plan_detail = os.str();
-          RCLCPP_WARN(LOGGER,
-                      "handlePick: targetsensor plan failed (roll=%.1f deg pre=%.3fm): %s",
-                      roll * 180.0 / M_PI, pre_m, last_plan_detail.c_str());
-          continue;
-        }
-
-        task.solutions().front()->toMsg(solution_msg, &task.introspection());
-        task_robot_model = task.getRobotModel();
-        pick_pose_plan = pose_try;
-        plan_candidate_index = i;
         plan_pregrasp_m = pre_m;
-        plan_ok = true;
-        break;
-      }
-      if (plan_ok)
-      {
         break;
       }
     }
-    if (!plan_ok)
+
+    mtc::Task task = pick_builder_->buildFromTargetSensorPose(pick_pose_plan, plan_frame, plan_pregrasp_m);
+    try
     {
-      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor PLAN_FAILED(all candidates): %s",
-                   last_plan_detail.c_str());
+      task.init();
+      task.enableIntrospection(true);
+      task.introspection().publishTaskDescription();
+    }
+    catch (mtc::InitStageException& e)
+    {
+      last_plan_detail = e.what();
+      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor init failed (top-grasp fixed pre=%.3fm): %s",
+                   plan_pregrasp_m, e.what());
+      setStateError("TARGET_SENSOR_PICK: INIT_FAILED");
+      return false;
+    }
+
+    moveit::core::MoveItErrorCode plan_result = task.plan(5);
+    if (!plan_result || task.solutions().empty())
+    {
+      std::ostringstream os;
+      task.explainFailure(os);
+      last_plan_detail = os.str();
+      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor PLAN_FAILED(top-grasp fixed pre=%.3fm): %s",
+                   plan_pregrasp_m, last_plan_detail.c_str());
       setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
       return false;
     }
+
+    task.solutions().front()->toMsg(solution_msg, &task.introspection());
+    task_robot_model = task.getRobotModel();
     Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
     grasp_pose.translate(Eigen::Vector3d(obj_x, obj_y, obj_z));
     grasp_pose.rotate(Eigen::Quaterniond(
@@ -441,8 +399,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     geometry_msgs::msg::Pose object_pose_at_grasp;
     isometryToPose(grasp_pose, object_pose_at_grasp);
     RCLCPP_INFO(LOGGER,
-                "handlePick: targetsensor selected roll_idx=%zu pregrasp_dist=%.3fm",
-                plan_candidate_index, plan_pregrasp_m);
+                "handlePick: targetsensor top-grasp fixed pregrasp_dist=%.3fm",
+                plan_pregrasp_m);
     StageReportFn stage_report = nullptr;
     if (stage_report_fn_)
     {
