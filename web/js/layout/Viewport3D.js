@@ -372,26 +372,16 @@ function mount(containerId) {
     }
     if (sceneApi.targetSensorObjectComposed) {
       sceneApi.targetSensorObjectComposed.position.copy(tsScene);
-      const compQ = sceneApi.targetSensorObjectComposed.userData.model_compensation_quaternion;
-      let modelCompensationQuat = new THREE.Quaternion(0, 0, 0, 1);
-      if (Array.isArray(compQ) && compQ.length === 4) {
-        modelCompensationQuat = new THREE.Quaternion(
-          Number(compQ[0]) || 0,
-          Number(compQ[1]) || 0,
-          Number(compQ[2]) || 0,
-          Number(compQ[3]) || 1
-        );
-      }
       const tsObjOrient = s.targetSensorObjectPose?.orientation;
       if (tsObjOrient) {
         const tqo = rosToThreeQuaternion(tsObjOrient);
         if (tqo) {
           sceneApi.targetSensorObjectComposed.quaternion.copy(
-            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tqo).multiply(modelCompensationQuat)
+            new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(tqo)
           );
         }
       } else {
-        sceneApi.targetSensorObjectComposed.quaternion.copy(modelCompensationQuat);
+        sceneApi.targetSensorObjectComposed.quaternion.identity();
       }
       sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
       sceneApi.targetSensorObjectComposed.visible =

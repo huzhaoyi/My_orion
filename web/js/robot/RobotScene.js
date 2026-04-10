@@ -317,7 +317,6 @@ function createScene(containerEl) {
   targetSensorObjectComposed.name = 'target_sensor_object_composed';
   targetSensorObjectComposed.visible = false;
   targetSensorObjectComposed.userData.valid = false;
-  targetSensorObjectComposed.userData.model_compensation_quaternion = [0, 0, 0, 1];
   const tsStlMaterial = new THREE.MeshStandardMaterial({
     color: 0xb87333,
     metalness: 0.6,
@@ -326,19 +325,12 @@ function createScene(containerEl) {
   loadStlGeometry(TARGET_SENSOR_STL_URL).then((geometry) => {
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
-    const alignQuat = getTargetSensorAlignQuaternionByGeometry(geometry);
     if (geometry.boundingBox) {
       const center = new THREE.Vector3();
       geometry.boundingBox.getCenter(center);
       geometry.translate(-center.x, -center.y, -center.z);
     }
     const tsMesh = new THREE.Mesh(geometry, tsStlMaterial);
-    const qLieDown = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
-    );
-    const qComp = new THREE.Quaternion().copy(alignQuat).multiply(qLieDown);
-    targetSensorObjectComposed.userData.model_compensation_quaternion =
-      [qComp.x, qComp.y, qComp.z, qComp.w];
     tsMesh.quaternion.identity();
     tsMesh.castShadow = true;
     tsMesh.receiveShadow = true;
@@ -354,11 +346,6 @@ function createScene(containerEl) {
         roughness: 0.4,
       })
     );
-    const qLieDownFb = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(TARGET_SENSOR_LIE_DOWN_RX, 0, 0)
-    );
-    targetSensorObjectComposed.userData.model_compensation_quaternion =
-      [qLieDownFb.x, qLieDownFb.y, qLieDownFb.z, qLieDownFb.w];
     fallbackMesh.quaternion.identity();
     targetSensorObjectComposed.add(fallbackMesh);
   });
