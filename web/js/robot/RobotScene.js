@@ -33,6 +33,11 @@ const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target.stl';
 const TARGET_SENSOR_AXIS_FLIP_RX = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RY = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RZ = Math.PI;
+const TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
+const TARGET_INSERT_HOLE_INNER_RADIUS = TARGET_INSERT_HOLE_DIAMETER_M * 0.5;
+const TARGET_INSERT_HOLE_RING_THICKNESS = 0.006;
+const TARGET_INSERT_HOLE_OUTER_RADIUS = TARGET_INSERT_HOLE_INNER_RADIUS + TARGET_INSERT_HOLE_RING_THICKNESS;
+const TARGET_INSERT_HOLE_THICKNESS = 0.012;
 
 /**
  * 将 target.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
@@ -365,6 +370,49 @@ function createScene(containerEl) {
   });
   targets.add(targetSensorObjectComposed);
 
+  /* 插孔调试可视化：环形孔位（base_link->scene 变换后由 Viewport3D 更新位姿）。 */
+  const targetInsertHolesGroup = new THREE.Group();
+  targetInsertHolesGroup.name = 'target_insert_holes_group';
+  targetInsertHolesGroup.visible = false;
+  for (let i = 0; i < 7; i += 1) {
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        TARGET_INSERT_HOLE_OUTER_RADIUS,
+        TARGET_INSERT_HOLE_OUTER_RADIUS,
+        TARGET_INSERT_HOLE_THICKNESS,
+        36,
+        1,
+        false,
+        0,
+        Math.PI * 2
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x22d3ee,
+        metalness: 0.35,
+        roughness: 0.55,
+        transparent: true,
+        opacity: 0.55,
+      })
+    );
+    const inner = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        TARGET_INSERT_HOLE_INNER_RADIUS,
+        TARGET_INSERT_HOLE_INNER_RADIUS,
+        TARGET_INSERT_HOLE_THICKNESS * 1.2,
+        28
+      ),
+      new THREE.MeshBasicMaterial({
+        color: 0x0e1621,
+      })
+    );
+    inner.name = 'target_insert_hole_inner';
+    ring.name = `target_insert_hole_${i}`;
+    ring.visible = false;
+    ring.add(inner);
+    targetInsertHolesGroup.add(ring);
+  }
+  targets.add(targetInsertHolesGroup);
+
   /* Keypoints 轨迹：琥珀球（与品红融合点、fused 区分）+ 折线 */
   const KP_TRACE_COLOR = 0xf59e0b;
   const KP_TRACE_RADIUS = 0.028;
@@ -481,6 +529,7 @@ function createScene(containerEl) {
     pickMarkerFused,
     pickMarkerTargetSensor,
     targetSensorObjectComposed,
+    targetInsertHolesGroup,
     keypointsTraceGroup,
     kpTraceSpheres,
     keypointsPolyline,

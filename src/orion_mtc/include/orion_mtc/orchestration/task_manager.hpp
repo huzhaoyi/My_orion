@@ -14,6 +14,7 @@
 #include "orion_mtc/orchestration/manipulation_state_machine.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
 #include <orion_mtc_msgs/msg/target_set.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
@@ -26,6 +27,7 @@
 #include <mutex>
 #include <optional>
 #include <rclcpp/node.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <string>
 #include <thread>
 #include <vector>
@@ -178,6 +180,8 @@ private:
   bool handleOpenGripper();
   bool handleCloseGripper();
   bool handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id);
+  void publishTargetInsertHoleDebug();
+  std::vector<geometry_msgs::msg::PoseStamped> collectTargetInsertHolePosesBaseLink(bool emit_log) const;
 
   static constexpr std::size_t MAX_RECENT_RECORDS = 50;
 
@@ -210,6 +214,7 @@ private:
 
   mutable std::mutex state_mutex_;
   RobotTaskMode task_mode_ = RobotTaskMode::IDLE;
+  bool suppress_ungripped_feedback_ = false;
   HeldObjectContext held_object_;
   std::string current_task_id_;
   std::string last_error_;
@@ -233,6 +238,8 @@ private:
 
   mutable std::mutex records_mutex_;
   std::deque<JobExecutionRecordEntry> recent_records_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr target_insert_holes_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr target_insert_hole_markers_pub_;
 };
 
 }  // namespace orion_mtc

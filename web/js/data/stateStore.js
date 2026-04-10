@@ -52,6 +52,9 @@ const initialState = {
   targetSetTargets: [],          // /target_set 解析：{ index, objectId, position, orientation }[]
   targetSetValid: false,
   targetSetUpdatedAt: null,
+  targetInsertHolePoses: [],     // /target_insert_holes: base_link 孔位 PoseArray
+  targetInsertHolesValid: false,
+  targetInsertHolesUpdatedAt: null,
   // 视觉+声呐中心线融合链：/manipulator/object_pose_fused
   fusedObjectPoseValid: false,
   fusedObjectPose: null,
@@ -255,6 +258,9 @@ function setConnection(which, value) {
     partial.targetSetTargets = [];
     partial.targetSetValid = false;
     partial.targetSetUpdatedAt = null;
+    partial.targetInsertHolePoses = [];
+    partial.targetInsertHolesValid = false;
+    partial.targetInsertHolesUpdatedAt = null;
   }
   setState(partial);
 }
@@ -684,6 +690,51 @@ function setTargetSet(msg) {
   });
 }
 
+function setTargetInsertHoles(poseArrayMsg) {
+  const raw = poseArrayMsg;
+  if (!raw || !Array.isArray(raw.poses) || raw.poses.length === 0) {
+    setState({
+      targetInsertHolePoses: [],
+      targetInsertHolesValid: false,
+      targetInsertHolesUpdatedAt: Date.now(),
+    });
+    return;
+  }
+  const rows = raw.poses
+    .map((p) => {
+      const pos = p && p.position ? p.position : null;
+      if (!pos) {
+        return null;
+      }
+      const x = Number(pos.x);
+      const y = Number(pos.y);
+      const z = Number(pos.z);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        return null;
+      }
+      const q = p.orientation || {};
+      const qx = Number(q.x);
+      const qy = Number(q.y);
+      const qz = Number(q.z);
+      const qw = Number(q.w);
+      return {
+        position: { x, y, z },
+        orientation: {
+          x: Number.isFinite(qx) ? qx : 0.0,
+          y: Number.isFinite(qy) ? qy : 0.0,
+          z: Number.isFinite(qz) ? qz : 0.0,
+          w: Number.isFinite(qw) ? qw : 1.0,
+        },
+      };
+    })
+    .filter((v) => v != null);
+  setState({
+    targetInsertHolePoses: rows,
+    targetInsertHolesValid: rows.length > 0,
+    targetInsertHolesUpdatedAt: Date.now(),
+  });
+}
+
 /** 写入最后一次 CheckPick 结构化结果（含 items、best_candidate_pose）。 */
 function setApprovalResult(payload) {
   setState({
@@ -774,6 +825,7 @@ export default {
   setRovPoseInBaseLink,
   setPerceptionState,
   setTargetSet,
+  setTargetInsertHoles,
   setRecentJobs,
   applyGetRobotStateResponse,
   setApprovalResult,

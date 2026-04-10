@@ -116,6 +116,10 @@ function createLayerToggles(containerEl, sceneApiRef) {
             sceneApiRef.targetSensorObjectComposed.visible =
               cb.checked && !!st.targetSensorObjectPoseValid;
           }
+          if (sceneApiRef.targetInsertHolesGroup) {
+            sceneApiRef.targetInsertHolesGroup.visible =
+              cb.checked && !!st.targetInsertHolesValid;
+          }
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
             const fv = !!st.fusedObjectPoseValid;
@@ -386,6 +390,28 @@ function mount(containerId) {
       sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
       sceneApi.targetSensorObjectComposed.visible =
         layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+    }
+    if (sceneApi.targetInsertHolesGroup) {
+      const holePoses = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses : [];
+      for (let i = 0; i < sceneApi.targetInsertHolesGroup.children.length; i += 1) {
+        const ring = sceneApi.targetInsertHolesGroup.children[i];
+        const h = holePoses[i];
+        if (!ring || !h || !h.position) {
+          if (ring) {
+            ring.visible = false;
+          }
+          continue;
+        }
+        ring.position.copy(applyBaseLinkToScene(h.position));
+        const qh = rosToThreeQuaternion(h.orientation);
+        if (qh) {
+          ring.quaternion.copy(new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(qh));
+        } else {
+          ring.quaternion.identity();
+        }
+        ring.visible = layerToggles.showTargets && !!s.targetInsertHolesValid;
+      }
+      sceneApi.targetInsertHolesGroup.visible = layerToggles.showTargets && !!s.targetInsertHolesValid;
     }
 
     const kpPts = s.keypointsTraceValid && s.keypointsTrace?.points ? s.keypointsTrace.points : [];

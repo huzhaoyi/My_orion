@@ -27,9 +27,12 @@
 #include <moveit_msgs/srv/get_planning_scene.hpp>
 #include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <chrono>
@@ -45,6 +48,10 @@ namespace orion_mtc
 {
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
+static constexpr char TARGET_INSERT_HOLES_TOPIC[] = "/manipulator/target_insert_holes";
+static constexpr char TARGET_INSERT_HOLE_MARKERS_TOPIC[] = "/manipulator/target_insert_hole_markers";
+static constexpr double TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
+static constexpr double TARGET_INSERT_HOLE_MARKER_THICKNESS_M = 0.02;
 
 /* PICK 任务 MTC 阶段名（与 MTC 子轨迹顺序对齐：首段为 CurrentState） */
 static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
@@ -179,6 +186,11 @@ TaskManager::TaskManager(const rclcpp::Node::SharedPtr& node,
   , queue_(std::make_shared<TaskQueue>())
   , recovery_actions_(std::make_unique<RecoveryActions>(scene_manager, this))
 {
+  auto qos = rclcpp::QoS(1).reliable().transient_local();
+  target_insert_holes_pub_ = node_->create_publisher<geometry_msgs::msg::PoseArray>(TARGET_INSERT_HOLES_TOPIC, qos);
+  target_insert_hole_markers_pub_ =
+      node_->create_publisher<visualization_msgs::msg::MarkerArray>(TARGET_INSERT_HOLE_MARKERS_TOPIC, qos);
+  publishTargetInsertHoleDebug();
 }
 
 /* 析构：停止 Worker 线程，避免与正在退出的 ROS 上下文竞态。 */
@@ -842,6 +854,13 @@ void TaskManager::applyGripperFeedbackFromTopic(double gripped_value)
     {
       return;
     }
+    if (suppress_ungripped_feedback_)
+    {
+      RCLCPP_WARN_THROTTLE(LOGGER, *node_->get_clock(), 1500,
+                           "applyGripperFeedbackFromTopic: gripped=%.3f ignored while TARGET_INSERT executing",
+                           gripped_value);
+      return;
+    }
     const bool semantically_holding = held_object_.valid || task_mode_ == RobotTaskMode::HOLDING_TRACKED ||
                                       task_mode_ == RobotTaskMode::HOLDING_UNTRACKED;
     if (!semantically_holding)
@@ -940,7 +959,19 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       return false;
     }
     current_task_id_ = genTaskId("insert");
+    suppress_ungripped_feedback_ = true;
   }
+  struct InsertFeedbackGuard
+  {
+    TaskManager* self;
+    ~InsertFeedbackGuard()
+    {
+      std::lock_guard<std::mutex> lock(self->state_mutex_);
+      self->suppress_ungripped_feedback_ = false;
+    }
+  } insert_feedback_guard{ this };
+
+  publishTargetInsertHoleDebug();
 
   geometry_msgs::msg::PoseStamped pose_base = target_pose;
   const rclcpp::Time stamp_now = node_->now();
@@ -1155,6 +1186,107 @@ void TaskManager::setGraspChainPerceptionCallbacks(
 void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
 {
   transform_to_base_link_fn_ = std::move(fn);
+  publishTargetInsertHoleDebug();
+}
+
+std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHolePosesBaseLink(bool emit_log) const
+{
+  std::vector<geometry_msgs::msg::PoseStamped> out;
+  if (!config_.peg_insert.target_insert_use_configured_hole_positions_map)
+  {
+    return out;
+  }
+  const rclcpp::Time stamp_now = node_->now();
+  const bool use_static_insert = config_.peg_insert.use_static_map_to_base_for_target_insert;
+  const std::vector<double>& st_map_base = config_.peg_insert.static_transform_map_to_base_link;
+  const bool static_transform_usable =
+      (st_map_base.size() == 7u && !isPlaceholderIdentityMapToBaseTransform(st_map_base));
+  for (std::size_t i = 0; i < config_.peg_insert.targetsensor_slot_position_map.size(); ++i)
+  {
+    const std::vector<double>& hp = config_.peg_insert.targetsensor_slot_position_map[i];
+    if (hp.size() != 3u)
+    {
+      continue;
+    }
+    geometry_msgs::msg::PoseStamped pose_base;
+    pose_base.header.frame_id = "map";
+    pose_base.header.stamp = stamp_now;
+    pose_base.pose.position.x = hp[0];
+    pose_base.pose.position.y = hp[1];
+    pose_base.pose.position.z = hp[2];
+    pose_base.pose.orientation.x = 0.0;
+    pose_base.pose.orientation.y = 0.0;
+    pose_base.pose.orientation.z = 0.0;
+    pose_base.pose.orientation.w = 1.0;
+    bool ok = false;
+    if (use_static_insert && static_transform_usable)
+    {
+      ok = applyStaticTransformMapLikeToBaseLink(st_map_base, stamp_now, pose_base);
+    }
+    else if (transform_to_base_link_fn_)
+    {
+      ok = transform_to_base_link_fn_(pose_base, nullptr);
+    }
+    if (!ok || pose_base.header.frame_id != "base_link")
+    {
+      if (emit_log)
+      {
+        RCLCPP_WARN_THROTTLE(LOGGER, *node_->get_clock(), 3000,
+                             "collectTargetInsertHolePosesBaseLink: skip slot_%zu (map->base_link unavailable)", i + 1u);
+      }
+      continue;
+    }
+    out.push_back(pose_base);
+  }
+  return out;
+}
+
+void TaskManager::publishTargetInsertHoleDebug()
+{
+  if (!target_insert_holes_pub_ && !target_insert_hole_markers_pub_)
+  {
+    return;
+  }
+  const auto holes = collectTargetInsertHolePosesBaseLink(false);
+  geometry_msgs::msg::PoseArray pose_array;
+  pose_array.header.frame_id = "base_link";
+  pose_array.header.stamp = node_->now();
+  pose_array.poses.reserve(holes.size());
+  visualization_msgs::msg::MarkerArray markers;
+  visualization_msgs::msg::Marker delete_all;
+  delete_all.header = pose_array.header;
+  delete_all.ns = "target_insert_holes";
+  delete_all.id = 0;
+  delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
+  markers.markers.push_back(delete_all);
+  int32_t marker_id = 1;
+  for (std::size_t i = 0; i < holes.size(); ++i)
+  {
+    pose_array.poses.push_back(holes[i].pose);
+    visualization_msgs::msg::Marker m;
+    m.header = pose_array.header;
+    m.ns = "target_insert_holes";
+    m.id = marker_id++;
+    m.type = visualization_msgs::msg::Marker::CYLINDER;
+    m.action = visualization_msgs::msg::Marker::ADD;
+    m.pose = holes[i].pose;
+    m.scale.x = TARGET_INSERT_HOLE_DIAMETER_M;
+    m.scale.y = TARGET_INSERT_HOLE_DIAMETER_M;
+    m.scale.z = TARGET_INSERT_HOLE_MARKER_THICKNESS_M;
+    m.color.r = 0.10f;
+    m.color.g = 0.75f;
+    m.color.b = 0.95f;
+    m.color.a = 0.55f;
+    markers.markers.push_back(m);
+  }
+  if (target_insert_holes_pub_)
+  {
+    target_insert_holes_pub_->publish(pose_array);
+  }
+  if (target_insert_hole_markers_pub_)
+  {
+    target_insert_hole_markers_pub_->publish(markers);
+  }
 }
 
 void TaskManager::setGetLatestTargetSetCallback(
