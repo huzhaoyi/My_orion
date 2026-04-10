@@ -96,21 +96,28 @@ function makeHoleIndexLabel(text) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.beginPath();
   ctx.arc(64, 64, 40, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+  ctx.fillStyle = 'rgba(255, 214, 0, 0.98)';
   ctx.fill();
   ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(255, 214, 0, 0.95)';
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.98)';
   ctx.stroke();
   ctx.font = 'bold 56px sans-serif';
-  ctx.fillStyle = '#f8fafc';
+  ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, 64, 66);
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.09, 0.09, 1);
+  sprite.renderOrder = 999;
+  sprite.scale.set(0.16, 0.16, 1);
   return sprite;
 }
 
@@ -450,7 +457,7 @@ function createScene(containerEl) {
     inner.name = 'target_insert_hole_inner';
     ring.add(inner);
     const holeIndexLabel = makeHoleIndexLabel(String(i + 1));
-    holeIndexLabel.position.set(0, TARGET_INSERT_HOLE_THICKNESS * 1.6, 0);
+    holeIndexLabel.position.set(0, 0.20, 0);
     holePoseNode.add(holeIndexLabel);
     holePoseNode.add(ring);
     targetInsertHolesGroup.add(holePoseNode);

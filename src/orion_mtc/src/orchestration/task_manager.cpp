@@ -1249,7 +1249,7 @@ void TaskManager::publishTargetInsertHoleDebug()
   {
     return;
   }
-  const auto holes = collectTargetInsertHolePosesBaseLink(true);
+  const auto holes = collectTargetInsertHolePosesBaseLink(false);
   geometry_msgs::msg::PoseArray pose_array;
   pose_array.header.frame_id = "base_link";
   pose_array.header.stamp = node_->now();
