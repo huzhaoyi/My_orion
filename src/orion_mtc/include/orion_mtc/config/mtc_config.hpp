@@ -79,6 +79,11 @@ struct PegInsertConfig
    */
   bool target_insert_use_configured_hole_positions_map = false;
   std::array<std::vector<double>, 7> targetsensor_slot_position_map{};
+  /*
+   * true 且 object_id 含 slot_1..7：孔位姿态使用下列 map 系四元数（x,y,z,w），优先于请求姿态。
+   */
+  bool target_insert_use_configured_hole_orientations_map = true;
+  std::array<std::vector<double>, 7> targetsensor_slot_orientation_map{};
 };
 
 struct MTCConfig

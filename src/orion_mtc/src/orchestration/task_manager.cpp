@@ -1009,12 +1009,54 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     pose_base.pose.position.x = hp[0];
     pose_base.pose.position.y = hp[1];
     pose_base.pose.position.z = hp[2];
+    if (config_.peg_insert.target_insert_use_configured_hole_orientations_map)
+    {
+      const std::vector<double>& hq =
+          config_.peg_insert.targetsensor_slot_orientation_map[static_cast<std::size_t>(slot - 1)];
+      if (hq.size() == 4u)
+      {
+        const double qx = hq[0];
+        const double qy = hq[1];
+        const double qz = hq[2];
+        const double qw = hq[3];
+        const double qn = std::sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
+        if (std::isfinite(qx) && std::isfinite(qy) && std::isfinite(qz) && std::isfinite(qw) && qn > 1e-9)
+        {
+          pose_base.pose.orientation.x = qx / qn;
+          pose_base.pose.orientation.y = qy / qn;
+          pose_base.pose.orientation.z = qz / qn;
+          pose_base.pose.orientation.w = qw / qn;
+        }
+        else
+        {
+          RCLCPP_WARN(LOGGER,
+                      "handleTargetInsert: invalid slot orientation_map[%d], fallback to request orientation",
+                      slot);
+        }
+      }
+      else
+      {
+        RCLCPP_WARN(LOGGER,
+                    "handleTargetInsert: slot_%d_orientation_map must have 4 elements (got %zu), "
+                    "fallback to request orientation",
+                    slot, hq.size());
+      }
+    }
     pose_base.header.frame_id = "map";
     pose_base.header.stamp = stamp_now;
-    RCLCPP_INFO(LOGGER,
-                "handleTargetInsert: hole XYZ from peg_insert.targetsensor_slot_%d_position_map (map), "
-                "orientation from request",
-                slot);
+    if (config_.peg_insert.target_insert_use_configured_hole_orientations_map)
+    {
+      RCLCPP_INFO(LOGGER,
+                  "handleTargetInsert: hole XYZW from peg_insert.targetsensor_slot_%d_(position/orientation)_map",
+                  slot);
+    }
+    else
+    {
+      RCLCPP_INFO(LOGGER,
+                  "handleTargetInsert: hole XYZ from peg_insert.targetsensor_slot_%d_position_map (map), "
+                  "orientation from request",
+                  slot);
+    }
   }
 
   const std::string src_frame_before_xform = pose_base.header.frame_id;
@@ -1163,7 +1205,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       return false;
     }
     bool latch_ok = false;
-    const int max_retry = 10;
+    const int max_retry = 50;
+    float last_latch_value = 0.0f;
+    bool has_latch_value = false;
     for (int i = 0; i < max_retry; ++i)
     {
       const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
@@ -1179,6 +1223,8 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         return false;
       }
       const float latch_value = latest->latches[static_cast<std::size_t>(latch_idx)];
+      last_latch_value = latch_value;
+      has_latch_value = true;
       latch_ok = std::isfinite(static_cast<double>(latch_value)) && (latch_value > 0.5f);
       if (latch_ok)
       {
@@ -1188,11 +1234,25 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     }
     if (!latch_ok)
     {
-      RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch check failed slot=%d (object_id=%s)",
-                   slot, object_id.c_str());
-      return false;
+      if (has_latch_value)
+      {
+        RCLCPP_WARN(LOGGER,
+                    "handleTargetInsert: latch check failed slot=%d (object_id=%s, latch=%.3f), "
+                    "continue as inserted by trajectory result",
+                    slot, object_id.c_str(), static_cast<double>(last_latch_value));
+      }
+      else
+      {
+        RCLCPP_WARN(LOGGER,
+                    "handleTargetInsert: latch check failed slot=%d (object_id=%s, no latch sample), "
+                    "continue as inserted by trajectory result",
+                    slot, object_id.c_str());
+      }
     }
-    RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
+    else
+    {
+      RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
+    }
   }
   else
   {

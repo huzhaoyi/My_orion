@@ -59,8 +59,9 @@ target_sensor_pick:
   pregrasp_distances_m: [0.14]
   retreat_distance_m: 0.12
 
-# TargetSensor 插孔：孔心 map 系 [m] 以 peg_insert.targetsensor_slot_*_position_map 为准（与 UE FVector 一致）。
-# target_insert_use_configured_hole_positions_map=true 且 object_id=targetsensor_slot_N 时，服务端用下表 XYZ，仅保留请求内四元数；再经 static_transform_* 或 TF 转到 base_link。
+# TargetSensor 插孔：孔心/孔向 map 系由 peg_insert.targetsensor_slot_*_(position/orientation)_map 给定（与 UE 坐标定义对齐）。
+# target_insert_use_configured_hole_positions_map=true 且 object_id=targetsensor_slot_N 时，服务端优先使用下表 XYZ；
+# target_insert_use_configured_hole_orientations_map=true 时同时覆盖姿态，不再依赖请求内四元数。
 peg_insert:
   pre_offset_m: 0.06
   insert_depth_m: 0.04
@@ -77,13 +78,21 @@ peg_insert:
   chamfer_plane_delta_m: 0.002
   insert_axial_segments: 1
   target_insert_use_configured_hole_positions_map: true
+  target_insert_use_configured_hole_orientations_map: true
   targetsensor_slot_1_position_map: [-113.93, 129.1, -132.1]
+  targetsensor_slot_1_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_2_position_map: [-113.93, 128.9, -132.1]
+  targetsensor_slot_2_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_3_position_map: [-113.93, 129.1, -132.36]
+  targetsensor_slot_3_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_4_position_map: [-113.93, 128.9, -132.35]
+  targetsensor_slot_4_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_5_position_map: [-113.93, 128.6, -132.36]
+  targetsensor_slot_5_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_6_position_map: [-113.93, 127.8, -130.89]
+  targetsensor_slot_6_orientation_map: [0.0, 0.0, 0.0, 1.0]
   targetsensor_slot_7_position_map: [-113.93, 127.8, -131.12]
+  targetsensor_slot_7_orientation_map: [0.0, 0.0, 0.0, 1.0]
   # true：map/world 目标优先用下列七元组变到 base_link；与单位阵等价或未配满 7 个数时自动改走 TF（HoloOcean 有 map→rov→base 时与占位搭配可用）。
   use_static_map_to_base_for_target_insert: true
   static_transform_map_to_base_link: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]

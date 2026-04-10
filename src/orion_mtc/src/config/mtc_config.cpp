@@ -283,6 +283,13 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.target_insert_use_configured_hole_orientations_map", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
   {
     static const double k_slot_def_m[7][3] = {
         { -113.93, 129.1, -132.1 },
@@ -301,6 +308,20 @@ void declareParameters(rclcpp::Node* node)
       {
         node->declare_parameter<std::vector<double>>(
             key, std::vector<double>{ k_slot_def_m[i][0], k_slot_def_m[i][1], k_slot_def_m[i][2] });
+      }
+      catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+      {
+      }
+    }
+  }
+  {
+    for (int i = 0; i < 7; ++i)
+    {
+      const std::string key =
+          "peg_insert.targetsensor_slot_" + std::to_string(i + 1) + "_orientation_map";
+      try
+      {
+        node->declare_parameter<std::vector<double>>(key, std::vector<double>{ 0.0, 0.0, 0.0, 1.0 });
       }
       catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
       {
@@ -376,11 +397,16 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                        config.peg_insert.static_transform_map_to_base_link);
   node->get_parameter("peg_insert.target_insert_use_configured_hole_positions_map",
                        config.peg_insert.target_insert_use_configured_hole_positions_map);
+  node->get_parameter("peg_insert.target_insert_use_configured_hole_orientations_map",
+                      config.peg_insert.target_insert_use_configured_hole_orientations_map);
   for (int i = 0; i < 7; ++i)
   {
     const std::string key =
         "peg_insert.targetsensor_slot_" + std::to_string(i + 1) + "_position_map";
     node->get_parameter(key, config.peg_insert.targetsensor_slot_position_map[static_cast<std::size_t>(i)]);
+    const std::string key_q =
+        "peg_insert.targetsensor_slot_" + std::to_string(i + 1) + "_orientation_map";
+    node->get_parameter(key_q, config.peg_insert.targetsensor_slot_orientation_map[static_cast<std::size_t>(i)]);
   }
 }
 
