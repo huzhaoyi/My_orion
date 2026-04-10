@@ -103,6 +103,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   cartesian_planner->setMaxVelocityScalingFactor(static_cast<double>(pi.cartesian_velocity_scaling));
   cartesian_planner->setMaxAccelerationScalingFactor(static_cast<double>(pi.cartesian_acceleration_scaling));
   cartesian_planner->setStepSize(static_cast<double>(pi.cartesian_step_size));
+  cartesian_planner->setMinFraction(0.90);
 
   const Eigen::Vector3d axis_insert =
       insert_axis_from_hole_pose(target_pose.pose, pi.insert_axis_local_xyz);
@@ -181,13 +182,20 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
 
   geometry_msgs::msg::Vector3Stamped retreat_axis;
   append_vector3_stamped(node_->now(), plan_frame, -axis_insert, retreat_axis);
-  auto retreat_up = std::make_unique<mtc::stages::MoveRelative>("retreat up", cartesian_planner);
-  retreat_up->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  retreat_up->setIKFrame(hand_frame);
-  retreat_up->setDirection(retreat_axis);
-  retreat_up->setMinMaxDistance(static_cast<float>(retreat_m), static_cast<float>(retreat_m));
-  task.add(std::move(retreat_up));
-  out.stage_names.push_back("retreat up");
+  const int retreat_segments = 3;
+  const double retreat_step = retreat_m / static_cast<double>(retreat_segments);
+  for (int s = 0; s < retreat_segments; ++s)
+  {
+    const std::string retreat_name =
+        (retreat_segments > 1) ? ("retreat up segment " + std::to_string(s + 1)) : "retreat up";
+    auto retreat_up = std::make_unique<mtc::stages::MoveRelative>(retreat_name, cartesian_planner);
+    retreat_up->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    retreat_up->setIKFrame(hand_frame);
+    retreat_up->setDirection(retreat_axis);
+    retreat_up->setMinMaxDistance(static_cast<float>(retreat_step), static_cast<float>(retreat_step));
+    task.add(std::move(retreat_up));
+    out.stage_names.push_back(retreat_name);
+  }
 
   return out;
 }

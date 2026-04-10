@@ -1116,17 +1116,27 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     if (axis_norm > 1e-9)
     {
       axis_world /= axis_norm;
-      const Eigen::Quaterniond q_flip(Eigen::AngleAxisd(M_PI, axis_world));
-      const Eigen::Quaterniond q_try = q_flip * q_nominal;
-      geometry_msgs::msg::PoseStamped pose_flip = pose_base;
-      pose_flip.pose.orientation.x = q_try.x();
-      pose_flip.pose.orientation.y = q_try.y();
-      pose_flip.pose.orientation.z = q_try.z();
-      pose_flip.pose.orientation.w = q_try.w();
-      planned = try_plan_with_pose(pose_flip, "flip_180_about_insert_axis");
-      if (planned)
+      const std::vector<std::pair<double, std::string>> rotation_candidates = {
+        { M_PI, "flip_180_about_insert_axis" },
+        { M_PI_2, "flip_90_about_insert_axis" },
+        { -M_PI_2, "flip_minus_90_about_insert_axis" },
+      };
+      for (const auto& candidate : rotation_candidates)
       {
-        RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with 180deg orientation fallback");
+        const Eigen::Quaterniond q_rot(Eigen::AngleAxisd(candidate.first, axis_world));
+        const Eigen::Quaterniond q_try = q_rot * q_nominal;
+        geometry_msgs::msg::PoseStamped pose_try = pose_base;
+        pose_try.pose.orientation.x = q_try.x();
+        pose_try.pose.orientation.y = q_try.y();
+        pose_try.pose.orientation.z = q_try.z();
+        pose_try.pose.orientation.w = q_try.w();
+        planned = try_plan_with_pose(pose_try, candidate.second);
+        if (planned)
+        {
+          RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with orientation fallback %s",
+                      candidate.second.c_str());
+          break;
+        }
       }
     }
   }
