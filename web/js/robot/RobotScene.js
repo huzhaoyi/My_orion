@@ -29,8 +29,8 @@ const AXIS_COLOR_X = 0xe53935;
 const AXIS_COLOR_Y = 0x43a047;
 const AXIS_COLOR_Z = 0x1e88e5;
 const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target.stl';
-/* 长轴对齐到局部 +Y 后，再绕局部 X 转 90°，使 peg 平躺在场景水平面（XZ）上 */
-const TARGET_SENSOR_LIE_DOWN_RX = Math.PI / 2;
+/* TargetSensor 模型本体局部轴向修正：当前数据链路下需绕局部 Z 旋转 180°，使其朝 +Y 而非 -Y。 */
+const TARGET_SENSOR_AXIS_FLIP_RZ = Math.PI;
 
 /**
  * 将 target.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
@@ -331,7 +331,7 @@ function createScene(containerEl) {
       geometry.translate(-center.x, -center.y, -center.z);
     }
     const tsMesh = new THREE.Mesh(geometry, tsStlMaterial);
-    tsMesh.quaternion.identity();
+    tsMesh.quaternion.setFromEuler(new THREE.Euler(0, 0, TARGET_SENSOR_AXIS_FLIP_RZ));
     tsMesh.castShadow = true;
     tsMesh.receiveShadow = true;
     tsMesh.name = 'target_sensor_stl';
@@ -346,7 +346,7 @@ function createScene(containerEl) {
         roughness: 0.4,
       })
     );
-    fallbackMesh.quaternion.identity();
+    fallbackMesh.quaternion.setFromEuler(new THREE.Euler(0, 0, TARGET_SENSOR_AXIS_FLIP_RZ));
     targetSensorObjectComposed.add(fallbackMesh);
   });
   targets.add(targetSensorObjectComposed);
