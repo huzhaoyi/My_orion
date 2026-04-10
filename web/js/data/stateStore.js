@@ -694,8 +694,6 @@ function setTargetInsertHoles(poseArrayMsg) {
   const raw = poseArrayMsg;
   if (!raw || !Array.isArray(raw.poses) || raw.poses.length === 0) {
     setState({
-      targetInsertHolePoses: [],
-      targetInsertHolesValid: false,
       targetInsertHolesUpdatedAt: Date.now(),
     });
     return;
@@ -728,9 +726,15 @@ function setTargetInsertHoles(poseArrayMsg) {
       };
     })
     .filter((v) => v != null);
+  if (rows.length > 0) {
+    setState({
+      targetInsertHolePoses: rows,
+      targetInsertHolesValid: true,
+      targetInsertHolesUpdatedAt: Date.now(),
+    });
+    return;
+  }
   setState({
-    targetInsertHolePoses: rows,
-    targetInsertHolesValid: rows.length > 0,
     targetInsertHolesUpdatedAt: Date.now(),
   });
 }

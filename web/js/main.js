@@ -209,9 +209,39 @@ function registerGlobalHandlers() {
         toast.warn('请先完成 TargetSensor 抓取，再执行插孔');
         return;
       }
-      const targetOrientation = s.targetSensorObjectPose?.orientation
-        || s.objectPose?.orientation
+      const slotPoseFromTargetSet = Array.isArray(s.targetSetTargets) ? s.targetSetTargets[slot - 1] : null;
+      const normalizeQuaternion = (q) => {
+        if (!q) {
+          return null;
+        }
+        const x = Number(q.x);
+        const y = Number(q.y);
+        const z = Number(q.z);
+        const w = Number(q.w);
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || !Number.isFinite(w)) {
+          return null;
+        }
+        const n = Math.sqrt(x * x + y * y + z * z + w * w);
+        if (!Number.isFinite(n) || n < 1e-8) {
+          return null;
+        }
+        return {
+          x: x / n,
+          y: y / n,
+          z: z / n,
+          w: w / n,
+        };
+      };
+      const orientationFromSlot = normalizeQuaternion(slotPoseFromTargetSet?.orientation);
+      const orientationFromTarget = normalizeQuaternion(s.targetSensorObjectPose?.orientation);
+      const orientationFromLegacy = normalizeQuaternion(s.objectPose?.orientation);
+      const targetOrientation = orientationFromSlot
+        || orientationFromTarget
+        || orientationFromLegacy
         || { x: 0, y: 0, z: 0, w: 1 };
+      const orientationSource = orientationFromSlot
+        ? 'target_set(slot)'
+        : (orientationFromTarget ? 'target_sensor_object_pose' : (orientationFromLegacy ? 'object_pose' : 'identity'));
       const target_pose = wsClient.buildPoseStamped(
         { x: slotPose.x, y: slotPose.y, z: slotPose.z },
         targetOrientation,
@@ -230,7 +260,7 @@ function registerGlobalHandlers() {
           (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
         stateStore.pushSystemLog(
           ok ? 'info' : 'error',
-          `TargetSensor insert slot=${slot} world=(${slotPose.x.toFixed(2)}, ${slotPose.y.toFixed(2)}, ${slotPose.z.toFixed(2)}): ${msg}`
+          `TargetSensor insert slot=${slot} world=(${slotPose.x.toFixed(2)}, ${slotPose.y.toFixed(2)}, ${slotPose.z.toFixed(2)}), ori=${orientationSource}: ${msg}`
         );
         if (ok) {
           toast.success(msg);

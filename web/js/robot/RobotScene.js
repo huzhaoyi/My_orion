@@ -88,6 +88,32 @@ function makeAxisLabel(text, hexColor) {
   return sprite;
 }
 
+function makeHoleIndexLabel(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  ctx.arc(64, 64, 40, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(255, 214, 0, 0.95)';
+  ctx.stroke();
+  ctx.font = 'bold 56px sans-serif';
+  ctx.fillStyle = '#f8fafc';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 64, 66);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.09, 0.09, 1);
+  return sprite;
+}
+
 function loadStlGeometry(url) {
   return new Promise((resolve, reject) => {
     const loader = new STLLoader();
@@ -394,11 +420,13 @@ function createScene(containerEl) {
         Math.PI * 2
       ),
       new THREE.MeshStandardMaterial({
-        color: 0x22d3ee,
-        metalness: 0.35,
-        roughness: 0.55,
+        color: 0xffd400,
+        emissive: 0x3b2f00,
+        emissiveIntensity: 0.55,
+        metalness: 0.25,
+        roughness: 0.32,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.92,
       })
     );
     ring.quaternion.setFromEuler(
@@ -421,6 +449,9 @@ function createScene(containerEl) {
     );
     inner.name = 'target_insert_hole_inner';
     ring.add(inner);
+    const holeIndexLabel = makeHoleIndexLabel(String(i + 1));
+    holeIndexLabel.position.set(0, TARGET_INSERT_HOLE_THICKNESS * 1.6, 0);
+    holePoseNode.add(holeIndexLabel);
     holePoseNode.add(ring);
     targetInsertHolesGroup.add(holePoseNode);
   }
