@@ -1049,7 +1049,8 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                   "改用 TF 查询 %s -> base_link（填入真实七元组后可强制走静态外参）",
                   src_frame_before_xform.c_str());
     }
-    pose_base.header.stamp = stamp_now;
+    const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
+    pose_base.header.stamp = stamp_latest_tf;
     if (!transform_to_base_link_fn_(pose_base, nullptr))
     {
       RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
@@ -1940,15 +1941,10 @@ void TaskManager::workerLoop()
         {
           recovery_event_fn_("RESET_HELD", trigger, r1, r1 ? "ok" : "failed");
         }
-        bool r2 = true;
-        if (!r1)
-        {
-          /* resetHeldState 已含场景清理，失败时才额外补一轮 clearSceneResiduals。 */
-          r2 = recovery_actions_->clearSceneResiduals();
-        }
+        /* resetHeldState 已包含场景清理，避免重复 clearSceneResiduals 触发对象不存在噪声。 */
         if (recovery_event_fn_)
         {
-          recovery_event_fn_("CLEAR_SCENE", trigger, r2, r2 ? "ok" : "failed");
+          recovery_event_fn_("CLEAR_SCENE", trigger, true, "skipped (included in reset_held)");
         }
         bool r3 = true;
         if (policy_.auto_go_home_after_failure)
@@ -1961,9 +1957,8 @@ void TaskManager::workerLoop()
         }
         if (recovery_event_fn_)
         {
-          recovery_event_fn_("AUTO_RECOVERY", trigger, r1 && r2 && r3,
-                             (!r1 ? "reset_held(failed)+clear_scene+go_home"
-                                  : "reset_held(includes clear_scene)+go_home"));
+          recovery_event_fn_("AUTO_RECOVERY", trigger, r1 && r3,
+                             "reset_held(includes clear_scene)+go_home");
         }
         std::lock_guard<std::mutex> lock(worker_mutex_);
         worker_status_ = WorkerStatus::IDLE;

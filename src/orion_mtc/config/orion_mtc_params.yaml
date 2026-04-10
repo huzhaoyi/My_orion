@@ -62,15 +62,15 @@ target_sensor_pick:
 # TargetSensor 插孔：孔心 map 系 [m] 以 peg_insert.targetsensor_slot_*_position_map 为准（与 UE FVector 一致）。
 # target_insert_use_configured_hole_positions_map=true 且 object_id=targetsensor_slot_N 时，服务端用下表 XYZ，仅保留请求内四元数；再经 static_transform_* 或 TF 转到 base_link。
 peg_insert:
-  pre_offset_m: 0.10
+  pre_offset_m: 0.06
   insert_depth_m: 0.04
   retreat_m: 0.12
   # 插入轴在孔位局部系下的方向（会归一化）：当前 peg in hole 使用 +Y（避免出现“目标与孔平行”）。
   insert_axis_local_xyz: [1.0, 0.0, 0.0]
-  lin_velocity_scaling: 0.12
-  lin_acceleration_scaling: 0.06
-  cartesian_velocity_scaling: 0.12
-  cartesian_acceleration_scaling: 0.08
+  lin_velocity_scaling: 0.08
+  lin_acceleration_scaling: 0.03
+  cartesian_velocity_scaling: 0.08
+  cartesian_acceleration_scaling: 0.04
   cartesian_step_size: 0.005
   # 倒角阶段平面微动（无力控时的几何搜索）；默认关，需时在仿真中扫参再开。
   enable_chamfer_plane_search: false
