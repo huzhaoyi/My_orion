@@ -30,7 +30,7 @@ const AXIS_COLOR_Y = 0x43a047;
 const AXIS_COLOR_Z = 0x1e88e5;
 const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target.stl';
 /* TargetSensor 模型本体局部轴向修正：独立 XYZ 角，便于在线调参。 */
-const TARGET_SENSOR_AXIS_FLIP_RX = 0.0;
+const TARGET_SENSOR_AXIS_FLIP_RX = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RY = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RZ = Math.PI;
 

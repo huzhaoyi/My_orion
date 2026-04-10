@@ -158,27 +158,15 @@ bool read_stl_binary_shape_mesh(const std::string& path, shape_msgs::msg::Mesh& 
 }
 
 /*
- * 与 web/js/robot/RobotScene.js：getTargetSensorAlignQuaternionByGeometry + TARGET_SENSOR_LIE_DOWN_RX。
+ * 与 web/js/robot/RobotScene.js 保持一致的 TargetSensor 本体修正（局部欧拉角）：
+ * RX=0, RY=pi, RZ=pi。这样前端显示与 MoveIt 碰撞体朝向一致。
  */
-geometry_msgs::msg::Pose target_sensor_mesh_local_pose_from_extents(double ex, double ey, double ez)
+geometry_msgs::msg::Pose target_sensor_mesh_local_pose()
 {
-  const Eigen::Quaterniond q_rz90(Eigen::AngleAxisd(M_PI / 2.0, Eigen::Vector3d::UnitZ()));
-  const Eigen::Quaterniond q_rx_n90(Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitX()));
-  const Eigen::Quaterniond q_lie(Eigen::AngleAxisd(M_PI / 2.0, Eigen::Vector3d::UnitX()));
-  Eigen::Quaterniond q_align = q_rz90;
-  if (ex >= ey)
-  {
-    q_align = q_rz90;
-  }
-  else if (ez >= ey && ez >= ex)
-  {
-    q_align = q_rx_n90;
-  }
-  else
-  {
-    q_align = q_rz90;
-  }
-  const Eigen::Quaterniond q_mesh = (q_align * q_lie).normalized();
+  const Eigen::Quaterniond q_rx(Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitX()));
+  const Eigen::Quaterniond q_ry(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitY()));
+  const Eigen::Quaterniond q_rz(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
+  const Eigen::Quaterniond q_mesh = (q_rx * q_ry * q_rz).normalized();
   geometry_msgs::msg::Pose mesh_pose;
   mesh_pose.position.x = 0.0;
   mesh_pose.position.y = 0.0;
@@ -305,7 +293,7 @@ moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::
       mesh.triangles.clear();
     }
   }
-  const geometry_msgs::msg::Pose mesh_local = target_sensor_mesh_local_pose_from_extents(ex, ey, ez);
+  const geometry_msgs::msg::Pose mesh_local = target_sensor_mesh_local_pose();
   object.mesh_poses.push_back(composePose(object_pose, mesh_local));
   if (!mesh.vertices.empty())
   {
