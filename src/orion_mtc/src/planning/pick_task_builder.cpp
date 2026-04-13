@@ -293,7 +293,6 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
   const Eigen::Vector3d approach_dir = n_geom * approach_sign;
   const Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
 
-  const double retreat_distance = config_.target_sensor_pick.retreat_distance_m;
   const double grasp_depth = std::max(0.0, config_.target_sensor_pick.grasp_depth_m);
   const Eigen::Vector3d p_object(object_pose.pose.position.x, object_pose.pose.position.y,
                                  object_pose.pose.position.z);
@@ -355,34 +354,6 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     auto stage_rm_peg = std::make_unique<mtc::stages::ModifyPlanningScene>("remove targetsensor peg mesh");
     stage_rm_peg->removeObject(TARGET_SENSOR_PEG_COLLISION_ID);
     grasp->insert(std::move(stage_rm_peg));
-  }
-
-  geometry_msgs::msg::Vector3Stamped retreat_v;
-  retreat_v.header.stamp = now;
-  retreat_v.header.frame_id = plan_frame;
-  retreat_v.vector.x = -approach_dir.x();
-  retreat_v.vector.y = -approach_dir.y();
-  retreat_v.vector.z = -approach_dir.z();
-  auto stage_retreat = std::make_unique<mtc::stages::MoveRelative>("retreat short", cartesian_planner);
-  stage_retreat->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  stage_retreat->setMinMaxDistance(static_cast<float>(retreat_distance),
-                                   static_cast<float>(retreat_distance));
-  stage_retreat->setIKFrame(hand_frame);
-  stage_retreat->setDirection(retreat_v);
-  grasp->insert(std::move(stage_retreat));
-
-  pregrasp_pose.header.stamp = node_->now();
-  auto stage_pregrasp_holding = std::make_unique<mtc::stages::MoveTo>("move to pregrasp (holding)", ptp_planner);
-  stage_pregrasp_holding->setGroup(arm_group_name);
-  stage_pregrasp_holding->setGoal(pregrasp_pose);
-  stage_pregrasp_holding->setIKFrame(hand_frame);
-  grasp->insert(std::move(stage_pregrasp_holding));
-
-  {
-    auto stage_close_final = std::make_unique<mtc::stages::MoveTo>("close hand (at pregrasp)", interpolation_planner);
-    stage_close_final->setGroup(hand_group_name);
-    stage_close_final->setGoal("close");
-    grasp->insert(std::move(stage_close_final));
   }
 
   task.add(std::move(grasp));
