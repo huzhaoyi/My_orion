@@ -82,6 +82,8 @@ peg_insert:
   pre_insert_use_base_x: true
   # pre-insert 的 base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
   pre_insert_base_x_offset_m: 0.24
+  # true：执行 pre-insert to axis-approach 阶段；false：跳过该段，避免在此阶段提前完成插入。
+  enable_pre_insert_to_axis_approach: false
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。

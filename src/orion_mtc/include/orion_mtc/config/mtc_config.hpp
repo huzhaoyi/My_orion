@@ -77,6 +77,11 @@ struct PegInsertConfig
   bool pre_insert_use_base_x = false;
   /* pre-insert 在 base_link X 方向相对孔位的退让距离 [m]（pre_insert_use_base_x=true 时生效）。 */
   double pre_insert_base_x_offset_m = 0.20;
+  /*
+   * true：在 base X 预对准后继续执行 pre-insert to axis-approach 阶段。
+   * false：跳过该阶段，避免该段提前完成插入再导致后续过插。
+   */
+  bool enable_pre_insert_to_axis_approach = true;
   /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
   double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;

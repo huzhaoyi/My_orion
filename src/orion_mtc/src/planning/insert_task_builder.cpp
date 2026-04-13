@@ -195,7 +195,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     out.stage_names.push_back("move to pre-insert");
   }
 
-  if (pi.pre_insert_use_base_x)
+  if (pi.pre_insert_use_base_x && pi.enable_pre_insert_to_axis_approach)
   {
     auto move_axis_pre = std::make_unique<mtc::stages::MoveTo>("pre-insert to axis-approach", ptp_planner);
     move_axis_pre->setGroup(arm_group_name);
