@@ -195,16 +195,6 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     out.stage_names.push_back("move to pre-insert");
   }
 
-  if (pi.pre_insert_use_base_x && pi.enable_pre_insert_to_axis_approach)
-  {
-    auto move_axis_pre = std::make_unique<mtc::stages::MoveTo>("pre-insert to axis-approach", ptp_planner);
-    move_axis_pre->setGroup(arm_group_name);
-    move_axis_pre->setGoal(axis_pre_pose);
-    move_axis_pre->setIKFrame(hand_frame);
-    task.add(std::move(move_axis_pre));
-    out.stage_names.push_back("pre-insert to axis-approach");
-  }
-
   geometry_msgs::msg::Vector3Stamped axis_msg;
   append_vector3_stamped(now, plan_frame, axis_insert, axis_msg);
   auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", cartesian_planner);
