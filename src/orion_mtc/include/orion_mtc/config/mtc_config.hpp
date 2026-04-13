@@ -3,7 +3,6 @@
 #ifndef ORION_MTC_CONFIG_MTC_CONFIG_HPP
 #define ORION_MTC_CONFIG_MTC_CONFIG_HPP
 
-#include <array>
 #include <string>
 #include <vector>
 
@@ -91,16 +90,6 @@ struct PegInsertConfig
   bool enable_chamfer_plane_search = false;
   double chamfer_plane_delta_m = 0.002;
   int insert_axial_segments = 1;
-  /*
-   * true 且 object_id 含 slot_1..7：孔心位置用下列 map 系参数，忽略 SubmitJob 里 target_pose 的平移（姿态仍用请求内四元数）。
-   */
-  bool target_insert_use_configured_hole_positions_map = false;
-  std::array<std::vector<double>, 7> targetsensor_slot_position_map{};
-  /*
-   * true 且 object_id 含 slot_1..7：孔位姿态使用下列 map 系四元数（x,y,z,w），优先于请求姿态。
-   */
-  bool target_insert_use_configured_hole_orientations_map = true;
-  std::array<std::vector<double>, 7> targetsensor_slot_orientation_map{};
 };
 
 struct MTCConfig

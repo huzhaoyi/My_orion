@@ -64,9 +64,7 @@ target_sensor_pick:
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
 
-# TargetSensor 插孔：孔心/孔向 map 系由 peg_insert.targetsensor_slot_*_(position/orientation)_map 给定（与 UE 坐标定义对齐）。
-# target_insert_use_configured_hole_positions_map=true 且 object_id=targetsensor_slot_N 时，服务端优先使用下表 XYZ；
-# target_insert_use_configured_hole_orientations_map=true 时同时覆盖姿态，不再依赖请求内四元数。
+# TargetSensor 插孔：目标位姿由 submit_job 直接提供（建议 frame_id=base_link）。
 peg_insert:
   # 轴向预插入距离 [m]（从孔位沿插入轴反向退让，作为 axis_pre_pose）。
   pre_offset_m: 0.04
@@ -106,38 +104,6 @@ peg_insert:
   chamfer_plane_delta_m: 0.002
   # 插入轴向分段数（>1 可降低“单段硬推进”导致的穿入风险）。
   insert_axial_segments: 5
-  # true：slot_1..7 使用下方 map 孔位坐标覆盖请求位姿位置。
-  target_insert_use_configured_hole_positions_map: true
-  # true：slot_1..7 使用下方 map 孔位四元数覆盖请求位姿姿态。
-  target_insert_use_configured_hole_orientations_map: true
-  # slot_1 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_1_position_map: [-113.93, 129.1, -132.1]
-  # slot_1 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_1_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_2 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_2_position_map: [-113.93, 128.9, -132.1]
-  # slot_2 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_2_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_3 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_3_position_map: [-113.93, 129.1, -132.36]
-  # slot_3 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_3_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_4 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_4_position_map: [-113.93, 128.9, -132.35]
-  # slot_4 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_4_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_5 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_5_position_map: [-113.93, 128.6, -132.36]
-  # slot_5 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_5_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_6 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_6_position_map: [-113.93, 127.8, -130.89]
-  # slot_6 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_6_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_7 孔位 map 坐标 [x, y, z]。
-  targetsensor_slot_7_position_map: [-113.93, 127.8, -131.12]
-  # slot_7 孔位 map 姿态四元数 [x, y, z, w]。
-  targetsensor_slot_7_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
 # 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
 

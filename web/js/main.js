@@ -16,20 +16,6 @@ import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
 import { initI18n, t } from './data/i18n.js';
 
-/*
- * TargetSensor 插孔：孔心 [m] map 系（与 yaml peg_insert.targetsensor_slot_*_position_map / UE FVector 一致）。
- * orion_mtc 在 target_insert_use_configured_hole_positions_map=true 时用参数表覆盖 SubmitJob 中的位置，仅采用此处姿态源。
- */
-const TARGET_INSERT_SLOTS = {
-  1: { x: -113.93, y: 129.1, z: -132.1 },
-  2: { x: -113.93, y: 128.9, z: -132.1 },
-  3: { x: -113.93, y: 129.1, z: -132.36 },
-  4: { x: -113.93, y: 128.9, z: -132.35 },
-  5: { x: -113.93, y: 128.6, z: -132.36 },
-  6: { x: -113.93, y: 127.8, z: -130.89 },
-  7: { x: -113.93, y: 127.8, z: -131.12 },
-};
-
 /** 创建各面板 DOM 挂载点、建立 rosbridge 连接并注册全局快捷键与服务封装事件。 */
 function init() {
   initI18n();
@@ -192,15 +178,9 @@ function registerGlobalHandlers() {
     },
     'orion:targetsensor:insert': (e) => {
       const slot = Number(e.detail?.slot);
-      const slotPose = TARGET_INSERT_SLOTS[slot];
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
         toast.warn(t('toast.not_connected_pick'));
-        return;
-      }
-      if (!slotPose) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: invalid slot ${String(slot)}`);
-        toast.warn(`无效孔位: ${String(slot)}`);
         return;
       }
       const s = stateStore.getState();
@@ -210,6 +190,11 @@ function registerGlobalHandlers() {
         return;
       }
       const slotPoseFromTargetSet = Array.isArray(s.targetSetTargets) ? s.targetSetTargets[slot - 1] : null;
+      if (!slotPoseFromTargetSet || !slotPoseFromTargetSet.position) {
+        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少 target_set base_link 孔位`);
+        toast.warn(`孔位 ${String(slot)} 暂无 base_link 目标（请确认 /manipulator/target_set）`);
+        return;
+      }
       const normalizeQuaternion = (q) => {
         if (!q) {
           return null;
@@ -243,9 +228,13 @@ function registerGlobalHandlers() {
         ? 'target_set(slot)'
         : (orientationFromTarget ? 'target_sensor_object_pose' : (orientationFromLegacy ? 'object_pose' : 'identity'));
       const target_pose = wsClient.buildPoseStamped(
-        { x: slotPose.x, y: slotPose.y, z: slotPose.z },
+        {
+          x: Number(slotPoseFromTargetSet.position.x),
+          y: Number(slotPoseFromTargetSet.position.y),
+          z: Number(slotPoseFromTargetSet.position.z),
+        },
         targetOrientation,
-        'map'
+        'base_link'
       );
       wsClient.submitJob({
         job_type: wsClient.JOB_TYPE.TARGET_INSERT,
@@ -260,7 +249,7 @@ function registerGlobalHandlers() {
           (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
         stateStore.pushSystemLog(
           ok ? 'info' : 'error',
-          `TargetSensor insert slot=${slot} world=(${slotPose.x.toFixed(2)}, ${slotPose.y.toFixed(2)}, ${slotPose.z.toFixed(2)}), ori=${orientationSource}: ${msg}`
+          `TargetSensor insert slot=${slot} base_link=(${Number(target_pose.pose.position.x).toFixed(3)}, ${Number(target_pose.pose.position.y).toFixed(3)}, ${Number(target_pose.pose.position.z).toFixed(3)}), ori=${orientationSource}: ${msg}`
         );
         if (ok) {
           toast.success(msg);

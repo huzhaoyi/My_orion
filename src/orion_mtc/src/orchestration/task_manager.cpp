@@ -944,69 +944,6 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   geometry_msgs::msg::PoseStamped pose_base = target_pose;
   const rclcpp::Time stamp_now = node_->now();
   const int slot = parseSlotFromObjectId(object_id);
-  if (config_.peg_insert.target_insert_use_configured_hole_positions_map && slot >= 1 && slot <= 7)
-  {
-    const std::vector<double>& hp =
-        config_.peg_insert.targetsensor_slot_position_map[static_cast<std::size_t>(slot - 1)];
-    if (hp.size() != 3u)
-    {
-      RCLCPP_ERROR(LOGGER,
-                   "handleTargetInsert: peg_insert.targetsensor_slot_%d_position_map must have 3 elements (got %zu)",
-                   slot, hp.size());
-      return false;
-    }
-    pose_base.pose.position.x = hp[0];
-    pose_base.pose.position.y = hp[1];
-    pose_base.pose.position.z = hp[2];
-    if (config_.peg_insert.target_insert_use_configured_hole_orientations_map)
-    {
-      const std::vector<double>& hq =
-          config_.peg_insert.targetsensor_slot_orientation_map[static_cast<std::size_t>(slot - 1)];
-      if (hq.size() == 4u)
-      {
-        const double qx = hq[0];
-        const double qy = hq[1];
-        const double qz = hq[2];
-        const double qw = hq[3];
-        const double qn = std::sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
-        if (std::isfinite(qx) && std::isfinite(qy) && std::isfinite(qz) && std::isfinite(qw) && qn > 1e-9)
-        {
-          pose_base.pose.orientation.x = qx / qn;
-          pose_base.pose.orientation.y = qy / qn;
-          pose_base.pose.orientation.z = qz / qn;
-          pose_base.pose.orientation.w = qw / qn;
-        }
-        else
-        {
-          RCLCPP_WARN(LOGGER,
-                      "handleTargetInsert: invalid slot orientation_map[%d], fallback to request orientation",
-                      slot);
-        }
-      }
-      else
-      {
-        RCLCPP_WARN(LOGGER,
-                    "handleTargetInsert: slot_%d_orientation_map must have 4 elements (got %zu), "
-                    "fallback to request orientation",
-                    slot, hq.size());
-      }
-    }
-    pose_base.header.frame_id = "map";
-    pose_base.header.stamp = stamp_now;
-    if (config_.peg_insert.target_insert_use_configured_hole_orientations_map)
-    {
-      RCLCPP_INFO(LOGGER,
-                  "handleTargetInsert: hole XYZW from peg_insert.targetsensor_slot_%d_(position/orientation)_map",
-                  slot);
-    }
-    else
-    {
-      RCLCPP_INFO(LOGGER,
-                  "handleTargetInsert: hole XYZ from peg_insert.targetsensor_slot_%d_position_map (map), "
-                  "orientation from request",
-                  slot);
-    }
-  }
 
   const std::string src_frame_before_xform = pose_base.header.frame_id;
   if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
@@ -1239,55 +1176,8 @@ void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
 
 std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHolePosesBaseLink(bool emit_log) const
 {
+  (void)emit_log;
   std::vector<geometry_msgs::msg::PoseStamped> out;
-  if (!config_.peg_insert.target_insert_use_configured_hole_positions_map)
-  {
-    return out;
-  }
-  const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
-  bool dynamic_tf_probe_attempted = false;
-  for (std::size_t i = 0; i < config_.peg_insert.targetsensor_slot_position_map.size(); ++i)
-  {
-    const std::vector<double>& hp = config_.peg_insert.targetsensor_slot_position_map[i];
-    if (hp.size() != 3u)
-    {
-      continue;
-    }
-    geometry_msgs::msg::PoseStamped pose_base;
-    pose_base.header.frame_id = "map";
-    pose_base.header.stamp = stamp_latest_tf;
-    pose_base.pose.position.x = hp[0];
-    pose_base.pose.position.y = hp[1];
-    pose_base.pose.position.z = hp[2];
-    pose_base.pose.orientation.x = 0.0;
-    pose_base.pose.orientation.y = 0.0;
-    pose_base.pose.orientation.z = 0.0;
-    pose_base.pose.orientation.w = 1.0;
-    bool ok = false;
-    if (transform_to_base_link_fn_)
-    {
-      if (!dynamic_tf_probe_attempted)
-      {
-        dynamic_tf_probe_attempted = true;
-      }
-      ok = transform_to_base_link_fn_(pose_base, nullptr);
-    }
-    if (!ok || pose_base.header.frame_id != "base_link")
-    {
-      if (dynamic_tf_probe_attempted)
-      {
-        /* 启动早期 TF 树未就绪时，避免 7 个槽位逐个打印同类告警。 */
-        return out;
-      }
-      if (emit_log)
-      {
-        RCLCPP_WARN_THROTTLE(LOGGER, *node_->get_clock(), 3000,
-                             "collectTargetInsertHolePosesBaseLink: skip slot_%zu (map->base_link unavailable)", i + 1u);
-      }
-      continue;
-    }
-    out.push_back(pose_base);
-  }
   return out;
 }
 
