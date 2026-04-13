@@ -213,6 +213,20 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("peg_insert.pre_insert_use_base_x", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.pre_insert_base_x_offset_m", 0.20);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("peg_insert.front_waypoint_offset_m", 0.08);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -415,6 +429,12 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   if (config.peg_insert.front_waypoint_base_x_offset_m < 0.0)
   {
     config.peg_insert.front_waypoint_base_x_offset_m = 0.0;
+  }
+  node->get_parameter("peg_insert.pre_insert_use_base_x", config.peg_insert.pre_insert_use_base_x);
+  node->get_parameter("peg_insert.pre_insert_base_x_offset_m", config.peg_insert.pre_insert_base_x_offset_m);
+  if (config.peg_insert.pre_insert_base_x_offset_m < 0.0)
+  {
+    config.peg_insert.pre_insert_base_x_offset_m = 0.0;
   }
   node->get_parameter("peg_insert.front_waypoint_offset_m", config.peg_insert.front_waypoint_offset_m);
   if (config.peg_insert.front_waypoint_offset_m < 0.0)

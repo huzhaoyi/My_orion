@@ -72,6 +72,10 @@ peg_insert:
   front_waypoint_use_base_x: true
   # base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
   front_waypoint_base_x_offset_m: 0.50
+  # true：pre-insert 先保持 base_link X 安全距离，再单独切到轴向预插入位，避免突然贴近孔口。
+  pre_insert_use_base_x: true
+  # pre-insert 的 base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
+  pre_insert_base_x_offset_m: 0.22
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
   insert_depth_m: 0.04

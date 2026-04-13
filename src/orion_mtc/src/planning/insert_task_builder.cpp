@@ -117,12 +117,19 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     out.stage_names.push_back("move to ready (before insert)");
   }
 
-  geometry_msgs::msg::PoseStamped pre_pose = target_pose;
-  pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
-  pre_pose.pose.position.y -= axis_insert.y() * pre_offset;
-  pre_pose.pose.position.z -= axis_insert.z() * pre_offset;
+  geometry_msgs::msg::PoseStamped axis_pre_pose = target_pose;
+  axis_pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
+  axis_pre_pose.pose.position.y -= axis_insert.y() * pre_offset;
+  axis_pre_pose.pose.position.z -= axis_insert.z() * pre_offset;
   const double front_waypoint_offset = std::max(0.0, pi.front_waypoint_offset_m);
   const double front_waypoint_base_x_offset = std::max(0.0, pi.front_waypoint_base_x_offset_m);
+  const double pre_insert_base_x_offset = std::max(0.0, pi.pre_insert_base_x_offset_m);
+  geometry_msgs::msg::PoseStamped pre_pose = axis_pre_pose;
+  if (pi.pre_insert_use_base_x)
+  {
+    pre_pose = target_pose;
+    pre_pose.pose.position.x -= pre_insert_base_x_offset;
+  }
   geometry_msgs::msg::PoseStamped front_pose = pre_pose;
   if (pi.front_waypoint_use_base_x)
   {
@@ -137,6 +144,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   }
   const rclcpp::Time now = node_->now();
   pre_pose.header.stamp = now;
+  axis_pre_pose.header.stamp = now;
   front_pose.header.stamp = now;
 
   const bool front_waypoint_enabled =
@@ -185,6 +193,16 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     move_pre->setIKFrame(hand_frame);
     task.add(std::move(move_pre));
     out.stage_names.push_back("move to pre-insert");
+  }
+
+  if (pi.pre_insert_use_base_x)
+  {
+    auto move_axis_pre = std::make_unique<mtc::stages::MoveTo>("pre-insert to axis-approach", ptp_planner);
+    move_axis_pre->setGroup(arm_group_name);
+    move_axis_pre->setGoal(axis_pre_pose);
+    move_axis_pre->setIKFrame(hand_frame);
+    task.add(std::move(move_axis_pre));
+    out.stage_names.push_back("pre-insert to axis-approach");
   }
 
   geometry_msgs::msg::Vector3Stamped axis_msg;
