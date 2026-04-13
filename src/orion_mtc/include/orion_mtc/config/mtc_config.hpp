@@ -92,12 +92,6 @@ struct PegInsertConfig
   double chamfer_plane_delta_m = 0.002;
   int insert_axial_segments = 1;
   /*
-   * TARGET_INSERT：目标在 map/world 时若 TF 树无 map→base_link，可启用此项，用固定外参代替 lookupTransform。
-   * 数值与 tf2 lookupTransform(\"base_link\", \"map\") 返回的 Transform 一致：parent=base_link，child=map。
-   */
-  bool use_static_map_to_base_for_target_insert = false;
-  std::vector<double> static_transform_map_to_base_link;
-  /*
    * true 且 object_id 含 slot_1..7：孔心位置用下列 map 系参数，忽略 SubmitJob 里 target_pose 的平移（姿态仍用请求内四元数）。
    */
   bool target_insert_use_configured_hole_positions_map = false;

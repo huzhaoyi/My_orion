@@ -312,21 +312,6 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
-    node->declare_parameter<bool>("peg_insert.use_static_map_to_base_for_target_insert", false);
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
-    node->declare_parameter<std::vector<double>>("peg_insert.static_transform_map_to_base_link",
-                                                 std::vector<double>{});
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
     node->declare_parameter<bool>("peg_insert.target_insert_use_configured_hole_positions_map", false);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -460,10 +445,6 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.peg_insert.insert_axial_segments = 1;
   }
-  node->get_parameter("peg_insert.use_static_map_to_base_for_target_insert",
-                       config.peg_insert.use_static_map_to_base_for_target_insert);
-  node->get_parameter("peg_insert.static_transform_map_to_base_link",
-                       config.peg_insert.static_transform_map_to_base_link);
   node->get_parameter("peg_insert.target_insert_use_configured_hole_positions_map",
                        config.peg_insert.target_insert_use_configured_hole_positions_map);
   node->get_parameter("peg_insert.target_insert_use_configured_hole_orientations_map",
