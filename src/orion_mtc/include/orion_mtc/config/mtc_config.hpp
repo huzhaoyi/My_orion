@@ -56,6 +56,8 @@ struct TargetSensorPickConfig
 struct PegInsertConfig
 {
   double pre_offset_m = 0.10;
+  /* true：插孔前先回 SRDF 命名状态 ready，减少当前姿态导致的绕行。 */
+  bool go_ready_before_insert = false;
   /*
    * true：在 move to pre-insert 前，先到孔前方更远处的前置点，再线性推进到 pre-insert，
    * 用于减少从孔后方绕到前方的观感问题。

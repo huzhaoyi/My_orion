@@ -185,6 +185,13 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("peg_insert.go_ready_before_insert", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<bool>("peg_insert.enable_front_waypoint", false);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -386,6 +393,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
     config.target_sensor_pick.pregrasp_distances_m = { 0.10 };
   }
   node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
+  node->get_parameter("peg_insert.go_ready_before_insert", config.peg_insert.go_ready_before_insert);
   node->get_parameter("peg_insert.enable_front_waypoint", config.peg_insert.enable_front_waypoint);
   node->get_parameter("peg_insert.front_waypoint_offset_m", config.peg_insert.front_waypoint_offset_m);
   if (config.peg_insert.front_waypoint_offset_m < 0.0)

@@ -108,6 +108,15 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   const Eigen::Vector3d axis_insert =
       insert_axis_from_hole_pose(target_pose.pose, pi.insert_axis_local_xyz);
 
+  if (pi.go_ready_before_insert)
+  {
+    auto stage_ready = std::make_unique<mtc::stages::MoveTo>("move to ready (before insert)", ptp_planner);
+    stage_ready->setGroup(arm_group_name);
+    stage_ready->setGoal("ready");
+    task.add(std::move(stage_ready));
+    out.stage_names.push_back("move to ready (before insert)");
+  }
+
   geometry_msgs::msg::PoseStamped pre_pose = target_pose;
   pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
   pre_pose.pose.position.y -= axis_insert.y() * pre_offset;

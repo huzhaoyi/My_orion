@@ -64,6 +64,8 @@ target_sensor_pick:
 # target_insert_use_configured_hole_orientations_map=true 时同时覆盖姿态，不再依赖请求内四元数。
 peg_insert:
   pre_offset_m: 0.06
+  # true：插孔前先回 ready，减少抓取末态引起的绕行与换肘态。
+  go_ready_before_insert: true
   # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
   enable_front_waypoint: true
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
