@@ -48,7 +48,7 @@ namespace orion_mtc
 {
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
-static constexpr char TARGET_INSERT_HOLES_TOPIC[] = "/manipulator/target_insert_holes";
+static constexpr char TARGET_INSERT_HOLES_TOPIC[] = "/manipulator/target_insert_holes_debug";
 static constexpr char TARGET_INSERT_HOLE_MARKERS_TOPIC[] = "/manipulator/target_insert_hole_markers";
 static constexpr double TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
 static constexpr double TARGET_INSERT_HOLE_MARKER_THICKNESS_M = 0.02;

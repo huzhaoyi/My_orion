@@ -13,7 +13,7 @@ from typing import Optional, Tuple
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TransformStamped, Vector3Stamped
+from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovarianceStamped, TransformStamped, Vector3Stamped
 from std_msgs.msg import Header
 from holoocean_interfaces.msg import TargetSensor
 from orion_mtc_msgs.msg import PerceptionState, TargetSet
@@ -23,6 +23,16 @@ from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 # 机械臂基座在 ROV 系下平移 [m] 的默认值，仅平移无旋转（与 docs/tf_conversion.md 一致）；可由参数覆盖
 DEFAULT_LEFT_ARM_BASE_IN_ROV = (1.55, 0.5653, -0.283628)
 DEFAULT_RIGHT_ARM_BASE_IN_ROV = (1.55, -0.5653, -0.283628)
+DEFAULT_INSERT_SLOT_WORLD_POSITIONS = (
+    (-113.93, 129.1, -132.1),
+    (-113.93, 128.9, -132.1),
+    (-113.93, 129.1, -132.36),
+    (-113.93, 128.9, -132.35),
+    (-113.93, 128.6, -132.36),
+    (-113.93, 127.8, -130.89),
+    (-113.93, 127.8, -131.12),
+)
+DEFAULT_INSERT_SLOT_WORLD_ORIENTATION = (0.0, 0.0, -0.70710678, 0.70710678)
 
 
 def _quat_from_rotation_matrix(R: np.ndarray) -> Tuple[float, float, float, float]:
@@ -208,6 +218,18 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("position_offset_y", 0.0)
         self.declare_parameter("position_offset_z", 0.0)
         self.declare_parameter("use_pose_sensor_stamp_for_rov_tf", False)
+        self.declare_parameter("target_insert_holes_topic", "/manipulator/target_insert_holes")
+        for slot_index in range(1, 8):
+            position_default = list(DEFAULT_INSERT_SLOT_WORLD_POSITIONS[slot_index - 1])
+            orientation_default = list(DEFAULT_INSERT_SLOT_WORLD_ORIENTATION)
+            self.declare_parameter(
+                "targetsensor_slot_{}_position_world".format(slot_index),
+                position_default,
+            )
+            self.declare_parameter(
+                "targetsensor_slot_{}_orientation_world".format(slot_index),
+                orientation_default,
+            )
 
         self._target_sensor_topic = self.get_parameter("target_sensor_topic").get_parameter_value().string_value
         self._rov_pose_topic = self.get_parameter("rov_pose_topic").get_parameter_value().string_value
@@ -236,6 +258,45 @@ class TargetSensorToObjectPoseNode(Node):
         self._use_pose_sensor_stamp_for_rov_tf = (
             self.get_parameter("use_pose_sensor_stamp_for_rov_tf").get_parameter_value().bool_value
         )
+        self._target_insert_holes_topic = (
+            self.get_parameter("target_insert_holes_topic").get_parameter_value().string_value
+        )
+        self._fixed_insert_hole_positions_world: list[np.ndarray] = []
+        self._fixed_insert_hole_rotations_world: list[np.ndarray] = []
+        for slot_index in range(1, 8):
+            slot_position = self.get_parameter(
+                "targetsensor_slot_{}_position_world".format(slot_index)
+            ).get_parameter_value().double_array_value
+            slot_orientation = self.get_parameter(
+                "targetsensor_slot_{}_orientation_world".format(slot_index)
+            ).get_parameter_value().double_array_value
+            if len(slot_position) != 3:
+                self.get_logger().warn(
+                    "target_sensor_to_object_pose: slot_{} world position 参数长度非法，期望3，实际{}".format(
+                        slot_index, len(slot_position)
+                    )
+                )
+                continue
+            if len(slot_orientation) != 4:
+                self.get_logger().warn(
+                    "target_sensor_to_object_pose: slot_{} world orientation 参数长度非法，期望4，实际{}".format(
+                        slot_index, len(slot_orientation)
+                    )
+                )
+                continue
+            q = np.array(slot_orientation, dtype=float)
+            q_norm = float(np.linalg.norm(q))
+            if q_norm < 1e-9:
+                self.get_logger().warn(
+                    "target_sensor_to_object_pose: slot_{} world orientation 四元数范数过小，使用单位四元数".format(
+                        slot_index
+                    )
+                )
+                q = np.array([0.0, 0.0, 0.0, 1.0], dtype=float)
+            else:
+                q = q / q_norm
+            self._fixed_insert_hole_positions_world.append(np.array(slot_position, dtype=float))
+            self._fixed_insert_hole_rotations_world.append(_quat_to_rotation_matrix(q[0], q[1], q[2], q[3]))
         self._rov_position: Optional[np.ndarray] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
         self._last_rov_in_base: Optional[PoseStamped] = None
@@ -261,6 +322,11 @@ class TargetSensorToObjectPoseNode(Node):
         self._pub_axis = self.create_publisher(Vector3Stamped, self._object_axis_topic, 10)
         self._pub_perception_state = self.create_publisher(PerceptionState, self._perception_state_topic, 10)
         self._pub_target_set = self.create_publisher(TargetSet, self._target_set_topic, 10)
+        self._pub_target_insert_holes = self.create_publisher(
+            PoseArray,
+            self._target_insert_holes_topic,
+            10,
+        )
         if self._publish_tf:
             self._tf_broadcaster = TransformBroadcaster(self)
             self._tf_static_broadcaster = StaticTransformBroadcaster(self)
@@ -283,6 +349,39 @@ class TargetSensorToObjectPoseNode(Node):
         t.transform.rotation.z = 0.0
         t.transform.rotation.w = 1.0
         self._tf_static_broadcaster.sendTransform(t)
+
+    def _publish_fixed_target_insert_holes(self, stamp) -> None:
+        """
+        固定 7 孔位 world/map 坐标按 cable 一致链路转换到 base_link：
+        p_base = R_rov^T * (p_world - t_rov) - t_arm_in_rov + offset。
+        """
+        if self._rov_position is None or self._rov_orientation_xyzw is None:
+            return
+        if len(self._fixed_insert_hole_positions_world) == 0:
+            return
+        R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
+        t_rov = self._rov_position
+        offset = np.array([self._offset_x, self._offset_y, self._offset_z], dtype=float)
+        msg = PoseArray()
+        msg.header.stamp = stamp
+        msg.header.frame_id = self._output_frame_id
+        for slot_index in range(len(self._fixed_insert_hole_positions_world)):
+            p_world = self._fixed_insert_hole_positions_world[slot_index]
+            R_slot_world = self._fixed_insert_hole_rotations_world[slot_index]
+            p_rov = R_rov.T @ (p_world - t_rov)
+            p_base = p_rov - self._t_arm_in_rov + offset
+            R_slot_base = R_rov.T @ R_slot_world
+            q_slot_base = _quat_from_rotation_matrix(R_slot_base)
+            pose = Pose()
+            pose.position.x = float(p_base[0])
+            pose.position.y = float(p_base[1])
+            pose.position.z = float(p_base[2])
+            pose.orientation.x = q_slot_base[0]
+            pose.orientation.y = q_slot_base[1]
+            pose.orientation.z = q_slot_base[2]
+            pose.orientation.w = q_slot_base[3]
+            msg.poses.append(pose)
+        self._pub_target_insert_holes.publish(msg)
 
     def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
         """
@@ -332,6 +431,7 @@ class TargetSensorToObjectPoseNode(Node):
         rov_in_world.pose.orientation.z = o.z
         rov_in_world.pose.orientation.w = o.w
         self._last_rov_pose_in_world = rov_in_world
+        self._publish_fixed_target_insert_holes(stamp)
         # 仅在已有物体/目标数据时发布感知状态，避免网页收到“空 object_pose”与“有数据”交替导致 0↔有数据 闪烁
         if self._last_object_pose is None:
             return
@@ -369,6 +469,7 @@ class TargetSensorToObjectPoseNode(Node):
         R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
         t_rov = self._rov_position
         stamp = self.get_clock().now().to_msg()
+        self._publish_fixed_target_insert_holes(stamp)
 
         if self._publish_tf and self._tf_broadcaster is not None:
             for k in range(n):

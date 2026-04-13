@@ -654,9 +654,6 @@ function setTargetSet(msg) {
       targetSetTargets: [],
       targetSetValid: false,
       targetSetUpdatedAt: null,
-      targetInsertHolePoses: [],
-      targetInsertHolesValid: false,
-      targetInsertHolesUpdatedAt: null,
     });
     return;
   }
@@ -666,9 +663,6 @@ function setTargetSet(msg) {
       targetSetTargets: [],
       targetSetValid: false,
       targetSetUpdatedAt: Date.now(),
-      targetInsertHolePoses: [],
-      targetInsertHolesValid: false,
-      targetInsertHolesUpdatedAt: Date.now(),
     });
     return;
   }
@@ -693,13 +687,6 @@ function setTargetSet(msg) {
     targetSetTargets: rows,
     targetSetValid: true,
     targetSetUpdatedAt: Date.now(),
-    // 固定孔位配置已移除后，前端孔位可视化直接复用 target_set(base_link)。
-    targetInsertHolePoses: rows.map((r) => ({
-      position: { ...r.position },
-      orientation: { ...r.orientation },
-    })),
-    targetInsertHolesValid: true,
-    targetInsertHolesUpdatedAt: Date.now(),
   });
 }
 

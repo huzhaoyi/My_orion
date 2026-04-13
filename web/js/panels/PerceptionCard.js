@@ -108,6 +108,16 @@ function render(parentEl) {
             <tbody id="pc-ts-tbody"></tbody>
           </table>
         </div>
+        <div class="perception-card__table-caption" id="pc-th-cap"></div>
+        <div class="perception-card__targets">
+          <table class="perception-card__table" aria-label="target_insert_holes">
+            <thead><tr>
+              <th id="pc-hth0"></th><th id="pc-hth1"></th><th id="pc-hth2"></th>
+            </tr></thead>
+            <tbody id="pc-th-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card-row card-row--indent"><span class="card-label" id="pc-th-up-l"></span><span class="card-value" id="pc-th-up-v"></span></div>
         <div class="card-row card-row--indent"><span class="card-label" id="pc-ts-up-l"></span><span class="card-value" id="pc-ts-up-v"></span></div>
       </div>
       <div class="perception-card__pose-block perception-card__pose-block--fused">
@@ -155,6 +165,8 @@ function render(parentEl) {
     g('pc-ts-hlabel').textContent = t('card.perception.target_sensor_label');
     g('pc-ts-idx-l').textContent = t('card.perception.target_grasp_index');
     g('pc-ts-up-l').textContent = t('card.perception.updated');
+    g('pc-th-cap').textContent = t('card.perception.target_insert_holes_caption');
+    g('pc-th-up-l').textContent = t('card.perception.updated');
     g('pc-cth0').textContent = t('card.perception.table_idx');
     g('pc-cth1').textContent = t('card.perception.table_pos');
     g('pc-cth2').textContent = t('card.perception.table_quat');
@@ -162,6 +174,9 @@ function render(parentEl) {
     g('pc-tth1').textContent = t('card.perception.table_pos');
     g('pc-tth2').textContent = t('card.perception.table_quat');
     g('pc-tth3').textContent = t('card.perception.table_id');
+    g('pc-hth0').textContent = t('card.perception.table_idx');
+    g('pc-hth1').textContent = t('card.perception.table_pos');
+    g('pc-hth2').textContent = t('card.perception.table_quat');
     g('pc-flabel').textContent = t('card.perception.fused_label');
     g('pc-fpl').textContent = t('card.perception.pos');
     g('pc-fol').textContent = t('card.perception.pose_orient');
@@ -306,6 +321,23 @@ function render(parentEl) {
         })
         .join('');
     }
+
+    const holeRows = state.targetInsertHolePoses || [];
+    const holeTbody = wrap.querySelector('#pc-th-tbody');
+    if (holeRows.length === 0) {
+      holeTbody.innerHTML = `<tr><td colspan="3" style="text-align:left;color:var(--text-secondary);font-size:10px;">${t('card.perception.table_empty')}</td></tr>`;
+    } else {
+      holeTbody.innerHTML = holeRows
+        .map((row, rowIndex) => {
+          return `<tr><td>${rowIndex + 1}</td><td style="font-size:10px;">${fmtPos(row.position)}</td><td style="font-size:10px;">${fmtQuatShort(row.orientation)}</td></tr>`;
+        })
+        .join('');
+    }
+    const holesUpStr =
+      state.targetInsertHolesValid && state.targetInsertHolesUpdatedAt != null
+        ? new Date(state.targetInsertHolesUpdatedAt).toLocaleTimeString()
+        : '—';
+    wrap.querySelector('#pc-th-up-v').textContent = holesUpStr;
 
     const fh = wrap.querySelector('#pc-fhint');
     fh.innerHTML = `${t('card.perception.fused_hint')}<span style="color:${fusedValid ? '#22c55e' : '#f97316'}">${fusedValid ? t('card.perception.valid') : t('card.perception.invalid')}</span>`;

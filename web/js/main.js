@@ -189,10 +189,10 @@ function registerGlobalHandlers() {
         toast.warn('请先完成 TargetSensor 抓取，再执行插孔');
         return;
       }
-      const slotPoseFromTargetSet = Array.isArray(s.targetSetTargets) ? s.targetSetTargets[slot - 1] : null;
-      if (!slotPoseFromTargetSet || !slotPoseFromTargetSet.position) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少 target_set base_link 孔位`);
-        toast.warn(`孔位 ${String(slot)} 暂无 base_link 目标（请确认 /manipulator/target_set）`);
+      const slotPoseFromHoles = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses[slot - 1] : null;
+      if (!slotPoseFromHoles || !slotPoseFromHoles.position) {
+        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定7孔 base_link 孔位`);
+        toast.warn(`孔位 ${String(slot)} 暂无 base_link 目标（请确认 /manipulator/target_insert_holes）`);
         return;
       }
       const normalizeQuaternion = (q) => {
@@ -217,7 +217,7 @@ function registerGlobalHandlers() {
           w: w / n,
         };
       };
-      const orientationFromSlot = normalizeQuaternion(slotPoseFromTargetSet?.orientation);
+      const orientationFromSlot = normalizeQuaternion(slotPoseFromHoles?.orientation);
       const orientationFromTarget = normalizeQuaternion(s.targetSensorObjectPose?.orientation);
       const orientationFromLegacy = normalizeQuaternion(s.objectPose?.orientation);
       const targetOrientation = orientationFromSlot
@@ -225,13 +225,13 @@ function registerGlobalHandlers() {
         || orientationFromLegacy
         || { x: 0, y: 0, z: 0, w: 1 };
       const orientationSource = orientationFromSlot
-        ? 'target_set(slot)'
+        ? 'target_insert_holes(slot)'
         : (orientationFromTarget ? 'target_sensor_object_pose' : (orientationFromLegacy ? 'object_pose' : 'identity'));
       const target_pose = wsClient.buildPoseStamped(
         {
-          x: Number(slotPoseFromTargetSet.position.x),
-          y: Number(slotPoseFromTargetSet.position.y),
-          z: Number(slotPoseFromTargetSet.position.z),
+          x: Number(slotPoseFromHoles.position.x),
+          y: Number(slotPoseFromHoles.position.y),
+          z: Number(slotPoseFromHoles.position.z),
         },
         targetOrientation,
         'base_link'
