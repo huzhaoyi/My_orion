@@ -50,82 +50,97 @@ cable_side_grasp:
   grasp_neighbor_segments: 1
   # Pilz/接近段线速度、线加速度相对默认的缩放系数（0~1 常用）。
   approach_lin_velocity_scaling: 0.12
+  # Pilz/接近段线加速度缩放系数（0~1，越小越平滑）。
   approach_lin_acceleration_scaling: 0.06
 
 # TargetSensor 抓取 peg：接近方向符号与上列 cable_side_grasp.approach_normal_sign 语义一致（HO 常需 -1）。
 target_sensor_pick:
-  # 抓取接近法向符号：与目标局部轴相乘，<0 表示反向接近。
+  # 接近方向符号（+1/-1），用于修正 peg 顶抓方向。
   approach_normal_sign: -1.0
-  # 闭合前沿接近方向推进的抓取吃入深度 [m]。
+  # 闭合前沿接近方向的“吃入深度” [m]。
   grasp_depth_m: 0.015
-  # 预抓取距离候选 [m]（按数组顺序尝试）。
+  # 预抓取距离候选 [m]（当前仅配置单值）。
   pregrasp_distances_m: [0.14]
-  # 抓取成功后的撤退距离 [m]。
+  # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
 
 # TargetSensor 插孔：孔心/孔向 map 系由 peg_insert.targetsensor_slot_*_(position/orientation)_map 给定（与 UE 坐标定义对齐）。
 # target_insert_use_configured_hole_positions_map=true 且 object_id=targetsensor_slot_N 时，服务端优先使用下表 XYZ；
 # target_insert_use_configured_hole_orientations_map=true 时同时覆盖姿态，不再依赖请求内四元数。
 peg_insert:
-  # 轴向预插入距离 [m]：从孔位沿插入轴反向退到预插入位的距离。
+  # 轴向预插入距离 [m]（从孔位沿插入轴反向退让，作为 axis_pre_pose）。
   pre_offset_m: 0.06
-  # 轴向插入总深度 [m]：从孔口沿插入轴推进的总位移。
-  insert_depth_m: 0.02
-  # 松爪后的撤退距离 [m]。
+  # true：插孔前先回 ready，减少抓取末态引起的绕行与换肘态。
+  go_ready_before_insert: true
+  # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
+  enable_front_waypoint: true
+  # true：前置点按 base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
+  front_waypoint_use_base_x: true
+  # base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
+  front_waypoint_base_x_offset_m: 0.35
+  # true：pre-insert 先保持 base_link X 安全距离，再单独切到轴向预插入位，避免突然贴近孔口。
+  pre_insert_use_base_x: true
+  # pre-insert 的 base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
+  pre_insert_base_x_offset_m: 0.14
+  # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
+  front_waypoint_offset_m: 0.10
+  # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
+  insert_depth_m: 0.018
+  # 插入完成后沿插入反方向退让总距离 [m]。
   retreat_m: 0.08
-  # 插入轴在孔位局部系下的方向（会归一化）：当前配置使用局部 +Y 对齐实际插孔方向。
+  # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。
   insert_axis_local_xyz: [0.0, 1.0, 0.0]
-  # Pilz LIN 规划速度缩放（0~1）。
+  # 插孔段 Pilz 线速度缩放（越小越稳）。
   lin_velocity_scaling: 0.08
-  # Pilz LIN 规划加速度缩放（0~1）。
+  # 插孔段 Pilz 线加速度缩放（越小越稳）。
   lin_acceleration_scaling: 0.03
-  # CartesianPath 速度缩放（0~1）。
+  # CartesianPath 速度缩放（insert approach / descend / retreat 段使用）。
   cartesian_velocity_scaling: 0.08
-  # CartesianPath 加速度缩放（0~1）。
+  # CartesianPath 加速度缩放（insert approach / descend / retreat 段使用）。
   cartesian_acceleration_scaling: 0.04
-  # CartesianPath 插值步长 [m]。
+  # CartesianPath 采样步长 [m]（越小轨迹越密，规划更慢）。
   cartesian_step_size: 0.005
   # 倒角阶段平面微动（无力控时的几何搜索）；默认关，需时在仿真中扫参再开。
   enable_chamfer_plane_search: false
-  # 倒角平面微动步长 [m]（仅在 enable_chamfer_plane_search=true 时生效）。
+  # 倒角平面微动步长 [m]（enable_chamfer_plane_search=true 时生效）。
   chamfer_plane_delta_m: 0.002
-  # 插入段轴向分段数（>=1）；数值越大推进越细。
+  # 插入轴向分段数（>1 可降低“单段硬推进”导致的穿入风险）。
   insert_axial_segments: 3
-  # 是否使用配置文件中的 slot 孔位位置（true 时覆盖请求内位置）。
+  # true：slot_1..7 使用下方 map 孔位坐标覆盖请求位姿位置。
   target_insert_use_configured_hole_positions_map: true
-  # 是否使用配置文件中的 slot 孔位姿态（true 时覆盖请求内姿态）。
+  # true：slot_1..7 使用下方 map 孔位四元数覆盖请求位姿姿态。
   target_insert_use_configured_hole_orientations_map: true
-  # slot_1 孔位 map 系位置 [x,y,z]。
+  # slot_1 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_1_position_map: [-113.93, 129.1, -132.1]
-  # slot_1 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_1 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_1_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_2 孔位 map 系位置 [x,y,z]。
+  # slot_2 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_2_position_map: [-113.93, 128.9, -132.1]
-  # slot_2 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_2 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_2_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_3 孔位 map 系位置 [x,y,z]。
+  # slot_3 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_3_position_map: [-113.93, 129.1, -132.36]
-  # slot_3 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_3 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_3_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_4 孔位 map 系位置 [x,y,z]。
+  # slot_4 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_4_position_map: [-113.93, 128.9, -132.35]
-  # slot_4 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_4 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_4_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_5 孔位 map 系位置 [x,y,z]。
+  # slot_5 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_5_position_map: [-113.93, 128.6, -132.36]
-  # slot_5 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_5 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_5_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_6 孔位 map 系位置 [x,y,z]。
+  # slot_6 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_6_position_map: [-113.93, 127.8, -130.89]
-  # slot_6 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_6 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_6_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
-  # slot_7 孔位 map 系位置 [x,y,z]。
+  # slot_7 孔位 map 坐标 [x, y, z]。
   targetsensor_slot_7_position_map: [-113.93, 127.8, -131.12]
-  # slot_7 孔位 map 系姿态四元数 [x,y,z,w]。
+  # slot_7 孔位 map 姿态四元数 [x, y, z, w]。
   targetsensor_slot_7_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
   # true：map/world 目标优先用下列七元组变到 base_link；与单位阵等价或未配满 7 个数时自动改走 TF（HoloOcean 有 map→rov→base 时与占位搭配可用）。
   use_static_map_to_base_for_target_insert: true
-  # map/world -> base_link 静态外参 [tx,ty,tz,qx,qy,qz,qw]。
+  # map->base_link 静态外参 [tx, ty, tz, qx, qy, qz, qw]；单位阵表示未配置。
   static_transform_map_to_base_link: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
@@ -169,6 +184,7 @@ runtime_policy:
   auto_start_worker: true
   # 规划失败是否对同一任务自动重试（与 max_retries 配合）。
   retry_on_plan_failure: false
+  # 同一任务最大自动重试次数（retry_on_plan_failure=true 时生效）。
   max_retries: 1
   # SYNC 等前是否先清 scene 再同步（减少陈旧碰模型）。
   auto_clear_scene_before_sync: true
