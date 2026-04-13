@@ -46,17 +46,17 @@ target_sensor_to_object_pose:
     targetsensor_slot_1_position_world: [-113.93, 129.1, -132.1]
     targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_2_position_world: [-113.93, 128.9, -132.1]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_2_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_3_position_world: [-113.93, 129.1, -132.36]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_3_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_4_position_world: [-113.93, 128.9, -132.35]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_4_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_5_position_world: [-113.93, 128.6, -132.36]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_5_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_6_position_world: [-113.93, 127.8, -130.89]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_6_orientation_world: [0.0, 0.0, 0.0, 1.0]
     targetsensor_slot_7_position_world: [-113.93, 127.8, -131.12]
-    targetsensor_slot_1_orientation_world: [0.0, 0.0, 0.0, 1.0]
+    targetsensor_slot_7_orientation_world: [0.0, 0.0, 0.0, 1.0]
 
 # CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF base_link→cable
 # 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1
