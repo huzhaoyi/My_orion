@@ -68,6 +68,10 @@ peg_insert:
   go_ready_before_insert: true
   # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
   enable_front_waypoint: true
+  # true：前置点按 base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
+  front_waypoint_use_base_x: true
+  # base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
+  front_waypoint_base_x_offset_m: 0.50
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
   insert_depth_m: 0.04

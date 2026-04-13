@@ -63,6 +63,13 @@ struct PegInsertConfig
    * 用于减少从孔后方绕到前方的观感问题。
    */
   bool enable_front_waypoint = false;
+  /*
+   * true：前置点按 base_link 的 X 轴构造（x = target.x - front_waypoint_base_x_offset_m，y/z 与 target 相同）。
+   * false：沿插入轴从 pre-insert 反向退 front_waypoint_offset_m。
+   */
+  bool front_waypoint_use_base_x = false;
+  /* 前置点在 base_link X 方向相对孔位的退让距离 [m]（front_waypoint_use_base_x=true 时生效）。 */
+  double front_waypoint_base_x_offset_m = 0.10;
   /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
   double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;
