@@ -971,6 +971,17 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     return false;
   }
   pose_base.header.stamp = stamp_now;
+  RCLCPP_INFO(LOGGER,
+              "handleTargetInsert: planning target frame=base_link pos=(%.4f, %.4f, %.4f) "
+              "quat=(%.4f, %.4f, %.4f, %.4f) object_id=%s",
+              pose_base.pose.position.x,
+              pose_base.pose.position.y,
+              pose_base.pose.position.z,
+              pose_base.pose.orientation.x,
+              pose_base.pose.orientation.y,
+              pose_base.pose.orientation.z,
+              pose_base.pose.orientation.w,
+              object_id.c_str());
 
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   std::vector<std::string> insert_stage_names;
@@ -1937,6 +1948,18 @@ bool TaskManager::executeJob(const ManipulationJob& job)
         RCLCPP_ERROR(LOGGER, "executeJob TARGET_INSERT: target_pose required");
         return false;
       }
+      RCLCPP_INFO(LOGGER,
+                  "executeJob TARGET_INSERT: submit target frame=%s pos=(%.4f, %.4f, %.4f) "
+                  "quat=(%.4f, %.4f, %.4f, %.4f) object_id=%s",
+                  job.target_pose->header.frame_id.c_str(),
+                  job.target_pose->pose.position.x,
+                  job.target_pose->pose.position.y,
+                  job.target_pose->pose.position.z,
+                  job.target_pose->pose.orientation.x,
+                  job.target_pose->pose.orientation.y,
+                  job.target_pose->pose.orientation.z,
+                  job.target_pose->pose.orientation.w,
+                  job.object_id.c_str());
       return handleTargetInsert(job.target_pose.value(), job.object_id);
     }
     default:
