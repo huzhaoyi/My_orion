@@ -85,7 +85,7 @@ peg_insert:
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
-  insert_depth_m: 0.008
+  insert_depth_m: 0.1
   # 插入完成后沿插入反方向退让总距离 [m]。
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。
@@ -140,8 +140,8 @@ peg_insert:
   targetsensor_slot_7_orientation_map: [0.0, 0.0, -0.70710678, 0.70710678]
   # true：map/world 目标优先用下列七元组变到 base_link；与单位阵等价或未配满 7 个数时自动改走 TF（HoloOcean 有 map→rov→base 时与占位搭配可用）。
   use_static_map_to_base_for_target_insert: true
-  # map->base_link 静态外参 [tx, ty, tz, qx, qy, qz, qw]；单位阵表示未配置。
-  static_transform_map_to_base_link: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+  # map->base_link 静态外参 [tx, ty, tz, qx, qy, qz, qw]；测试阶段使用固定外参（不走 TF）。
+  static_transform_map_to_base_link: [-1.55, -0.5653, 0.283628, 0.0, 0.0, -0.707107, 0.707107]
 
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
 # 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
