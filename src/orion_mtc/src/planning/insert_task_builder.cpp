@@ -112,15 +112,45 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
   pre_pose.pose.position.y -= axis_insert.y() * pre_offset;
   pre_pose.pose.position.z -= axis_insert.z() * pre_offset;
+  const double front_waypoint_offset = std::max(0.0, pi.front_waypoint_offset_m);
+  geometry_msgs::msg::PoseStamped front_pose = pre_pose;
+  front_pose.pose.position.x -= axis_insert.x() * front_waypoint_offset;
+  front_pose.pose.position.y -= axis_insert.y() * front_waypoint_offset;
+  front_pose.pose.position.z -= axis_insert.z() * front_waypoint_offset;
   const rclcpp::Time now = node_->now();
   pre_pose.header.stamp = now;
+  front_pose.header.stamp = now;
 
-  auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
-  move_pre->setGroup(arm_group_name);
-  move_pre->setGoal(pre_pose);
-  move_pre->setIKFrame(hand_frame);
-  task.add(std::move(move_pre));
-  out.stage_names.push_back("move to pre-insert");
+  if (pi.enable_front_waypoint && front_waypoint_offset > 1e-6)
+  {
+    auto move_front = std::make_unique<mtc::stages::MoveTo>("move to front-waypoint", ptp_planner);
+    move_front->setGroup(arm_group_name);
+    move_front->setGoal(front_pose);
+    move_front->setIKFrame(hand_frame);
+    task.add(std::move(move_front));
+    out.stage_names.push_back("move to front-waypoint");
+
+    geometry_msgs::msg::Vector3Stamped front_to_pre_axis;
+    append_vector3_stamped(now, plan_frame, axis_insert, front_to_pre_axis);
+    auto move_front_to_pre =
+        std::make_unique<mtc::stages::MoveRelative>("front-waypoint to pre-insert", lin_planner);
+    move_front_to_pre->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    move_front_to_pre->setIKFrame(hand_frame);
+    move_front_to_pre->setDirection(front_to_pre_axis);
+    move_front_to_pre->setMinMaxDistance(static_cast<float>(front_waypoint_offset),
+                                         static_cast<float>(front_waypoint_offset));
+    task.add(std::move(move_front_to_pre));
+    out.stage_names.push_back("front-waypoint to pre-insert");
+  }
+  else
+  {
+    auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
+    move_pre->setGroup(arm_group_name);
+    move_pre->setGoal(pre_pose);
+    move_pre->setIKFrame(hand_frame);
+    task.add(std::move(move_pre));
+    out.stage_names.push_back("move to pre-insert");
+  }
 
   geometry_msgs::msg::Vector3Stamped axis_msg;
   append_vector3_stamped(now, plan_frame, axis_insert, axis_msg);

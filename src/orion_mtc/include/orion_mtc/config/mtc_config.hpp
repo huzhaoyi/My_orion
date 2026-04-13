@@ -56,6 +56,13 @@ struct TargetSensorPickConfig
 struct PegInsertConfig
 {
   double pre_offset_m = 0.10;
+  /*
+   * true：在 move to pre-insert 前，先到孔前方更远处的前置点，再线性推进到 pre-insert，
+   * 用于减少从孔后方绕到前方的观感问题。
+   */
+  bool enable_front_waypoint = false;
+  /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
+  double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */

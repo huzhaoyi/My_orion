@@ -64,6 +64,10 @@ target_sensor_pick:
 # target_insert_use_configured_hole_orientations_map=true 时同时覆盖姿态，不再依赖请求内四元数。
 peg_insert:
   pre_offset_m: 0.06
+  # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
+  enable_front_waypoint: true
+  # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
+  front_waypoint_offset_m: 0.10
   insert_depth_m: 0.04
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前 peg in hole 使用 +Y（避免出现“目标与孔平行”）。
@@ -152,4 +156,4 @@ runtime_policy:
 # true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）。
 use_joy_manipulator: true
 # true：启动 RViz；默认 false 便于无头仿真与网页联调。
-start_rviz: true
+start_rviz: false
