@@ -140,10 +140,13 @@ function connect() {
     stateStore.setConnection('ws', true);
     stateStore.pushSystemLog('info', 'WebSocket 已连接: ' + url);
     subscribeTopics();
+    getQueueState((res) => {
+      stateStore.applyQueueStateResponse(res);
+    });
     stateStore.pushSystemLog('info', `订阅 Keypoints 轨迹: ${subscribedKeypointsTopic}（geometry_msgs/PoseArray）`);
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     stateStore.setConnection('ws', false);
     stateStore.setJoyBridgeManual(null);
     stateStore.setJoyBridgeThrottle(null);
@@ -153,7 +156,9 @@ function connect() {
       keypointsTraceUpdatedAt: null,
     });
     if (!pageUnloading) {
-      stateStore.pushSystemLog('warn', 'WebSocket 已断开');
+      const code = (ev && Number.isFinite(ev.code)) ? ev.code : 0;
+      const reason = (ev && typeof ev.reason === 'string' && ev.reason.length > 0) ? ev.reason : 'n/a';
+      stateStore.pushSystemLog('warn', `WebSocket 已断开 (code=${code}, reason=${reason})`);
       scheduleReconnect();
     }
   };
@@ -177,7 +182,7 @@ function scheduleReconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
   reconnectAttempts += 1;
-  const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+  const delay = Math.min(500 * Math.pow(2, Math.max(0, reconnectAttempts - 1)), 30000);
   stateStore.pushSystemLog('info', `${delay / 1000}s 后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
   reconnectTimer = setTimeout(connect, delay);
 }

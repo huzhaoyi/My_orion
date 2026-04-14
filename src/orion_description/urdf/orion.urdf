@@ -155,7 +155,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
-  <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±180°；腕 roll 连续；夹爪 ±π（可与实机一致后改写） -->
+  <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±180°；腕 roll 连续；夹爪 ±90° -->
 
   <joint name="joint_base_link_Link1" type="revolute">
     <parent link="base_link"/>
@@ -224,7 +224,7 @@
     <child link="Link7"/>
     <origin xyz="0.0363 0.0 0.0499" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-1.57080" upper="1.57080" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link6_Link8" type="revolute">
@@ -232,7 +232,7 @@
     <child link="Link8"/>
     <origin xyz="-0.0363 0.0 0.047" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
+    <limit lower="-1.57080" upper="1.57080" effort="100" velocity="1.0"/>
   </joint>
 
 </robot>

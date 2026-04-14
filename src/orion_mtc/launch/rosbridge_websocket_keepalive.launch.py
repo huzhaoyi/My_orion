@@ -18,6 +18,14 @@ def _setup(context, *_args, **_kwargs):
     port = int(LaunchConfiguration("port").perform(context))
     ping_iv = float(LaunchConfiguration("websocket_ping_interval").perform(context))
     ping_to = float(LaunchConfiguration("websocket_ping_timeout").perform(context))
+    unregister_to = float(LaunchConfiguration("unregister_timeout").perform(context))
+    rosbridge_log_level = LaunchConfiguration("rosbridge_log_level").perform(context)
+    if ping_iv < 0.0:
+        ping_iv = 0.0
+    if ping_to < 0.0:
+        ping_to = 0.0
+    if unregister_to < 0.5:
+        unregister_to = 0.5
     return [
         Node(
             package="rosbridge_server",
@@ -29,13 +37,17 @@ def _setup(context, *_args, **_kwargs):
                 str(ping_iv),
                 "--websocket_ping_timeout",
                 str(ping_to),
+                "--ros-args",
+                "--log-level",
+                "rosbridge_websocket:={}".format(rosbridge_log_level),
             ],
             parameters=[
                 {
                     "port": port,
                     "fragment_timeout": 600,
                     "max_message_size": 10000000,
-                    "unregister_timeout": 10.0,
+                    # 失效连接更快注销，减少“closed websocket”告警持续时长。
+                    "unregister_timeout": unregister_to,
                     "delay_between_messages": 0.0,
                     "use_compression": False,
                     "call_services_in_new_thread": False,
@@ -76,12 +88,22 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "websocket_ping_interval",
                 default_value="25.0",
-                description="秒；>0 时 Tornado 周期性 WebSocket ping（官方默认可为 0）",
+                description="秒；>0 时 Tornado 周期性 WebSocket ping（稳定优先默认 25）",
             ),
             DeclareLaunchArgument(
                 "websocket_ping_timeout",
                 default_value="120.0",
                 description="秒；等待 pong",
+            ),
+            DeclareLaunchArgument(
+                "unregister_timeout",
+                default_value="2.0",
+                description="秒；失效订阅/连接注销超时，缩短可减少 closed websocket 告警持续时间",
+            ),
+            DeclareLaunchArgument(
+                "rosbridge_log_level",
+                default_value="warn",
+                description="rosbridge_websocket 日志级别（debug/info/warn/error/fatal）",
             ),
             OpaqueFunction(function=_setup),
         ]

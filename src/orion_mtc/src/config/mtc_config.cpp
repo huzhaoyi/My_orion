@@ -58,7 +58,7 @@ void declareParameters(rclcpp::Node* node)
   {
     node->declare_parameter<std::vector<double>>(
         "cable_side_grasp.approach_around_axis_candidates_deg",
-        std::vector<double>{ 0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0 });
+        std::vector<double>{ 0.0, 45.0, 90.0, 135.0, 180.0 });
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {

@@ -100,9 +100,9 @@
     # （J6 在 URDF 为 continuous，手柄微动侧仍建议设置工程限位避免无限累积）。
     arm_joint_lower_limits_deg: [-120.0, -120.0, -120.0, -180.0, -120.0, -180.0]
     arm_joint_upper_limits_deg: [ 120.0,  120.0,  120.0,  180.0,  120.0,  180.0]
-    # 手指关节手动积分目标（度），与 SRDF open/close 一致（约 ±22.92° 对应 ±0.4 rad）
-    hand_q7_open_deg: 22.92
-    hand_q8_open_deg: -22.92
+    # 手指关节手动积分目标（度），与 URDF 夹爪关节限位一致（±90°）。
+    hand_q7_open_deg: 90.0
+    hand_q8_open_deg: -90.0
     hand_q7_close_deg: 0.0
     hand_q8_close_deg: 0.0
 

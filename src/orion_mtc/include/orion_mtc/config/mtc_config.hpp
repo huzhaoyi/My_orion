@@ -21,7 +21,7 @@ struct CableGraspConfig
   std::vector<double> pregrasp_offset_candidates{ 0.030, 0.040, 0.050 };
   std::vector<double> axial_shift_candidates{ -0.05, 0.0, 0.05 };
   std::vector<double> roll_candidates_deg{ 0.0 };
-  std::vector<double> approach_around_axis_candidates_deg{ 0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0 };
+  std::vector<double> approach_around_axis_candidates_deg{ 0.0, 45.0, 90.0, 135.0, 180.0 };
   std::vector<double> grasp_depth_candidates{ 0.010, 0.015, 0.020 };
   std::vector<double> tcp_bias_rpy_deg{ 0.0, 0.0, 0.0 };
   double retreat_dist = 0.05;

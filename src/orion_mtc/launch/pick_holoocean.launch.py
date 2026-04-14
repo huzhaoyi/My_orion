@@ -65,7 +65,13 @@ def _append_rosbridge_after_stack(context, *_args, **_kwargs):
         return []
     include_rb = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(rosbridge_keepalive),
-        launch_arguments=[("port", LaunchConfiguration("rosbridge_port"))],
+        launch_arguments=[
+            ("port", LaunchConfiguration("rosbridge_port")),
+            ("websocket_ping_interval", LaunchConfiguration("rosbridge_ws_ping_interval")),
+            ("websocket_ping_timeout", LaunchConfiguration("rosbridge_ws_ping_timeout")),
+            ("unregister_timeout", LaunchConfiguration("rosbridge_unregister_timeout")),
+            ("rosbridge_log_level", LaunchConfiguration("rosbridge_log_level")),
+        ],
     )
     delay_str = LaunchConfiguration("rosbridge_startup_delay_sec").perform(context)
     try:
@@ -273,6 +279,26 @@ def generate_launch_description():
         default_value="9091",
         description="rosbridge WebSocket 端口（默认 9091；与同事 9090 并存时可不改，网页默认已对齐）",
     )
+    arg_rosbridge_ping_iv = DeclareLaunchArgument(
+        "rosbridge_ws_ping_interval",
+        default_value="25.0",
+        description="秒；rosbridge websocket ping 间隔（稳定优先默认 25）",
+    )
+    arg_rosbridge_ping_to = DeclareLaunchArgument(
+        "rosbridge_ws_ping_timeout",
+        default_value="120.0",
+        description="秒；rosbridge websocket ping 超时（稳定优先默认 120）",
+    )
+    arg_rosbridge_unreg_to = DeclareLaunchArgument(
+        "rosbridge_unregister_timeout",
+        default_value="2.0",
+        description="秒；失效连接注销超时（较小可减少 closed websocket 告警持续）",
+    )
+    arg_rosbridge_log_level = DeclareLaunchArgument(
+        "rosbridge_log_level",
+        default_value="warn",
+        description="rosbridge_websocket 日志级别（debug/info/warn/error/fatal）",
+    )
 
     keypoint_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(keypoint_launch),
@@ -295,6 +321,10 @@ def generate_launch_description():
         arg_keypoint_preset,
         arg_rosbridge_delay,
         arg_rosbridge_port,
+        arg_rosbridge_ping_iv,
+        arg_rosbridge_ping_to,
+        arg_rosbridge_unreg_to,
+        arg_rosbridge_log_level,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_launch),
             launch_arguments=[

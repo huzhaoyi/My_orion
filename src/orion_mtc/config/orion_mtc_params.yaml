@@ -40,8 +40,8 @@ cable_side_grasp:
   axial_shift_candidates: [-0.05, 0.0, 0.05]
   # 腕部绕接近轴滚转候选 [deg]（侧向姿态多解）。
   roll_candidates_deg: [0.0]
-  # 绕缆轴向旋转接近方向的候选 [deg]（八方位等）。
-  approach_around_axis_candidates_deg: [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+  # 绕缆轴向旋转接近方向的候选 [deg]（保留 0~180，去除大角度冗余候选）。
+  approach_around_axis_candidates_deg: [0.0, 45.0, 90.0, 135.0, 180.0]
   # 缆绳总长、分段长度、半径 [m]：用于生成线股碰撞原语（非精细网格）。
   cable_total_length: 3.0
   cable_segment_length: 0.25
@@ -69,7 +69,7 @@ peg_insert:
   # 轴向预插入距离 [m]（从孔位沿插入轴反向退让，作为 axis_pre_pose）。
   pre_offset_m: 0.04
   # true：插孔前先回 ready，减少抓取末态引起的绕行与换肘态。
-  go_ready_before_insert: false
+  go_ready_before_insert: true
   # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
   enable_front_waypoint: true
   # true：前置点按 base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。

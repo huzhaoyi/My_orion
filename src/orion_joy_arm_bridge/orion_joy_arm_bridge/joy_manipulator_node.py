@@ -176,9 +176,9 @@ class JoyManipulatorNode(Node):
         self.declare_parameter("hand_joint_names", ["joint_Link6_Link7", "joint_Link6_Link8"])
         self.declare_parameter("arm_joint_lower_limits_deg", [-180.0] * 6)
         self.declare_parameter("arm_joint_upper_limits_deg", [180.0] * 6)
-        # 与 SRDF 张开/闭合一致（与 0.4 / -0.4 rad 等价）
-        self.declare_parameter("hand_q7_open_deg", float(math.degrees(0.4)))
-        self.declare_parameter("hand_q8_open_deg", float(math.degrees(-0.4)))
+        # 手动夹爪张开限位默认按 URDF 夹爪关节限位配置（±90°）
+        self.declare_parameter("hand_q7_open_deg", 90.0)
+        self.declare_parameter("hand_q8_open_deg", -90.0)
         self.declare_parameter("hand_q7_close_deg", 0.0)
         self.declare_parameter("hand_q8_close_deg", 0.0)
         self.declare_parameter("arm_action_name", "arm_controller/follow_joint_trajectory")
