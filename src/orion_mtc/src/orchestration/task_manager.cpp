@@ -939,211 +939,221 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     }
   } insert_feedback_guard{ this };
 
-  publishTargetInsertHoleDebug();
-
-  geometry_msgs::msg::PoseStamped pose_base = target_pose;
-  const rclcpp::Time stamp_now = node_->now();
-  const int slot = parseSlotFromObjectId(object_id);
-
-  const std::string src_frame_before_xform = pose_base.header.frame_id;
-  if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+  const bool insert_ok = [&]() -> bool
   {
-    const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
-    pose_base.header.stamp = stamp_latest_tf;
-    if (!transform_to_base_link_fn_(pose_base, nullptr))
+    publishTargetInsertHoleDebug();
+
+    geometry_msgs::msg::PoseStamped pose_base = target_pose;
+    const rclcpp::Time stamp_now = node_->now();
+    const int slot = parseSlotFromObjectId(object_id);
+
+    const std::string src_frame_before_xform = pose_base.header.frame_id;
+    if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
     {
-      RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
+      const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
+      pose_base.header.stamp = stamp_latest_tf;
+      if (!transform_to_base_link_fn_(pose_base, nullptr))
+      {
+        RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
+                     src_frame_before_xform.c_str());
+        return false;
+      }
+    }
+    else if (pose_base.header.frame_id != "base_link" && !transform_to_base_link_fn_)
+    {
+      RCLCPP_ERROR(LOGGER,
+                   "handleTargetInsert: target_pose(%s) needs transform_to_base_link callback",
                    src_frame_before_xform.c_str());
       return false;
     }
-  }
-  else if (pose_base.header.frame_id != "base_link" && !transform_to_base_link_fn_)
-  {
-    RCLCPP_ERROR(LOGGER,
-                 "handleTargetInsert: target_pose(%s) needs transform_to_base_link callback",
-                 src_frame_before_xform.c_str());
-    return false;
-  }
-  if (pose_base.header.frame_id != "base_link")
-  {
-    RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_pose frame must be base_link (got %s)",
-                 pose_base.header.frame_id.c_str());
-    return false;
-  }
-  pose_base.header.stamp = stamp_now;
-  RCLCPP_INFO(LOGGER,
-              "handleTargetInsert: planning target frame=base_link pos=(%.4f, %.4f, %.4f) "
-              "quat=(%.4f, %.4f, %.4f, %.4f) object_id=%s",
-              pose_base.pose.position.x,
-              pose_base.pose.position.y,
-              pose_base.pose.position.z,
-              pose_base.pose.orientation.x,
-              pose_base.pose.orientation.y,
-              pose_base.pose.orientation.z,
-              pose_base.pose.orientation.w,
-              object_id.c_str());
-
-  moveit_task_constructor_msgs::msg::Solution solution_msg;
-  std::vector<std::string> insert_stage_names;
-  auto try_plan_with_pose = [&](const geometry_msgs::msg::PoseStamped& pose_try,
-                                const std::string& plan_tag) -> bool
-  {
-    InsertTaskBuildResult built_local = insert_builder_->buildTargetInsertTask(pose_try);
-    mtc::Task& task_local = built_local.task;
-    try
+    if (pose_base.header.frame_id != "base_link")
     {
-      task_local.init();
-      task_local.enableIntrospection(true);
-    }
-    catch (mtc::InitStageException& e)
-    {
-      RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed (" << plan_tag << "): " << e);
+      RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_pose frame must be base_link (got %s)",
+                   pose_base.header.frame_id.c_str());
       return false;
     }
-    moveit::core::MoveItErrorCode plan_result_local = task_local.plan(5);
-    if (!plan_result_local || task_local.solutions().empty())
-    {
-      std::ostringstream os;
-      task_local.explainFailure(os);
-      RCLCPP_WARN_STREAM(LOGGER, "target insert plan failed (" << plan_tag << "): " << os.str());
-      return false;
-    }
-    task_local.solutions().front()->toMsg(solution_msg, &task_local.introspection());
-    insert_stage_names = built_local.stage_names;
-    return true;
-  };
+    pose_base.header.stamp = stamp_now;
+    RCLCPP_INFO(LOGGER,
+                "handleTargetInsert: planning target frame=base_link pos=(%.4f, %.4f, %.4f) "
+                "quat=(%.4f, %.4f, %.4f, %.4f) object_id=%s",
+                pose_base.pose.position.x,
+                pose_base.pose.position.y,
+                pose_base.pose.position.z,
+                pose_base.pose.orientation.x,
+                pose_base.pose.orientation.y,
+                pose_base.pose.orientation.z,
+                pose_base.pose.orientation.w,
+                object_id.c_str());
 
-  bool planned = try_plan_with_pose(pose_base, "nominal");
-  if (!planned)
-  {
-    const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(config_.peg_insert);
-    const Eigen::Quaterniond q_nominal(pose_base.pose.orientation.w,
-                                       pose_base.pose.orientation.x,
-                                       pose_base.pose.orientation.y,
-                                       pose_base.pose.orientation.z);
-    Eigen::Vector3d axis_world = q_nominal * axis_local;
-    const double axis_norm = axis_world.norm();
-    if (axis_norm > 1e-9)
+    moveit_task_constructor_msgs::msg::Solution solution_msg;
+    std::vector<std::string> insert_stage_names;
+    auto try_plan_with_pose = [&](const geometry_msgs::msg::PoseStamped& pose_try,
+                                  const std::string& plan_tag) -> bool
     {
-      axis_world /= axis_norm;
-      const std::vector<std::pair<double, std::string>> rotation_candidates = {
-        { M_PI, "flip_180_about_insert_axis" },
-        { M_PI_2, "flip_90_about_insert_axis" },
-        { -M_PI_2, "flip_minus_90_about_insert_axis" },
-      };
-      for (const auto& candidate : rotation_candidates)
+      InsertTaskBuildResult built_local = insert_builder_->buildTargetInsertTask(pose_try);
+      mtc::Task& task_local = built_local.task;
+      try
       {
-        const Eigen::Quaterniond q_rot(Eigen::AngleAxisd(candidate.first, axis_world));
-        const Eigen::Quaterniond q_try = q_rot * q_nominal;
-        geometry_msgs::msg::PoseStamped pose_try = pose_base;
-        pose_try.pose.orientation.x = q_try.x();
-        pose_try.pose.orientation.y = q_try.y();
-        pose_try.pose.orientation.z = q_try.z();
-        pose_try.pose.orientation.w = q_try.w();
-        planned = try_plan_with_pose(pose_try, candidate.second);
-        if (planned)
+        task_local.init();
+        task_local.enableIntrospection(true);
+      }
+      catch (mtc::InitStageException& e)
+      {
+        RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed (" << plan_tag << "): " << e);
+        return false;
+      }
+      moveit::core::MoveItErrorCode plan_result_local = task_local.plan(5);
+      if (!plan_result_local || task_local.solutions().empty())
+      {
+        std::ostringstream os;
+        task_local.explainFailure(os);
+        RCLCPP_WARN_STREAM(LOGGER, "target insert plan failed (" << plan_tag << "): " << os.str());
+        return false;
+      }
+      task_local.solutions().front()->toMsg(solution_msg, &task_local.introspection());
+      insert_stage_names = built_local.stage_names;
+      return true;
+    };
+
+    bool planned = try_plan_with_pose(pose_base, "nominal");
+    if (!planned)
+    {
+      const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(config_.peg_insert);
+      const Eigen::Quaterniond q_nominal(pose_base.pose.orientation.w,
+                                         pose_base.pose.orientation.x,
+                                         pose_base.pose.orientation.y,
+                                         pose_base.pose.orientation.z);
+      Eigen::Vector3d axis_world = q_nominal * axis_local;
+      const double axis_norm = axis_world.norm();
+      if (axis_norm > 1e-9)
+      {
+        axis_world /= axis_norm;
+        const std::vector<std::pair<double, std::string>> rotation_candidates = {
+          { M_PI, "flip_180_about_insert_axis" },
+          { M_PI_2, "flip_90_about_insert_axis" },
+          { -M_PI_2, "flip_minus_90_about_insert_axis" },
+        };
+        for (const auto& candidate : rotation_candidates)
         {
-          RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with orientation fallback %s",
-                      candidate.second.c_str());
-          break;
+          const Eigen::Quaterniond q_rot(Eigen::AngleAxisd(candidate.first, axis_world));
+          const Eigen::Quaterniond q_try = q_rot * q_nominal;
+          geometry_msgs::msg::PoseStamped pose_try = pose_base;
+          pose_try.pose.orientation.x = q_try.x();
+          pose_try.pose.orientation.y = q_try.y();
+          pose_try.pose.orientation.z = q_try.z();
+          pose_try.pose.orientation.w = q_try.w();
+          planned = try_plan_with_pose(pose_try, candidate.second);
+          if (planned)
+          {
+            RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with orientation fallback %s",
+                        candidate.second.c_str());
+            break;
+          }
         }
       }
     }
-  }
-  if (!planned)
-  {
-    RCLCPP_ERROR(LOGGER, "target insert plan failed after orientation fallback");
-    return false;
-  }
-
-  if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
-                                          current_task_id_, "TARGET_INSERT", insert_stage_names,
-                                          makeEstopAbortFn()))
-  {
-    RCLCPP_ERROR(LOGGER, "target insert execution failed");
-    return false;
-  }
-
-  const int latch_idx = slot - 1;
-  if (slot > 0)
-  {
-    if (!get_latest_target_set_fn_)
+    if (!planned)
     {
-      RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_set callback not configured");
+      RCLCPP_ERROR(LOGGER, "target insert plan failed after orientation fallback");
       return false;
     }
-    bool latch_ok = false;
-    const int max_retry = 50;
-    float last_latch_value = 0.0f;
-    bool has_latch_value = false;
-    for (int i = 0; i < max_retry; ++i)
+
+    if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
+                                            current_task_id_, "TARGET_INSERT", insert_stage_names,
+                                            makeEstopAbortFn()))
     {
-      const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
-      if (!latest.has_value())
+      RCLCPP_ERROR(LOGGER, "target insert execution failed");
+      return false;
+    }
+
+    const int latch_idx = slot - 1;
+    if (slot > 0)
+    {
+      if (!get_latest_target_set_fn_)
       {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        continue;
-      }
-      if (latch_idx < 0 || static_cast<std::size_t>(latch_idx) >= latest->latches.size())
-      {
-        RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch index out of range slot=%d idx=%d latches=%zu",
-                     slot, latch_idx, latest->latches.size());
+        RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_set callback not configured");
         return false;
       }
-      const float latch_value = latest->latches[static_cast<std::size_t>(latch_idx)];
-      last_latch_value = latch_value;
-      has_latch_value = true;
-      latch_ok = std::isfinite(static_cast<double>(latch_value)) && (latch_value > 0.5f);
-      if (latch_ok)
+      bool latch_ok = false;
+      const int max_retry = 50;
+      float last_latch_value = 0.0f;
+      bool has_latch_value = false;
+      for (int i = 0; i < max_retry; ++i)
       {
-        break;
+        const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+        if (!latest.has_value())
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          continue;
+        }
+        if (latch_idx < 0 || static_cast<std::size_t>(latch_idx) >= latest->latches.size())
+        {
+          RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch index out of range slot=%d idx=%d latches=%zu",
+                       slot, latch_idx, latest->latches.size());
+          return false;
+        }
+        const float latch_value = latest->latches[static_cast<std::size_t>(latch_idx)];
+        last_latch_value = latch_value;
+        has_latch_value = true;
+        latch_ok = std::isfinite(static_cast<double>(latch_value)) && (latch_value > 0.5f);
+        if (latch_ok)
+        {
+          break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    if (!latch_ok)
-    {
-      if (has_latch_value)
+      if (!latch_ok)
       {
-        RCLCPP_WARN(LOGGER,
-                    "handleTargetInsert: latch check failed slot=%d (object_id=%s, latch=%.3f), "
-                    "continue as inserted by trajectory result",
-                    slot, object_id.c_str(), static_cast<double>(last_latch_value));
+        if (has_latch_value)
+        {
+          RCLCPP_WARN(LOGGER,
+                      "handleTargetInsert: latch check failed slot=%d (object_id=%s, latch=%.3f), "
+                      "continue as inserted by trajectory result",
+                      slot, object_id.c_str(), static_cast<double>(last_latch_value));
+        }
+        else
+        {
+          RCLCPP_WARN(LOGGER,
+                      "handleTargetInsert: latch check failed slot=%d (object_id=%s, no latch sample), "
+                      "continue as inserted by trajectory result",
+                      slot, object_id.c_str());
+        }
       }
       else
       {
-        RCLCPP_WARN(LOGGER,
-                    "handleTargetInsert: latch check failed slot=%d (object_id=%s, no latch sample), "
-                    "continue as inserted by trajectory result",
-                    slot, object_id.c_str());
+        RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
       }
     }
     else
     {
-      RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
+      RCLCPP_WARN(LOGGER, "handleTargetInsert: object_id(%s) has no slot_xx; skip latch check", object_id.c_str());
     }
-  }
-  else
-  {
-    RCLCPP_WARN(LOGGER, "handleTargetInsert: object_id(%s) has no slot_xx; skip latch check", object_id.c_str());
-  }
 
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      clearHeldObject(held_object_);
+      task_mode_ = RobotTaskMode::IDLE;
+      last_error_.clear();
+    }
+    if (scene_manager_)
+    {
+      scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
+      scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
+    }
+    if (held_object_state_fn_)
+    {
+      held_object_state_fn_(getHeldObject());
+    }
+    RCLCPP_INFO(LOGGER, "handleTargetInsert: finished, released object_id=%s", object_id.c_str());
+    return true;
+  }();
+
+  if (!retreatToReady())
   {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    clearHeldObject(held_object_);
-    task_mode_ = RobotTaskMode::IDLE;
-    last_error_.clear();
+    RCLCPP_ERROR(LOGGER, "handleTargetInsert: failed to return ready after insert flow");
+    return false;
   }
-  if (scene_manager_)
-  {
-    scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
-    scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
-  }
-  if (held_object_state_fn_)
-  {
-    held_object_state_fn_(getHeldObject());
-  }
-  RCLCPP_INFO(LOGGER, "handleTargetInsert: finished, released object_id=%s", object_id.c_str());
-  return true;
+  return insert_ok;
 }
 
 /* 外部注入「夹爪是否已有物」谓词；为 true 时 handlePick 拒绝，防止重复规划。 */

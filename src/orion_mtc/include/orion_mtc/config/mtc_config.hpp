@@ -79,6 +79,7 @@ struct PegInsertConfig
   /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
   double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;
+  /* 插孔释放后沿 base_link +Z 线性抬离距离 [m]。 */
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */
   std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };

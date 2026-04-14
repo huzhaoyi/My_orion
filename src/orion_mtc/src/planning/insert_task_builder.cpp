@@ -299,22 +299,31 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   task.add(std::move(stage_open));
   out.stage_names.push_back("open hand");
 
-  geometry_msgs::msg::Vector3Stamped retreat_axis;
-  append_vector3_stamped(node_->now(), plan_frame, -axis_insert, retreat_axis);
-  const int retreat_segments = 3;
-  const double retreat_step = retreat_m / static_cast<double>(retreat_segments);
-  for (int s = 0; s < retreat_segments; ++s)
+  if (retreat_m > 1e-6)
   {
-    const std::string retreat_name =
-        (retreat_segments > 1) ? ("retreat up segment " + std::to_string(s + 1)) : "retreat up";
-    auto retreat_up = std::make_unique<mtc::stages::MoveRelative>(retreat_name, cartesian_planner);
-    retreat_up->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-    retreat_up->setIKFrame(hand_frame);
-    retreat_up->setDirection(retreat_axis);
-    retreat_up->setMinMaxDistance(static_cast<float>(retreat_step), static_cast<float>(retreat_step));
-    task.add(std::move(retreat_up));
-    out.stage_names.push_back(retreat_name);
+    geometry_msgs::msg::Vector3Stamped lift_axis;
+    append_vector3_stamped(node_->now(), "base_link", Eigen::Vector3d::UnitZ(), lift_axis);
+    const int lift_segments = 3;
+    const double lift_step = retreat_m / static_cast<double>(lift_segments);
+    for (int s = 0; s < lift_segments; ++s)
+    {
+      const std::string lift_name =
+          (lift_segments > 1) ? ("lift clear segment " + std::to_string(s + 1)) : "lift clear";
+      auto lift_clear = std::make_unique<mtc::stages::MoveRelative>(lift_name, cartesian_planner);
+      lift_clear->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+      lift_clear->setIKFrame(hand_frame);
+      lift_clear->setDirection(lift_axis);
+      lift_clear->setMinMaxDistance(static_cast<float>(lift_step), static_cast<float>(lift_step));
+      task.add(std::move(lift_clear));
+      out.stage_names.push_back(lift_name);
+    }
   }
+
+  auto stage_ready_after_release = std::make_unique<mtc::stages::MoveTo>("move to ready (after release)", ptp_planner);
+  stage_ready_after_release->setGroup(arm_group_name);
+  stage_ready_after_release->setGoal("ready");
+  task.add(std::move(stage_ready_after_release));
+  out.stage_names.push_back("move to ready (after release)");
 
   return out;
 }
