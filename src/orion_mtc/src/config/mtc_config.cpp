@@ -263,6 +263,15 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<double>>(
+        "peg_insert.tool_rpy_offset_deg",
+        std::vector<double>{ 0.0, 0.0, 0.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("peg_insert.lin_velocity_scaling", 0.2);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -390,6 +399,11 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   }
   node->get_parameter("peg_insert.tool_roll_about_insert_axis_deg",
                       config.peg_insert.tool_roll_about_insert_axis_deg);
+  node->get_parameter("peg_insert.tool_rpy_offset_deg", config.peg_insert.tool_rpy_offset_deg);
+  if (config.peg_insert.tool_rpy_offset_deg.size() != 3u)
+  {
+    config.peg_insert.tool_rpy_offset_deg = { 0.0, 0.0, 0.0 };
+  }
   node->get_parameter("peg_insert.lin_velocity_scaling", config.peg_insert.lin_velocity_scaling);
   node->get_parameter("peg_insert.lin_acceleration_scaling", config.peg_insert.lin_acceleration_scaling);
   node->get_parameter("peg_insert.cartesian_velocity_scaling", config.peg_insert.cartesian_velocity_scaling);

@@ -84,6 +84,8 @@ struct PegInsertConfig
   std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };
   /* 绕插入轴旋转末端姿态 [deg]（仅改姿态不改插入方向）；常用 180.0 以翻转“杆/孔前后”。 */
   double tool_roll_about_insert_axis_deg = 0.0;
+  /* gripper_tcp 局部姿态偏置 [deg]，顺序 roll/pitch/yaw；用于“像 link5 一样”微调插孔朝向。 */
+  std::vector<double> tool_rpy_offset_deg{ 0.0, 0.0, 0.0 };
   double lin_velocity_scaling = 0.2;
   double lin_acceleration_scaling = 0.2;
   double cartesian_velocity_scaling = 0.25;

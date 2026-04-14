@@ -88,8 +88,10 @@ peg_insert:
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。
   insert_axis_local_xyz: [0.0, 1.0, 0.0]
-  # 仅绕插入轴旋转末端姿态 [deg]（不改变插入方向）；180 可用于翻转“杆/孔前后关系”。
-  tool_roll_about_insert_axis_deg: 180.0
+  # 仅绕插入轴旋转末端姿态 [deg]（不改变插入方向）。
+  tool_roll_about_insert_axis_deg: 0.0
+  # 相对 gripper_tcp 的局部姿态偏置 [deg]（roll/pitch/yaw）；用于“像转 link5 一样”微调朝向。
+  tool_rpy_offset_deg: [0.0, 0.0, 90.0]
   # 插孔段 Pilz 线速度缩放（越小越稳）。
   lin_velocity_scaling: 0.08
   # 插孔段 Pilz 线加速度缩放（越小越稳）。

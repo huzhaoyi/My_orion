@@ -16,6 +16,11 @@ namespace orion_mtc
 namespace
 {
 
+double deg_to_rad(double deg)
+{
+  return deg * M_PI / 180.0;
+}
+
 Eigen::Vector3d normalized_insert_axis_local(const std::vector<double>& axis_local_param)
 {
   if (axis_local_param.size() != 3u)
@@ -86,6 +91,29 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     target_pose_adjusted.pose.orientation.y = q_adjusted.y();
     target_pose_adjusted.pose.orientation.z = q_adjusted.z();
     target_pose_adjusted.pose.orientation.w = q_adjusted.w();
+  }
+  if (pi.tool_rpy_offset_deg.size() == 3u)
+  {
+    const double roll_rad = deg_to_rad(pi.tool_rpy_offset_deg[0]);
+    const double pitch_rad = deg_to_rad(pi.tool_rpy_offset_deg[1]);
+    const double yaw_rad = deg_to_rad(pi.tool_rpy_offset_deg[2]);
+    if (std::abs(roll_rad) > 1e-9 || std::abs(pitch_rad) > 1e-9 || std::abs(yaw_rad) > 1e-9)
+    {
+      const Eigen::Quaterniond q_nominal(
+          target_pose_adjusted.pose.orientation.w,
+          target_pose_adjusted.pose.orientation.x,
+          target_pose_adjusted.pose.orientation.y,
+          target_pose_adjusted.pose.orientation.z);
+      const Eigen::Quaterniond q_offset =
+          Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ())
+          * Eigen::AngleAxisd(pitch_rad, Eigen::Vector3d::UnitY())
+          * Eigen::AngleAxisd(roll_rad, Eigen::Vector3d::UnitX());
+      const Eigen::Quaterniond q_adjusted = (q_nominal * q_offset).normalized();
+      target_pose_adjusted.pose.orientation.x = q_adjusted.x();
+      target_pose_adjusted.pose.orientation.y = q_adjusted.y();
+      target_pose_adjusted.pose.orientation.z = q_adjusted.z();
+      target_pose_adjusted.pose.orientation.w = q_adjusted.w();
+    }
   }
   const std::string plan_frame = target_pose_adjusted.header.frame_id;
   const double pre_offset = pi.pre_offset_m;
