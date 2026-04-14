@@ -82,6 +82,8 @@ struct PegInsertConfig
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */
   std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };
+  /* 绕插入轴旋转末端姿态 [deg]（仅改姿态不改插入方向）；常用 180.0 以翻转“杆/孔前后”。 */
+  double tool_roll_about_insert_axis_deg = 0.0;
   double lin_velocity_scaling = 0.2;
   double lin_acceleration_scaling = 0.2;
   double cartesian_velocity_scaling = 0.25;

@@ -68,8 +68,26 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   InsertTaskBuildResult out;
   out.stage_names.clear();
 
-  const std::string plan_frame = target_pose.header.frame_id;
   const PegInsertConfig& pi = config_.peg_insert;
+  geometry_msgs::msg::PoseStamped target_pose_adjusted = target_pose;
+  const double tool_roll_rad = pi.tool_roll_about_insert_axis_deg * M_PI / 180.0;
+  if (std::abs(tool_roll_rad) > 1e-9)
+  {
+    const Eigen::Vector3d axis_insert_nominal =
+        insert_axis_from_hole_pose(target_pose_adjusted.pose, pi.insert_axis_local_xyz);
+    const Eigen::Quaterniond q_nominal(
+        target_pose_adjusted.pose.orientation.w,
+        target_pose_adjusted.pose.orientation.x,
+        target_pose_adjusted.pose.orientation.y,
+        target_pose_adjusted.pose.orientation.z);
+    const Eigen::Quaterniond q_roll(Eigen::AngleAxisd(tool_roll_rad, axis_insert_nominal));
+    const Eigen::Quaterniond q_adjusted = (q_roll * q_nominal).normalized();
+    target_pose_adjusted.pose.orientation.x = q_adjusted.x();
+    target_pose_adjusted.pose.orientation.y = q_adjusted.y();
+    target_pose_adjusted.pose.orientation.z = q_adjusted.z();
+    target_pose_adjusted.pose.orientation.w = q_adjusted.w();
+  }
+  const std::string plan_frame = target_pose_adjusted.header.frame_id;
   const double pre_offset = pi.pre_offset_m;
   const double insert_depth = pi.insert_depth_m;
   const double retreat_m = pi.retreat_m;
@@ -106,7 +124,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   cartesian_planner->setMinFraction(0.90);
 
   const Eigen::Vector3d axis_insert =
-      insert_axis_from_hole_pose(target_pose.pose, pi.insert_axis_local_xyz);
+      insert_axis_from_hole_pose(target_pose_adjusted.pose, pi.insert_axis_local_xyz);
 
   if (pi.go_ready_before_insert)
   {
@@ -117,7 +135,7 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     out.stage_names.push_back("move to ready (before insert)");
   }
 
-  geometry_msgs::msg::PoseStamped axis_pre_pose = target_pose;
+  geometry_msgs::msg::PoseStamped axis_pre_pose = target_pose_adjusted;
   axis_pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
   axis_pre_pose.pose.position.y -= axis_insert.y() * pre_offset;
   axis_pre_pose.pose.position.z -= axis_insert.z() * pre_offset;
@@ -127,13 +145,13 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   geometry_msgs::msg::PoseStamped pre_pose = axis_pre_pose;
   if (pi.pre_insert_use_base_x)
   {
-    pre_pose = target_pose;
+    pre_pose = target_pose_adjusted;
     pre_pose.pose.position.x -= pre_insert_base_x_offset;
   }
   geometry_msgs::msg::PoseStamped front_pose = pre_pose;
   if (pi.front_waypoint_use_base_x)
   {
-    front_pose = target_pose;
+    front_pose = target_pose_adjusted;
     front_pose.pose.position.x -= front_waypoint_base_x_offset;
   }
   else
