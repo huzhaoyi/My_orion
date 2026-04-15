@@ -38,6 +38,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <future>
 #include <functional>
 #include <optional>
 #include <sstream>
@@ -476,8 +477,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                                        moveit_msgs::msg::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY |
                                        moveit_msgs::msg::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
           auto fut = client->async_send_request(req);
-          if (rclcpp::spin_until_future_complete(node_, fut, std::chrono::milliseconds(600)) ==
-              rclcpp::FutureReturnCode::SUCCESS)
+          if (fut.wait_for(std::chrono::milliseconds(600)) == std::future_status::ready)
           {
             auto resp = fut.get();
             if (resp)
@@ -506,6 +506,16 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       pregrasp_candidates.push_back(0.10);
     }
+    const std::array<double, 6> robust_pregrasp_defaults = { 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
+    for (double pre_m : robust_pregrasp_defaults)
+    {
+      if (std::find_if(pregrasp_candidates.begin(), pregrasp_candidates.end(),
+                       [pre_m](double v) { return std::abs(v - pre_m) < 1e-6; }) == pregrasp_candidates.end())
+      {
+        pregrasp_candidates.push_back(pre_m);
+      }
+    }
+    std::sort(pregrasp_candidates.begin(), pregrasp_candidates.end());
 
     const double configured_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
     std::array<double, 2> sign_candidates = { configured_sign, -configured_sign };
@@ -718,8 +728,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                                        moveit_msgs::msg::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY |
                                        moveit_msgs::msg::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
           auto fut = client->async_send_request(req);
-          if (rclcpp::spin_until_future_complete(node_, fut, std::chrono::milliseconds(600)) ==
-              rclcpp::FutureReturnCode::SUCCESS)
+          if (fut.wait_for(std::chrono::milliseconds(600)) == std::future_status::ready)
           {
             auto resp = fut.get();
             if (resp)
