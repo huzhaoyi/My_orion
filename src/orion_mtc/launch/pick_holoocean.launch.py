@@ -291,8 +291,8 @@ def generate_launch_description():
     )
     arg_rosbridge_address = DeclareLaunchArgument(
         "rosbridge_address",
-        default_value="127.0.0.1",
-        description="rosbridge 绑定地址（默认仅本机；跨机访问请设 0.0.0.0 或指定网卡 IP）",
+        default_value="0.0.0.0",
+        description="rosbridge 绑定地址（默认跨机可访问；仅本机安全模式可设 127.0.0.1）",
     )
     arg_rosbridge_ping_iv = DeclareLaunchArgument(
         "rosbridge_ws_ping_interval",

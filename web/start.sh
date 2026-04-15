@@ -26,8 +26,9 @@ else
   echo "Orion 上位机: 服务目录 $SCRIPT_DIR"
   echo "访问地址: $URL（仅本机绑定 ${HOST}）"
 fi
-echo "连接 ROS: 需先启动 rosbridge，例如: ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
-echo "          WS 默认 ws://127.0.0.1:9091（与 pick_holoocean rosbridge 一致）；跨机时用 ?ws=ws://实际IP:9091"
+echo "连接 ROS: 建议启动项目自带 rosbridge（pick_holoocean 内已集成）"
+echo "          默认跨机：rosbridge_address=0.0.0.0，WS 默认 ws://127.0.0.1:9091（本机访问）"
+echo "          跨机访问网页请使用 ?ws=ws://<ROS主机IP>:9091；仅本机安全模式可改 rosbridge_address=127.0.0.1"
 echo "按 Ctrl+C 停止服务"
 echo ""
 
