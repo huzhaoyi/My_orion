@@ -171,6 +171,33 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.fallback_pregrasp_distances_m",
+        std::vector<double>{ 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.approach_sign_candidates",
+        std::vector<double>{ -1.0, 1.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.tool_roll_candidates_deg",
+        std::vector<double>{ 0.0, 45.0, -45.0, 90.0, -90.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("target_sensor_pick.retreat_distance_m", 0.12);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -364,10 +391,28 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("target_sensor_pick.approach_normal_sign", config.target_sensor_pick.approach_normal_sign);
   node->get_parameter("target_sensor_pick.grasp_depth_m", config.target_sensor_pick.grasp_depth_m);
   node->get_parameter("target_sensor_pick.pregrasp_distances_m", config.target_sensor_pick.pregrasp_distances_m);
+  node->get_parameter("target_sensor_pick.fallback_pregrasp_distances_m",
+                      config.target_sensor_pick.fallback_pregrasp_distances_m);
+  node->get_parameter("target_sensor_pick.approach_sign_candidates",
+                      config.target_sensor_pick.approach_sign_candidates);
+  node->get_parameter("target_sensor_pick.tool_roll_candidates_deg",
+                      config.target_sensor_pick.tool_roll_candidates_deg);
   node->get_parameter("target_sensor_pick.retreat_distance_m", config.target_sensor_pick.retreat_distance_m);
   if (config.target_sensor_pick.pregrasp_distances_m.empty())
   {
     config.target_sensor_pick.pregrasp_distances_m = { 0.10 };
+  }
+  if (config.target_sensor_pick.fallback_pregrasp_distances_m.empty())
+  {
+    config.target_sensor_pick.fallback_pregrasp_distances_m = { 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
+  }
+  if (config.target_sensor_pick.approach_sign_candidates.empty())
+  {
+    config.target_sensor_pick.approach_sign_candidates = { config.target_sensor_pick.approach_normal_sign };
+  }
+  if (config.target_sensor_pick.tool_roll_candidates_deg.empty())
+  {
+    config.target_sensor_pick.tool_roll_candidates_deg = { 0.0 };
   }
   node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
   node->get_parameter("peg_insert.go_ready_before_insert", config.peg_insert.go_ready_before_insert);

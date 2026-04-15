@@ -46,6 +46,12 @@ struct TargetSensorPickConfig
   double grasp_depth_m = 0.015;
   /** 预抓距候选 [m]，由大到小尝试（更远预抓更易在臂工作空间内求 IK） */
   std::vector<double> pregrasp_distances_m{ 0.42, 0.34, 0.26, 0.20, 0.14, 0.10, 0.06 };
+  /** 额外预抓距回退候选 [m]（与 pregrasp_distances_m 合并去重后排序）。 */
+  std::vector<double> fallback_pregrasp_distances_m{ 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
+  /** 接近方向符号候选（通常包含 +1/-1）；空时回退为 approach_normal_sign。 */
+  std::vector<double> approach_sign_candidates{ -1.0, 1.0 };
+  /** TargetSensor 顶抓姿态绕接近轴滚转候选 [deg]。 */
+  std::vector<double> tool_roll_candidates_deg{ 0.0, 45.0, -45.0, 90.0, -90.0 };
   double retreat_distance_m = 0.12;
 };
 

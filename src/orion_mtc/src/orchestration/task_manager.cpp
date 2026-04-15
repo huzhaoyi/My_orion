@@ -506,9 +506,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       pregrasp_candidates.push_back(0.10);
     }
-    const std::array<double, 6> robust_pregrasp_defaults = { 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
-    for (double pre_m : robust_pregrasp_defaults)
+    for (double pre_m : config_.target_sensor_pick.fallback_pregrasp_distances_m)
     {
+      if (pre_m <= 1e-6)
+      {
+        continue;
+      }
       if (std::find_if(pregrasp_candidates.begin(), pregrasp_candidates.end(),
                        [pre_m](double v) { return std::abs(v - pre_m) < 1e-6; }) == pregrasp_candidates.end())
       {
@@ -516,10 +519,23 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
     std::sort(pregrasp_candidates.begin(), pregrasp_candidates.end());
-
-    const double configured_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
-    std::array<double, 2> sign_candidates = { configured_sign, -configured_sign };
-    std::array<double, 5> roll_candidates_deg = { 0.0, 45.0, -45.0, 90.0, -90.0 };
+    std::vector<double> sign_candidates;
+    for (double sign : config_.target_sensor_pick.approach_sign_candidates)
+    {
+      sign_candidates.push_back((sign < 0.0) ? -1.0 : 1.0);
+    }
+    if (sign_candidates.empty())
+    {
+      const double configured_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
+      sign_candidates.push_back(configured_sign);
+    }
+    std::sort(sign_candidates.begin(), sign_candidates.end());
+    sign_candidates.erase(std::unique(sign_candidates.begin(), sign_candidates.end()), sign_candidates.end());
+    std::vector<double> roll_candidates_deg = config_.target_sensor_pick.tool_roll_candidates_deg;
+    if (roll_candidates_deg.empty())
+    {
+      roll_candidates_deg.push_back(0.0);
+    }
 
     std::vector<TargetSensorPickCandidate> candidates;
     for (double pre_m : pregrasp_candidates)
