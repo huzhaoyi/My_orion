@@ -11,7 +11,7 @@
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
  *   /manipulator/target_set (TargetSet：TargetSensor 多目标 base_link，与 MTC 一致)
  *   /manipulator/target_insert_holes (PoseArray：插孔位姿，供前端/RViz 调试显示)
- *   /joint_states                 (JointState；pick_holoocean 下由桥接发布，非 /manipulator/joint_states)
+ *   /manipulator/web/joint_states (JointState；Web 降频通道，默认 15Hz，可用 ?joint_states_topic= 覆盖)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
  * 服务（与 orion_mtc_node 一致）：
@@ -49,6 +49,57 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 /** true：整页卸载/刷新，不再 scheduleReconnect，并主动 close，减轻 rosbridge 对已死连接写 1Hz 时的 WARN */
 let pageUnloading = false;
+/** 当前连接已发送 subscribe 的话题列表；断开前尽量先 unsubscribe，降低 rosbridge 告警。 */
+let activeSubscriptions = [];
+/** get_queue_state 单飞：并发请求只保留一次“补拉”机会，避免服务堆积与乱序覆盖。 */
+let queueStateInFlight = false;
+let queueStateNeedRefresh = false;
+let queueStateCallbacks = [];
+
+function flushQueueStateCallbacks(result) {
+  const callbacks = queueStateCallbacks.slice();
+  queueStateCallbacks = [];
+  callbacks.forEach((cb) => {
+    try {
+      cb(result);
+    } catch (_) {
+      /* ignore callback errors */
+    }
+  });
+}
+
+function runQueueStateRequest() {
+  if (queueStateInFlight) {
+    return;
+  }
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return;
+  }
+  queueStateInFlight = true;
+  callService(
+    getTopicPrefix() + '/get_queue_state',
+    {},
+    (res) => {
+      queueStateInFlight = false;
+      flushQueueStateCallbacks(res);
+      if (queueStateNeedRefresh) {
+        queueStateNeedRefresh = false;
+        runQueueStateRequest();
+      }
+    },
+    {
+      service_missing_retries: 10,
+      on_timeout: () => {
+        queueStateInFlight = false;
+        flushQueueStateCallbacks(null);
+        if (queueStateNeedRefresh) {
+          queueStateNeedRefresh = false;
+          runQueueStateRequest();
+        }
+      },
+    }
+  );
+}
 
 function handlePageLeave() {
   pageUnloading = true;
@@ -57,6 +108,7 @@ function handlePageLeave() {
     reconnectTimer = null;
   }
   if (ws) {
+    unsubscribeTopics();
     try {
       ws.close(1000, 'page leave');
     } catch (_) {
@@ -64,6 +116,10 @@ function handlePageLeave() {
     }
     ws = null;
   }
+  activeSubscriptions = [];
+  queueStateInFlight = false;
+  queueStateNeedRefresh = false;
+  queueStateCallbacks = [];
   stateStore.setConnection('ws', false);
 }
 
@@ -119,6 +175,19 @@ function getJoyUiPrefix() {
   return '/joy_manipulator';
 }
 
+/** Web 侧 JointState 订阅话题；默认 /manipulator/web/joint_states，可用 ?joint_states_topic= 覆盖。 */
+function getWebJointStatesTopic() {
+  const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+  const custom = params.get('joint_states_topic');
+  if (custom) {
+    const t = String(custom).trim();
+    if (t.length > 0) {
+      return t.startsWith('/') ? t.replace(/\/+$/, '') : '/' + t.replace(/\/+$/, '');
+    }
+  }
+  return '/manipulator/web/joint_states';
+}
+
 /** 建立 WebSocket、订阅业务话题、断线指数退避重连。 */
 function connect() {
   pageUnloading = false;
@@ -148,6 +217,10 @@ function connect() {
 
   ws.onclose = (ev) => {
     stateStore.setConnection('ws', false);
+    activeSubscriptions = [];
+    queueStateInFlight = false;
+    queueStateNeedRefresh = false;
+    queueStateCallbacks = [];
     stateStore.setJoyBridgeManual(null);
     stateStore.setJoyBridgeThrottle(null);
     stateStore.setState({
@@ -204,6 +277,7 @@ function getSubscribedTopicsFlat() {
   const prefix = getTopicPrefix();
   const joyUi = getJoyUiPrefix();
   const kp = getKeypointsSubscribeTopic();
+  const webJointStates = getWebJointStatesTopic();
   const topics = [
     prefix + '/runtime_status',
     prefix + '/job_event',
@@ -215,7 +289,7 @@ function getSubscribedTopicsFlat() {
     prefix + '/perception_state',
     prefix + '/target_set',
     prefix + '/target_insert_holes',
-    '/joint_states',
+    webJointStates,
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
   ];
@@ -233,32 +307,28 @@ function getSubscribedTopicsFlat() {
 
 /** 向 rosbridge 发送 subscribe：manipulator 状态/感知/全局 joint_states/手柄 UI（无 recovery、无 /manipulator/joint_states）。 */
 function subscribeTopics() {
-  const prefix = getTopicPrefix();
-  const joyUi = getJoyUiPrefix();
   subscribedKeypointsTopic = getKeypointsSubscribeTopic();
-  const topics = [
-    prefix + '/runtime_status',
-    prefix + '/job_event',
-    prefix + '/task_stage',
-    prefix + '/held_object_state',
-    prefix + '/object_pose_fused',
-    subscribedKeypointsTopic,
-    prefix + '/object_pose',
-    prefix + '/perception_state',
-    prefix + '/target_set',
-    prefix + '/target_insert_holes',
-    '/joint_states',
-    joyUi + '/manual_mode',
-    joyUi + '/throttle_percent',
-  ];
-  const seen = new Set();
+  const topics = getSubscribedTopicsFlat();
+  activeSubscriptions = topics.slice();
   topics.forEach((topic) => {
-    if (seen.has(topic)) return;
-    seen.add(topic);
     send({
       op: 'subscribe',
       topic,
       type: inferType(topic),
+    });
+  });
+}
+
+/** 在连接关闭前主动取消订阅，缩短 rosbridge 清理关闭连接的窗口。 */
+function unsubscribeTopics() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return;
+  }
+  const topics = activeSubscriptions.length > 0 ? activeSubscriptions : getSubscribedTopicsFlat();
+  topics.forEach((topic) => {
+    send({
+      op: 'unsubscribe',
+      topic,
     });
   });
 }
@@ -525,7 +595,17 @@ function submitJob(options, callback) {
 
 /** get_queue_state 服务，回调队列与 next job 摘要（带服务未就绪重试，与 pick_holoocean 启动时序配合）。 */
 function getQueueState(callback) {
-  callService(getTopicPrefix() + '/get_queue_state', {}, callback, { service_missing_retries: 10 });
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return;
+  }
+  if (callback) {
+    queueStateCallbacks.push(callback);
+  }
+  if (queueStateInFlight) {
+    queueStateNeedRefresh = true;
+    return;
+  }
+  runQueueStateRequest();
 }
 
 /** get_recent_jobs：max_count 钳位 1～200，超时 5s。 */
@@ -551,9 +631,14 @@ function disconnect() {
   }
   reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
   if (ws) {
+    unsubscribeTopics();
     ws.close();
     ws = null;
   }
+  activeSubscriptions = [];
+  queueStateInFlight = false;
+  queueStateNeedRefresh = false;
+  queueStateCallbacks = [];
   stateStore.setConnection('ws', false);
 }
 

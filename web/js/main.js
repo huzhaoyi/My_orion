@@ -363,9 +363,15 @@ function registerGlobalHandlers() {
     window.addEventListener(event, fn);
   });
 
+  // 事件驱动为主（runtime/job 变化触发），仅保留低频兜底轮询，避免高频服务请求堆积。
   setInterval(() => {
-    if (wsClient.isConnected()) wsClient.getQueueState(applyQueueStateToStore);
-  }, 1500);
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+    if (wsClient.isConnected()) {
+      wsClient.getQueueState(applyQueueStateToStore);
+    }
+  }, 15000);
 }
 
 init();

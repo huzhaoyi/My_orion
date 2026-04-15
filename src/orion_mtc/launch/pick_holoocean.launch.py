@@ -185,6 +185,15 @@ def generate_launch_description():
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
         **shutdown_timeouts,
     )
+    web_joint_state_relay_node = Node(
+        package="orion_holoocean_bridge",
+        executable="joint_state_web_relay",
+        name="joint_state_web_relay",
+        output="screen",
+        parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
+        additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        **shutdown_timeouts,
+    )
     cable_sensor_to_pose_node = Node(
         package="orion_holoocean_bridge",
         executable="cable_sensor_to_object_pose",
@@ -335,6 +344,7 @@ def generate_launch_description():
         ),
         bridge_node,
         trajectory_bridge_node,
+        web_joint_state_relay_node,
         cable_sensor_to_pose_node,
         target_sensor_to_pose_node,
         joy_node,

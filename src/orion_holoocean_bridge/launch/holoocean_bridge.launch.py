@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""启动 HoloOcean ArmSensor -> joint_states 桥接节点（单臂 right_arm 6DOF+夹爪）。"""
+"""启动 HoloOcean 桥接：ArmSensor->joint_states 及 Web joint_states 降频中继。"""
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -24,6 +24,13 @@ def generate_launch_description():
                 package="orion_holoocean_bridge",
                 executable="arm_sensor_to_joint_state",
                 name="arm_sensor_to_joint_state",
+                output="screen",
+                parameters=[params_path] if use_params else [],
+            ),
+            Node(
+                package="orion_holoocean_bridge",
+                executable="joint_state_web_relay",
+                name="joint_state_web_relay",
                 output="screen",
                 parameters=[params_path] if use_params else [],
             ),

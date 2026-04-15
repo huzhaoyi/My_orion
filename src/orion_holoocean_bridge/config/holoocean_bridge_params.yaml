@@ -8,6 +8,13 @@ arm_sensor_to_joint_state:
     # 发布 left_arm_gripped 供 MTC 动态抓取时等待“抓稳/松开”（须与 MTC 订阅一致：/manipulator/left_arm_gripped）
     gripped_topic: "/manipulator/left_arm_gripped"
 
+# Web 侧 joint_states 中继（降频专用，降低 rosbridge 与浏览器压力；MoveIt/MTC 仍读原始 /joint_states）
+joint_state_web_relay:
+  ros__parameters:
+    input_topic: "/joint_states"
+    output_topic: "/manipulator/web/joint_states"
+    publish_rate_hz: 15.0
+
 # MTC 执行目标：arm_controller / hand_controller 的 FollowJointTrajectory 由此节点提供并转为 AgentCommand
 trajectory_to_agent_bridge:
   ros__parameters:

@@ -22,6 +22,7 @@ setup(
     entry_points={
         "console_scripts": [
             "arm_sensor_to_joint_state = orion_holoocean_bridge.arm_sensor_to_joint_state_node:main",
+            "joint_state_web_relay = orion_holoocean_bridge.joint_state_web_relay_node:main",
             "trajectory_to_agent_bridge = orion_holoocean_bridge.trajectory_to_agent_bridge_node:main",
             "target_sensor_to_object_pose = orion_holoocean_bridge.target_sensor_to_object_pose_node:main",
             "cable_sensor_to_object_pose = orion_holoocean_bridge.cable_sensor_to_object_pose_node:main",
