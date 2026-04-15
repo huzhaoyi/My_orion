@@ -28,11 +28,15 @@ public:
       const std::string& plan_frame);
 
   /* TargetSensor 目标抓取：peg 场景体 + 与缆绳同构的 SerialContainer pick 链（不修改缆绳 buildFromCableCandidate）。
-   * pregrasp_distance_m：沿 approach 方向 grasp→pregrasp 的距离 [m]，与缆绳 pregrasp_offset 含义一致。 */
+   * pregrasp_distance_m：沿 approach 方向 grasp→pregrasp 的距离 [m]，与缆绳 pregrasp_offset 含义一致。
+   * approach_sign：接近方向符号（+1/-1），用于候选回退时翻转接近侧。
+   * tool_roll_about_approach_deg：末端绕接近轴滚转 [deg]，用于姿态扰动候选。 */
   moveit::task_constructor::Task buildFromTargetSensorPose(
       const geometry_msgs::msg::PoseStamped& object_pose,
       const std::string& plan_frame,
-      double pregrasp_distance_m);
+      double pregrasp_distance_m,
+      double approach_sign,
+      double tool_roll_about_approach_deg);
 
 private:
   rclcpp::Node::SharedPtr node_;

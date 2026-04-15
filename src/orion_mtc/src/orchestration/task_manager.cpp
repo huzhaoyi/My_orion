@@ -35,6 +35,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <Eigen/Geometry>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -88,6 +89,138 @@ static const std::vector<std::string> PICK_STAGE_NAMES_TARGET_SENSOR = {
     "move to pregrasp (holding)",
     "close hand (at pregrasp)",
 };
+
+struct TargetSensorPickCandidate
+{
+  geometry_msgs::msg::PoseStamped object_pose;
+  double pregrasp_distance_m = 0.10;
+  double approach_sign = -1.0;
+  double tool_roll_deg = 0.0;
+  std::string label;
+};
+
+bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
+                                double grasp_depth_m,
+                                Eigen::Isometry3d& out_grasp_pose,
+                                Eigen::Isometry3d& out_pregrasp_pose)
+{
+  const geometry_msgs::msg::Pose& pose = candidate.object_pose.pose;
+  Eigen::Quaterniond q_object(
+      pose.orientation.w,
+      pose.orientation.x,
+      pose.orientation.y,
+      pose.orientation.z);
+  if (q_object.norm() < 1e-9)
+  {
+    q_object = Eigen::Quaterniond::Identity();
+  }
+  q_object.normalize();
+  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
+  const double sign = (candidate.approach_sign < 0.0) ? -1.0 : 1.0;
+  const Eigen::Vector3d approach_dir = n_geom * sign;
+
+  Eigen::Vector3d ref = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  Eigen::Vector3d y_axis = ref - ref.dot(approach_dir) * approach_dir;
+  if (y_axis.norm() < 1e-3)
+  {
+    ref = (q_object * Eigen::Vector3d::UnitY()).normalized();
+    y_axis = ref - ref.dot(approach_dir) * approach_dir;
+  }
+  if (y_axis.norm() < 1e-3)
+  {
+    y_axis = approach_dir.unitOrthogonal();
+  }
+  y_axis.normalize();
+  const Eigen::Vector3d z_axis = approach_dir;
+  const Eigen::Vector3d x_axis = y_axis.cross(z_axis).normalized();
+  Eigen::Matrix3d R_tool;
+  R_tool.col(0) = x_axis;
+  R_tool.col(1) = y_axis;
+  R_tool.col(2) = z_axis;
+
+  if (std::abs(candidate.tool_roll_deg) > 1e-6)
+  {
+    constexpr double PI_D = 3.14159265358979323846;
+    const double roll_rad = candidate.tool_roll_deg * PI_D / 180.0;
+    const Eigen::Matrix3d R_roll = Eigen::AngleAxisd(roll_rad, approach_dir.normalized()).toRotationMatrix();
+    R_tool = R_roll * R_tool;
+  }
+
+  const double grasp_depth = std::max(0.0, grasp_depth_m);
+  const Eigen::Vector3d p_object(pose.position.x, pose.position.y, pose.position.z);
+  const Eigen::Vector3d p_grasp = p_object + approach_dir * grasp_depth;
+
+  out_grasp_pose = Eigen::Isometry3d::Identity();
+  out_grasp_pose.linear() = R_tool;
+  out_grasp_pose.translation() = p_grasp;
+  out_pregrasp_pose = Eigen::Isometry3d::Identity();
+  out_pregrasp_pose.linear() = R_tool;
+  out_pregrasp_pose.translation() = p_grasp - approach_dir * candidate.pregrasp_distance_m;
+  return true;
+}
+
+bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
+                                       std::size_t candidate_index,
+                                       const TargetSensorPickCandidate& candidate,
+                                       const moveit::core::RobotModelConstPtr& robot_model,
+                                       const planning_scene::PlanningScenePtr& scene_for_ik_seed,
+                                       const std::string& arm_group_name,
+                                       const std::string& hand_frame,
+                                       double grasp_depth_m,
+                                       Eigen::Isometry3d& out_grasp_pose)
+{
+  Eigen::Isometry3d pregrasp_pose = Eigen::Isometry3d::Identity();
+  if (!buildTargetSensorGoalPoses(candidate, grasp_depth_m, out_grasp_pose, pregrasp_pose))
+  {
+    return false;
+  }
+  if (!robot_model)
+  {
+    return true;
+  }
+  const moveit::core::JointModelGroup* jmg = robot_model->getJointModelGroup(arm_group_name);
+  if (jmg == nullptr)
+  {
+    RCLCPP_WARN(logger, "handlePick: targetsensor candidate %zu jmg arm missing, skip precheck", candidate_index);
+    return true;
+  }
+  moveit::core::RobotState state(robot_model);
+  if (scene_for_ik_seed)
+  {
+    state = scene_for_ik_seed->getCurrentState();
+  }
+  else
+  {
+    state.setToDefaultValues();
+  }
+  const bool grasp_ik_ok = state.setFromIK(jmg, out_grasp_pose, hand_frame, 0.15);
+  if (!grasp_ik_ok)
+  {
+    RCLCPP_WARN(logger, "handlePick: targetsensor candidate %zu grasp IK fail", candidate_index);
+    return false;
+  }
+  if (scene_for_ik_seed)
+  {
+    state = scene_for_ik_seed->getCurrentState();
+  }
+  else
+  {
+    state.setToDefaultValues();
+  }
+  const bool pregrasp_ik_ok = state.setFromIK(jmg, pregrasp_pose, hand_frame, 0.15);
+  if (!pregrasp_ik_ok)
+  {
+    RCLCPP_WARN(logger, "handlePick: targetsensor candidate %zu pregrasp IK fail", candidate_index);
+    return false;
+  }
+  state.update();
+  if (!state.satisfiesBounds(jmg))
+  {
+    RCLCPP_WARN(logger, "handlePick: targetsensor candidate %zu pregrasp OUT_OF_BOUNDS", candidate_index);
+    return false;
+  }
+  return true;
+}
 
 static int parseSlotFromObjectId(const std::string& object_id)
 {
@@ -324,116 +457,196 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     const std::string held_id = object_id.empty() ? "targetsensor" : object_id;
     const std::string plan_frame = "base_link";
     std::string last_plan_detail = "";
-    geometry_msgs::msg::PoseStamped pick_pose_plan = pose_base;
-    moveit_task_constructor_msgs::msg::Solution solution_msg;
-    moveit::core::RobotModelConstPtr task_robot_model;
+    moveit::core::RobotModelConstPtr robot_model;
+    planning_scene::PlanningScenePtr scene_for_ik_seed;
+    const std::string arm_group_name = "arm";
+    const std::string hand_frame = "gripper_tcp";
+    try
+    {
+      robot_model_loader::RobotModelLoader loader(node_);
+      robot_model = loader.getModel();
+      if (robot_model)
+      {
+        auto client = node_->create_client<moveit_msgs::srv::GetPlanningScene>("/get_planning_scene");
+        if (client->wait_for_service(std::chrono::milliseconds(300)))
+        {
+          auto req = std::make_shared<moveit_msgs::srv::GetPlanningScene::Request>();
+          req->components.components = moveit_msgs::msg::PlanningSceneComponents::SCENE_SETTINGS |
+                                       moveit_msgs::msg::PlanningSceneComponents::ROBOT_STATE |
+                                       moveit_msgs::msg::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY |
+                                       moveit_msgs::msg::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
+          auto fut = client->async_send_request(req);
+          if (rclcpp::spin_until_future_complete(node_, fut, std::chrono::milliseconds(600)) ==
+              rclcpp::FutureReturnCode::SUCCESS)
+          {
+            auto resp = fut.get();
+            if (resp)
+            {
+              scene_for_ik_seed = std::make_shared<planning_scene::PlanningScene>(robot_model);
+              scene_for_ik_seed->setPlanningSceneMsg(resp->scene);
+            }
+          }
+        }
+      }
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_WARN(LOGGER, "handlePick: targetsensor precheck init failed: %s", e.what());
+    }
 
-    double plan_pregrasp_m = 0.10;
-    const std::vector<double>& ts_pre = config_.target_sensor_pick.pregrasp_distances_m;
-    for (double pre_m : ts_pre)
+    std::vector<double> pregrasp_candidates;
+    for (double pre_m : config_.target_sensor_pick.pregrasp_distances_m)
     {
       if (pre_m > 1e-6)
       {
-        plan_pregrasp_m = pre_m;
-        break;
+        pregrasp_candidates.push_back(pre_m);
       }
     }
-
-    mtc::Task task = pick_builder_->buildFromTargetSensorPose(pick_pose_plan, plan_frame, plan_pregrasp_m);
-    try
+    if (pregrasp_candidates.empty())
     {
-      task.init();
-      task.enableIntrospection(true);
-      task.introspection().publishTaskDescription();
-    }
-    catch (mtc::InitStageException& e)
-    {
-      last_plan_detail = e.what();
-      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor init failed (top-grasp fixed pre=%.3fm): %s",
-                   plan_pregrasp_m, e.what());
-      setStateError("TARGET_SENSOR_PICK: INIT_FAILED");
-      return false;
+      pregrasp_candidates.push_back(0.10);
     }
 
-    moveit::core::MoveItErrorCode plan_result = task.plan(5);
-    if (!plan_result || task.solutions().empty())
-    {
-      std::ostringstream os;
-      task.explainFailure(os);
-      last_plan_detail = os.str();
-      RCLCPP_ERROR(LOGGER, "handlePick: targetsensor PLAN_FAILED(top-grasp fixed pre=%.3fm): %s",
-                   plan_pregrasp_m, last_plan_detail.c_str());
-      setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
-      return false;
-    }
+    const double configured_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
+    std::array<double, 2> sign_candidates = { configured_sign, -configured_sign };
+    std::array<double, 5> roll_candidates_deg = { 0.0, 45.0, -45.0, 90.0, -90.0 };
 
-    task.solutions().front()->toMsg(solution_msg, &task.introspection());
-    task_robot_model = task.getRobotModel();
-    Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
-    grasp_pose.translate(Eigen::Vector3d(obj_x, obj_y, obj_z));
-    grasp_pose.rotate(Eigen::Quaterniond(
-        pick_pose_plan.pose.orientation.w,
-        pick_pose_plan.pose.orientation.x,
-        pick_pose_plan.pose.orientation.y,
-        pick_pose_plan.pose.orientation.z));
-    geometry_msgs::msg::Pose object_pose_at_grasp;
-    isometryToPose(grasp_pose, object_pose_at_grasp);
-    RCLCPP_INFO(LOGGER,
-                "handlePick: targetsensor top-grasp fixed pregrasp_dist=%.3fm",
-                plan_pregrasp_m);
-    StageReportFn stage_report = nullptr;
-    if (stage_report_fn_)
+    std::vector<TargetSensorPickCandidate> candidates;
+    for (double pre_m : pregrasp_candidates)
     {
-      stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
-                            const std::string& name, const std::string& state, const std::string& detail) {
-        if (stage_report_fn_)
+      for (double sign : sign_candidates)
+      {
+        for (double roll_deg : roll_candidates_deg)
         {
-          stage_report_fn_(jid, tt, ix, name, state, detail);
+          TargetSensorPickCandidate candidate;
+          candidate.object_pose = pose_base;
+          candidate.pregrasp_distance_m = pre_m;
+          candidate.approach_sign = sign;
+          candidate.tool_roll_deg = roll_deg;
+          std::ostringstream label;
+          label << "pre=" << pre_m << " sign=" << sign << " roll=" << roll_deg;
+          candidate.label = label.str();
+          candidates.push_back(candidate);
         }
-      };
-    }
-    HeldObjectContext new_held;
-    bool failed_no_grip = false;
-    if (solution_executor_->executePickSolution(
-            solution_msg, object_pose_at_grasp, held_id, task_robot_model, new_held, wait_for_gripped_fn_,
-            stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_TARGET_SENSOR, {},
-            makeEstopAbortFn(), &failed_no_grip))
-    {
-      HeldObjectContext held_copy;
-      {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        held_object_ = new_held;
-        held_copy = held_object_;
       }
-      setState(RobotTaskMode::HOLDING_TRACKED);
-      if (held_object_state_fn_)
-      {
-        held_object_state_fn_(held_copy);
-      }
-      RCLCPP_INFO(LOGGER, "handlePick: targetsensor pick success");
-      return true;
     }
-    if (estop_requested_.load())
+
+    if (candidates.empty())
     {
-      setStateError("E_STOP");
-      estop_requested_.store(false);
+      setStateError("TARGET_SENSOR_PICK: no candidate");
       return false;
     }
-    if (failed_no_grip)
+
+    for (std::size_t i = 0; i < candidates.size(); ++i)
     {
-      if (!retreatToReady())
+      const TargetSensorPickCandidate& candidate = candidates[i];
+      Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
+      if (!precheckTargetSensorPickCandidate(
+              LOGGER, i, candidate, robot_model, scene_for_ik_seed,
+              arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m, grasp_pose))
       {
-        setStateError("TARGET_SENSOR_PICK: NO_GRIP_AND_RETREAT_FAILED");
+        continue;
       }
-      else
+
+      mtc::Task task = pick_builder_->buildFromTargetSensorPose(
+          candidate.object_pose, plan_frame, candidate.pregrasp_distance_m,
+          candidate.approach_sign, candidate.tool_roll_deg);
+      try
       {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        last_error_ = "TARGET_SENSOR_PICK: no grip, retreated to ready";
-        task_mode_ = RobotTaskMode::IDLE;
+        task.init();
+        task.enableIntrospection(true);
+        task.introspection().publishTaskDescription();
       }
-      return false;
+      catch (mtc::InitStageException& e)
+      {
+        last_plan_detail = e.what();
+        RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu INIT_FAILED (%s): %s",
+                    i, candidate.label.c_str(), e.what());
+        continue;
+      }
+
+      moveit::core::MoveItErrorCode plan_result = task.plan(5);
+      if (!plan_result || task.solutions().empty())
+      {
+        std::ostringstream os;
+        task.explainFailure(os);
+        last_plan_detail = os.str();
+        RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu PLAN_FAILED (%s): %s",
+                    i, candidate.label.c_str(), last_plan_detail.c_str());
+        continue;
+      }
+
+      moveit_task_constructor_msgs::msg::Solution solution_msg;
+      task.solutions().front()->toMsg(solution_msg, &task.introspection());
+      moveit::core::RobotModelConstPtr task_robot_model = task.getRobotModel();
+      geometry_msgs::msg::Pose object_pose_at_grasp;
+      isometryToPose(grasp_pose, object_pose_at_grasp);
+      RCLCPP_INFO(LOGGER, "handlePick: targetsensor candidate %zu selected (%s)",
+                  i, candidate.label.c_str());
+
+      StageReportFn stage_report = nullptr;
+      if (stage_report_fn_)
+      {
+        stage_report = [this](const std::string& jid, const std::string& tt, std::size_t ix,
+                              const std::string& name, const std::string& state, const std::string& detail) {
+          if (stage_report_fn_)
+          {
+            stage_report_fn_(jid, tt, ix, name, state, detail);
+          }
+        };
+      }
+      HeldObjectContext new_held;
+      bool failed_no_grip = false;
+      if (solution_executor_->executePickSolution(
+              solution_msg, object_pose_at_grasp, held_id, task_robot_model, new_held, wait_for_gripped_fn_,
+              stage_report, getCurrentJobId(), "PICK", PICK_STAGE_NAMES_TARGET_SENSOR, {},
+              makeEstopAbortFn(), &failed_no_grip))
+      {
+        HeldObjectContext held_copy;
+        {
+          std::lock_guard<std::mutex> lock(state_mutex_);
+          held_object_ = new_held;
+          held_copy = held_object_;
+        }
+        setState(RobotTaskMode::HOLDING_TRACKED);
+        if (held_object_state_fn_)
+        {
+          held_object_state_fn_(held_copy);
+        }
+        RCLCPP_INFO(LOGGER, "handlePick: targetsensor pick success");
+        return true;
+      }
+
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        return false;
+      }
+      if (failed_no_grip)
+      {
+        if (!retreatToReady())
+        {
+          setStateError("TARGET_SENSOR_PICK: NO_GRIP_AND_RETREAT_FAILED");
+        }
+        else
+        {
+          std::lock_guard<std::mutex> lock(state_mutex_);
+          last_error_ = "TARGET_SENSOR_PICK: no grip, retreated to ready";
+          task_mode_ = RobotTaskMode::IDLE;
+        }
+        return false;
+      }
+      RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu EXECUTION_FAILED (%s), try next",
+                  i, candidate.label.c_str());
     }
-    setStateError("TARGET_SENSOR_PICK: EXECUTION_FAILED");
+
+    if (last_plan_detail.empty())
+    {
+      last_plan_detail = "all candidates failed in precheck/plan/execution";
+    }
+    RCLCPP_ERROR(LOGGER, "handlePick: targetsensor all candidates failed: %s", last_plan_detail.c_str());
+    setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
     return false;
   }
 

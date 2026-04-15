@@ -224,7 +224,9 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
 mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     const geometry_msgs::msg::PoseStamped& object_pose,
     const std::string& plan_frame,
-    double pregrasp_distance_m)
+    double pregrasp_distance_m,
+    double approach_sign,
+    double tool_roll_about_approach_deg)
 {
   mtc::Task task;
   task.stages()->setName("orion pick (targetsensor)");
@@ -289,9 +291,16 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
       object_pose.pose.orientation.z);
   q_object.normalize();
   const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
-  const double approach_sign = (config_.target_sensor_pick.approach_normal_sign < 0.0) ? -1.0 : 1.0;
-  const Eigen::Vector3d approach_dir = n_geom * approach_sign;
-  const Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
+  const double sign = (approach_sign < 0.0) ? -1.0 : 1.0;
+  const Eigen::Vector3d approach_dir = n_geom * sign;
+  Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);
+  if (std::abs(tool_roll_about_approach_deg) > 1e-6)
+  {
+    constexpr double PI_D = 3.14159265358979323846;
+    const double roll_rad = tool_roll_about_approach_deg * PI_D / 180.0;
+    const Eigen::Matrix3d R_roll = Eigen::AngleAxisd(roll_rad, approach_dir.normalized()).toRotationMatrix();
+    R_tool = R_roll * R_tool;
+  }
 
   const double grasp_depth = std::max(0.0, config_.target_sensor_pick.grasp_depth_m);
   const Eigen::Vector3d p_object(object_pose.pose.position.x, object_pose.pose.position.y,
