@@ -5,6 +5,7 @@
 
 import { FEASIBILITY_WORKSPACE } from '../data/feasibilityWorkspace.js';
 import { getWorkspaceBoundsForDoc } from '../robot/RobotModelLoader.js';
+import stateStore from '../data/stateStore.js';
 import ApprovalCard from '../panels/ApprovalCard.js';
 import { t, subscribeLocale } from '../data/i18n.js';
 
@@ -70,6 +71,17 @@ function renderTaskTab(container) {
   const ws = getWorkspaceBoundsForDoc();
   const u = ws.urdf_frame;
   const f2 = (v) => Number(v).toFixed(2);
+  const target_count = (() => {
+    const rows = stateStore.getState().targetSetTargets;
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows.length;
+    }
+    return 7;
+  })();
+  const target_index_options_html = Array.from({ length: target_count }, (_, i) => {
+    const idx = i + 1;
+    return `<option value="${idx}">${t('right.target_index_prefix')}${idx}</option>`;
+  }).join('');
   const slot_options_html = Array.from({ length: 7 }, (_, i) => {
     const idx = i + 1;
     return `<option value="${idx}">${t('right.target_slot_prefix')}${idx}</option>`;
@@ -100,6 +112,12 @@ function renderTaskTab(container) {
     </div>
     <div class="card">
       <div class="card-title">${t('right.targetsensor_title')}</div>
+      <div class="card-row" style="margin-bottom:8px;">
+        <span class="card-label">${t('right.target_index_label')}</span>
+        <select id="select-target-index" class="input" style="min-width:120px;">
+          ${target_index_options_html}
+        </select>
+      </div>
       <div class="form-actions form-actions--row" style="margin-bottom:8px;">
         <button type="button" id="btn-pick-target-sensor" class="primary btn-action" style="flex:1;min-width:0;background:#c2410c;border-color:#9a3412;" title="${t('right.pick_target_sensor_title')}">${t('right.pick_target_sensor')}</button>
       </div>
@@ -143,7 +161,11 @@ function renderTaskTab(container) {
     </div>
   `;
   container.querySelector('#btn-pick-cable')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:cable')));
-  container.querySelector('#btn-pick-target-sensor')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:target_sensor')));
+  container.querySelector('#btn-pick-target-sensor')?.addEventListener('click', () => {
+    const sel = container.querySelector('#select-target-index');
+    const target_index = sel ? Number(sel.value) : 1;
+    window.dispatchEvent(new CustomEvent('orion:pick:target_sensor', { detail: { target_index } }));
+  });
   container.querySelector('#btn-target-sensor-insert')?.addEventListener('click', () => {
     const sel = container.querySelector('#select-target-slot');
     const slot = sel ? Number(sel.value) : 1;

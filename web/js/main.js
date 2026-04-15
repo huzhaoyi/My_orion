@@ -36,6 +36,28 @@ function applyQueueStateToStore(res) {
   stateStore.applyQueueStateResponse(res);
 }
 
+/** 后端服务常见英文回包做最小中文化，保持日志一致性。 */
+function localizeServiceMessage(msg) {
+  if (msg == null) {
+    return '';
+  }
+  const s = String(msg).trim();
+  if (s.length === 0) {
+    return '';
+  }
+  const lower = s.toLowerCase();
+  if (lower === 'queued') {
+    return '已入队';
+  }
+  if (lower === 'policy rejected') {
+    return '策略拒绝';
+  }
+  if (lower.startsWith('rejected:')) {
+    return `拒绝: ${s.slice('rejected:'.length).trim()}`;
+  }
+  return s;
+}
+
 /**
  * 注册 document 级 CustomEvent（orion:clear-queue、orion:reset-held 等）及键盘监听；
  * 与 TopBar/卡片按钮发出的事件名保持一致。
@@ -131,16 +153,91 @@ function registerGlobalHandlers() {
       stateStore.pushSystemLog('info', `publish ${topic}`);
       toast.success(t('toast.pick_cable_ok'));
     },
-    'orion:pick:target_sensor': () => {
+    'orion:pick:target_sensor': (e) => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', t('toast.not_connected_pick'));
         toast.warn(t('toast.not_connected_pick'));
         return;
       }
-      const topic = wsClient.getTopicPrefix() + '/pick_trigger_targetsensor';
-      wsClient.publishEmpty(topic);
-      stateStore.pushSystemLog('info', `publish ${topic}`);
-      toast.success(t('toast.pick_target_sensor_ok'));
+      const humanIndexRaw = Number(e && e.detail ? e.detail.target_index : 1);
+      const humanIndex = Number.isFinite(humanIndexRaw) ? Math.max(1, Math.floor(humanIndexRaw)) : 1;
+      const targetIndex = humanIndex - 1;
+      const s = stateStore.getState();
+      const targets = Array.isArray(s.targetSetTargets) ? s.targetSetTargets : [];
+      if (targets.length > 0) {
+        if (targetIndex >= targets.length) {
+          const msg = `TargetSensor 抓取失败：目标索引 ${humanIndex} 越界（当前仅 ${targets.length} 个目标）`;
+          stateStore.pushSystemLog('warn', msg);
+          toast.warn(msg);
+          return;
+        }
+        const target = targets[targetIndex];
+        const object_pose = wsClient.buildPoseStamped(
+          target.position,
+          target.orientation,
+          'base_link'
+        );
+        wsClient.submitJob({
+          job_type: wsClient.JOB_TYPE.PICK,
+          grasp_source: wsClient.GRASP_SOURCE.TARGET_SENSOR,
+          object_pose,
+          object_id: `target_${targetIndex}`,
+        }, (res) => {
+          const v = res && res.values ? res.values : res;
+          const ok = v && (v.success === true || v.success === undefined);
+          const jid = (v && v.job_id) || '';
+          const backendMessage = localizeServiceMessage(v && v.message);
+          const msg =
+            backendMessage ||
+            (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
+          stateStore.pushSystemLog(
+            ok ? 'info' : 'error',
+            `TargetSensor 抓取(目标 ${humanIndex}/${targets.length}): ${msg}`
+          );
+          if (ok) {
+            toast.success(msg);
+            wsClient.getQueueState(applyQueueStateToStore);
+          } else {
+            toast.error(msg);
+          }
+        });
+        return;
+      }
+
+      if (!s.targetSensorObjectPose || !s.targetSensorObjectPoseValid) {
+        stateStore.pushSystemLog('warn', 'TargetSensor 抓取失败：当前无可用 target_set 或 target_sensor_object_pose');
+        toast.warn('当前无可用目标位姿，请等待 TargetSensor 数据');
+        return;
+      }
+      const fallbackPose = wsClient.buildPoseStamped(
+        s.targetSensorObjectPose.position,
+        s.targetSensorObjectPose.orientation,
+        'base_link'
+      );
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.PICK,
+        grasp_source: wsClient.GRASP_SOURCE.TARGET_SENSOR,
+        object_pose: fallbackPose,
+        object_id: `target_${targetIndex}`,
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const jid = (v && v.job_id) || '';
+        const backendMessage = localizeServiceMessage(v && v.message);
+        const msg =
+          backendMessage ||
+          (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
+        stateStore.pushSystemLog(
+          ok ? 'warn' : 'error',
+          `TargetSensor 抓取(目标 ${humanIndex}) 使用回退位姿: ${msg}`
+        );
+        if (ok) {
+          toast.success(msg);
+          wsClient.getQueueState(applyQueueStateToStore);
+        } else {
+          toast.error(msg);
+        }
+      });
     },
     'orion:pick:fused': () => {
       if (!wsClient.isConnected()) {
@@ -225,8 +322,8 @@ function registerGlobalHandlers() {
         || orientationFromLegacy
         || { x: 0, y: 0, z: 0, w: 1 };
       const orientationSource = orientationFromSlot
-        ? 'target_insert_holes(slot)'
-        : (orientationFromTarget ? 'target_sensor_object_pose' : (orientationFromLegacy ? 'object_pose' : 'identity'));
+        ? '固定孔位'
+        : (orientationFromTarget ? 'TargetSensor物体位姿' : (orientationFromLegacy ? 'object_pose' : '单位四元数'));
       const target_pose = wsClient.buildPoseStamped(
         {
           x: Number(slotPoseFromHoles.position.x),
@@ -244,8 +341,9 @@ function registerGlobalHandlers() {
         const v = res && res.values ? res.values : res;
         const ok = v && (v.success === true || v.success === undefined);
         const jid = (v && v.job_id) || '';
+        const backendMessage = localizeServiceMessage(v && v.message);
         const msg =
-          (v && v.message) ||
+          backendMessage ||
           (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
         stateStore.pushSystemLog(
           ok ? 'info' : 'error',

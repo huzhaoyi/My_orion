@@ -10,6 +10,7 @@
 #include <builtin_interfaces/msg/time.hpp>
 #include <orion_mtc_msgs/msg/job_execution_record.hpp>
 #include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <thread>
 
@@ -27,6 +28,36 @@ void nsToTime(int64_t ns, builtin_interfaces::msg::Time& t)
     const int64_t nsec = ns % 1000000000;
     t.sec = static_cast<int32_t>(sec);
     t.nanosec = static_cast<uint32_t>(nsec);
+}
+
+bool tryParseTargetIndexFromObjectId(const std::string& object_id, std::size_t* out_index)
+{
+    if (out_index == nullptr)
+    {
+        return false;
+    }
+    if (object_id.empty())
+    {
+        return false;
+    }
+    const std::string prefix = "target_";
+    if (object_id.rfind(prefix, 0) != 0)
+    {
+        return false;
+    }
+    const std::string suffix = object_id.substr(prefix.size());
+    if (suffix.empty())
+    {
+        return false;
+    }
+    char* end_ptr = nullptr;
+    const long parsed = std::strtol(suffix.c_str(), &end_ptr, 10);
+    if (end_ptr == nullptr || *end_ptr != '\0' || parsed < 0)
+    {
+        return false;
+    }
+    *out_index = static_cast<std::size_t>(parsed);
+    return true;
 }
 }  // namespace
 
@@ -680,6 +711,51 @@ void ManipulatorRosInterface::handleSubmitJob(
     job.object_pose = req->object_pose;
     job.tcp_pose = req->tcp_pose;
     job.source = "submit_job_service";
+    if (job.type == JobType::PICK && job.grasp_source == GraspSource::TARGET_SENSOR)
+    {
+        std::size_t target_index = 0;
+        const bool has_target_index = tryParseTargetIndexFromObjectId(job.object_id, &target_index);
+        if (has_target_index)
+        {
+            if (!ctx_.target_cache)
+            {
+                res->success = false;
+                res->message = "target_cache unavailable for TARGET_SENSOR pick";
+                return;
+            }
+            std::optional<orion_mtc_msgs::msg::TargetSet> latest_target_set = ctx_.target_cache->latest();
+            if (!latest_target_set.has_value())
+            {
+                res->success = false;
+                res->message = "target_set not ready";
+                return;
+            }
+            const std::size_t target_count = latest_target_set->targets.size();
+            if (target_index >= target_count)
+            {
+                res->success = false;
+                res->message = "target index out of range";
+                return;
+            }
+            job.object_pose = latest_target_set->targets[target_index];
+            if (target_index < latest_target_set->object_ids.size() && !latest_target_set->object_ids[target_index].empty())
+            {
+                job.object_id = latest_target_set->object_ids[target_index];
+            }
+            RCLCPP_INFO(
+                ctx_.logger,
+                "handleSubmitJob: TARGET_SENSOR pick bound to target_set index=%zu object_id=%s",
+                target_index,
+                job.object_id.c_str());
+        }
+        else
+        {
+            RCLCPP_WARN(
+                ctx_.logger,
+                "handleSubmitJob: TARGET_SENSOR pick object_id(%s) missing target_<index>, keep request pose",
+                job.object_id.c_str());
+        }
+    }
     std::string reject_reason;
     std::string assigned_id = ctx_.task_manager->submitJob(job, &reject_reason);
     if (assigned_id.empty())

@@ -15,6 +15,7 @@ export function jobTypeLabel(jobT) {
     if (u === 'CLOSE_GRIPPER') return t('job.close_gripper');
     if (u === 'RESET_HELD_OBJECT') return t('job.reset_held');
     if (u === 'SYNC_HELD_OBJECT') return t('job.sync_held');
+    if (u === 'TARGET_INSERT') return t('job.target_insert');
     return jobT;
   }
   if (u === 'PICK') return t('job.pick');
@@ -22,6 +23,7 @@ export function jobTypeLabel(jobT) {
   if (u === 'CLOSE_GRIPPER') return t('job.close_gripper');
   if (u === 'RESET_HELD_OBJECT') return t('job.reset_held');
   if (u === 'SYNC_HELD_OBJECT') return t('job.sync_held');
+  if (u === 'TARGET_INSERT') return t('job.target_insert');
   return jobT;
 }
 
@@ -46,6 +48,26 @@ const STAGE_NAME_ZH = {
   'retreat to ready': '回到就绪(退离)',
   'orion pick (cable side, segmented)': '侧向抓取(分段)',
   'close hand (ready)': '闭合手爪(就绪)',
+  'add targetsensor peg mesh': '添加目标插销碰撞体',
+  'allow collision (targetsensor peg) for pregrasp': '允许目标插销碰撞(预抓)',
+  'allow collision (targetsensor peg) for approach': '允许目标插销碰撞(接近)',
+  'remove targetsensor peg mesh': '移除目标插销碰撞体',
+  'move to pregrasp (holding)': '持物后回到预抓',
+  'close hand (at pregrasp)': '预抓位闭合手爪',
+  'target insert': '目标插孔流程',
+  'move to ready (before insert)': '插孔前回到就绪',
+  'move to front-waypoint': '移动到前置航点',
+  'front-waypoint to pre-insert (align)': '前置航点到预插入(对齐)',
+  'front-waypoint to pre-insert': '前置航点到预插入',
+  'move to pre-insert': '移动到预插入',
+  'insert approach': '插孔接近',
+  'insert chamfer +u': '倒角搜索 +u',
+  'insert chamfer -u': '倒角搜索 -u',
+  'insert chamfer +v': '倒角搜索 +v',
+  'insert chamfer -v': '倒角搜索 -v',
+  'insert descend': '插入下压',
+  'lift clear': '抬升脱离',
+  'move to ready (after release)': '释放后回到就绪',
   move_to_ready: '回到就绪',
   add_object: '添加物体',
   open_hand: '张开手爪',
@@ -72,6 +94,12 @@ export function stageNameLabel(name) {
   const key = String(name).trim();
   if (/^segment_\d+$/i.test(key)) {
     return `${t('stage.segment')} ${key.replace(/^segment_/i, '')}`;
+  }
+  if (/^insert descend segment \d+$/i.test(key)) {
+    return `插入下压段 ${key.replace(/^insert descend segment\s+/i, '')}`;
+  }
+  if (/^lift clear segment \d+$/i.test(key)) {
+    return `抬升脱离段 ${key.replace(/^lift clear segment\s+/i, '')}`;
   }
   if (getLocale() === 'en') {
     if (key.toLowerCase() === 'current') {
