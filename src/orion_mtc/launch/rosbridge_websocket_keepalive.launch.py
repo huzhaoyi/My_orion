@@ -15,6 +15,7 @@ from launch_ros.actions import Node
 
 
 def _setup(context, *_args, **_kwargs):
+    address = LaunchConfiguration("address").perform(context)
     port = int(LaunchConfiguration("port").perform(context))
     ping_iv = float(LaunchConfiguration("websocket_ping_interval").perform(context))
     ping_to = float(LaunchConfiguration("websocket_ping_timeout").perform(context))
@@ -44,6 +45,7 @@ def _setup(context, *_args, **_kwargs):
             parameters=[
                 {
                     "port": port,
+                    "address": address,
                     "fragment_timeout": 600,
                     "max_message_size": 10000000,
                     # 失效连接更快注销，减少“closed websocket”告警持续时长。
@@ -81,24 +83,29 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
+                "address",
+                default_value="127.0.0.1",
+                description="rosbridge 绑定地址（默认仅本机回环；跨机访问请改为 0.0.0.0 或指定网卡 IP）",
+            ),
+            DeclareLaunchArgument(
                 "port",
                 default_value="9091",
                 description="rosbridge WebSocket 端口（默认 9091，避免与同事常用 9090 冲突；网页默认 ws 需一致或用 ?ws=）",
             ),
             DeclareLaunchArgument(
                 "websocket_ping_interval",
-                default_value="25.0",
-                description="秒；>0 时 Tornado 周期性 WebSocket ping（稳定优先默认 25）",
+                default_value="5.0",
+                description="秒；>0 时 Tornado 周期性 WebSocket ping（僵尸连接快速回收默认 5）",
             ),
             DeclareLaunchArgument(
                 "websocket_ping_timeout",
-                default_value="120.0",
-                description="秒；等待 pong",
+                default_value="10.0",
+                description="秒；等待 pong（默认 10）",
             ),
             DeclareLaunchArgument(
                 "unregister_timeout",
-                default_value="2.0",
-                description="秒；失效订阅/连接注销超时，缩短可减少 closed websocket 告警持续时间",
+                default_value="0.5",
+                description="秒；失效订阅/连接注销超时，默认 0.5 以缩短 closed websocket 告警窗口",
             ),
             DeclareLaunchArgument(
                 "rosbridge_log_level",
