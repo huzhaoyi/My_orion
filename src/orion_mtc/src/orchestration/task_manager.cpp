@@ -1167,11 +1167,18 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   }
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
-    if (!held_object_.valid && !isHolding(task_mode_))
+    const bool gripper_locked = (is_gripper_locked_fn_ && is_gripper_locked_fn_());
+    if (!held_object_.valid && !isHolding(task_mode_) && !gripper_locked)
     {
       last_error_ = "TARGET_INSERT: no held object";
       RCLCPP_ERROR(LOGGER, "handleTargetInsert: no held object, reject");
       return false;
+    }
+    if (!held_object_.valid && !isHolding(task_mode_) && gripper_locked)
+    {
+      RCLCPP_WARN(LOGGER,
+                  "handleTargetInsert: allow insert by gripper_locked without held context "
+                  "(object may be manually attached)");
     }
     current_task_id_ = genTaskId("insert");
     suppress_ungripped_feedback_ = true;
@@ -1242,6 +1249,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
       if (need_pre_extract)
       {
+        bool pre_extract_done = false;
         const PegInsertConfig& pi = config_.peg_insert;
         const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(pi);
         const Eigen::Quaterniond q_target(
@@ -1317,6 +1325,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 }
                 else
                 {
+                  pre_extract_done = true;
                   RCLCPP_INFO(
                       LOGGER,
                       "handleTargetInsert: pre-extract completed (distance=%.3f, locked_hole=%d, target_hole=%d)",
@@ -1326,10 +1335,19 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             }
           }
         }
+        if (pre_extract_done)
         {
           std::lock_guard<std::mutex> lock(state_mutex_);
           insert_latch_locked_ = false;
           insert_latch_hole_ = -1;
+        }
+        else
+        {
+          RCLCPP_WARN(
+              LOGGER,
+              "handleTargetInsert: pre-extract not completed, keep insert latch lock "
+              "(locked_hole=%d, target_hole=%d)",
+              static_cast<int>(latched_hole), static_cast<int>(requested_hole));
         }
       }
     }
