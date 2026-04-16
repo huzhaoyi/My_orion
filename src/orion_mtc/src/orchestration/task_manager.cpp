@@ -226,31 +226,6 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
   return true;
 }
 
-static int parseSlotFromObjectId(const std::string& object_id)
-{
-  std::size_t pos = object_id.find("slot_");
-  if (pos == std::string::npos)
-  {
-    return -1;
-  }
-  pos += 5;
-  if (pos >= object_id.size())
-  {
-    return -1;
-  }
-  int slot = 0;
-  for (std::size_t i = pos; i < object_id.size(); ++i)
-  {
-    const char c = object_id[i];
-    if (c < '0' || c > '9')
-    {
-      break;
-    }
-    slot = slot * 10 + static_cast<int>(c - '0');
-  }
-  return slot;
-}
-
 Eigen::Vector3d normalizedInsertAxisLocalFromConfig(const PegInsertConfig& pi)
 {
   if (pi.insert_axis_local_xyz.size() != 3u)
@@ -1187,7 +1162,6 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
     geometry_msgs::msg::PoseStamped pose_base = target_pose;
     const rclcpp::Time stamp_now = node_->now();
-    const int slot = parseSlotFromObjectId(object_id);
 
     const std::string src_frame_before_xform = pose_base.header.frame_id;
     if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
@@ -1300,25 +1274,63 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       return false;
     }
 
-    if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, stage_report_fn_,
-                                            current_task_id_, "TARGET_INSERT", insert_stage_names,
-                                            makeEstopAbortFn()))
+    bool insert_latch_hit = false;
+    const auto is_insert_descend_stage = [](const std::string& stage_name) -> bool
+    {
+      return stage_name == "insert descend" || stage_name.rfind("insert descend segment ", 0) == 0;
+    };
+    const auto has_any_latch_hit = [&]() -> bool
+    {
+      if (!get_latest_target_set_fn_)
+      {
+        return false;
+      }
+      const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+      if (!latest.has_value())
+      {
+        return false;
+      }
+      for (float v : latest->latches)
+      {
+        if (std::isfinite(static_cast<double>(v)) && v > 0.5f)
+        {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (!solution_executor_->executeSolution(
+            solution_msg, wait_for_gripped_fn_, stage_report_fn_, current_task_id_, "TARGET_INSERT",
+            insert_stage_names, makeEstopAbortFn(),
+            [&](std::size_t /*stage_index*/, const std::string& stage_name) -> bool
+            {
+              if (insert_latch_hit && is_insert_descend_stage(stage_name))
+              {
+                return false;
+              }
+              return true;
+            },
+            [&](std::size_t /*stage_index*/, const std::string& stage_name)
+            {
+              if (!insert_latch_hit && is_insert_descend_stage(stage_name) && has_any_latch_hit())
+              {
+                insert_latch_hit = true;
+                RCLCPP_INFO(LOGGER,
+                            "handleTargetInsert: latch detected during descend, "
+                            "skip remaining descend segments and continue release flow");
+              }
+            }))
     {
       RCLCPP_ERROR(LOGGER, "target insert execution failed");
       return false;
     }
 
-    const int latch_idx = slot - 1;
-    if (slot > 0)
+    if (get_latest_target_set_fn_)
     {
-      if (!get_latest_target_set_fn_)
-      {
-        RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_set callback not configured");
-        return false;
-      }
       bool latch_ok = false;
       const int max_retry = 50;
-      float last_latch_value = 0.0f;
+      float last_latch_max_value = 0.0f;
       bool has_latch_value = false;
       for (int i = 0; i < max_retry; ++i)
       {
@@ -1328,16 +1340,20 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
           continue;
         }
-        if (latch_idx < 0 || static_cast<std::size_t>(latch_idx) >= latest->latches.size())
+        for (float latch_value : latest->latches)
         {
-          RCLCPP_ERROR(LOGGER, "handleTargetInsert: latch index out of range slot=%d idx=%d latches=%zu",
-                       slot, latch_idx, latest->latches.size());
-          return false;
+          if (!std::isfinite(static_cast<double>(latch_value)))
+          {
+            continue;
+          }
+          has_latch_value = true;
+          last_latch_max_value = std::max(last_latch_max_value, latch_value);
+          if (latch_value > 0.5f)
+          {
+            latch_ok = true;
+            break;
+          }
         }
-        const float latch_value = latest->latches[static_cast<std::size_t>(latch_idx)];
-        last_latch_value = latch_value;
-        has_latch_value = true;
-        latch_ok = std::isfinite(static_cast<double>(latch_value)) && (latch_value > 0.5f);
         if (latch_ok)
         {
           break;
@@ -1349,26 +1365,26 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         if (has_latch_value)
         {
           RCLCPP_WARN(LOGGER,
-                      "handleTargetInsert: latch check failed slot=%d (object_id=%s, latch=%.3f), "
+                      "handleTargetInsert: latch check failed (object_id=%s, latch_max=%.3f), "
                       "continue as inserted by trajectory result",
-                      slot, object_id.c_str(), static_cast<double>(last_latch_value));
+                      object_id.c_str(), static_cast<double>(last_latch_max_value));
         }
         else
         {
           RCLCPP_WARN(LOGGER,
-                      "handleTargetInsert: latch check failed slot=%d (object_id=%s, no latch sample), "
+                      "handleTargetInsert: latch check failed (object_id=%s, no latch sample), "
                       "continue as inserted by trajectory result",
-                      slot, object_id.c_str());
+                      object_id.c_str());
         }
       }
       else
       {
-        RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed slot=%d", slot);
+        RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed (object_id=%s)", object_id.c_str());
       }
     }
     else
     {
-      RCLCPP_WARN(LOGGER, "handleTargetInsert: object_id(%s) has no slot_xx; skip latch check", object_id.c_str());
+      RCLCPP_WARN(LOGGER, "handleTargetInsert: target_set callback not configured, skip latch check");
     }
 
     {

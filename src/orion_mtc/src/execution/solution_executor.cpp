@@ -155,7 +155,9 @@ bool SolutionExecutor::executeSolution(
     const std::string& job_id,
     const std::string& task_type,
     const std::vector<std::string>& stage_names,
-    ShouldAbortFn should_abort)
+    ShouldAbortFn should_abort,
+    ShouldExecuteSegmentFn should_execute_segment,
+    AfterSegmentFn after_segment)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -187,6 +189,15 @@ bool SolutionExecutor::executeSolution(
       return false;
     }
     const std::string name = stage_name_at(i);
+    if (should_execute_segment && !should_execute_segment(i, name))
+    {
+      if (stage_report)
+      {
+        stage_report(job_id, task_type, i, name, "DONE", "segment skipped by condition");
+      }
+      RCLCPP_INFO(LOGGER, "executeSolution: skip segment %zu (%s) by condition", i, name.c_str());
+      continue;
+    }
     if (stage_report)
     {
       stage_report(job_id, task_type, i, name, "ENTER", "");
@@ -230,6 +241,10 @@ bool SolutionExecutor::executeSolution(
         if (!wait_for_gripped(false, 5.0))
           RCLCPP_WARN(LOGGER, "executeSolution: wait unlock timeout, continue anyway");
       }
+    }
+    if (after_segment)
+    {
+      after_segment(i, name);
     }
   }
   return true;

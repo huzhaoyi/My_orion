@@ -40,6 +40,12 @@ using StageReportFn = std::function<void(const std::string& job_id, const std::s
                                         std::size_t stage_index, const std::string& stage_name,
                                         const std::string& stage_state, const std::string& detail)>;
 
+/* 返回 false 时跳过当前 segment 执行（用于插入分段提前收敛等场景）。 */
+using ShouldExecuteSegmentFn = std::function<bool(std::size_t stage_index, const std::string& stage_name)>;
+
+/* 单段执行完成回调（仅在该段实际执行成功后触发）。 */
+using AfterSegmentFn = std::function<void(std::size_t stage_index, const std::string& stage_name)>;
+
 class SolutionExecutor
 {
 public:
@@ -54,7 +60,9 @@ public:
                       const std::string& job_id = "",
                       const std::string& task_type = "",
                       const std::vector<std::string>& stage_names = {},
-                      ShouldAbortFn should_abort = nullptr);
+                      ShouldAbortFn should_abort = nullptr,
+                      ShouldExecuteSegmentFn should_execute_segment = nullptr,
+                      AfterSegmentFn after_segment = nullptr);
 
   /* Pick 专用：执行中在 attach 段后根据末端 FK 填充 held_context_out。可选 stage_report 同上。
    * cable_world_object_ids：与 pick 任务中 add 的 world 缆绳段 id 一致，用于 remove 后同步 scene；空则不再额外扫 id
