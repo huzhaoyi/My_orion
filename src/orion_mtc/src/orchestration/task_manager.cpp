@@ -1274,7 +1274,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       return false;
     }
 
-    bool insert_latch_hit = false;
+    std::atomic<bool> insert_latch_hit(false);
+    std::atomic<bool> stop_latch_monitor(false);
+    std::thread latch_monitor_thread;
     const auto is_insert_descend_stage = [](const std::string& stage_name) -> bool
     {
       return stage_name == "insert descend" || stage_name.rfind("insert descend segment ", 0) == 0;
@@ -1299,13 +1301,46 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
       return false;
     };
+    if (get_latest_target_set_fn_)
+    {
+      latch_monitor_thread = std::thread([&]()
+      {
+        while (!stop_latch_monitor.load())
+        {
+          if (!insert_latch_hit.load() && has_any_latch_hit())
+          {
+            insert_latch_hit.store(true);
+            RCLCPP_INFO(LOGGER,
+                        "handleTargetInsert: latch detected by monitor, "
+                        "remaining descend segments will be skipped");
+          }
+          std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        }
+      });
+    }
+    struct LatchMonitorGuard
+    {
+      std::atomic<bool>* stop_flag;
+      std::thread* worker;
+      ~LatchMonitorGuard()
+      {
+        if (stop_flag != nullptr)
+        {
+          stop_flag->store(true);
+        }
+        if (worker != nullptr && worker->joinable())
+        {
+          worker->join();
+        }
+      }
+    } latch_monitor_guard{ &stop_latch_monitor, &latch_monitor_thread };
 
     if (!solution_executor_->executeSolution(
             solution_msg, wait_for_gripped_fn_, stage_report_fn_, current_task_id_, "TARGET_INSERT",
             insert_stage_names, makeEstopAbortFn(),
             [&](std::size_t /*stage_index*/, const std::string& stage_name) -> bool
             {
-              if (insert_latch_hit && is_insert_descend_stage(stage_name))
+              if (insert_latch_hit.load() && is_insert_descend_stage(stage_name))
               {
                 return false;
               }
@@ -1313,9 +1348,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             },
             [&](std::size_t /*stage_index*/, const std::string& stage_name)
             {
-              if (!insert_latch_hit && is_insert_descend_stage(stage_name) && has_any_latch_hit())
+              if (!insert_latch_hit.load() && is_insert_descend_stage(stage_name) && has_any_latch_hit())
               {
-                insert_latch_hit = true;
+                insert_latch_hit.store(true);
                 RCLCPP_INFO(LOGGER,
                             "handleTargetInsert: latch detected during descend, "
                             "skip remaining descend segments and continue release flow");
