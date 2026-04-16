@@ -303,16 +303,13 @@ function render(parentEl) {
 
     const tsTbody = wrap.querySelector('#pc-ts-tbody');
     const rows = state.targetSetTargets || [];
-    const selIdx = state.targetSensorSelectedIndex;
     if (rows.length === 0) {
       tsTbody.innerHTML = `<tr><td colspan="4" style="text-align:left;color:var(--text-secondary);font-size:10px;">${t('card.perception.table_empty')}</td></tr>`;
     } else {
       tsTbody.innerHTML = rows
         .map((row) => {
-          const isSel = selIdx != null && selIdx >= 0 && row.index === selIdx;
-          const trCls = isSel ? ' class="perception-card__row--selected"' : '';
           const idCell = row.objectId ? escapeHtml(row.objectId) : '—';
-          return `<tr${trCls}><td>${row.index}</td><td style="font-size:10px;">${fmtPos(row.position)}</td><td style="font-size:10px;">${fmtQuatShort(row.orientation)}</td><td style="font-size:10px;">${idCell}</td></tr>`;
+          return `<tr><td>${row.index}</td><td style="font-size:10px;">${fmtPos(row.position)}</td><td style="font-size:10px;">${fmtQuatShort(row.orientation)}</td><td style="font-size:10px;">${idCell}</td></tr>`;
         })
         .join('');
     }

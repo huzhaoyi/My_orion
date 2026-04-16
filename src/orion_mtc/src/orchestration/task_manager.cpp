@@ -226,6 +226,36 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
   return true;
 }
 
+static int32_t parseTargetSlotFromObjectId(const std::string& object_id)
+{
+  const std::string key = "slot_";
+  const std::size_t pos = object_id.find(key);
+  if (pos == std::string::npos)
+  {
+    return -1;
+  }
+  std::size_t i = pos + key.size();
+  if (i >= object_id.size())
+  {
+    return -1;
+  }
+  int32_t slot = 0;
+  for (; i < object_id.size(); ++i)
+  {
+    const char c = object_id[i];
+    if (c < '0' || c > '9')
+    {
+      break;
+    }
+    slot = static_cast<int32_t>(slot * 10 + static_cast<int32_t>(c - '0'));
+  }
+  if (slot <= 0)
+  {
+    return -1;
+  }
+  return slot;
+}
+
 Eigen::Vector3d normalizedInsertAxisLocalFromConfig(const PegInsertConfig& pi)
 {
   if (pi.insert_axis_local_xyz.size() != 3u)
@@ -1162,6 +1192,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
     geometry_msgs::msg::PoseStamped pose_base = target_pose;
     const rclcpp::Time stamp_now = node_->now();
+    const int32_t requested_hole = parseTargetSlotFromObjectId(object_id);
 
     const std::string src_frame_before_xform = pose_base.header.frame_id;
     if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
@@ -1200,6 +1231,108 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 pose_base.pose.orientation.z,
                 pose_base.pose.orientation.w,
                 object_id.c_str());
+
+    {
+      bool need_pre_extract = false;
+      int32_t latched_hole = -1;
+      {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        need_pre_extract = insert_latch_locked_;
+        latched_hole = insert_latch_hole_;
+      }
+      if (need_pre_extract)
+      {
+        const PegInsertConfig& pi = config_.peg_insert;
+        const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(pi);
+        const Eigen::Quaterniond q_target(
+            pose_base.pose.orientation.w,
+            pose_base.pose.orientation.x,
+            pose_base.pose.orientation.y,
+            pose_base.pose.orientation.z);
+        Eigen::Vector3d axis_world = q_target * axis_local;
+        const double axis_norm = axis_world.norm();
+        if (axis_norm < 1e-9)
+        {
+          RCLCPP_WARN(LOGGER, "handleTargetInsert: pre-extract skipped (invalid insert axis)");
+        }
+        else
+        {
+          axis_world /= axis_norm;
+          const double extract_distance = std::max(0.0, pi.insert_depth_m);
+          if (extract_distance > 1e-6)
+          {
+            mtc::Task extract_task;
+            extract_task.stages()->setName("pre-extract reverse insert");
+            extract_task.loadRobotModel(node_);
+            const std::string arm_group_name = "arm";
+            const std::string hand_frame = "gripper_tcp";
+            extract_task.add(std::make_unique<mtc::stages::CurrentState>("current"));
+            auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
+            cartesian_planner->setMaxVelocityScalingFactor(static_cast<double>(pi.cartesian_velocity_scaling));
+            cartesian_planner->setMaxAccelerationScalingFactor(static_cast<double>(pi.cartesian_acceleration_scaling));
+            cartesian_planner->setStepSize(static_cast<double>(pi.cartesian_step_size));
+            cartesian_planner->setMinFraction(0.90);
+            geometry_msgs::msg::Vector3Stamped reverse_axis;
+            reverse_axis.header.stamp = stamp_now;
+            reverse_axis.header.frame_id = pose_base.header.frame_id;
+            reverse_axis.vector.x = -axis_world.x();
+            reverse_axis.vector.y = -axis_world.y();
+            reverse_axis.vector.z = -axis_world.z();
+            auto pre_extract = std::make_unique<mtc::stages::MoveRelative>(
+                "pre-extract reverse insert", cartesian_planner);
+            pre_extract->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+            pre_extract->setGroup(arm_group_name);
+            pre_extract->setIKFrame(hand_frame);
+            pre_extract->setDirection(reverse_axis);
+            pre_extract->setMinMaxDistance(static_cast<float>(extract_distance), static_cast<float>(extract_distance));
+            extract_task.add(std::move(pre_extract));
+            try
+            {
+              extract_task.init();
+              extract_task.enableIntrospection(true);
+            }
+            catch (mtc::InitStageException& e)
+            {
+              RCLCPP_WARN_STREAM(LOGGER, "handleTargetInsert: pre-extract init failed: " << e);
+            }
+            if (extract_task.solutions().empty())
+            {
+              const moveit::core::MoveItErrorCode extract_plan_result = extract_task.plan(3);
+              if (!extract_plan_result || extract_task.solutions().empty())
+              {
+                std::ostringstream os;
+                extract_task.explainFailure(os);
+                RCLCPP_WARN_STREAM(LOGGER, "handleTargetInsert: pre-extract plan failed: " << os.str());
+              }
+              else
+              {
+                moveit_task_constructor_msgs::msg::Solution extract_solution_msg;
+                extract_task.solutions().front()->toMsg(extract_solution_msg, &extract_task.introspection());
+                if (!solution_executor_->executeSolution(
+                        extract_solution_msg, wait_for_gripped_fn_, stage_report_fn_, current_task_id_,
+                        "TARGET_INSERT", std::vector<std::string>{ "current", "pre-extract reverse insert" },
+                        makeEstopAbortFn()))
+                {
+                  RCLCPP_WARN(LOGGER, "handleTargetInsert: pre-extract execution failed, continue insert");
+                }
+                else
+                {
+                  RCLCPP_INFO(
+                      LOGGER,
+                      "handleTargetInsert: pre-extract completed (distance=%.3f, locked_hole=%d, target_hole=%d)",
+                      extract_distance, static_cast<int>(latched_hole), static_cast<int>(requested_hole));
+                }
+              }
+            }
+          }
+        }
+        {
+          std::lock_guard<std::mutex> lock(state_mutex_);
+          insert_latch_locked_ = false;
+          insert_latch_hole_ = -1;
+        }
+      }
+    }
 
     moveit_task_constructor_msgs::msg::Solution solution_msg;
     std::vector<std::string> insert_stage_names;
@@ -1301,6 +1434,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
       return false;
     };
+    const auto mark_insert_latch_locked = [&]()
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      insert_latch_locked_ = true;
+      insert_latch_hole_ = requested_hole;
+    };
     if (get_latest_target_set_fn_)
     {
       latch_monitor_thread = std::thread([&]()
@@ -1310,6 +1449,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
           if (!insert_latch_hit.load() && has_any_latch_hit())
           {
             insert_latch_hit.store(true);
+            mark_insert_latch_locked();
             RCLCPP_INFO(LOGGER,
                         "handleTargetInsert: latch detected by monitor, "
                         "remaining descend segments will be skipped");
@@ -1351,6 +1491,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
               if (!insert_latch_hit.load() && is_insert_descend_stage(stage_name) && has_any_latch_hit())
               {
                 insert_latch_hit.store(true);
+                mark_insert_latch_locked();
                 RCLCPP_INFO(LOGGER,
                             "handleTargetInsert: latch detected during descend, "
                             "skip remaining descend segments and continue release flow");
@@ -1397,6 +1538,11 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
       if (!latch_ok)
       {
+        {
+          std::lock_guard<std::mutex> lock(state_mutex_);
+          insert_latch_locked_ = false;
+          insert_latch_hole_ = -1;
+        }
         if (has_latch_value)
         {
           RCLCPP_WARN(LOGGER,
@@ -1414,6 +1560,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
       else
       {
+        mark_insert_latch_locked();
         RCLCPP_INFO(LOGGER, "handleTargetInsert: latch check passed (object_id=%s)", object_id.c_str());
       }
     }
@@ -1736,6 +1883,18 @@ HeldObjectContext TaskManager::getHeldObject() const
 {
   std::lock_guard<std::mutex> lock(state_mutex_);
   return held_object_;
+}
+
+bool TaskManager::isInsertLatchLocked() const
+{
+  std::lock_guard<std::mutex> lock(state_mutex_);
+  return insert_latch_locked_;
+}
+
+int32_t TaskManager::getInsertLatchHole() const
+{
+  std::lock_guard<std::mutex> lock(state_mutex_);
+  return insert_latch_hole_;
 }
 
 /*

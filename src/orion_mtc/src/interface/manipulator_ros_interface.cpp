@@ -333,6 +333,8 @@ void ManipulatorRosInterface::publishRuntimeStatus()
     msg.has_held_object = held.valid;
     msg.held_object_id = held.valid ? held.object_id : "";
     msg.held_scene_attach_id = held.valid ? held.scene_attach_id : "";
+    msg.insert_latch_locked = ctx_.task_manager->isInsertLatchLocked();
+    msg.insert_latch_hole = ctx_.task_manager->getInsertLatchHole();
     msg.last_error = ctx_.task_manager->getLastError();
     pub_runtime_status_->publish(msg);
 }

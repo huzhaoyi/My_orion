@@ -26,6 +26,10 @@ function render(parentEl) {
   }
   function update() {
     const s = stateStore.getState();
+    const latchLabel = s.insertLatchLocked ? t('card.held.yes') : t('card.held.no');
+    const latchHole = Number.isFinite(Number(s.insertLatchHole)) && Number(s.insertLatchHole) > 0
+      ? String(s.insertLatchHole)
+      : '—';
     wrap.innerHTML = `
       <div class="card-title">${t('card.runtime.title')}</div>
       <div class="card-row"><span class="card-label">${t('card.runtime.type')}</span><span class="card-value">${jobTypeLabel(s.currentJobType)}</span></div>
@@ -33,6 +37,8 @@ function render(parentEl) {
       <div class="card-row"><span class="card-label">${t('card.runtime.stage')}</span><span class="card-value"><span class="stage-pill ${stagePillClass(s.currentStageName)}">${stageNameLabel(s.currentStageName) || '—'}</span></span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.worker')}</span><span class="card-value">${statusLabel(s.workerStatus)}</span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.mode')}</span><span class="card-value">${statusLabel(s.taskMode)}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.insert_latch')}</span><span class="card-value">${latchLabel}</span></div>
+      <div class="card-row"><span class="card-label">${t('card.runtime.insert_hole')}</span><span class="card-value">${latchHole}</span></div>
     `;
   }
 

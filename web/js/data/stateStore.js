@@ -19,6 +19,8 @@ const initialState = {
   hasHeldObject: false,
   heldObjectId: '',
   heldSceneAttachId: '',
+  insertLatchLocked: false,
+  insertLatchHole: -1,
   lastError: '',
 
   // 当前任务卡片（来自当前执行 job）
@@ -164,6 +166,8 @@ function applyRuntimeStatus(msg) {
     hasHeldObject: msg.has_held_object ?? state.hasHeldObject,
     heldObjectId: msg.held_object_id ?? state.heldObjectId,
     heldSceneAttachId: msg.held_scene_attach_id ?? state.heldSceneAttachId,
+    insertLatchLocked: msg.insert_latch_locked ?? state.insertLatchLocked,
+    insertLatchHole: msg.insert_latch_hole ?? state.insertLatchHole,
     lastError: msg.last_error ?? state.lastError,
     currentStageName: next_stage,
   });

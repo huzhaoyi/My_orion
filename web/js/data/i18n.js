@@ -119,6 +119,8 @@ const MESSAGES = {
     'card.runtime.stage': '阶段',
     'card.runtime.worker': '工作线程',
     'card.runtime.mode': '模式',
+    'card.runtime.insert_latch': '插入锁存',
+    'card.runtime.insert_hole': '锁存孔位',
 
     'card.queue.title': '队列',
     'card.queue.empty': '队列为空',
@@ -385,6 +387,8 @@ const MESSAGES = {
     'card.runtime.stage': 'Stage',
     'card.runtime.worker': 'Worker',
     'card.runtime.mode': 'Mode',
+    'card.runtime.insert_latch': 'Insert Latch',
+    'card.runtime.insert_hole': 'Latched Hole',
 
     'card.queue.title': 'Queue',
     'card.queue.empty': 'Queue empty',

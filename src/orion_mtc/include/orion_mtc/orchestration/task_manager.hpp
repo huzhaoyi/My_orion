@@ -126,6 +126,8 @@ public:
   std::string getTaskId() const;
   std::string getLastError() const;
   HeldObjectContext getHeldObject() const;
+  bool isInsertLatchLocked() const;
+  int32_t getInsertLatchHole() const;
 
   std::string submitJob(const ManipulationJob& job, std::string* out_reject_reason = nullptr);
   void startWorker();
@@ -216,6 +218,8 @@ private:
   RobotTaskMode task_mode_ = RobotTaskMode::IDLE;
   bool suppress_ungripped_feedback_ = false;
   HeldObjectContext held_object_;
+  bool insert_latch_locked_ = false;
+  int32_t insert_latch_hole_ = -1;
   std::string current_task_id_;
   std::string last_error_;
 
