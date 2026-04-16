@@ -281,10 +281,18 @@ function registerGlobalHandlers() {
         return;
       }
       const s = stateStore.getState();
-      if (!s.hasHeldObject && !s.heldValid) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: no held object, slot=${slot}`);
-        toast.warn('请先完成 TargetSensor 抓取，再执行插孔');
-        return;
+      const taskMode = String(s.taskMode || '').toUpperCase();
+      const maybeHolding =
+        !!s.hasHeldObject ||
+        !!s.heldValid ||
+        taskMode.includes('HOLDING') ||
+        !!s.insertLatchLocked;
+      if (!maybeHolding) {
+        stateStore.pushSystemLog(
+          'warn',
+          `TargetSensor insert: frontend未确认持物，仍提交后端判定, slot=${slot}`
+        );
+        toast.warn('前端未确认持物，已继续提交插孔（由后端最终判定）');
       }
       const slotPoseFromHoles = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses[slot - 1] : null;
       if (!slotPoseFromHoles || !slotPoseFromHoles.position) {
