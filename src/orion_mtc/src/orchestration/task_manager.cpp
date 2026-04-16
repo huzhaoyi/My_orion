@@ -1083,6 +1083,8 @@ void TaskManager::applyGripperFeedbackFromTopic(double gripped_value)
       return;
     }
     clearHeldObject(held_object_);
+    insert_latch_locked_ = false;
+    insert_latch_hole_ = -1;
     task_mode_ = RobotTaskMode::IDLE;
     need_scene = true;
     need_notify = true;
@@ -1165,9 +1167,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     estop_requested_.store(false);
     return false;
   }
+  const bool gripper_locked = (is_gripper_locked_fn_ && is_gripper_locked_fn_());
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
-    const bool gripper_locked = (is_gripper_locked_fn_ && is_gripper_locked_fn_());
     if (!held_object_.valid && !isHolding(task_mode_) && !gripper_locked)
     {
       last_error_ = "TARGET_INSERT: no held object";
@@ -1427,7 +1429,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
     std::atomic<bool> insert_latch_hit(false);
     std::atomic<bool> stop_latch_monitor(false);
+    std::atomic<bool> latch_sampling_enabled(false);
     std::thread latch_monitor_thread;
+    static constexpr int k_latch_consecutive_hit_min = 2;
     const auto is_insert_descend_stage = [](const std::string& stage_name) -> bool
     {
       return stage_name == "insert descend" || stage_name.rfind("insert descend segment ", 0) == 0;
@@ -1462,15 +1466,31 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     {
       latch_monitor_thread = std::thread([&]()
       {
+        int consecutive_hit_count = 0;
         while (!stop_latch_monitor.load())
         {
-          if (!insert_latch_hit.load() && has_any_latch_hit())
+          if (!insert_latch_hit.load() && latch_sampling_enabled.load())
           {
-            insert_latch_hit.store(true);
-            mark_insert_latch_locked();
-            RCLCPP_INFO(LOGGER,
-                        "handleTargetInsert: latch detected by monitor, "
-                        "remaining descend segments will be skipped");
+            if (has_any_latch_hit())
+            {
+              consecutive_hit_count += 1;
+              if (consecutive_hit_count >= k_latch_consecutive_hit_min)
+              {
+                insert_latch_hit.store(true);
+                mark_insert_latch_locked();
+                RCLCPP_INFO(LOGGER,
+                            "handleTargetInsert: latch detected by monitor during insert descend, "
+                            "remaining descend segments will be skipped");
+              }
+            }
+            else
+            {
+              consecutive_hit_count = 0;
+            }
+          }
+          else
+          {
+            consecutive_hit_count = 0;
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(30));
         }
@@ -1498,6 +1518,8 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             insert_stage_names, makeEstopAbortFn(),
             [&](std::size_t /*stage_index*/, const std::string& stage_name) -> bool
             {
+              const bool is_descend_stage = is_insert_descend_stage(stage_name);
+              latch_sampling_enabled.store(is_descend_stage);
               if (insert_latch_hit.load() && is_insert_descend_stage(stage_name))
               {
                 return false;
@@ -1506,13 +1528,13 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             },
             [&](std::size_t /*stage_index*/, const std::string& stage_name)
             {
-              if (!insert_latch_hit.load() && is_insert_descend_stage(stage_name) && has_any_latch_hit())
+              const bool is_descend_stage = is_insert_descend_stage(stage_name);
+              latch_sampling_enabled.store(false);
+              if (!insert_latch_hit.load() && is_descend_stage && has_any_latch_hit())
               {
-                insert_latch_hit.store(true);
-                mark_insert_latch_locked();
                 RCLCPP_INFO(LOGGER,
-                            "handleTargetInsert: latch detected during descend, "
-                            "skip remaining descend segments and continue release flow");
+                            "handleTargetInsert: latch transient observed after descend stage, "
+                            "wait monitor debounce to confirm");
               }
             }))
     {
@@ -1522,57 +1544,55 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
     if (get_latest_target_set_fn_)
     {
-      bool latch_ok = false;
+      bool latch_ok = insert_latch_hit.load();
       const int max_retry = 50;
       float last_latch_max_value = 0.0f;
       bool has_latch_value = false;
-      for (int i = 0; i < max_retry; ++i)
+      if (!latch_ok)
       {
-        const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
-        if (!latest.has_value())
+        for (int i = 0; i < max_retry; ++i)
         {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          continue;
-        }
-        for (float latch_value : latest->latches)
-        {
-          if (!std::isfinite(static_cast<double>(latch_value)))
+          const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+          if (!latest.has_value())
           {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
           }
-          has_latch_value = true;
-          last_latch_max_value = std::max(last_latch_max_value, latch_value);
-          if (latch_value > 0.5f)
+          for (float latch_value : latest->latches)
           {
-            latch_ok = true;
+            if (!std::isfinite(static_cast<double>(latch_value)))
+            {
+              continue;
+            }
+            has_latch_value = true;
+            last_latch_max_value = std::max(last_latch_max_value, latch_value);
+            if (latch_value > 0.5f)
+            {
+              latch_ok = true;
+              break;
+            }
+          }
+          if (latch_ok)
+          {
             break;
           }
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        if (latch_ok)
-        {
-          break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
       if (!latch_ok)
       {
-        {
-          std::lock_guard<std::mutex> lock(state_mutex_);
-          insert_latch_locked_ = false;
-          insert_latch_hole_ = -1;
-        }
         if (has_latch_value)
         {
           RCLCPP_WARN(LOGGER,
                       "handleTargetInsert: latch check failed (object_id=%s, latch_max=%.3f), "
-                      "continue as inserted by trajectory result",
+                      "keep previous latch lock state and continue by trajectory result",
                       object_id.c_str(), static_cast<double>(last_latch_max_value));
         }
         else
         {
           RCLCPP_WARN(LOGGER,
                       "handleTargetInsert: latch check failed (object_id=%s, no latch sample), "
-                      "continue as inserted by trajectory result",
+                      "keep previous latch lock state and continue by trajectory result",
                       object_id.c_str());
         }
       }
@@ -1857,6 +1877,8 @@ bool TaskManager::handleResetHeldObject(std::string& out_message)
       return false;
     }
     held_object_.valid = false;
+    insert_latch_locked_ = false;
+    insert_latch_hole_ = -1;
     task_mode_ = RobotTaskMode::IDLE;
     out_message = "held object cleared, state=IDLE";
     RCLCPP_INFO(LOGGER, "reset_held_object: %s", out_message.c_str());
