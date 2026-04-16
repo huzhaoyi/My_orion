@@ -1285,9 +1285,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             geometry_msgs::msg::Vector3Stamped reverse_axis;
             reverse_axis.header.stamp = stamp_now;
             reverse_axis.header.frame_id = pose_base.header.frame_id;
-            reverse_axis.vector.x = -axis_world.x();
-            reverse_axis.vector.y = -axis_world.y();
-            reverse_axis.vector.z = -axis_world.z();
+            reverse_axis.vector.x = axis_world.x();
+            reverse_axis.vector.y = axis_world.y();
+            reverse_axis.vector.z = axis_world.z();
             auto pre_extract = std::make_unique<mtc::stages::MoveRelative>(
                 "pre-extract reverse insert", cartesian_planner);
             pre_extract->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
