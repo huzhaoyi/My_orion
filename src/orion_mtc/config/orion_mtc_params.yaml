@@ -57,6 +57,8 @@ cable_side_grasp:
 target_sensor_pick:
   # 接近方向符号（+1/-1），用于修正 peg 顶抓方向。
   approach_normal_sign: -1.0
+  # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；用于避免 Link6 先碰到把手边缘。
+  surface_backoff_m: 0.03
   # 闭合前沿接近方向的“吃入深度” [m]。
   grasp_depth_m: 0.015
   # 预抓取距离候选 [m]（主序列；会与 fallback_pregrasp_distances_m 合并去重后尝试）。

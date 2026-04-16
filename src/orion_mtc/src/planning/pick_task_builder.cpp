@@ -303,9 +303,10 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
   }
 
   const double grasp_depth = std::max(0.0, config_.target_sensor_pick.grasp_depth_m);
+  const double surface_backoff = std::max(0.0, config_.target_sensor_pick.surface_backoff_m);
   const Eigen::Vector3d p_object(object_pose.pose.position.x, object_pose.pose.position.y,
                                  object_pose.pose.position.z);
-  const Eigen::Vector3d p_grasp = p_object + approach_dir * grasp_depth;
+  const Eigen::Vector3d p_grasp = p_object - approach_dir * surface_backoff + approach_dir * grasp_depth;
 
   Eigen::Isometry3d pregrasp_iso = Eigen::Isometry3d::Identity();
   pregrasp_iso.linear() = R_tool;

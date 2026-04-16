@@ -102,6 +102,7 @@ struct TargetSensorPickCandidate
 
 bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
                                 double grasp_depth_m,
+                                double surface_backoff_m,
                                 Eigen::Isometry3d& out_grasp_pose,
                                 Eigen::Isometry3d& out_pregrasp_pose)
 {
@@ -148,8 +149,9 @@ bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
   }
 
   const double grasp_depth = std::max(0.0, grasp_depth_m);
+  const double surface_backoff = std::max(0.0, surface_backoff_m);
   const Eigen::Vector3d p_object(pose.position.x, pose.position.y, pose.position.z);
-  const Eigen::Vector3d p_grasp = p_object + approach_dir * grasp_depth;
+  const Eigen::Vector3d p_grasp = p_object - approach_dir * surface_backoff + approach_dir * grasp_depth;
 
   out_grasp_pose = Eigen::Isometry3d::Identity();
   out_grasp_pose.linear() = R_tool;
@@ -168,10 +170,11 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
                                        const std::string& arm_group_name,
                                        const std::string& hand_frame,
                                        double grasp_depth_m,
+                                       double surface_backoff_m,
                                        Eigen::Isometry3d& out_grasp_pose)
 {
   Eigen::Isometry3d pregrasp_pose = Eigen::Isometry3d::Identity();
-  if (!buildTargetSensorGoalPoses(candidate, grasp_depth_m, out_grasp_pose, pregrasp_pose))
+  if (!buildTargetSensorGoalPoses(candidate, grasp_depth_m, surface_backoff_m, out_grasp_pose, pregrasp_pose))
   {
     return false;
   }
@@ -569,7 +572,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
       if (!precheckTargetSensorPickCandidate(
               LOGGER, i, candidate, robot_model, scene_for_ik_seed,
-              arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m, grasp_pose))
+              arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m,
+              config_.target_sensor_pick.surface_backoff_m, grasp_pose))
       {
         continue;
       }
