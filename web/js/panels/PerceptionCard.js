@@ -99,7 +99,6 @@ function render(parentEl) {
           <span class="card-label" id="pc-ts-hlabel"></span>
           <span class="card-value" id="pc-ts-hval" style="font-size:10px;color:var(--text-secondary);"></span>
         </div>
-        <div class="card-row card-row--indent"><span class="card-label" id="pc-ts-idx-l"></span><span class="card-value" id="pc-ts-idx-v"></span></div>
         <div class="perception-card__targets">
           <table class="perception-card__table" aria-label="targets">
             <thead><tr>
@@ -163,7 +162,6 @@ function render(parentEl) {
     g('pc-cable-up-l').textContent = t('card.perception.updated');
     g('pc-ts-cap').textContent = t('card.perception.target_table_caption');
     g('pc-ts-hlabel').textContent = t('card.perception.target_sensor_label');
-    g('pc-ts-idx-l').textContent = t('card.perception.target_grasp_index');
     g('pc-ts-up-l').textContent = t('card.perception.updated');
     g('pc-th-cap').textContent = t('card.perception.target_insert_holes_caption');
     g('pc-th-up-l').textContent = t('card.perception.updated');
@@ -301,9 +299,6 @@ function render(parentEl) {
     }
 
     wrap.querySelector('#pc-ts-hval').textContent = `${t('card.perception.target_sensor_hint')}${tsHintExtra}`;
-    const si = state.targetSensorSelectedIndex;
-    wrap.querySelector('#pc-ts-idx-v').textContent =
-      si != null && si >= 0 ? String(si) : '—';
     wrap.querySelector('#pc-ts-up-v').textContent = tsUpStr;
 
     const tsTbody = wrap.querySelector('#pc-ts-tbody');

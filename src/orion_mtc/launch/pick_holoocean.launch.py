@@ -311,7 +311,7 @@ def generate_launch_description():
     )
     arg_rosbridge_log_level = DeclareLaunchArgument(
         "rosbridge_log_level",
-        default_value="warn",
+        default_value="error",
         description="rosbridge_websocket 日志级别（debug/info/warn/error/fatal）",
     )
 

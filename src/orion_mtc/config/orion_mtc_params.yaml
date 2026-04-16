@@ -89,7 +89,7 @@ peg_insert:
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
-  insert_depth_m: 0.1
+  insert_depth_m: 0.2
   # 插入完成后沿 base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。

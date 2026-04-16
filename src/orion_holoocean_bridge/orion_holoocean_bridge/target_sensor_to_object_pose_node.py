@@ -217,6 +217,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("position_offset_x", 0.0)
         self.declare_parameter("position_offset_y", 0.0)
         self.declare_parameter("position_offset_z", 0.0)
+        self.declare_parameter("grasp_offset_along_direction_m", 0.0)
         self.declare_parameter("use_pose_sensor_stamp_for_rov_tf", False)
         self.declare_parameter("target_insert_holes_topic", "/manipulator/target_insert_holes")
         for slot_index in range(1, 8):
@@ -255,6 +256,14 @@ class TargetSensorToObjectPoseNode(Node):
         self._offset_x = self.get_parameter("position_offset_x").get_parameter_value().double_value
         self._offset_y = self.get_parameter("position_offset_y").get_parameter_value().double_value
         self._offset_z = self.get_parameter("position_offset_z").get_parameter_value().double_value
+        self._grasp_offset_along_direction_m = (
+            self.get_parameter("grasp_offset_along_direction_m").get_parameter_value().double_value
+        )
+        if abs(self._grasp_offset_along_direction_m) > 1e-9:
+            self.get_logger().info(
+                "target_sensor_to_object_pose: 启用沿目标轴抓取点偏移 grasp_offset_along_direction_m=%.4f m"
+                % self._grasp_offset_along_direction_m
+            )
         self._use_pose_sensor_stamp_for_rov_tf = (
             self.get_parameter("use_pose_sensor_stamp_for_rov_tf").get_parameter_value().bool_value
         )
@@ -516,6 +525,7 @@ class TargetSensorToObjectPoseNode(Node):
             )
             d_base = R_rov.T @ d_world
             d_base = d_base / np.linalg.norm(d_base)
+            p_base = p_base + d_base * self._grasp_offset_along_direction_m
             positions_base.extend([float(p_base[0]), float(p_base[1]), float(p_base[2])])
             directions_base.extend([float(d_base[0]), float(d_base[1]), float(d_base[2])])
             R_obj_base = None
@@ -579,6 +589,7 @@ class TargetSensorToObjectPoseNode(Node):
         )
         d_base = R_rov.T @ d_world
         d_base = d_base / np.linalg.norm(d_base)
+        p_base = p_base + d_base * self._grasp_offset_along_direction_m
         R_grasp_base = rotations_base[idx] if idx < len(rotations_base) else None
         if R_grasp_base is None:
             y_hint_selected = self._last_side_grasp_y_by_index.get(idx)

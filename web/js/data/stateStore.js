@@ -588,6 +588,7 @@ function _isMeaningfulPosition(pos) {
 function setPerceptionState(msg) {
   if (!msg) return;
   const patch = { perceptionUpdatedAt: Date.now() };
+  let has_target_sensor_pose = false;
   /* 仅在有意义的物体位姿时更新，避免 (0,0,0) 覆盖导致 0↔有数据 闪烁 */
   if (msg.object_pose && msg.object_pose.pose) {
     const p = msg.object_pose.pose;
@@ -615,6 +616,7 @@ function setPerceptionState(msg) {
     const tp = msg.target_sensor_object_pose.pose;
     const tpos = tp.position || { x: 0, y: 0, z: 0 };
     if (_isMeaningfulPosition(tpos)) {
+      has_target_sensor_pose = true;
       patch.targetSensorObjectPose = {
         position: tpos,
         orientation: tp.orientation || { x: 0, y: 0, z: 0, w: 1 },
@@ -624,7 +626,12 @@ function setPerceptionState(msg) {
   }
   if (msg.target_sensor_selected_index !== undefined && msg.target_sensor_selected_index !== null) {
     const si = Number(msg.target_sensor_selected_index);
-    patch.targetSensorSelectedIndex = Number.isFinite(si) ? si : -1;
+    if (Number.isFinite(si) && si >= 0) {
+      patch.targetSensorSelectedIndex = si;
+    } else if (has_target_sensor_pose || state.targetSensorSelectedIndex < 0) {
+      // 仅在目标源本帧有效或当前尚无有效索引时，才允许 -1 覆盖，避免被 cable perception_state 反复抖动覆盖。
+      patch.targetSensorSelectedIndex = -1;
+    }
   }
   if (msg.rov_pose_in_base_link && msg.rov_pose_in_base_link.pose) {
     const p = msg.rov_pose_in_base_link.pose;
