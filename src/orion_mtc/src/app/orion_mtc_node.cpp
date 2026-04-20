@@ -71,18 +71,18 @@ void OrionMTCNode::initModules()
     solution_executor_ =
         std::make_shared<SolutionExecutor>(scene_manager_.get(), trajectory_executor_.get());
 
-    const double gripper_lock_threshold =
-        node_->declare_parameter<double>("gripper_feedback.lock_threshold", 0.5);
-    const double gripper_unlock_threshold =
-        node_->declare_parameter<double>("gripper_feedback.unlock_threshold", 0.45);
-    const double gripper_wait_timeout_sec =
-        node_->declare_parameter<double>("gripper_feedback.wait_timeout_sec", 8.0);
-    const double gripper_settle_delay_sec =
-        node_->declare_parameter<double>("gripper_feedback.settle_delay_sec", 1.0);
-    const double gripper_poll_hz =
-        node_->declare_parameter<double>("gripper_feedback.poll_hz", 20.0);
-    const int gripper_consecutive_samples =
-        node_->declare_parameter<int>("gripper_feedback.consecutive_samples", 3);
+    double gripper_lock_threshold = 0.5;
+    (void)node_->get_parameter("gripper_feedback.lock_threshold", gripper_lock_threshold);
+    double gripper_unlock_threshold = 0.45;
+    (void)node_->get_parameter("gripper_feedback.unlock_threshold", gripper_unlock_threshold);
+    double gripper_wait_timeout_sec = 8.0;
+    (void)node_->get_parameter("gripper_feedback.wait_timeout_sec", gripper_wait_timeout_sec);
+    double gripper_settle_delay_sec = 1.0;
+    (void)node_->get_parameter("gripper_feedback.settle_delay_sec", gripper_settle_delay_sec);
+    double gripper_poll_hz = 20.0;
+    (void)node_->get_parameter("gripper_feedback.poll_hz", gripper_poll_hz);
+    int gripper_consecutive_samples = 3;
+    (void)node_->get_parameter("gripper_feedback.consecutive_samples", gripper_consecutive_samples);
     const int effective_gripper_consecutive_samples = std::max(1, gripper_consecutive_samples);
     const double effective_gripper_poll_hz = (gripper_poll_hz > 1.0e-6) ? gripper_poll_hz : 20.0;
     const int sleep_ms = static_cast<int>(1000.0 / effective_gripper_poll_hz);
