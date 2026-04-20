@@ -216,7 +216,7 @@
     <parent link="Link6"/>
     <child link="gripper_tcp"/>
     <!-- 规划 TCP：Link6 +Z 朝夹爪前方；z 较指间接触区略短会导致指尖够不到，略长则腕可稍后撤 -->
-    <origin xyz="0.0 0.0 0.148" rpy="0.0 0.0 0.0"/>
+    <origin xyz="0.0 0.0 0.188" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">

@@ -20,6 +20,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <algorithm>
 #include <chrono>
 #include <thread>
 
@@ -70,25 +71,91 @@ void OrionMTCNode::initModules()
     solution_executor_ =
         std::make_shared<SolutionExecutor>(scene_manager_.get(), trajectory_executor_.get());
 
-    WaitForGrippedFn wait_fn = [this](bool expect_gripped, double timeout_sec) {
-        const double threshold = 0.5;
-        const int total_ticks = static_cast<int>(timeout_sec * 20.0);
+    const double gripper_lock_threshold =
+        node_->declare_parameter<double>("gripper_feedback.lock_threshold", 0.5);
+    const double gripper_unlock_threshold =
+        node_->declare_parameter<double>("gripper_feedback.unlock_threshold", 0.45);
+    const double gripper_wait_timeout_sec =
+        node_->declare_parameter<double>("gripper_feedback.wait_timeout_sec", 8.0);
+    const double gripper_settle_delay_sec =
+        node_->declare_parameter<double>("gripper_feedback.settle_delay_sec", 1.0);
+    const double gripper_poll_hz =
+        node_->declare_parameter<double>("gripper_feedback.poll_hz", 20.0);
+    const int gripper_consecutive_samples =
+        node_->declare_parameter<int>("gripper_feedback.consecutive_samples", 3);
+    const int effective_gripper_consecutive_samples = std::max(1, gripper_consecutive_samples);
+    const double effective_gripper_poll_hz = (gripper_poll_hz > 1.0e-6) ? gripper_poll_hz : 20.0;
+    const int sleep_ms = static_cast<int>(1000.0 / effective_gripper_poll_hz);
+
+    RCLCPP_INFO(LOGGER,
+                "gripper feedback params: lock=%.3f unlock=%.3f timeout=%.2fs settle=%.2fs poll=%.1fHz consecutive=%d",
+                gripper_lock_threshold,
+                gripper_unlock_threshold,
+                gripper_wait_timeout_sec,
+                gripper_settle_delay_sec,
+                effective_gripper_poll_hz,
+                effective_gripper_consecutive_samples);
+
+    WaitForGrippedFn wait_fn = [this,
+                                gripper_lock_threshold,
+                                gripper_unlock_threshold,
+                                gripper_wait_timeout_sec,
+                                gripper_settle_delay_sec,
+                                effective_gripper_poll_hz,
+                                effective_gripper_consecutive_samples,
+                                sleep_ms](bool expect_gripped, double timeout_sec) {
+        const double threshold = expect_gripped ? gripper_lock_threshold : gripper_unlock_threshold;
+        const double effective_timeout_sec = std::max(timeout_sec, gripper_wait_timeout_sec);
+        const int total_ticks = std::max(1, static_cast<int>(effective_timeout_sec * effective_gripper_poll_hz));
+        int satisfied_consecutive = 0;
+
+        if (expect_gripped && gripper_settle_delay_sec > 1.0e-6)
+        {
+            RCLCPP_INFO(LOGGER, "waitForGripped: settle for %.2fs before lock check", gripper_settle_delay_sec);
+            std::this_thread::sleep_for(std::chrono::milliseconds(
+                static_cast<int>(gripper_settle_delay_sec * 1000.0)));
+        }
+
         for (int i = 0; i < total_ticks; ++i)
         {
             double v = left_arm_gripped_.load();
-            if (expect_gripped && v >= threshold)
+            const bool sample_ok = expect_gripped ? (v >= threshold) : (v < threshold);
+            if (sample_ok)
             {
-                RCLCPP_INFO(LOGGER, "waitForGripped: gripped (%.3f >= %.3f)", v, threshold);
+                ++satisfied_consecutive;
+            }
+            else
+            {
+                satisfied_consecutive = 0;
+            }
+
+            if (satisfied_consecutive >= effective_gripper_consecutive_samples)
+            {
+                if (expect_gripped)
+                {
+                    RCLCPP_INFO(LOGGER,
+                                "waitForGripped: gripped (%.3f >= %.3f), consecutive=%d",
+                                v,
+                                threshold,
+                                effective_gripper_consecutive_samples);
+                }
+                else
+                {
+                    RCLCPP_INFO(LOGGER,
+                                "waitForGripped: unlocked (%.3f < %.3f), consecutive=%d",
+                                v,
+                                threshold,
+                                effective_gripper_consecutive_samples);
+                }
                 return true;
             }
-            if (!expect_gripped && v < threshold)
-            {
-                RCLCPP_INFO(LOGGER, "waitForGripped: unlocked (%.3f < %.3f)", v, threshold);
-                return true;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
         }
-        RCLCPP_WARN(LOGGER, "waitForGripped: timeout (expect_gripped=%d, last=%.3f)", expect_gripped,
+        RCLCPP_WARN(LOGGER,
+                    "waitForGripped: timeout (expect_gripped=%d, threshold=%.3f, consecutive_need=%d, last=%.3f)",
+                    expect_gripped,
+                    threshold,
+                    effective_gripper_consecutive_samples,
                     left_arm_gripped_.load());
         return false;
     };
@@ -97,9 +164,8 @@ void OrionMTCNode::initModules()
         node_, config_, scene_manager_.get(), trajectory_executor_.get(),
         solution_executor_.get(), std::move(wait_fn));
     task_manager_->setPolicy(runtime_policy_);
-    task_manager_->setGripperLockedCallback([this]() {
-        const double threshold = 0.5;
-        return left_arm_gripped_.load() >= threshold;
+    task_manager_->setGripperLockedCallback([this, gripper_lock_threshold]() {
+        return left_arm_gripped_.load() >= gripper_lock_threshold;
     });
     task_manager_->setGraspChainPerceptionCallbacks(
         [this]() { return object_pose_cache_->latest(); },

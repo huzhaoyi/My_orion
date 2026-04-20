@@ -119,6 +119,21 @@ peg_insert:
 # 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
 # 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
 
+# ---------- 夹爪反馈判定（waitForGripped）----------
+gripper_feedback:
+  # 夹紧判定阈值：left_arm_gripped >= lock_threshold 视为抓稳。
+  lock_threshold: 0.5
+  # 松开判定阈值：left_arm_gripped < unlock_threshold 视为已松开（低于 lock 阈值形成滞回）。
+  unlock_threshold: 0.45
+  # 闭爪段后等待夹持反馈的最长时间 [s]（会与代码内调用超时取最大值）。
+  wait_timeout_sec: 8.0
+  # 闭爪轨迹完成后先等待机械/仿真稳定，再开始判定 [s]。
+  settle_delay_sec: 1.0
+  # 反馈采样频率 [Hz]（waitForGripped 轮询频率）。
+  poll_hz: 20.0
+  # 连续满足阈值的样本数，达到后才判定成功，抑制瞬时抖动误判。
+  consecutive_samples: 3
+
 # ---------- 可行性审批（FeasibilityChecker：check_pick / 入队前工作空间）----------
 # 几何参考：orion_description/urdf/orion.urdf，末端为 gripper_tcp（与 MoveIt IK 一致，不含开合爪）。
 # 全包络量级（base_link）：|p|_max≈1.85 m，|p|_min≈0.02 m，z 约 [-1.82, 1.83] m。
