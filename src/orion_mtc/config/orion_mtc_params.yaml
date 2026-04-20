@@ -125,15 +125,15 @@ peg_insert:
 # 下列为操作包络：校核的是目标点（物体/缆绳中心）相对基座的距离与高度，不是 TCP。
 feasibility:
   # 径向 ‖p‖ 硬上限 [m]：超过则拒绝（WORKSPACE）；略低于 URDF 统计最大以留 IK/奇异/侧抓余量。
-  max_reach_hard: 1.8
+  max_reach_hard: 1.90
   # 软上限 [m]：‖p‖ 介于 soft~hard 时通过但告警（可执行但接近边界）。
   max_reach_soft: 1.66
   # 径向 ‖p‖ 安全下限 [m]：过近拒绝，缓解折叠自碰与病态 IK。
   min_reach_safe: 0.14
   # 目标点 base_link z [m] 允许下限（经验包络，窄于 URDF 极端 z）。
-  z_min: -0.55
+  z_min: -1.14
   # 目标点 base_link z [m] 允许上限。
-  z_max: 1.55
+  z_max: 1.85
   # 主动关节距 URDF 限位小于该值 [rad] 时审批给出关节余量警告。
   joint_margin_warning_rad: 0.10
   # 审批用 IK 单次超时 [s]。
