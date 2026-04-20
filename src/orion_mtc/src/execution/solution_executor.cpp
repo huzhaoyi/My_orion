@@ -203,8 +203,21 @@ bool SolutionExecutor::executeSolution(
       stage_report(job_id, task_type, i, name, "ENTER", "");
       stage_report(job_id, task_type, i, name, "RUNNING", "");
     }
+    const auto& sub = solution_msg.sub_trajectory[i];
+    if (task_type == "TARGET_INSERT" && isHandOnlySegment(sub) && name != "open hand")
+    {
+      if (stage_report)
+      {
+        stage_report(job_id, task_type, i, name, "DONE", "skip hand segment before release");
+      }
+      RCLCPP_WARN(LOGGER,
+                  "executeSolution: skip hand-only segment %zu (%s) during TARGET_INSERT before release",
+                  i,
+                  name.c_str());
+      continue;
+    }
     RCLCPP_INFO(LOGGER, "Executing segment %zu / %zu", i + 1, solution_msg.sub_trajectory.size());
-    if (!trajectory_executor_->executeSubTrajectory(solution_msg.sub_trajectory[i], scene_manager_))
+    if (!trajectory_executor_->executeSubTrajectory(sub, scene_manager_))
     {
       if (stage_report)
       {
@@ -217,7 +230,6 @@ bool SolutionExecutor::executeSolution(
     {
       stage_report(job_id, task_type, i, name, "DONE", "");
     }
-    const auto& sub = solution_msg.sub_trajectory[i];
     if (isHandOnlySegment(sub) && wait_for_gripped)
     {
       if (isGripperClosedInSegment(sub) && !have_waited_gripped)
