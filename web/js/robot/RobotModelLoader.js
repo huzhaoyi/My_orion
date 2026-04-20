@@ -49,7 +49,7 @@ const FK_ORIGINS = [
   [0, -0.0091, 0.3784],
   [-0.0113, 0.0091, 0.2516],
   /* gripper_tcp：Link6 局部 +Z，与 orion.urdf joint_Link6_gripper_tcp 一致 */
-  [0, 0, 0.128],
+  [0, 0, 0.148],
 ];
 const FK_AXES = [
   [1, 0, 0],
