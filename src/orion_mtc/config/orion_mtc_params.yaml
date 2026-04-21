@@ -62,13 +62,13 @@ target_sensor_pick:
   # 闭合前沿接近方向的“吃入深度” [m]。
   grasp_depth_m: 0.015
   # 预抓取距离候选 [m]（主序列；会与 fallback_pregrasp_distances_m 合并去重后尝试）。
-  pregrasp_distances_m: [0.10, 0.14]
-  # 额外预抓回退候选 [m]（杆体抓取默认收敛到中小范围，保留少量兜底）。
-  fallback_pregrasp_distances_m: [0.04, 0.06, 0.08]
+  pregrasp_distances_m: [0.08, 0.10, 0.12, 0.14, 0.16, 0.18]
+  # 额外预抓回退候选 [m]（扩充近距与远距，提升不同来向的 IK 命中率）。
+  fallback_pregrasp_distances_m: [0.03, 0.04, 0.05, 0.06, 0.20, 0.24]
   # 接近方向符号候选（会归一化为 ±1；杆体两侧通常都可抓，默认都保留）。
   approach_sign_candidates: [-1.0, 1.0]
-  # 顶抓姿态绕接近轴滚转候选 [deg]（杆体优先小角度，减少不必要翻腕）。
-  tool_roll_candidates_deg: [0.0, 30.0, -30.0, 60.0, -60.0]
+  # 顶抓姿态绕接近轴滚转候选 [deg]（圆柱体全向抓取：覆盖上下左右与斜角）。
+  tool_roll_candidates_deg: [0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0, 60.0, -60.0, 75.0, -75.0, 90.0, -90.0, 120.0, -120.0, 135.0, -135.0, 150.0, -150.0, 180.0]
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
 
