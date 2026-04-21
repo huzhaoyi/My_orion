@@ -47,8 +47,9 @@ target_sensor_to_object_pose:
     position_offset_x: 0.0
     position_offset_y: 0.0
     position_offset_z: 0.0
-    # 抓取点沿目标 direction 轴向偏移 [m]；杆体模型通常以中心点为抓取基准，默认不再前移。
-    grasp_offset_along_direction_m: 0.0
+    # 抓取点沿目标 direction 轴向偏移 [m]；TargetSensor 给的是中心点，这里前移到把柄区域。
+    # 当前模型标定：中心点到把柄中心约 0.042671 m（把柄长 0.16 m，直径 0.048 m）。
+    grasp_offset_along_direction_m: 0.042671
     # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
     use_pose_sensor_stamp_for_rov_tf: false
     # 固定7插孔：world/map 坐标；节点内按 world->rov->base_link 链路转换后发布。
