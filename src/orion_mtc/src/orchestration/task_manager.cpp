@@ -562,7 +562,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       roll_candidates_deg.push_back(0.0);
     }
 
-    std::vector<int> axis_candidates = config_.target_sensor_pick.approach_axis_local_candidates;
+    std::vector<int> axis_candidates;
+    axis_candidates.reserve(config_.target_sensor_pick.approach_axis_local_candidates.size());
+    for (int64_t axis_raw : config_.target_sensor_pick.approach_axis_local_candidates)
+    {
+      axis_candidates.push_back(static_cast<int>(axis_raw));
+    }
     if (axis_candidates.empty())
     {
       axis_candidates.push_back(config_.target_sensor_pick.approach_axis_local);

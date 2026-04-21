@@ -162,9 +162,9 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
-    node->declare_parameter<std::vector<int>>(
+    node->declare_parameter<std::vector<int64_t>>(
         "target_sensor_pick.approach_axis_local_candidates",
-        std::vector<int>{ 2, 0, 1 });
+        std::vector<int64_t>{ 2, 0, 1 });
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
@@ -420,8 +420,8 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter(
       "target_sensor_pick.approach_axis_local_candidates",
       config.target_sensor_pick.approach_axis_local_candidates);
-  std::vector<int> normalized_axis_candidates;
-  for (int axis : config.target_sensor_pick.approach_axis_local_candidates)
+  std::vector<int64_t> normalized_axis_candidates;
+  for (int64_t axis : config.target_sensor_pick.approach_axis_local_candidates)
   {
     if (axis < 0 || axis > 2)
     {
