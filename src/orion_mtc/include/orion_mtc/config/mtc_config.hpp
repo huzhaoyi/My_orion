@@ -42,6 +42,8 @@ struct TargetSensorPickConfig
 {
   /** 沿物体局部 +Z 定义的接近方向再乘此符号（<0 取反），与 HoloOcean/缆绳侧抓对齐 */
   double approach_normal_sign = -1.0;
+  /** 抓取接近轴（物体局部轴）：0->X, 1->Y, 2->Z。默认 2（Z 轴）用于顶部下压。 */
+  int approach_axis_local = 2;
   /** 从目标中心沿接近反方向退让到“表面附近”的距离 [m]，用于避免以中心点规划导致 Link6 先碰。 */
   double surface_backoff_m = 0.0;
   /** 终抓阶段沿接近方向前推的“吃入深度” [m]（参考缆绳 grasp_depth 语义）。 */

@@ -57,6 +57,8 @@ cable_side_grasp:
 target_sensor_pick:
   # 接近方向符号（+1/-1），用于修正 peg 顶抓方向。
   approach_normal_sign: -1.0
+  # 抓取接近轴（物体局部轴）：0->X, 1->Y, 2->Z。target 与机械臂轴一致时，顶部下压通常用 2。
+  approach_axis_local: 2
   # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；杆体优先从中段贴近，避免腕部抢前。
   surface_backoff_m: 0.05
   # 闭合前沿接近方向的“吃入深度” [m]。

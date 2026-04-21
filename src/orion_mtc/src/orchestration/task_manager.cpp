@@ -104,6 +104,7 @@ struct TargetSensorPickCandidate
 bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
                                 double grasp_depth_m,
                                 double surface_backoff_m,
+                                int approach_axis_local,
                                 Eigen::Isometry3d& out_grasp_pose,
                                 Eigen::Isometry3d& out_pregrasp_pose)
 {
@@ -118,8 +119,16 @@ bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
     q_object = Eigen::Quaterniond::Identity();
   }
   q_object.normalize();
-  // TargetSensor 圆柱体抓取：采用物体局部 Z 轴作为接近法向，优先实现“顶部下压”。
-  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+  Eigen::Vector3d local_axis = Eigen::Vector3d::UnitZ();
+  if (approach_axis_local == 0)
+  {
+    local_axis = Eigen::Vector3d::UnitX();
+  }
+  else if (approach_axis_local == 1)
+  {
+    local_axis = Eigen::Vector3d::UnitY();
+  }
+  const Eigen::Vector3d n_geom = (q_object * local_axis).normalized();
   const double sign = (candidate.approach_sign < 0.0) ? -1.0 : 1.0;
   const Eigen::Vector3d approach_dir = n_geom * sign;
 
@@ -173,10 +182,17 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
                                        const std::string& hand_frame,
                                        double grasp_depth_m,
                                        double surface_backoff_m,
+                                       int approach_axis_local,
                                        Eigen::Isometry3d& out_grasp_pose)
 {
   Eigen::Isometry3d pregrasp_pose = Eigen::Isometry3d::Identity();
-  if (!buildTargetSensorGoalPoses(candidate, grasp_depth_m, surface_backoff_m, out_grasp_pose, pregrasp_pose))
+  if (!buildTargetSensorGoalPoses(
+          candidate,
+          grasp_depth_m,
+          surface_backoff_m,
+          approach_axis_local,
+          out_grasp_pose,
+          pregrasp_pose))
   {
     return false;
   }
@@ -569,7 +585,16 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             q_object = Eigen::Quaterniond::Identity();
           }
           q_object.normalize();
-          const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
+          Eigen::Vector3d local_axis = Eigen::Vector3d::UnitZ();
+          if (config_.target_sensor_pick.approach_axis_local == 0)
+          {
+            local_axis = Eigen::Vector3d::UnitX();
+          }
+          else if (config_.target_sensor_pick.approach_axis_local == 1)
+          {
+            local_axis = Eigen::Vector3d::UnitY();
+          }
+          const Eigen::Vector3d n_geom = (q_object * local_axis).normalized();
           const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
           const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
           candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
@@ -604,7 +629,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       if (!precheckTargetSensorPickCandidate(
               LOGGER, i, candidate, robot_model, scene_for_ik_seed,
               arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m,
-              config_.target_sensor_pick.surface_backoff_m, grasp_pose))
+              config_.target_sensor_pick.surface_backoff_m,
+              config_.target_sensor_pick.approach_axis_local,
+              grasp_pose))
       {
         continue;
       }
