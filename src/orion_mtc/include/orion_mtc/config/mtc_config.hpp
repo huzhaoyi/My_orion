@@ -69,6 +69,12 @@ struct TargetSensorPickConfig
   std::vector<double> fallback_pregrasp_distances_m{ 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
   /** 接近方向符号候选（通常包含 +1/-1）；空时回退为 approach_normal_sign。 */
   std::vector<double> approach_sign_candidates{ -1.0, 1.0 };
+  /** 是否根据目标横向位置（base_link.y）动态调整 sign 优先顺序。 */
+  bool dynamic_sign_priority_enable = true;
+  /** 当目标 y < 0 时优先的 sign（常用 +1）。 */
+  double preferred_sign_for_negative_y = 1.0;
+  /** 当目标 y >= 0 时优先的 sign（常用 -1）。 */
+  double preferred_sign_for_positive_y = -1.0;
   /** TargetSensor 顶抓姿态绕接近轴滚转候选 [deg]。 */
   std::vector<double> tool_roll_candidates_deg{ 0.0, 45.0, -45.0, 90.0, -90.0 };
   double retreat_distance_m = 0.12;

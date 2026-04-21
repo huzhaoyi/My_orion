@@ -260,6 +260,27 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("target_sensor_pick.dynamic_sign_priority_enable", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.preferred_sign_for_negative_y", 1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.preferred_sign_for_positive_y", -1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<std::vector<double>>(
         "target_sensor_pick.tool_roll_candidates_deg",
         std::vector<double>{ 0.0, 45.0, -45.0, 90.0, -90.0 });
@@ -544,6 +565,16 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                       config.target_sensor_pick.fallback_pregrasp_distances_m);
   node->get_parameter("target_sensor_pick.approach_sign_candidates",
                       config.target_sensor_pick.approach_sign_candidates);
+  node->get_parameter("target_sensor_pick.dynamic_sign_priority_enable",
+                      config.target_sensor_pick.dynamic_sign_priority_enable);
+  node->get_parameter("target_sensor_pick.preferred_sign_for_negative_y",
+                      config.target_sensor_pick.preferred_sign_for_negative_y);
+  node->get_parameter("target_sensor_pick.preferred_sign_for_positive_y",
+                      config.target_sensor_pick.preferred_sign_for_positive_y);
+  config.target_sensor_pick.preferred_sign_for_negative_y =
+      (config.target_sensor_pick.preferred_sign_for_negative_y < 0.0) ? -1.0 : 1.0;
+  config.target_sensor_pick.preferred_sign_for_positive_y =
+      (config.target_sensor_pick.preferred_sign_for_positive_y < 0.0) ? -1.0 : 1.0;
   node->get_parameter("target_sensor_pick.tool_roll_candidates_deg",
                       config.target_sensor_pick.tool_roll_candidates_deg);
   node->get_parameter("target_sensor_pick.retreat_distance_m", config.target_sensor_pick.retreat_distance_m);

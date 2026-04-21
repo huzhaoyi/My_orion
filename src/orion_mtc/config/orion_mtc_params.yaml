@@ -84,6 +84,12 @@ target_sensor_pick:
   fallback_pregrasp_distances_m: [0.03, 0.04, 0.05, 0.06, 0.20, 0.24]
   # 接近方向符号候选：顶部优先阶段先尝试主侧，失败后自动试另一侧。
   approach_sign_candidates: [-1.0, 1.0]
+  # 是否根据目标 base_link.y 动态调整 sign 优先级（减少无效候选）。
+  dynamic_sign_priority_enable: true
+  # 目标 y<0 时优先 sign（当前场景统计更易命中 +1）。
+  preferred_sign_for_negative_y: 1.0
+  # 目标 y>=0 时优先 sign。
+  preferred_sign_for_positive_y: -1.0
   # 绕接近轴滚转候选 [deg]：小角度优先，保留中角度兜底。
   tool_roll_candidates_deg: [0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]
   # 抓取完成后退让距离 [m]。

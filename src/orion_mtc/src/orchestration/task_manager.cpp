@@ -556,6 +556,23 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     std::sort(sign_candidates.begin(), sign_candidates.end());
     sign_candidates.erase(std::unique(sign_candidates.begin(), sign_candidates.end()), sign_candidates.end());
+    if (config_.target_sensor_pick.dynamic_sign_priority_enable && !sign_candidates.empty())
+    {
+      const double preferred_sign =
+          (pose_base.pose.position.y < 0.0)
+              ? config_.target_sensor_pick.preferred_sign_for_negative_y
+              : config_.target_sensor_pick.preferred_sign_for_positive_y;
+      auto it = std::find_if(
+          sign_candidates.begin(),
+          sign_candidates.end(),
+          [preferred_sign](double s) { return std::abs(s - preferred_sign) < 1e-6; });
+      if (it != sign_candidates.end() && it != sign_candidates.begin())
+      {
+        const double v = *it;
+        sign_candidates.erase(it);
+        sign_candidates.insert(sign_candidates.begin(), v);
+      }
+    }
     std::vector<double> roll_candidates_deg = config_.target_sensor_pick.tool_roll_candidates_deg;
     if (roll_candidates_deg.empty())
     {
