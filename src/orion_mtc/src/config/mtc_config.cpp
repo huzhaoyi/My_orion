@@ -162,6 +162,15 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<int>>(
+        "target_sensor_pick.approach_axis_local_candidates",
+        std::vector<int>{ 2, 0, 1 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("target_sensor_pick.surface_backoff_m", 0.0);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -408,6 +417,27 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.target_sensor_pick.approach_axis_local = 2;
   }
+  node->get_parameter(
+      "target_sensor_pick.approach_axis_local_candidates",
+      config.target_sensor_pick.approach_axis_local_candidates);
+  std::vector<int> normalized_axis_candidates;
+  for (int axis : config.target_sensor_pick.approach_axis_local_candidates)
+  {
+    if (axis < 0 || axis > 2)
+    {
+      continue;
+    }
+    if (std::find(normalized_axis_candidates.begin(), normalized_axis_candidates.end(), axis) ==
+        normalized_axis_candidates.end())
+    {
+      normalized_axis_candidates.push_back(axis);
+    }
+  }
+  if (normalized_axis_candidates.empty())
+  {
+    normalized_axis_candidates.push_back(config.target_sensor_pick.approach_axis_local);
+  }
+  config.target_sensor_pick.approach_axis_local_candidates = normalized_axis_candidates;
   node->get_parameter("target_sensor_pick.surface_backoff_m", config.target_sensor_pick.surface_backoff_m);
   if (config.target_sensor_pick.surface_backoff_m < 0.0)
   {

@@ -60,6 +60,8 @@ target_sensor_pick:
   # 抓取接近轴（物体局部轴）：0->X, 1->Y, 2->Z。
   # 现场标定：target 坐标轴与机械臂一致，抓取按局部 X 轴定义更稳定。
   approach_axis_local: 0
+  # 抓取接近轴候选（按顺序优先尝试）：顶部(Z)优先，其次前后(X)与侧向(Y)兜底。
+  approach_axis_local_candidates: [2, 0, 1]
   # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；杆体优先从中段贴近，避免腕部抢前。
   surface_backoff_m: 0.05
   # 闭合前沿接近方向的“吃入深度” [m]。
@@ -68,10 +70,10 @@ target_sensor_pick:
   pregrasp_distances_m: [0.08, 0.10, 0.12, 0.14, 0.16, 0.18]
   # 额外预抓回退候选 [m]（扩充近距与远距，提升不同来向的 IK 命中率）。
   fallback_pregrasp_distances_m: [0.03, 0.04, 0.05, 0.06, 0.20, 0.24]
-  # 接近方向符号候选：先固定单侧，避免在轴定义未完全收敛时引入镜像扭转解。
-  approach_sign_candidates: [-1.0]
-  # 绕接近轴滚转候选 [deg]：先小角度优先，减少“本可直抓却反复绕腕”。
-  tool_roll_candidates_deg: [0.0, 15.0, -15.0, 30.0, -30.0]
+  # 接近方向符号候选：顶部优先阶段先尝试主侧，失败后自动试另一侧。
+  approach_sign_candidates: [-1.0, 1.0]
+  # 绕接近轴滚转候选 [deg]：小角度优先，保留中角度兜底。
+  tool_roll_candidates_deg: [0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
 

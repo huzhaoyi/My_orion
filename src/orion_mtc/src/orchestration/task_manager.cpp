@@ -97,6 +97,8 @@ struct TargetSensorPickCandidate
   double pregrasp_distance_m = 0.10;
   double approach_sign = -1.0;
   double tool_roll_deg = 0.0;
+  int approach_axis_local = 2;
+  int axis_priority_rank = 0;
   double down_priority_score = -1.0;
   std::string label;
 };
@@ -104,7 +106,6 @@ struct TargetSensorPickCandidate
 bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
                                 double grasp_depth_m,
                                 double surface_backoff_m,
-                                int approach_axis_local,
                                 Eigen::Isometry3d& out_grasp_pose,
                                 Eigen::Isometry3d& out_pregrasp_pose)
 {
@@ -120,11 +121,11 @@ bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
   }
   q_object.normalize();
   Eigen::Vector3d local_axis = Eigen::Vector3d::UnitZ();
-  if (approach_axis_local == 0)
+  if (candidate.approach_axis_local == 0)
   {
     local_axis = Eigen::Vector3d::UnitX();
   }
-  else if (approach_axis_local == 1)
+  else if (candidate.approach_axis_local == 1)
   {
     local_axis = Eigen::Vector3d::UnitY();
   }
@@ -182,7 +183,6 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
                                        const std::string& hand_frame,
                                        double grasp_depth_m,
                                        double surface_backoff_m,
-                                       int approach_axis_local,
                                        Eigen::Isometry3d& out_grasp_pose)
 {
   Eigen::Isometry3d pregrasp_pose = Eigen::Isometry3d::Identity();
@@ -190,7 +190,6 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
           candidate,
           grasp_depth_m,
           surface_backoff_m,
-          approach_axis_local,
           out_grasp_pose,
           pregrasp_pose))
   {
@@ -563,48 +562,60 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       roll_candidates_deg.push_back(0.0);
     }
 
-    std::vector<TargetSensorPickCandidate> candidates;
-    for (double pre_m : pregrasp_candidates)
+    std::vector<int> axis_candidates = config_.target_sensor_pick.approach_axis_local_candidates;
+    if (axis_candidates.empty())
     {
-      for (double sign : sign_candidates)
+      axis_candidates.push_back(config_.target_sensor_pick.approach_axis_local);
+    }
+    std::vector<TargetSensorPickCandidate> candidates;
+    for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
+    {
+      const int axis_local = axis_candidates[axis_rank];
+      for (double pre_m : pregrasp_candidates)
       {
-        for (double roll_deg : roll_candidates_deg)
+        for (double sign : sign_candidates)
         {
-          TargetSensorPickCandidate candidate;
-          candidate.object_pose = pose_base;
-          candidate.pregrasp_distance_m = pre_m;
-          candidate.approach_sign = sign;
-          candidate.tool_roll_deg = roll_deg;
-          Eigen::Quaterniond q_object(
-              pose_base.pose.orientation.w,
-              pose_base.pose.orientation.x,
-              pose_base.pose.orientation.y,
-              pose_base.pose.orientation.z);
-          if (q_object.norm() < 1e-9)
+          for (double roll_deg : roll_candidates_deg)
           {
-            q_object = Eigen::Quaterniond::Identity();
+            TargetSensorPickCandidate candidate;
+            candidate.object_pose = pose_base;
+            candidate.pregrasp_distance_m = pre_m;
+            candidate.approach_sign = sign;
+            candidate.tool_roll_deg = roll_deg;
+            candidate.approach_axis_local = axis_local;
+            candidate.axis_priority_rank = static_cast<int>(axis_rank);
+            Eigen::Quaterniond q_object(
+                pose_base.pose.orientation.w,
+                pose_base.pose.orientation.x,
+                pose_base.pose.orientation.y,
+                pose_base.pose.orientation.z);
+            if (q_object.norm() < 1e-9)
+            {
+              q_object = Eigen::Quaterniond::Identity();
+            }
+            q_object.normalize();
+            Eigen::Vector3d local_axis_vec = Eigen::Vector3d::UnitZ();
+            if (axis_local == 0)
+            {
+              local_axis_vec = Eigen::Vector3d::UnitX();
+            }
+            else if (axis_local == 1)
+            {
+              local_axis_vec = Eigen::Vector3d::UnitY();
+            }
+            const Eigen::Vector3d n_geom = (q_object * local_axis_vec).normalized();
+            const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
+            const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
+            candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
+            std::ostringstream label;
+            label << "axis=" << axis_local
+                  << " pre=" << pre_m
+                  << " sign=" << sign
+                  << " roll=" << roll_deg
+                  << " down_score=" << candidate.down_priority_score;
+            candidate.label = label.str();
+            candidates.push_back(candidate);
           }
-          q_object.normalize();
-          Eigen::Vector3d local_axis = Eigen::Vector3d::UnitZ();
-          if (config_.target_sensor_pick.approach_axis_local == 0)
-          {
-            local_axis = Eigen::Vector3d::UnitX();
-          }
-          else if (config_.target_sensor_pick.approach_axis_local == 1)
-          {
-            local_axis = Eigen::Vector3d::UnitY();
-          }
-          const Eigen::Vector3d n_geom = (q_object * local_axis).normalized();
-          const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
-          const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
-          candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
-          std::ostringstream label;
-          label << "pre=" << pre_m
-                << " sign=" << sign
-                << " roll=" << roll_deg
-                << " down_score=" << candidate.down_priority_score;
-          candidate.label = label.str();
-          candidates.push_back(candidate);
         }
       }
     }
@@ -619,6 +630,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         candidates.begin(),
         candidates.end(),
         [](const TargetSensorPickCandidate& lhs, const TargetSensorPickCandidate& rhs) {
+          if (lhs.axis_priority_rank != rhs.axis_priority_rank)
+          {
+            return lhs.axis_priority_rank < rhs.axis_priority_rank;
+          }
           return lhs.down_priority_score > rhs.down_priority_score;
         });
 
@@ -630,7 +645,6 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               LOGGER, i, candidate, robot_model, scene_for_ik_seed,
               arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m,
               config_.target_sensor_pick.surface_backoff_m,
-              config_.target_sensor_pick.approach_axis_local,
               grasp_pose))
       {
         continue;
