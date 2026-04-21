@@ -62,6 +62,18 @@ target_sensor_pick:
   approach_axis_local: 0
   # 抓取接近轴候选（按顺序优先尝试）：顶部(Z)优先，其次前后(X)与侧向(Y)兜底。
   approach_axis_local_candidates: [2, 0, 1]
+  # 是否按目标距离动态切换接近轴优先级。
+  dynamic_axis_priority_enable: true
+  # 近距离上限 [m]：<=near_max 用 near 顺序；>near_max 且 <=mid_max 用 mid；>mid_max 用 far。
+  # 依据机械臂臂展量级（约 1.6m）划分：近距(0~0.55) 中距(0.55~1.10) 远距(>1.10)。
+  dynamic_axis_near_max_distance_m: 0.55
+  dynamic_axis_mid_max_distance_m: 1.10
+  # 近距离：顶部下压优先，再前向，再侧向。
+  dynamic_axis_near_order: [2, 0, 1]
+  # 中距离：前向与顶部并重，先前向再顶部。
+  dynamic_axis_mid_order: [0, 2, 1]
+  # 远距离：前向优先，再顶部，再侧向。
+  dynamic_axis_far_order: [0, 2, 1]
   # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；杆体优先从中段贴近，避免腕部抢前。
   surface_backoff_m: 0.05
   # 闭合前沿接近方向的“吃入深度” [m]。

@@ -562,9 +562,29 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       roll_candidates_deg.push_back(0.0);
     }
 
+    const double target_distance_m = std::sqrt(
+        pose_base.pose.position.x * pose_base.pose.position.x +
+        pose_base.pose.position.y * pose_base.pose.position.y +
+        pose_base.pose.position.z * pose_base.pose.position.z);
+    const std::vector<int64_t>* configured_axis_order = &config_.target_sensor_pick.approach_axis_local_candidates;
+    if (config_.target_sensor_pick.dynamic_axis_priority_enable)
+    {
+      if (target_distance_m <= config_.target_sensor_pick.dynamic_axis_near_max_distance_m)
+      {
+        configured_axis_order = &config_.target_sensor_pick.dynamic_axis_near_order;
+      }
+      else if (target_distance_m <= config_.target_sensor_pick.dynamic_axis_mid_max_distance_m)
+      {
+        configured_axis_order = &config_.target_sensor_pick.dynamic_axis_mid_order;
+      }
+      else
+      {
+        configured_axis_order = &config_.target_sensor_pick.dynamic_axis_far_order;
+      }
+    }
     std::vector<int> axis_candidates;
-    axis_candidates.reserve(config_.target_sensor_pick.approach_axis_local_candidates.size());
-    for (int64_t axis_raw : config_.target_sensor_pick.approach_axis_local_candidates)
+    axis_candidates.reserve(configured_axis_order->size());
+    for (int64_t axis_raw : *configured_axis_order)
     {
       axis_candidates.push_back(static_cast<int>(axis_raw));
     }

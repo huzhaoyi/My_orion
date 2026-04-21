@@ -171,6 +171,54 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("target_sensor_pick.dynamic_axis_priority_enable", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.dynamic_axis_near_max_distance_m", 0.55);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.dynamic_axis_mid_max_distance_m", 1.10);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<int64_t>>(
+        "target_sensor_pick.dynamic_axis_near_order",
+        std::vector<int64_t>{ 2, 0, 1 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<int64_t>>(
+        "target_sensor_pick.dynamic_axis_mid_order",
+        std::vector<int64_t>{ 0, 2, 1 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<int64_t>>(
+        "target_sensor_pick.dynamic_axis_far_order",
+        std::vector<int64_t>{ 0, 2, 1 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("target_sensor_pick.surface_backoff_m", 0.0);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -438,6 +486,53 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
     normalized_axis_candidates.push_back(config.target_sensor_pick.approach_axis_local);
   }
   config.target_sensor_pick.approach_axis_local_candidates = normalized_axis_candidates;
+  node->get_parameter("target_sensor_pick.dynamic_axis_priority_enable",
+                      config.target_sensor_pick.dynamic_axis_priority_enable);
+  node->get_parameter("target_sensor_pick.dynamic_axis_near_max_distance_m",
+                      config.target_sensor_pick.dynamic_axis_near_max_distance_m);
+  node->get_parameter("target_sensor_pick.dynamic_axis_mid_max_distance_m",
+                      config.target_sensor_pick.dynamic_axis_mid_max_distance_m);
+  if (config.target_sensor_pick.dynamic_axis_near_max_distance_m < 0.0)
+  {
+    config.target_sensor_pick.dynamic_axis_near_max_distance_m = 0.0;
+  }
+  if (config.target_sensor_pick.dynamic_axis_mid_max_distance_m <
+      config.target_sensor_pick.dynamic_axis_near_max_distance_m)
+  {
+    config.target_sensor_pick.dynamic_axis_mid_max_distance_m =
+        config.target_sensor_pick.dynamic_axis_near_max_distance_m;
+  }
+  node->get_parameter("target_sensor_pick.dynamic_axis_near_order",
+                      config.target_sensor_pick.dynamic_axis_near_order);
+  node->get_parameter("target_sensor_pick.dynamic_axis_mid_order",
+                      config.target_sensor_pick.dynamic_axis_mid_order);
+  node->get_parameter("target_sensor_pick.dynamic_axis_far_order",
+                      config.target_sensor_pick.dynamic_axis_far_order);
+  auto normalize_axis_order = [&config](const std::vector<int64_t>& src) {
+    std::vector<int64_t> out;
+    for (int64_t axis : src)
+    {
+      if (axis < 0 || axis > 2)
+      {
+        continue;
+      }
+      if (std::find(out.begin(), out.end(), axis) == out.end())
+      {
+        out.push_back(axis);
+      }
+    }
+    if (out.empty())
+    {
+      out = config.target_sensor_pick.approach_axis_local_candidates;
+    }
+    return out;
+  };
+  config.target_sensor_pick.dynamic_axis_near_order =
+      normalize_axis_order(config.target_sensor_pick.dynamic_axis_near_order);
+  config.target_sensor_pick.dynamic_axis_mid_order =
+      normalize_axis_order(config.target_sensor_pick.dynamic_axis_mid_order);
+  config.target_sensor_pick.dynamic_axis_far_order =
+      normalize_axis_order(config.target_sensor_pick.dynamic_axis_far_order);
   node->get_parameter("target_sensor_pick.surface_backoff_m", config.target_sensor_pick.surface_backoff_m);
   if (config.target_sensor_pick.surface_backoff_m < 0.0)
   {
