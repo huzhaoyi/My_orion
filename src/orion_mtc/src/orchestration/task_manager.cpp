@@ -118,7 +118,8 @@ bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
     q_object = Eigen::Quaterniond::Identity();
   }
   q_object.normalize();
-  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
+  // TargetSensor 圆柱体抓取：采用物体局部 Z 轴作为接近法向，优先实现“顶部下压”。
+  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
   const double sign = (candidate.approach_sign < 0.0) ? -1.0 : 1.0;
   const Eigen::Vector3d approach_dir = n_geom * sign;
 
@@ -568,7 +569,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             q_object = Eigen::Quaterniond::Identity();
           }
           q_object.normalize();
-          const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
+          const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitZ()).normalized();
           const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
           const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
           candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
@@ -1422,10 +1423,21 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       if (axis_norm > 1e-9)
       {
         axis_world /= axis_norm;
+        // 圆柱体持物对绕插入轴旋转不敏感：扩展姿态回退候选以提高插孔成功率。
         const std::vector<std::pair<double, std::string>> rotation_candidates = {
           { M_PI, "flip_180_about_insert_axis" },
           { M_PI_2, "flip_90_about_insert_axis" },
           { -M_PI_2, "flip_minus_90_about_insert_axis" },
+          { M_PI / 6.0, "roll_30_about_insert_axis" },
+          { -M_PI / 6.0, "roll_minus_30_about_insert_axis" },
+          { M_PI / 4.0, "roll_45_about_insert_axis" },
+          { -M_PI / 4.0, "roll_minus_45_about_insert_axis" },
+          { M_PI / 3.0, "roll_60_about_insert_axis" },
+          { -M_PI / 3.0, "roll_minus_60_about_insert_axis" },
+          { 2.0 * M_PI / 3.0, "roll_120_about_insert_axis" },
+          { -2.0 * M_PI / 3.0, "roll_minus_120_about_insert_axis" },
+          { 5.0 * M_PI / 6.0, "roll_150_about_insert_axis" },
+          { -5.0 * M_PI / 6.0, "roll_minus_150_about_insert_axis" },
         };
         for (const auto& candidate : rotation_candidates)
         {
