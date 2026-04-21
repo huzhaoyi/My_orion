@@ -48,8 +48,8 @@ if [ ! -f "$SCRIPT_DIR/node_modules/three/build/three.module.js" ]; then
 fi
 
 mkdir -p "$SCRIPT_DIR/robot/meshes/stl"
-if [ -f "$REPO_ROOT/src/orion_description/target.stl" ]; then
-  cp -u "$REPO_ROOT/src/orion_description/target.stl" "$SCRIPT_DIR/robot/meshes/stl/target.stl"
+if [ -f "$REPO_ROOT/src/orion_description/target_new.stl" ]; then
+  cp -u "$REPO_ROOT/src/orion_description/target_new.stl" "$SCRIPT_DIR/robot/meshes/stl/target_new.stl"
 fi
 
 if command -v xdg-open >/dev/null 2>&1; then

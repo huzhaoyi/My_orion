@@ -1,16 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="orion">
+  <!-- ROV + 左臂模型（来自 rov_urdf/orion_left.urdf），mesh 路径相对本 urdf：meshes/stl/ -->
+  <!-- 规划用碰撞体与 visual 一致；需在 orion_descriptimeshes/stl/ 下放置 base_link_left.stl 与 Link1..Link8.stl -->
+  <!-- KDL 要求根 link 无惯性，故增加虚拟根 world，base_link 为其固定子 link -->
 
   <!-- ==================== LINKS ==================== -->
-  <!-- mesh path relative to this urdf when installed: meshes/stl/ -->
+
+  <link name="world">
+    <!-- 虚拟根，无几何无惯性，仅用于满足 KDL 对根 link 的要求 -->
+  </link>
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+  </joint>
 
   <link name="base_link">
     <visual>
-      <geometry><mesh filename="meshes/stl/base_link.stl"/></geometry>
+      <geometry><mesh filename="meshes/stl/base_link_left.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
+    <!-- 碰撞用简单 box，避免 ROV mesh 顶点过多导致 PlanningScene 超时；尺寸可依实机调整 -->
     <collision>
-      <geometry><mesh filename="meshes/stl/base_link.stl"/></geometry>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry><box size="0.6 0.4 0.35"/></geometry>
     </collision>
     <inertial>
       <mass value="1.0"/>
@@ -109,6 +123,9 @@
     </inertial>
   </link>
 
+  <!-- 夹爪 TCP：用于规划/IK 的末端参考点（Link6 +Z 方向的接触点附近） -->
+  <link name="gripper_tcp"/>
+
   <link name="Link7">
     <visual>
       <geometry><mesh filename="meshes/stl/Link7.stl"/></geometry>
@@ -138,7 +155,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
-  <!-- 与 orion_description/urdf/orion.urdf 标称关节范围一致 -->
+  <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±180°；腕 roll 连续；夹爪 ±90° -->
 
   <joint name="joint_base_link_Link1" type="revolute">
     <parent link="base_link"/>
@@ -170,6 +187,7 @@
     <origin xyz="0.1835 0.0 0.0157" rpy="0.0 -3.97248 0.0"/>
   </joint>
 
+  <!-- J4：标称由 ±270° 收紧为 ±180°，与规划/仿真环绕稳定性一致 -->
   <joint name="joint_LinkVirtual_Link4" type="revolute">
     <parent link="LinkVirtual"/>
     <child link="Link4"/>
@@ -192,6 +210,13 @@
     <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
     <limit effort="100" velocity="1.0"/>
+  </joint>
+
+  <joint name="joint_Link6_gripper_tcp" type="fixed">
+    <parent link="Link6"/>
+    <child link="gripper_tcp"/>
+    <!-- 规划 TCP：Link6 +Z 朝夹爪前方；z 较指间接触区略短会导致指尖够不到，略长则腕可稍后撤 -->
+    <origin xyz="0.0 0.0 0.148" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">

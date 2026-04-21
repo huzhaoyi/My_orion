@@ -189,13 +189,13 @@ std::string resolve_target_stl_path()
   {
     return {};
   }
-  const std::string primary = share + "/meshes/stl/target.stl";
+  const std::string primary = share + "/meshes/stl/target_new.stl";
   std::ifstream check_primary(primary);
   if (check_primary.good())
   {
     return primary;
   }
-  const std::string legacy = share + "/target.stl";
+  const std::string legacy = share + "/target_new.stl";
   std::ifstream check_legacy(legacy);
   if (check_legacy.good())
   {
@@ -255,7 +255,7 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
 }
 
 /*
- * TargetSensor peg：嵌入 STL 三角网格 + mesh_pose（与网页 target.stl 对齐/躺平一致）；无 STL 时退化为定向盒。
+ * TargetSensor peg：嵌入 STL 三角网格 + mesh_pose（与网页 target_new.stl 对齐/躺平一致）；无 STL 时退化为定向盒。
  */
 moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::string& object_id,
                                                                        const std::string& frame_id,
