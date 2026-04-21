@@ -47,25 +47,26 @@ target_sensor_to_object_pose:
     position_offset_x: 0.0
     position_offset_y: 0.0
     position_offset_z: 0.0
-    # 抓取点沿目标 direction 轴向偏移 [m]；TargetSensor 给的是中心点，这里前移到把柄区域。
-    # 当前模型标定：中心点到把柄中心约 0.042671 m（把柄长 0.16 m，直径 0.048 m）。
-    grasp_offset_along_direction_m: 0.042671
+    # 抓取点沿目标 direction 轴向偏移 [m]；TargetSensor 给的是关键点，需平移到把柄中点。
+    # 当前标定：关键点到把柄起点 0.042671 m，把柄长 0.16 m，优先夹持中点(0.08 m)。
+    # 因此默认偏移 = 0.042671 + 0.08 = 0.122671 m。
+    grasp_offset_along_direction_m: 0.122671
     # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
     use_pose_sensor_stamp_for_rov_tf: false
     # 固定7插孔：world/map 坐标；节点内按 world->rov->base_link 链路转换后发布。
-    targetsensor_slot_1_position_world: [-113.98, 129.085, -132.031]
+    targetsensor_slot_1_position_world: [-113.98, 129.085, -132.1]
     targetsensor_slot_1_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_2_position_world: [-113.98, 128.85, -132.031]
+    targetsensor_slot_2_position_world: [-113.98, 128.85, -132.1]
     targetsensor_slot_2_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_3_position_world: [-113.98, 129.085, -132.293]
+    targetsensor_slot_3_position_world: [-113.98, 129.085, -132.353]
     targetsensor_slot_3_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_4_position_world: [-113.98, 128.85, -132.293]
+    targetsensor_slot_4_position_world: [-113.98, 128.85, -132.353]
     targetsensor_slot_4_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_5_position_world: [-113.98, 128.62, -132.287]
+    targetsensor_slot_5_position_world: [-113.98, 128.62, -132.357]
     targetsensor_slot_5_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_6_position_world: [-113.98, 127.798, -130.715]
+    targetsensor_slot_6_position_world: [-113.98, 127.798, -130.885]
     targetsensor_slot_6_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_7_position_world: [-113.98, 127.798, -131.047]
+    targetsensor_slot_7_position_world: [-113.98, 127.798, -131.117]
     targetsensor_slot_7_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
 
 # CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF base_link→cable

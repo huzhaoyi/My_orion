@@ -97,6 +97,7 @@ struct TargetSensorPickCandidate
   double pregrasp_distance_m = 0.10;
   double approach_sign = -1.0;
   double tool_roll_deg = 0.0;
+  double down_priority_score = -1.0;
   std::string label;
 };
 
@@ -557,8 +558,25 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           candidate.pregrasp_distance_m = pre_m;
           candidate.approach_sign = sign;
           candidate.tool_roll_deg = roll_deg;
+          Eigen::Quaterniond q_object(
+              pose_base.pose.orientation.w,
+              pose_base.pose.orientation.x,
+              pose_base.pose.orientation.y,
+              pose_base.pose.orientation.z);
+          if (q_object.norm() < 1e-9)
+          {
+            q_object = Eigen::Quaterniond::Identity();
+          }
+          q_object.normalize();
+          const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
+          const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
+          const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
+          candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
           std::ostringstream label;
-          label << "pre=" << pre_m << " sign=" << sign << " roll=" << roll_deg;
+          label << "pre=" << pre_m
+                << " sign=" << sign
+                << " roll=" << roll_deg
+                << " down_score=" << candidate.down_priority_score;
           candidate.label = label.str();
           candidates.push_back(candidate);
         }
@@ -570,6 +588,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       setStateError("TARGET_SENSOR_PICK: no candidate");
       return false;
     }
+    // 优先尝试“更接近竖直下压(-Z)”的候选；同分时保持原配置顺序。
+    std::stable_sort(
+        candidates.begin(),
+        candidates.end(),
+        [](const TargetSensorPickCandidate& lhs, const TargetSensorPickCandidate& rhs) {
+          return lhs.down_priority_score > rhs.down_priority_score;
+        });
 
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
