@@ -94,6 +94,7 @@ static const std::vector<std::string> PICK_STAGE_NAMES_TARGET_SENSOR = {
 struct TargetSensorPickCandidate
 {
   geometry_msgs::msg::PoseStamped object_pose;
+  int low_z_hard_priority_tier = 0;
   double pregrasp_distance_m = 0.10;
   int pregrasp_priority_rank = 0;
   double approach_sign = -1.0;
@@ -630,6 +631,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       axis_candidates.push_back(config_.target_sensor_pick.approach_axis_local);
     }
+    const bool low_z_mode_enabled =
+        config_.target_sensor_pick.dynamic_axis_priority_by_z_enable &&
+        pose_base.pose.position.z <= config_.target_sensor_pick.dynamic_axis_low_z_threshold_m;
+    const int low_z_primary_axis = axis_candidates.empty() ? config_.target_sensor_pick.approach_axis_local
+                                                           : axis_candidates.front();
+    const std::size_t low_z_short_pre_count = std::min<std::size_t>(4u, pregrasp_candidates.size());
     std::vector<TargetSensorPickCandidate> candidates;
     for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
     {
@@ -653,6 +660,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             const double roll_deg = roll_candidates_deg[roll_i];
             TargetSensorPickCandidate candidate;
             candidate.object_pose = pose_base;
+            candidate.low_z_hard_priority_tier = 0;
             candidate.pregrasp_distance_m = pre_m;
             candidate.pregrasp_priority_rank = static_cast<int>(pre_i);
             candidate.approach_sign = sign;
@@ -684,8 +692,30 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
             const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
             candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
+            if (low_z_mode_enabled)
+            {
+              const bool is_short_pregrasp = pre_i < low_z_short_pre_count;
+              const bool is_primary_axis = axis_local == low_z_primary_axis;
+              if (is_short_pregrasp && is_primary_axis)
+              {
+                candidate.low_z_hard_priority_tier = 0;
+              }
+              else if (is_short_pregrasp)
+              {
+                candidate.low_z_hard_priority_tier = 1;
+              }
+              else if (is_primary_axis)
+              {
+                candidate.low_z_hard_priority_tier = 2;
+              }
+              else
+              {
+                candidate.low_z_hard_priority_tier = 3;
+              }
+            }
             std::ostringstream label;
-            label << "axis=" << axis_local
+            label << "low_z_tier=" << candidate.low_z_hard_priority_tier
+                  << " axis=" << axis_local
                   << " pre=" << pre_m
                   << " sign=" << sign
                   << " roll=" << roll_deg
@@ -707,6 +737,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         candidates.begin(),
         candidates.end(),
         [](const TargetSensorPickCandidate& lhs, const TargetSensorPickCandidate& rhs) {
+          if (lhs.low_z_hard_priority_tier != rhs.low_z_hard_priority_tier)
+          {
+            return lhs.low_z_hard_priority_tier < rhs.low_z_hard_priority_tier;
+          }
           if (lhs.axis_priority_rank != rhs.axis_priority_rank)
           {
             return lhs.axis_priority_rank < rhs.axis_priority_rank;
@@ -725,6 +759,14 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           }
           return lhs.down_priority_score > rhs.down_priority_score;
         });
+    if (low_z_mode_enabled)
+    {
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: low-z hard priority enabled (primary_axis=%d, short_pre_count=%zu)",
+          low_z_primary_axis,
+          low_z_short_pre_count);
+    }
 
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
