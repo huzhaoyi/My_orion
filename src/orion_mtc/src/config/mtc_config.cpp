@@ -178,6 +178,15 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<int64_t>>(
+        "target_sensor_pick.hard_forbid_approach_axes_local",
+        std::vector<int64_t>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<bool>("target_sensor_pick.dynamic_axis_priority_enable", true);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -556,6 +565,22 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.target_sensor_pick.rod_axis_local = 2;
   }
+  node->get_parameter("target_sensor_pick.hard_forbid_approach_axes_local",
+                      config.target_sensor_pick.hard_forbid_approach_axes_local);
+  std::vector<int64_t> normalized_forbid_axes;
+  for (int64_t axis : config.target_sensor_pick.hard_forbid_approach_axes_local)
+  {
+    if (axis < 0 || axis > 2)
+    {
+      continue;
+    }
+    if (std::find(normalized_forbid_axes.begin(), normalized_forbid_axes.end(), axis) ==
+        normalized_forbid_axes.end())
+    {
+      normalized_forbid_axes.push_back(axis);
+    }
+  }
+  config.target_sensor_pick.hard_forbid_approach_axes_local = normalized_forbid_axes;
   std::vector<int64_t> normalized_axis_candidates;
   for (int64_t axis : config.target_sensor_pick.approach_axis_local_candidates)
   {

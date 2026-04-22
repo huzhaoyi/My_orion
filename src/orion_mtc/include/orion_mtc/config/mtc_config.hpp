@@ -49,6 +49,8 @@ struct TargetSensorPickConfig
   std::vector<int64_t> approach_axis_local_candidates{ 2, 0, 1 };
   /** 杆体轴向（物体局部轴）：0->X, 1->Y, 2->Z；用于禁止“平行杆轴接近”候选。 */
   int rod_axis_local = 2;
+  /** 硬禁用接近轴候选（0->X, 1->Y, 2->Z）。 */
+  std::vector<int64_t> hard_forbid_approach_axes_local{};
   /** 是否按目标距离动态切换接近轴优先级。 */
   bool dynamic_axis_priority_enable = true;
   /** 近距离上限 [m]：<=该值使用 near 顺序。 */

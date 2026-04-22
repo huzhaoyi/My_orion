@@ -657,11 +657,21 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                                                            : axis_candidates.front();
     const std::size_t low_z_short_pre_count = std::min<std::size_t>(4u, pregrasp_candidates.size());
     std::vector<TargetSensorPickCandidate> candidates;
+    std::size_t filtered_forbidden_axis_candidate_count = 0;
     std::size_t filtered_axis_parallel_candidate_count = 0;
     std::size_t filtered_parallel_candidate_count = 0;
     for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
     {
       const int axis_local = axis_candidates[axis_rank];
+      if (std::find(
+              config_.target_sensor_pick.hard_forbid_approach_axes_local.begin(),
+              config_.target_sensor_pick.hard_forbid_approach_axes_local.end(),
+              static_cast<int64_t>(axis_local)) != config_.target_sensor_pick.hard_forbid_approach_axes_local.end())
+      {
+        filtered_forbidden_axis_candidate_count +=
+            pregrasp_candidates.size() * sign_candidates.size() * roll_candidates_deg.size();
+        continue;
+      }
       if (axis_local == config_.target_sensor_pick.rod_axis_local)
       {
         filtered_axis_parallel_candidate_count +=
@@ -775,6 +785,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       setStateError("TARGET_SENSOR_PICK: no candidate");
       return false;
+    }
+    if (filtered_forbidden_axis_candidate_count > 0)
+    {
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: filtered %zu forbidden-axis candidates (hard_forbid_approach_axes_local)",
+          filtered_forbidden_axis_candidate_count);
     }
     if (filtered_axis_parallel_candidate_count > 0)
     {
