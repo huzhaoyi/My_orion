@@ -657,10 +657,17 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                                                            : axis_candidates.front();
     const std::size_t low_z_short_pre_count = std::min<std::size_t>(4u, pregrasp_candidates.size());
     std::vector<TargetSensorPickCandidate> candidates;
+    std::size_t filtered_axis_parallel_candidate_count = 0;
     std::size_t filtered_parallel_candidate_count = 0;
     for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
     {
       const int axis_local = axis_candidates[axis_rank];
+      if (axis_local == config_.target_sensor_pick.rod_axis_local)
+      {
+        filtered_axis_parallel_candidate_count +=
+            pregrasp_candidates.size() * sign_candidates.size() * roll_candidates_deg.size();
+        continue;
+      }
       for (std::size_t pre_i = 0; pre_i < pregrasp_candidates.size(); ++pre_i)
       {
         const double pre_m = pregrasp_candidates[pre_i];
@@ -711,7 +718,16 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             const Eigen::Vector3d n_geom = (q_object * local_axis_vec).normalized();
             const Eigen::Vector3d approach_dir = n_geom * ((sign < 0.0) ? -1.0 : 1.0);
             // 杆体抓取硬约束：禁止“接近方向与杆轴近似平行”的候选，避免出现平行于 target 的夹取姿态。
-            const Eigen::Vector3d rod_axis_world = (q_object * Eigen::Vector3d::UnitX()).normalized();
+            Eigen::Vector3d rod_axis_local_vec = Eigen::Vector3d::UnitZ();
+            if (config_.target_sensor_pick.rod_axis_local == 0)
+            {
+              rod_axis_local_vec = Eigen::Vector3d::UnitX();
+            }
+            else if (config_.target_sensor_pick.rod_axis_local == 1)
+            {
+              rod_axis_local_vec = Eigen::Vector3d::UnitY();
+            }
+            const Eigen::Vector3d rod_axis_world = (q_object * rod_axis_local_vec).normalized();
             const double approach_vs_rod_abs_dot = std::abs(approach_dir.normalized().dot(rod_axis_world));
             if (approach_vs_rod_abs_dot > 0.85)
             {
@@ -759,6 +775,14 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       setStateError("TARGET_SENSOR_PICK: no candidate");
       return false;
+    }
+    if (filtered_axis_parallel_candidate_count > 0)
+    {
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: filtered %zu axis-level parallel candidates (approach_axis == rod_axis=%d)",
+          filtered_axis_parallel_candidate_count,
+          config_.target_sensor_pick.rod_axis_local);
     }
     if (filtered_parallel_candidate_count > 0)
     {

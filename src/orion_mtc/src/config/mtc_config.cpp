@@ -171,6 +171,13 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<int>("target_sensor_pick.rod_axis_local", 2);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<bool>("target_sensor_pick.dynamic_axis_priority_enable", true);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -544,6 +551,11 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter(
       "target_sensor_pick.approach_axis_local_candidates",
       config.target_sensor_pick.approach_axis_local_candidates);
+  node->get_parameter("target_sensor_pick.rod_axis_local", config.target_sensor_pick.rod_axis_local);
+  if (config.target_sensor_pick.rod_axis_local < 0 || config.target_sensor_pick.rod_axis_local > 2)
+  {
+    config.target_sensor_pick.rod_axis_local = 2;
+  }
   std::vector<int64_t> normalized_axis_candidates;
   for (int64_t axis : config.target_sensor_pick.approach_axis_local_candidates)
   {

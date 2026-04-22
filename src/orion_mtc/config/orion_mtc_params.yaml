@@ -62,6 +62,8 @@ target_sensor_pick:
   approach_axis_local: 0
   # 抓取接近轴候选（按顺序优先尝试）：顶部(Z)优先，其次前后(X)与侧向(Y)兜底。
   approach_axis_local_candidates: [2, 0, 1]
+  # 杆体轴向（物体局部轴）：用于“禁止平行杆轴接近”硬过滤。当前现场观测杆轴与局部 Z 对齐。
+  rod_axis_local: 2
   # 是否按目标距离动态切换接近轴优先级。
   dynamic_axis_priority_enable: true
   # 近距离上限 [m]：<=near_max 用 near 顺序；>near_max 且 <=mid_max 用 mid；>mid_max 用 far。
