@@ -74,6 +74,10 @@ target_sensor_pick:
   dynamic_axis_mid_order: [0, 2, 1]
   # 远距离：前向优先，再顶部，再侧向。
   dynamic_axis_far_order: [0, 2, 1]
+  # 低高度覆盖：当目标 z <= 阈值时，用 low_z 顺序覆盖按距离选出的轴顺序。
+  dynamic_axis_priority_by_z_enable: true
+  dynamic_axis_low_z_threshold_m: -0.15
+  dynamic_axis_low_z_order: [0, 2, 1]
   # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；杆体优先从中段贴近，避免腕部抢前。
   surface_backoff_m: 0.05
   # 闭合前沿接近方向的“吃入深度” [m]。

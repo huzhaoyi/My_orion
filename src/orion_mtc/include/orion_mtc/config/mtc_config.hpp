@@ -59,6 +59,12 @@ struct TargetSensorPickConfig
   std::vector<int64_t> dynamic_axis_mid_order{ 0, 2, 1 };
   /** 远距离接近轴顺序（默认前向优先）。 */
   std::vector<int64_t> dynamic_axis_far_order{ 0, 2, 1 };
+  /** 是否按目标高度 z 动态覆盖接近轴优先级。 */
+  bool dynamic_axis_priority_by_z_enable = true;
+  /** 低高度阈值 [m]：目标 z <= 该值时，使用 low_z 顺序。 */
+  double dynamic_axis_low_z_threshold_m = -0.15;
+  /** 低高度接近轴顺序（默认前向优先，其次顶部，再侧向）。 */
+  std::vector<int64_t> dynamic_axis_low_z_order{ 0, 2, 1 };
   /** 从目标中心沿接近反方向退让到“表面附近”的距离 [m]，用于避免以中心点规划导致 Link6 先碰。 */
   double surface_backoff_m = 0.0;
   /** 终抓阶段沿接近方向前推的“吃入深度” [m]（参考缆绳 grasp_depth 语义）。 */

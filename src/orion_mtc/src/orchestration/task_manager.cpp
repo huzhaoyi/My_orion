@@ -611,6 +611,16 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         configured_axis_order = &config_.target_sensor_pick.dynamic_axis_far_order;
       }
     }
+    if (config_.target_sensor_pick.dynamic_axis_priority_by_z_enable &&
+        pose_base.pose.position.z <= config_.target_sensor_pick.dynamic_axis_low_z_threshold_m)
+    {
+      configured_axis_order = &config_.target_sensor_pick.dynamic_axis_low_z_order;
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: low-z axis override z=%.4f threshold=%.4f",
+          pose_base.pose.position.z,
+          config_.target_sensor_pick.dynamic_axis_low_z_threshold_m);
+    }
     std::vector<int> axis_candidates;
     axis_candidates.reserve(configured_axis_order->size());
     for (int64_t axis_raw : *configured_axis_order)

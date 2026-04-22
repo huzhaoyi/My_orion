@@ -219,6 +219,29 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("target_sensor_pick.dynamic_axis_priority_by_z_enable", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.dynamic_axis_low_z_threshold_m", -0.15);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<int64_t>>(
+        "target_sensor_pick.dynamic_axis_low_z_order",
+        std::vector<int64_t>{ 0, 2, 1 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("target_sensor_pick.surface_backoff_m", 0.0);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -529,6 +552,12 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                       config.target_sensor_pick.dynamic_axis_mid_order);
   node->get_parameter("target_sensor_pick.dynamic_axis_far_order",
                       config.target_sensor_pick.dynamic_axis_far_order);
+  node->get_parameter("target_sensor_pick.dynamic_axis_priority_by_z_enable",
+                      config.target_sensor_pick.dynamic_axis_priority_by_z_enable);
+  node->get_parameter("target_sensor_pick.dynamic_axis_low_z_threshold_m",
+                      config.target_sensor_pick.dynamic_axis_low_z_threshold_m);
+  node->get_parameter("target_sensor_pick.dynamic_axis_low_z_order",
+                      config.target_sensor_pick.dynamic_axis_low_z_order);
   auto normalize_axis_order = [&config](const std::vector<int64_t>& src) {
     std::vector<int64_t> out;
     for (int64_t axis : src)
@@ -554,6 +583,8 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
       normalize_axis_order(config.target_sensor_pick.dynamic_axis_mid_order);
   config.target_sensor_pick.dynamic_axis_far_order =
       normalize_axis_order(config.target_sensor_pick.dynamic_axis_far_order);
+  config.target_sensor_pick.dynamic_axis_low_z_order =
+      normalize_axis_order(config.target_sensor_pick.dynamic_axis_low_z_order);
   node->get_parameter("target_sensor_pick.surface_backoff_m", config.target_sensor_pick.surface_backoff_m);
   if (config.target_sensor_pick.surface_backoff_m < 0.0)
   {
