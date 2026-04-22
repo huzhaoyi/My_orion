@@ -18,7 +18,9 @@ setup(
     maintainer_email="user@example.com",
     description="Bridge HoloOcean ArmSensor to Orion joint_states for MTC",
     license="Apache-2.0",
-    tests_require=["pytest"],
+    extras_require={
+        "test": ["pytest"],
+    },
     entry_points={
         "console_scripts": [
             "arm_sensor_to_joint_state = orion_holoocean_bridge.arm_sensor_to_joint_state_node:main",

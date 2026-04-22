@@ -18,7 +18,9 @@ setup(
     maintainer_email="user@example.com",
     description="Joy to manipulator bridge for Orion MTC stack",
     license="Apache-2.0",
-    tests_require=["pytest"],
+    extras_require={
+        "test": ["pytest"],
+    },
     entry_points={
         "console_scripts": [
             "joy_manipulator_node = orion_joy_arm_bridge.joy_manipulator_node:main",
