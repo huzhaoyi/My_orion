@@ -95,9 +95,11 @@ struct TargetSensorPickCandidate
 {
   geometry_msgs::msg::PoseStamped object_pose;
   double pregrasp_distance_m = 0.10;
+  int pregrasp_priority_rank = 0;
   double approach_sign = -1.0;
   int sign_priority_rank = 0;
   double tool_roll_deg = 0.0;
+  int roll_priority_rank = 0;
   int approach_axis_local = 2;
   int axis_priority_rank = 0;
   double down_priority_score = -1.0;
@@ -614,8 +616,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
     {
       const int axis_local = axis_candidates[axis_rank];
-      for (double pre_m : pregrasp_candidates)
+      for (std::size_t pre_i = 0; pre_i < pregrasp_candidates.size(); ++pre_i)
       {
+        const double pre_m = pregrasp_candidates[pre_i];
         for (double sign : sign_candidates)
         {
           int sign_rank = 0;
@@ -627,14 +630,17 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               break;
             }
           }
-          for (double roll_deg : roll_candidates_deg)
+          for (std::size_t roll_i = 0; roll_i < roll_candidates_deg.size(); ++roll_i)
           {
+            const double roll_deg = roll_candidates_deg[roll_i];
             TargetSensorPickCandidate candidate;
             candidate.object_pose = pose_base;
             candidate.pregrasp_distance_m = pre_m;
+            candidate.pregrasp_priority_rank = static_cast<int>(pre_i);
             candidate.approach_sign = sign;
             candidate.sign_priority_rank = sign_rank;
             candidate.tool_roll_deg = roll_deg;
+            candidate.roll_priority_rank = static_cast<int>(roll_i);
             candidate.approach_axis_local = axis_local;
             candidate.axis_priority_rank = static_cast<int>(axis_rank);
             Eigen::Quaterniond q_object(
@@ -686,6 +692,14 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           if (lhs.axis_priority_rank != rhs.axis_priority_rank)
           {
             return lhs.axis_priority_rank < rhs.axis_priority_rank;
+          }
+          if (lhs.pregrasp_priority_rank != rhs.pregrasp_priority_rank)
+          {
+            return lhs.pregrasp_priority_rank < rhs.pregrasp_priority_rank;
+          }
+          if (lhs.roll_priority_rank != rhs.roll_priority_rank)
+          {
+            return lhs.roll_priority_rank < rhs.roll_priority_rank;
           }
           if (lhs.sign_priority_rank != rhs.sign_priority_rank)
           {
