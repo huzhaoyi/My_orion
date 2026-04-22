@@ -226,6 +226,7 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     const std::string& plan_frame,
     double pregrasp_distance_m,
     double approach_sign,
+    int approach_axis_local,
     double tool_roll_about_approach_deg)
 {
   mtc::Task task;
@@ -290,7 +291,16 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
       object_pose.pose.orientation.y,
       object_pose.pose.orientation.z);
   q_object.normalize();
-  const Eigen::Vector3d n_geom = (q_object * Eigen::Vector3d::UnitX()).normalized();
+  Eigen::Vector3d local_axis = Eigen::Vector3d::UnitZ();
+  if (approach_axis_local == 0)
+  {
+    local_axis = Eigen::Vector3d::UnitX();
+  }
+  else if (approach_axis_local == 1)
+  {
+    local_axis = Eigen::Vector3d::UnitY();
+  }
+  const Eigen::Vector3d n_geom = (q_object * local_axis).normalized();
   const double sign = (approach_sign < 0.0) ? -1.0 : 1.0;
   const Eigen::Vector3d approach_dir = n_geom * sign;
   Eigen::Matrix3d R_tool = targetSensorToolRotation(q_object, approach_dir);

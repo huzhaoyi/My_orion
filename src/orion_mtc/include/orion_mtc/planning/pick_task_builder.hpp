@@ -36,6 +36,7 @@ public:
       const std::string& plan_frame,
       double pregrasp_distance_m,
       double approach_sign,
+      int approach_axis_local,
       double tool_roll_about_approach_deg);
 
 private:

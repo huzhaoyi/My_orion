@@ -811,7 +811,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
 
       mtc::Task task = pick_builder_->buildFromTargetSensorPose(
           candidate.object_pose, plan_frame, candidate.pregrasp_distance_m,
-          candidate.approach_sign, candidate.tool_roll_deg);
+          candidate.approach_sign, candidate.approach_axis_local, candidate.tool_roll_deg);
       try
       {
         task.init();
