@@ -547,6 +547,15 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
     std::sort(pregrasp_candidates.begin(), pregrasp_candidates.end());
+    const double low_target_z_threshold_m = -0.15;
+    if (pose_base.pose.position.z <= low_target_z_threshold_m)
+    {
+      std::reverse(pregrasp_candidates.begin(), pregrasp_candidates.end());
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: low target z=%.4f, prefer longer pregrasp first",
+          pose_base.pose.position.z);
+    }
     std::vector<double> sign_candidates;
     for (double sign : config_.target_sensor_pick.approach_sign_candidates)
     {
