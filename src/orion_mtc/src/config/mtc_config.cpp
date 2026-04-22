@@ -242,6 +242,38 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("target_sensor_pick.low_z_specialized_candidates_enable", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<int>("target_sensor_pick.low_z_pregrasp_keep_count", 4);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.low_z_sign_candidates",
+        std::vector<double>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.low_z_roll_candidates_deg",
+        std::vector<double>{ 0.0, 15.0, -15.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("target_sensor_pick.surface_backoff_m", 0.0);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -558,6 +590,28 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
                       config.target_sensor_pick.dynamic_axis_low_z_threshold_m);
   node->get_parameter("target_sensor_pick.dynamic_axis_low_z_order",
                       config.target_sensor_pick.dynamic_axis_low_z_order);
+  node->get_parameter("target_sensor_pick.low_z_specialized_candidates_enable",
+                      config.target_sensor_pick.low_z_specialized_candidates_enable);
+  node->get_parameter("target_sensor_pick.low_z_pregrasp_keep_count",
+                      config.target_sensor_pick.low_z_pregrasp_keep_count);
+  if (config.target_sensor_pick.low_z_pregrasp_keep_count < 0)
+  {
+    config.target_sensor_pick.low_z_pregrasp_keep_count = 0;
+  }
+  node->get_parameter("target_sensor_pick.low_z_sign_candidates",
+                      config.target_sensor_pick.low_z_sign_candidates);
+  node->get_parameter("target_sensor_pick.low_z_roll_candidates_deg",
+                      config.target_sensor_pick.low_z_roll_candidates_deg);
+  for (double& sign : config.target_sensor_pick.low_z_sign_candidates)
+  {
+    sign = (sign < 0.0) ? -1.0 : 1.0;
+  }
+  std::sort(config.target_sensor_pick.low_z_sign_candidates.begin(),
+            config.target_sensor_pick.low_z_sign_candidates.end());
+  config.target_sensor_pick.low_z_sign_candidates.erase(
+      std::unique(config.target_sensor_pick.low_z_sign_candidates.begin(),
+                  config.target_sensor_pick.low_z_sign_candidates.end()),
+      config.target_sensor_pick.low_z_sign_candidates.end());
   auto normalize_axis_order = [&config](const std::vector<int64_t>& src) {
     std::vector<int64_t> out;
     for (int64_t axis : src)

@@ -548,6 +548,16 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
     std::sort(pregrasp_candidates.begin(), pregrasp_candidates.end());
+    const bool low_z_mode_enabled =
+        config_.target_sensor_pick.dynamic_axis_priority_by_z_enable &&
+        pose_base.pose.position.z <= config_.target_sensor_pick.dynamic_axis_low_z_threshold_m;
+    if (low_z_mode_enabled &&
+        config_.target_sensor_pick.low_z_specialized_candidates_enable &&
+        config_.target_sensor_pick.low_z_pregrasp_keep_count > 0 &&
+        pregrasp_candidates.size() > static_cast<std::size_t>(config_.target_sensor_pick.low_z_pregrasp_keep_count))
+    {
+      pregrasp_candidates.resize(static_cast<std::size_t>(config_.target_sensor_pick.low_z_pregrasp_keep_count));
+    }
     if (config_.target_sensor_pick.dynamic_axis_priority_by_z_enable &&
         pose_base.pose.position.z <= config_.target_sensor_pick.dynamic_axis_low_z_threshold_m)
     {
@@ -568,6 +578,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     std::sort(sign_candidates.begin(), sign_candidates.end());
     sign_candidates.erase(std::unique(sign_candidates.begin(), sign_candidates.end()), sign_candidates.end());
+    if (low_z_mode_enabled &&
+        config_.target_sensor_pick.low_z_specialized_candidates_enable &&
+        !config_.target_sensor_pick.low_z_sign_candidates.empty())
+    {
+      sign_candidates = config_.target_sensor_pick.low_z_sign_candidates;
+    }
     if (config_.target_sensor_pick.dynamic_sign_priority_enable && !sign_candidates.empty())
     {
       const double preferred_sign =
@@ -589,6 +605,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     if (roll_candidates_deg.empty())
     {
       roll_candidates_deg.push_back(0.0);
+    }
+    if (low_z_mode_enabled &&
+        config_.target_sensor_pick.low_z_specialized_candidates_enable &&
+        !config_.target_sensor_pick.low_z_roll_candidates_deg.empty())
+    {
+      roll_candidates_deg = config_.target_sensor_pick.low_z_roll_candidates_deg;
     }
 
     const double target_distance_m = std::sqrt(
@@ -631,9 +653,6 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       axis_candidates.push_back(config_.target_sensor_pick.approach_axis_local);
     }
-    const bool low_z_mode_enabled =
-        config_.target_sensor_pick.dynamic_axis_priority_by_z_enable &&
-        pose_base.pose.position.z <= config_.target_sensor_pick.dynamic_axis_low_z_threshold_m;
     const int low_z_primary_axis = axis_candidates.empty() ? config_.target_sensor_pick.approach_axis_local
                                                            : axis_candidates.front();
     const std::size_t low_z_short_pre_count = std::min<std::size_t>(4u, pregrasp_candidates.size());
@@ -766,6 +785,15 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           "handlePick: low-z hard priority enabled (primary_axis=%d, short_pre_count=%zu)",
           low_z_primary_axis,
           low_z_short_pre_count);
+      if (config_.target_sensor_pick.low_z_specialized_candidates_enable)
+      {
+        RCLCPP_INFO(
+            LOGGER,
+            "handlePick: low-z specialized candidate pool enabled (pregrasp=%zu, sign=%zu, roll=%zu)",
+            pregrasp_candidates.size(),
+            sign_candidates.size(),
+            roll_candidates_deg.size());
+      }
     }
 
     for (std::size_t i = 0; i < candidates.size(); ++i)

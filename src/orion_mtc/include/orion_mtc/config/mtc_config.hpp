@@ -65,6 +65,14 @@ struct TargetSensorPickConfig
   double dynamic_axis_low_z_threshold_m = -0.15;
   /** 低高度接近轴顺序（默认前向优先，其次顶部，再侧向）。 */
   std::vector<int64_t> dynamic_axis_low_z_order{ 0, 2, 1 };
+  /** 是否启用低高度专项候选池（收紧 pregrasp/sign/roll 组合，减少无效 IK 搜索）。 */
+  bool low_z_specialized_candidates_enable = true;
+  /** 低高度专项预抓距保留数量（仅保留最短 N 个；<=0 表示不裁剪）。 */
+  int low_z_pregrasp_keep_count = 4;
+  /** 低高度专项接近符号候选（空则沿用 approach_sign_candidates）。 */
+  std::vector<double> low_z_sign_candidates{};
+  /** 低高度专项绕接近轴滚转候选 [deg]（空则沿用 tool_roll_candidates_deg）。 */
+  std::vector<double> low_z_roll_candidates_deg{ 0.0, 15.0, -15.0 };
   /** 从目标中心沿接近反方向退让到“表面附近”的距离 [m]，用于避免以中心点规划导致 Link6 先碰。 */
   double surface_backoff_m = 0.0;
   /** 终抓阶段沿接近方向前推的“吃入深度” [m]（参考缆绳 grasp_depth 语义）。 */

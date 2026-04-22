@@ -78,6 +78,14 @@ target_sensor_pick:
   dynamic_axis_priority_by_z_enable: true
   dynamic_axis_low_z_threshold_m: -0.15
   dynamic_axis_low_z_order: [0, 2, 1]
+  # 低高度专项候选池：仅在 z <= dynamic_axis_low_z_threshold_m 时启用，收紧候选组合减少无效 IK 搜索。
+  low_z_specialized_candidates_enable: true
+  # 仅保留最短 N 个预抓距（<=0 表示不裁剪）。
+  low_z_pregrasp_keep_count: 4
+  # 低高度专项接近符号候选（空则沿用 approach_sign_candidates）。
+  low_z_sign_candidates: [1.0, -1.0]
+  # 低高度专项绕接近轴滚转候选 [deg]（优先小角度，缩短搜索链）。
+  low_z_roll_candidates_deg: [0.0, 15.0, -15.0]
   # 从目标中心沿接近反方向退让到“表面附近”的距离 [m]；杆体优先从中段贴近，避免腕部抢前。
   surface_backoff_m: 0.05
   # 闭合前沿接近方向的“吃入深度” [m]。
