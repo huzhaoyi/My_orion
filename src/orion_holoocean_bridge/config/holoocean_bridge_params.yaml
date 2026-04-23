@@ -54,9 +54,9 @@ target_sensor_to_object_pose:
     # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
     use_pose_sensor_stamp_for_rov_tf: false
     # 固定7插孔：world/map 坐标；节点内按 world->rov->base_link 链路转换后发布。
-    targetsensor_slot_1_position_world: [-113.98, 129.085, -132.1]
+    targetsensor_slot_1_position_world: [-113.98, 129.085, -132.062]
     targetsensor_slot_1_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_2_position_world: [-113.98, 128.85, -132.1]
+    targetsensor_slot_2_position_world: [-113.98, 128.85, -132.062]
     targetsensor_slot_2_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
     targetsensor_slot_3_position_world: [-113.98, 129.085, -132.353]
     targetsensor_slot_3_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
