@@ -189,7 +189,7 @@ class JoyManipulatorNode(Node):
         self.declare_parameter("require_arm_action_server", True)
         self.declare_parameter("require_hand_action_server", True)
         self.declare_parameter("log_joint_targets_debug", False)
-        self.declare_parameter("log_joy_on_change", True)
+        self.declare_parameter("log_joy_on_change", False)
         # 与 log_joy 变化判定、diff 文案共用：轴差 ≤ 此值不记为变化、也不在 diff 中展开
         self.declare_parameter("log_joy_axis_epsilon", 0.01)
         # 与 joy_manipulator.yaml「自动模式：右手」并列：右手硬件 ready 键下标，Joy 变化日志「非0→0」附「（回 ready 位）」；-1 关闭

@@ -127,7 +127,7 @@
     # ---------- 调试日志 ----------
     # true：定时打印手动目标臂/手关节与速度比例（刷屏，平时 false）
     log_joint_targets_debug: false
-    # true：Joy 相对上一帧有「语义变化」时打印（buttons 或 |Δ轴|>epsilon）；调键位映射时用
-    log_joy_on_change: true
+    # true：Joy 相对上一帧有「语义变化」时打印（buttons 或 |Δ轴|>epsilon）；会刷屏，默认关闭
+    log_joy_on_change: false
     # 摇杆噪声抑制：逐轴与上一帧差 ≤ 此值视为未变（既不打印也不判为变化）；diff 里也用同一阈值
     log_joy_axis_epsilon: 0.05
