@@ -330,6 +330,26 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     }
   }
 
+  // 释放后先回到插入前安全路点，再回 ready，避免从孔位附近直接 PTP 扫过 target。
+  auto stage_post_release_pre =
+      std::make_unique<mtc::stages::MoveTo>("move to pre-insert (post release)", ptp_planner);
+  stage_post_release_pre->setGroup(arm_group_name);
+  stage_post_release_pre->setGoal(pre_pose);
+  stage_post_release_pre->setIKFrame(hand_frame);
+  task.add(std::move(stage_post_release_pre));
+  out.stage_names.push_back("move to pre-insert (post release)");
+
+  if (front_waypoint_enabled)
+  {
+    auto stage_post_release_front =
+        std::make_unique<mtc::stages::MoveTo>("move to front-waypoint (post release)", ptp_planner);
+    stage_post_release_front->setGroup(arm_group_name);
+    stage_post_release_front->setGoal(front_pose);
+    stage_post_release_front->setIKFrame(hand_frame);
+    task.add(std::move(stage_post_release_front));
+    out.stage_names.push_back("move to front-waypoint (post release)");
+  }
+
   auto stage_ready_after_release = std::make_unique<mtc::stages::MoveTo>("move to ready (after release)", ptp_planner);
   stage_ready_after_release->setGroup(arm_group_name);
   stage_ready_after_release->setGoal("ready");
