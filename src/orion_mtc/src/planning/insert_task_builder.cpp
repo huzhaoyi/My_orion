@@ -301,8 +301,19 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
 
   if (retreat_m > 1e-6)
   {
+    // 抬升脱离沿“当前插入轴反方向”退离，避免候选姿态变化时固定 +Z 引发擦碰。
+    Eigen::Vector3d retreat_axis = -axis_insert;
+    if (!std::isfinite(retreat_axis.x()) || !std::isfinite(retreat_axis.y()) || !std::isfinite(retreat_axis.z())
+        || retreat_axis.norm() < 1e-9)
+    {
+      retreat_axis = Eigen::Vector3d::UnitZ();
+    }
+    else
+    {
+      retreat_axis.normalize();
+    }
     geometry_msgs::msg::Vector3Stamped lift_axis;
-    append_vector3_stamped(node_->now(), "base_link", Eigen::Vector3d::UnitZ(), lift_axis);
+    append_vector3_stamped(node_->now(), plan_frame, retreat_axis, lift_axis);
     const int lift_segments = 3;
     const double lift_step = retreat_m / static_cast<double>(lift_segments);
     for (int s = 0; s < lift_segments; ++s)

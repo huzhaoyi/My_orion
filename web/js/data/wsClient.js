@@ -16,7 +16,7 @@
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
  * 服务（与 orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, get_recent_jobs, submit_job, cancel_job,
- *   open_gripper, close_gripper, emergency_stop, go_to_ready（std_srvs/Trigger）,
+ *   open_gripper, close_gripper, emergency_stop, clear_estop, go_to_ready（std_srvs/Trigger）,
  *   reset_held_object, sync_held_object, check_pick
  */
 
@@ -463,6 +463,11 @@ function callEmergencyStop(callback) {
   callService(getTopicPrefix() + '/emergency_stop', {}, callback);
 }
 
+/** 解除急停闭锁：对应后端 /clear_estop（不恢复队列）。 */
+function callClearEstop(callback) {
+  callService(getTopicPrefix() + '/clear_estop', {}, callback);
+}
+
 /** 回 ready 可能较久（规划+执行），延长超时 */
 function callGoToReady(callback) {
   callService(getTopicPrefix() + '/go_to_ready', {}, callback, { timeout_ms: 120000 });
@@ -647,6 +652,7 @@ export default {
   disconnect,
   send,
   callEmergencyStop,
+  callClearEstop,
   callGoToReady,
   callService,
   publishTopic,

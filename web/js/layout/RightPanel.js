@@ -92,6 +92,7 @@ function renderTaskTab(container) {
       <p style="font-size:11px; color:var(--text-muted); margin:0 0 8px 0;">${t('right.emergency_ready_hint')}</p>
       <div class="form-actions form-actions--row">
         <button type="button" id="btn-task-emergency-stop" class="btn-secondary" style="background:#b91c1c;border-color:#991b1b;color:#fff;font-weight:600;">${t('right.emergency_stop')}</button>
+        <button type="button" id="btn-task-clear-estop" class="btn-secondary" style="background:#065f46;border-color:#047857;color:#fff;font-weight:600;">${t('right.clear_estop')}</button>
         <button type="button" id="btn-task-go-ready" class="btn-secondary">${t('right.go_ready')}</button>
       </div>
     </div>
@@ -173,6 +174,7 @@ function renderTaskTab(container) {
   });
   container.querySelector('#btn-pick-fused')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:pick:fused')));
   container.querySelector('#btn-task-emergency-stop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:emergency-stop')));
+  container.querySelector('#btn-task-clear-estop')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:clear-estop')));
   container.querySelector('#btn-task-go-ready')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:go-to-ready')));
   container.querySelector('#btn-open-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:open-gripper')));
   container.querySelector('#btn-close-gripper')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('orion:close-gripper')));

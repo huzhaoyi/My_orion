@@ -41,6 +41,7 @@ const MESSAGES = {
     'right.emergency_ready_title': '急停与回位',
     'right.emergency_ready_hint': 'emergency_stop / go_to_ready 服务',
     'right.emergency_stop': '急停',
+    'right.clear_estop': '解除急停',
     'right.go_ready': '回 ready',
     'right.approval_title': '审批结果',
     'right.approval_hint': 'check_pick 服务；无物体位姿时不可用',
@@ -262,6 +263,7 @@ const MESSAGES = {
     'toast.not_connected_gripper_o': '未连接，无法打开夹爪',
     'toast.not_connected_gripper_c': '未连接，无法关闭夹爪',
     'toast.not_connected_estop': '未连接，无法急停',
+    'toast.not_connected_clear_estop': '未连接，无法解除急停',
     'toast.not_connected_ready': '未连接，无法回 ready',
     'toast.not_connected_recent': '未连接，无法获取最近执行',
 
@@ -309,6 +311,7 @@ const MESSAGES = {
     'right.emergency_ready_title': 'E-stop & ready',
     'right.emergency_ready_hint': 'emergency_stop / go_to_ready services',
     'right.emergency_stop': 'E-stop',
+    'right.clear_estop': 'Clear E-stop',
     'right.go_ready': 'Go to ready',
     'right.approval_title': 'Approval',
     'right.approval_hint': 'check_pick; needs object pose',
@@ -530,6 +533,7 @@ const MESSAGES = {
     'toast.not_connected_gripper_o': 'Not connected; cannot open gripper',
     'toast.not_connected_gripper_c': 'Not connected; cannot close gripper',
     'toast.not_connected_estop': 'Not connected; cannot E-stop',
+    'toast.not_connected_clear_estop': 'Not connected; cannot clear E-stop',
     'toast.not_connected_ready': 'Not connected; cannot go to ready',
     'toast.not_connected_recent': 'Not connected; cannot load recent jobs',
 

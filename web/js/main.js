@@ -448,6 +448,25 @@ function registerGlobalHandlers() {
         if (ok) wsClient.getQueueState(applyQueueStateToStore);
       });
     },
+    'orion:clear-estop': () => {
+      if (!wsClient.isConnected()) {
+        stateStore.pushSystemLog('warn', t('toast.not_connected_clear_estop'));
+        toast.warn(t('toast.not_connected_clear_estop'));
+        return;
+      }
+      wsClient.callClearEstop((res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const msg = (v && v.message) || (ok ? '解除急停成功' : '解除急停失败');
+        stateStore.pushSystemLog(ok ? 'info' : 'error', msg);
+        if (ok) {
+          toast.success(msg);
+          wsClient.getQueueState(applyQueueStateToStore);
+        } else {
+          toast.error(msg);
+        }
+      });
+    },
     'orion:go-to-ready': () => {
       if (!wsClient.isConnected()) {
         stateStore.pushSystemLog('warn', t('toast.not_connected_ready'));
