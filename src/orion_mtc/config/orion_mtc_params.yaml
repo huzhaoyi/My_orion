@@ -107,8 +107,10 @@ target_sensor_pick:
   preferred_sign_for_negative_y: 1.0
   # 目标 y>=0 时优先 sign。
   preferred_sign_for_positive_y: -1.0
-  # 绕接近轴滚转候选 [deg]：小角度优先，保留中角度兜底。
-  tool_roll_candidates_deg: [0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]
+  # 绕接近轴滚转候选 [deg]：
+  # 180° 使夹爪绕接近轴翻转，等效于把 joint4 的 π 消化进工具旋转，可令 joint4 回到 ≈0°。
+  # 以 180° 开头优先尝试；若物理上无法夹取（倒置夹爪碰目标），则自动退回 0°。
+  tool_roll_candidates_deg: [180.0, 0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
 

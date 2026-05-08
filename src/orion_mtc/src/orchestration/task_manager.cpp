@@ -336,6 +336,11 @@ void TaskManager::setFeasibilityChecker(FeasibilityChecker* checker)
   feasibility_checker_ = checker;
 }
 
+bool TaskManager::isEmergencyStopRequested() const
+{
+  return estop_requested_.load();
+}
+
 /* 设置业务态 task_mode_（加锁）；供抓取成功、恢复、急停等路径统一改写。 */
 void TaskManager::setState(RobotTaskMode mode)
 {
@@ -855,6 +860,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
 
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        return false;
+      }
+
       const TargetSensorPickCandidate& candidate = candidates[i];
       Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
       if (!precheckTargetSensorPickCandidate(
@@ -864,6 +876,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
               grasp_pose))
       {
         continue;
+      }
+
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        return false;
       }
 
       mtc::Task task = pick_builder_->buildFromTargetSensorPose(
@@ -891,6 +910,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         last_plan_detail = os.str();
         RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu PLAN_FAILED (%s): %s",
                     i, candidate.label.c_str(), last_plan_detail.c_str());
+        if (estop_requested_.load())
+        {
+          setStateError("E_STOP");
+          estop_requested_.store(false);
+          return false;
+        }
         continue;
       }
 
@@ -1119,6 +1144,14 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
                     cablePickFailReasonTag(pre_reason));
         continue;
       }
+
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        return false;
+      }
+
       mtc::Task task = pick_builder_->buildFromCableCandidate(segments, cand, plan_frame);
       try
       {
@@ -1137,6 +1170,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         std::ostringstream os;
         task.explainFailure(os);
         RCLCPP_WARN(LOGGER, "handlePick: candidate %zu PLAN_FAILED: %s，试下一候选", i, os.str().c_str());
+        if (estop_requested_.load())
+        {
+          setStateError("E_STOP");
+          estop_requested_.store(false);
+          return false;
+        }
         continue;
       }
       geometry_msgs::msg::Pose object_pose_at_grasp;
@@ -1496,6 +1535,13 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
   {
     publishTargetInsertHoleDebug();
 
+    if (estop_requested_.load())
+    {
+      setStateError("E_STOP");
+      estop_requested_.store(false);
+      return false;
+    }
+
     geometry_msgs::msg::PoseStamped pose_base = target_pose;
     const rclcpp::Time stamp_now = node_->now();
     const int32_t requested_hole = parseTargetSlotFromObjectId(object_id);
@@ -1656,6 +1702,13 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     auto try_plan_with_pose = [&](const geometry_msgs::msg::PoseStamped& pose_try,
                                   const std::string& plan_tag) -> bool
     {
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        return false;
+      }
+
       InsertTaskBuildResult built_local = insert_builder_->buildTargetInsertTask(pose_try);
       mtc::Task& task_local = built_local.task;
       try
@@ -1674,6 +1727,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         std::ostringstream os;
         task_local.explainFailure(os);
         RCLCPP_WARN_STREAM(LOGGER, "target insert plan failed (" << plan_tag << "): " << os.str());
+        if (estop_requested_.load())
+        {
+          setStateError("E_STOP");
+          estop_requested_.store(false);
+          return false;
+        }
         return false;
       }
       task_local.solutions().front()->toMsg(solution_msg, &task_local.introspection());
@@ -1712,6 +1771,13 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         };
         for (const auto& candidate : rotation_candidates)
         {
+          if (estop_requested_.load())
+          {
+            setStateError("E_STOP");
+            estop_requested_.store(false);
+            return false;
+          }
+
           const Eigen::Quaterniond q_rot(Eigen::AngleAxisd(candidate.first, axis_world));
           const Eigen::Quaterniond q_try = q_rot * q_nominal;
           geometry_msgs::msg::PoseStamped pose_try = pose_base;
@@ -2595,6 +2661,26 @@ void TaskManager::workerLoop()
     }
     const int64_t started_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+
+    if (estop_requested_.load())
+    {
+      const int64_t cancel_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::system_clock::now().time_since_epoch()).count();
+      pushExecutionRecordCancelled(job, cancel_ns);
+      if (job_event_fn_)
+      {
+        job_event_fn_(job.job_id, jobTypeToCString(job.type), job.source,
+                      static_cast<uint32_t>(job.priority), "CANCELLED", false, "E_STOP",
+                      job.created_at_ns, 0, cancel_ns);
+      }
+      setStateError("E_STOP");
+      estop_requested_.store(false);
+      RCLCPP_WARN(LOGGER,
+                  "worker: job %s discarded before execution (E_STOP)",
+                  job.job_id.c_str());
+      continue;
+    }
+
     pushExecutionRecordStart(job, started_ns);
     {
       std::lock_guard<std::mutex> lock(worker_mutex_);

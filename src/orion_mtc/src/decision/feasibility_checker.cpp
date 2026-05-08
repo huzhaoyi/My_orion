@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 
 namespace orion_mtc
@@ -134,6 +135,11 @@ FeasibilityChecker::~FeasibilityChecker() = default;
 void FeasibilityChecker::setMTCConfig(const MTCConfig* config)
 {
   mtc_config_ = config;
+}
+
+void FeasibilityChecker::setEmergencyStopPredicate(std::function<bool()> predicate)
+{
+  estop_predicate_ = std::move(predicate);
 }
 
 /* 从 ROS 参数读取 feasibility.*，缺省时用 FeasibilityParams 结构体内默认值 */
@@ -471,15 +477,30 @@ void FeasibilityChecker::trySuggestCorrectionPick(
 
   for (double z_off : z_offsets)
   {
+    if (estop_predicate_ && estop_predicate_())
+    {
+      return;
+    }
+
     double gz_try = gz + z_off;
     for (const auto& xy : xy_offsets)
     {
+      if (estop_predicate_ && estop_predicate_())
+      {
+        return;
+      }
+
       double px_try = px + xy.first;
       double py_try = py + xy.second;
       if (!inRange(px_try, py_try, gz_try))
         continue;
       for (double yaw_off : yaw_offsets)
       {
+        if (estop_predicate_ && estop_predicate_())
+        {
+          return;
+        }
+
         Eigen::AngleAxisd aa(yaw_off, Eigen::Vector3d::UnitZ());
         Eigen::Quaterniond q_try = q_orig * Eigen::Quaterniond(aa);
         if (runIkOnly(px_try, py_try, gz_try, q_try.x(), q_try.y(), q_try.z(), q_try.w()))
@@ -514,6 +535,26 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
   res->approved = true;
   res->severity = SEV_PASS;
   res->summary = "可执行";
+
+  auto abort_pick_if_estop = [&]() -> bool {
+    if (estop_predicate_ && estop_predicate_())
+    {
+      addItem(res->items, "E_STOP", LEVEL_ERROR,
+              "急停请求：可行性审批已中止", "", 0.0, 0.0,
+              "解除急停后重新发起审批");
+      res->approved = false;
+      res->severity = SEV_REJECT;
+      res->summary = "急停：可行性审批已中止";
+      res->best_candidate_pose = req->object_pose;
+      return true;
+    }
+    return false;
+  };
+
+  if (abort_pick_if_estop())
+  {
+    return;
+  }
 
   double px = req->object_pose.pose.position.x;
   double py = req->object_pose.pose.position.y;
@@ -572,12 +613,21 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
     return;
   }
 
+  if (abort_pick_if_estop())
+  {
+    return;
+  }
+
   bool ik_ok = runIkAndJointMargin(impl_->arm_group_name, impl_->hand_frame,
                                   px, py, grasp_z, qx, qy, qz, qw, res->items);
   if (!ik_ok)
   {
     res->approved = false;
     res->severity = SEV_REJECT;
+  }
+  else if (abort_pick_if_estop())
+  {
+    return;
   }
   else if (checkTargetCollision(px, py, grasp_z, qx, qy, qz, qw, res->items))
   {
@@ -589,6 +639,11 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
     res->summary = "禁止执行：存在硬拒绝项";
   else if (res->severity == SEV_WARNING)
     res->summary = "可执行，但存在风险提示";
+
+  if (abort_pick_if_estop())
+  {
+    return;
+  }
 
   if (res->severity == SEV_REJECT)
     trySuggestCorrectionPick(req, res, pz, grasp_z);

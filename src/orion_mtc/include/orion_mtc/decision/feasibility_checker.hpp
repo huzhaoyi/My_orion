@@ -7,6 +7,7 @@
 #include <orion_mtc_msgs/msg/diagnostic_item.hpp>
 #include <orion_mtc_msgs/srv/check_pick.hpp>
 #include <rclcpp/node.hpp>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,9 @@ public:
   /** 抓取审批：几何范围 + IK + 关节余量，不执行规划/执行 */
   void checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
                  orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res);
+
+  /**  predicate 返回 true 时中止审批（与 TaskManager::isEmergencyStopRequested 绑定） */
+  void setEmergencyStopPredicate(std::function<bool()> predicate);
 
   /*
    * 与 checkPick 中硬拒绝一致：max_reach_hard、min_reach_safe、z_min、z_max。
@@ -88,6 +92,7 @@ private:
 
   rclcpp::Node::SharedPtr node_;
   const MTCConfig* mtc_config_ = nullptr;
+  std::function<bool()> estop_predicate_;
   FeasibilityParams params_;
   struct Impl;
   std::unique_ptr<Impl> impl_;

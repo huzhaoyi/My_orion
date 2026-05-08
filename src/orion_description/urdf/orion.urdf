@@ -204,12 +204,12 @@
     <limit lower="-2.09440" upper="2.09440" effort="100" velocity="1.0"/>
   </joint>
 
-  <joint name="joint_Link5_Link6" type="continuous">
+  <joint name="joint_Link5_Link6" type="revolute">
     <parent link="Link5"/>
     <child link="Link6"/>
     <origin xyz="-0.0113 0.0091 0.2516" rpy="0.0 0.0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit effort="100" velocity="1.0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="100" velocity="1.0"/>
   </joint>
 
   <joint name="joint_Link6_gripper_tcp" type="fixed">

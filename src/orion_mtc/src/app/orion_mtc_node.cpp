@@ -230,6 +230,8 @@ void OrionMTCNode::initModules()
     feasibility_checker_ = std::make_shared<FeasibilityChecker>(node_);
     feasibility_checker_->setMTCConfig(&config_);
     task_manager_->setFeasibilityChecker(feasibility_checker_.get());
+    feasibility_checker_->setEmergencyStopPredicate(
+        [this]() { return task_manager_->isEmergencyStopRequested(); });
 }
 
 /* 装配 ManipulatorInterfaceContext 并注册订阅/服务与状态发布。 */

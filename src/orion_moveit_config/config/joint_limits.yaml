@@ -40,6 +40,12 @@ joint_limits:
     has_deceleration_limits: true
     max_deceleration: -0.5
   joint_Link5_Link6:
+    # URDF 中此关节声明为 continuous（无 lower/upper），若不在此处显式约束，
+    # IK 求解时该关节可绕圈至任意值（如 ±3π），Pilz PTP 关节插值会产生大幅扭转。
+    # ±π 覆盖了正常操作的全部姿态空间，极少情况需要超出此范围。
+    has_position_limits: true
+    min_position: -3.14159
+    max_position: 3.14159
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true

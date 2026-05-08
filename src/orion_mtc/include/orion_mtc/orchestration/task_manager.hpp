@@ -145,6 +145,9 @@ public:
   /** 急停：取消当前 FollowJointTrajectory、清空待执行队列、置位供执行循环中止 */
   void requestEmergencyStop();
 
+  /** 是否已有急停请求（可行性审批等只读查询；不清除标志） */
+  bool isEmergencyStopRequested() const;
+
   /** 仅清除软件急停闭锁（estop_requested_），不恢复队列；供手柄切回自动等场景 */
   void clearEmergencyStopLatch();
 

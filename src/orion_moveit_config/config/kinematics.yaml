@@ -1,5 +1,42 @@
-# 仅 arm 为链式结构，可用 KDL；hand 为双指非链，不配置 IK
+# 仅 arm 为链式结构；hand 为双指非链，不配置 IK。
+#
+# pick_ik（PickNikRobotics）：支持全局进化算法 + minimal_displacement_weight 代价函数，
+# 可枚举多组 IK 解并选出六关节总位移最小的，解决 KDL/LMA 梯度下降只能找到局部最优的问题。
+#
+# 安装：sudo apt-get install -y ros-humble-pick-ik
+#
+# 回退到 LMA：kinematics_solver: lma_kinematics_plugin/LMAKinematicsPlugin
+# 回退到 KDL：kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
 arm:
-  kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-  kinematics_solver_search_resolution: 0.005
+  kinematics_solver: pick_ik/PickIkPlugin
+
+  # 每次 IK 调用最长允许时间 [s]。
   kinematics_solver_timeout: 0.05
+
+  # IK 失败时的重试次数（pick_ik 内部已有多线程搜索，无需太多外部重试）。
+  kinematics_solver_attempts: 3
+
+  # global：进化算法随机初始种群，可以跳出 joint5=0 时的腕部奇异点局部极小。
+  # local 模式从 seed=[0,0,0,0,0,0] 梯度下降时，因 joint5=0 导致 joint4/joint6
+  # 轴共线（奇异），梯度方向不确定，容易落入 joint6≈-π 的错误局部极小。
+  # global 模式配合高 minimal_displacement_weight 可稳定选出全局最小位移解。
+  mode: global
+
+  # false：在整个 timeout 内持续优化，确保找到代价最低解而非第一个可行解。
+  stop_optimization_on_valid_solution: false
+
+  # 位置/姿态精度阈值；1mm / 0.01 rad 足够机械臂作业精度。
+  position_threshold: 0.001
+  orientation_threshold: 0.01
+
+  # 当总代价低于此阈值时认为优化收敛；调高可加快收敛（牺牲一点质量）。
+  cost_threshold: 0.001
+
+  # 关节位移代价权重：对 IK 解中相对 seed（ready [0,0,0,0,0,0]）的关节位移施加惩罚。
+  # 0.001 在"保证姿态精度"的前提下偏向最小关节位移，覆盖全部六个关节。
+  # 设为 0.0 则退化为纯速度最优（类 KDL 行为）。
+  # 关节位移代价权重：偏向最小关节位移解。
+  minimal_displacement_weight: 0.1
+
+  # 梯度下降步长（local 模式和 global 的局部精化共用）。
+  gd_step_size: 0.0001
