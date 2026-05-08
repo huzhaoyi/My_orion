@@ -126,6 +126,9 @@
   <!-- 夹爪 TCP：用于规划/IK 的末端参考点（Link6 +Z 方向的接触点附近） -->
   <link name="gripper_tcp"/>
 
+  <!-- 插孔专用 IK 参考点（与 src/orion_description/urdf/orion.urdf 保持同步） -->
+  <link name="peg_tip"/>
+
   <link name="Link7">
     <visual>
       <geometry><mesh filename="meshes/stl/Link7.stl"/></geometry>
@@ -217,6 +220,12 @@
     <child link="gripper_tcp"/>
     <!-- 规划 TCP：Link6 +Z 朝夹爪前方；z 较指间接触区略短会导致指尖够不到，略长则腕可稍后撤 -->
     <origin xyz="0.0 0.0 0.148" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+  <joint name="joint_gripper_tcp_peg_tip" type="fixed">
+    <parent link="gripper_tcp"/>
+    <child link="peg_tip"/>
+    <origin xyz="0.0 0.08 0.035" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">

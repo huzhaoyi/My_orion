@@ -127,7 +127,11 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   task.loadRobotModel(node_);
   const std::string arm_group_name = "arm";
   const std::string hand_group_name = "hand";
-  const std::string hand_frame = "gripper_tcp";
+  // 使用 peg_tip（被持物插头尖端参考帧）作为 IK frame，而非 gripper_tcp 原点。
+  // peg_tip 相对 gripper_tcp 的偏移见 URDF joint_gripper_tcp_peg_tip：
+  //   y=0.08m（沿 peg 长轴，把柄半长）、z=0.035m（surface_backoff−grasp_depth，接近轴偏置）。
+  // 这样 MTC 将插头尖端对准孔位，而非将 gripper_tcp 原点对准孔位，解决径向错位导致的插不进问题。
+  const std::string hand_frame = "peg_tip";
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);

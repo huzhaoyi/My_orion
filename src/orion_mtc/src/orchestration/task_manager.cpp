@@ -964,6 +964,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       last_plan_detail = "all candidates failed in precheck/plan/execution";
     }
     RCLCPP_ERROR(LOGGER, "handlePick: targetsensor all candidates failed: %s", last_plan_detail.c_str());
+    {
+      const double dist_3d = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
+      RCLCPP_ERROR(LOGGER,
+                   "handlePick: 目标位置诊断 pos=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
+                   "[参考: max_reach≈1.90 m, min_reach≈0.14 m, z∈[-1.14, 1.85] m]",
+                   obj_x, obj_y, obj_z, dist_3d);
+    }
     setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
     return false;
   }
@@ -1200,6 +1207,13 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       RCLCPP_WARN(LOGGER, "handlePick: candidate %zu EXECUTION_FAILED，试下一候选", i);
     }
     RCLCPP_ERROR(LOGGER, "handlePick: 所有侧抓候选均失败（预检/规划/执行）");
+    {
+      const double dist_3d = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
+      RCLCPP_ERROR(LOGGER,
+                   "handlePick: 目标位置诊断 pos=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
+                   "[参考: max_reach≈1.90 m, min_reach≈0.14 m, z∈[-1.14, 1.85] m]",
+                   obj_x, obj_y, obj_z, dist_3d);
+    }
     setStateError("CABLE_SIDE_GRASP: 所有侧抓候选均失败");
   }
   return false;
@@ -1717,7 +1731,16 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     }
     if (!planned)
     {
-      RCLCPP_ERROR(LOGGER, "target insert plan failed after orientation fallback");
+      const double dist_3d = std::sqrt(
+          pose_base.pose.position.x * pose_base.pose.position.x +
+          pose_base.pose.position.y * pose_base.pose.position.y +
+          pose_base.pose.position.z * pose_base.pose.position.z);
+      RCLCPP_ERROR(LOGGER,
+                   "handleTargetInsert: 规划失败（含姿态回退）| "
+                   "目标(base_link)=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
+                   "[参考: max_reach≈1.90 m, min_reach≈0.14 m]",
+                   pose_base.pose.position.x, pose_base.pose.position.y,
+                   pose_base.pose.position.z, dist_3d);
       return false;
     }
 
@@ -1920,6 +1943,18 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     return true;
   }();
 
+  if (!insert_ok)
+  {
+    // 插孔失败时夹爪仍处于闭合持物状态，若直接回 ready 会拖带目标物体。
+    // 先张开夹爪释放目标，再清除 planning scene 附着物，最后才回 ready。
+    RCLCPP_INFO(LOGGER, "handleTargetInsert: 规划/执行失败，先张开夹爪再回 ready（避免拖带目标）");
+    handleOpenGripper();
+    if (scene_manager_)
+    {
+      scene_manager_->clearAttachedObjectFromPlanningScene("held_unknown");
+      scene_manager_->clearAttachedObjectFromPlanningScene("held_tracked");
+    }
+  }
   if (!retreatToReady())
   {
     RCLCPP_ERROR(LOGGER, "handleTargetInsert: failed to return ready after insert flow");
