@@ -58,6 +58,7 @@ const initialState = {
   targetInsertHolePoses: [],     // /target_insert_holes: base_link 孔位 PoseArray
   targetInsertHolesValid: false,
   targetInsertHolesUpdatedAt: null,
+  panelObstaclesMarkers: null,
   // 视觉+声呐中心线融合链：/manipulator/object_pose_fused
   fusedObjectPoseValid: false,
   fusedObjectPose: null,
@@ -273,6 +274,7 @@ function setConnection(which, value) {
     partial.targetInsertHolePoses = [];
     partial.targetInsertHolesValid = false;
     partial.targetInsertHolesUpdatedAt = null;
+    partial.panelObstaclesMarkers = null;
   }
   setState(partial);
 }
@@ -758,6 +760,14 @@ function setTargetInsertHoles(poseArrayMsg) {
   });
 }
 
+function setPanelObstaclesMarkers(markerArrayMsg) {
+  if (!markerArrayMsg || typeof markerArrayMsg !== 'object') {
+    setState({ panelObstaclesMarkers: null });
+    return;
+  }
+  setState({ panelObstaclesMarkers: markerArrayMsg });
+}
+
 /** 写入最后一次 CheckPick 结构化结果（含 items、best_candidate_pose）。 */
 function setApprovalResult(payload) {
   setState({
@@ -849,6 +859,7 @@ export default {
   setPerceptionState,
   setTargetSet,
   setTargetInsertHoles,
+  setPanelObstaclesMarkers,
   setRecentJobs,
   applyGetRobotStateResponse,
   setApprovalResult,

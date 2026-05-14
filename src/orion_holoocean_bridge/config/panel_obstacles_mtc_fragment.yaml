@@ -1,0 +1,17 @@
+# 孔位旁面板：与 holoocean_bridge_params.yaml 中 target_sensor_to_object_pose.targetsensor_slot_*
+# 同属 HoloOcean 侧几何（四角为 world/map 坐标，与孔位一致）；pick_holoocean 合并进 MTC 与 target_sensor 节点。
+# 注意：不得单独作为节点 --params-file（无 ros__parameters 根）；浮点须写 1.0 形式。
+# frame_id 对 MoveIt 碰撞体为 map：随 TF 相对机械臂正确；orion_mtc_node 在 map/odom 下同步前会短时等待
+# 以便桥接发布 map→rov0；/manipulator/panel_obstacles_markers 由 target_sensor 与 target_insert_holes 同 stamp 发布。
+# publish_markers=false 时 MTC 不发布 Marker（由 target_sensor 发布）。
+panel_obstacles:
+  enable: true
+  publish_markers: false
+  frame_id: "map"
+  unit_scale: 1.0
+  wall_thickness_m: 0.02
+  aabb_margin_m: 0.01
+  panel_1_id: "hole_panel_1"
+  panel_1_corners_xyz: [-113.9, 129.1, -131.76, -113.9, 128.1, -131.76, -113.9, 128.1, -133.05, -113.9, 129.1, -133.05]
+  panel_2_id: "hole_panel_2"
+  panel_2_corners_xyz: [-113.9, 128.0, -130.71, -113.9, 126.8, -130.71, -113.9, 126.8, -133.05, -113.9, 128.0, -133.05]

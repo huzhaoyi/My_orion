@@ -10,7 +10,7 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", ["launch/holoocean_bridge.launch.py"]),
-        ("share/" + package_name + "/config", ["config/holoocean_bridge_params.yaml"]),
+        ("share/" + package_name + "/config", ["config/holoocean_bridge_params.yaml", "config/panel_obstacles_mtc_fragment.yaml"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

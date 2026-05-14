@@ -10,8 +10,10 @@
 #include <rclcpp/client.hpp>
 #include <rclcpp/node.hpp>
 #include <moveit_msgs/msg/planning_scene.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
 #include <moveit_msgs/srv/apply_planning_scene.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+#include <vector>
 
 namespace orion_mtc
 {
@@ -43,6 +45,13 @@ public:
 
   /* 应用 scene diff（用于执行 sub_trajectory 时应用 attach/detach 等） */
   bool applySceneDiff(const moveit_msgs::msg::PlanningScene& scene_diff);
+
+  /*
+   * 同步多块 world 碰撞体。remove_existing_first=true 时先按 id REMOVE 再 ADD（已存在时刷新几何）；
+   * false 时仅 ADD（首次加入或同 id 更新，避免「移除不存在物体」导致 apply_planning_scene 失败）。
+   */
+  bool syncWorldCollisionObjects(const std::vector<moveit_msgs::msg::CollisionObject>& objects,
+                                  bool remove_existing_first = false);
 
 private:
   rclcpp::Node::SharedPtr node_shared_;

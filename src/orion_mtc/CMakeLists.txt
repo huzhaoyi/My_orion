@@ -29,6 +29,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 set(ORION_MTC_SOURCES
   src/main.cpp
@@ -93,6 +94,7 @@ ament_target_dependencies(mtc_node
   rclcpp_action
   trajectory_msgs
   std_msgs
+  visualization_msgs
   std_srvs
   orion_mtc_msgs
   tf2_ros

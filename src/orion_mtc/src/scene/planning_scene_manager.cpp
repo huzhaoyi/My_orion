@@ -76,6 +76,40 @@ bool PlanningSceneManager::applySceneDiff(const moveit_msgs::msg::PlanningScene&
 }
 
 /*
+ * remove_existing_first：先 REMOVE 再 ADD；仅 ADD 时适合首次加入，避免移除不存在的 id 导致整帧 diff 失败。
+ */
+bool PlanningSceneManager::syncWorldCollisionObjects(const std::vector<moveit_msgs::msg::CollisionObject>& objects,
+                                                     bool remove_existing_first)
+{
+  if (!ensureClient())
+  {
+    RCLCPP_WARN(LOGGER, "syncWorldCollisionObjects: apply_planning_scene not available");
+    return false;
+  }
+  if (objects.empty())
+  {
+    return true;
+  }
+  moveit_msgs::msg::PlanningScene scene;
+  scene.is_diff = true;
+  if (remove_existing_first)
+  {
+    for (const auto& obj : objects)
+    {
+      moveit_msgs::msg::CollisionObject remove_obj;
+      remove_obj.id = obj.id;
+      remove_obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+      scene.world.collision_objects.push_back(remove_obj);
+    }
+  }
+  for (const auto& obj : objects)
+  {
+    scene.world.collision_objects.push_back(obj);
+  }
+  return applySceneDiff(scene);
+}
+
+/*
  * 先 REMOVE 再 ADD id=object 的圆柱目标体，位姿由 px..qw 给定；用于 perception 更新 world 物体。
  */
 bool PlanningSceneManager::applyObjectPoseToPlanningScene(double px, double py, double pz,

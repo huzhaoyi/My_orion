@@ -117,6 +117,28 @@ struct TargetSensorPickConfig
 };
 
 /*
+ * 孔位附近静态面板：四角点坐标在 frame_id 下解释（HoloOcean 与 targetsensor_slot 一致时用 map/world）；
+ * unit_scale 将输入缩放到米。
+ */
+struct PanelObstacleEntry
+{
+  std::string id;
+  std::vector<double> corners_xyz;
+};
+
+struct PanelObstaclesConfig
+{
+  bool enable = false;
+  std::string frame_id = "base_link";
+  double unit_scale = 0.01;
+  double wall_thickness_m = 0.02;
+  double aabb_margin_m = 0.005;
+  /* false：不发布 /manipulator/panel_obstacles_markers（由 HoloOcean 桥与孔位同频发布）。 */
+  bool publish_markers = true;
+  std::vector<PanelObstacleEntry> panels;
+};
+
+/*
  * TargetSensor 插孔（peg-in-hole）：插入轴由 target_pose 旋转后的局部轴向定义（insert_axis_local_xyz）。
  */
 struct PegInsertConfig
@@ -190,6 +212,7 @@ struct MTCConfig
   CableGraspConfig cable_grasp;
   TargetSensorPickConfig target_sensor_pick;
   PegInsertConfig peg_insert;
+  PanelObstaclesConfig panel_obstacles;
 };
 
 void declareParameters(rclcpp::Node* node);

@@ -7,6 +7,7 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <cstdint>
+#include <vector>
 
 namespace orion_mtc
 {
@@ -33,6 +34,18 @@ moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::
 moveit_msgs::msg::CollisionObject makeSegmentCollisionObject(const CableSegment& segment,
                                                               const std::string& frame_id,
                                                               uint8_t operation);
+
+/*
+ * 孔位旁面板：四角点（frame_id 下坐标，展平 x,y,z×4）经 unit_scale 缩放到米后求 AABB，
+ * 各轴尺寸小于 wall_thickness_m 时钳到薄盒厚度；整体再扩 aabb_margin_m（各向半宽）。
+ */
+moveit_msgs::msg::CollisionObject makePanelBoxCollisionObject(const std::string& object_id,
+                                                               const std::string& frame_id,
+                                                               const std::vector<double>& corners_xyz,
+                                                               double unit_scale,
+                                                               double wall_thickness_m,
+                                                               double aabb_margin_m,
+                                                               uint8_t operation);
 
 }  // namespace orion_mtc
 

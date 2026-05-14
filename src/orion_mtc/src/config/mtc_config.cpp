@@ -592,6 +592,76 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<bool>("panel_obstacles.enable", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<bool>("panel_obstacles.publish_markers", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::string>("panel_obstacles.frame_id", "base_link");
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("panel_obstacles.unit_scale", 0.01);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("panel_obstacles.wall_thickness_m", 0.02);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("panel_obstacles.aabb_margin_m", 0.005);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::string>("panel_obstacles.panel_1_id", "hole_panel_1");
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>("panel_obstacles.panel_1_corners_xyz", std::vector<double>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::string>("panel_obstacles.panel_2_id", "hole_panel_2");
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>("panel_obstacles.panel_2_corners_xyz", std::vector<double>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 /*
@@ -887,6 +957,51 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   if (config.peg_insert.insert_axial_segments < 1)
   {
     config.peg_insert.insert_axial_segments = 1;
+  }
+  node->get_parameter("panel_obstacles.enable", config.panel_obstacles.enable);
+  node->get_parameter("panel_obstacles.publish_markers", config.panel_obstacles.publish_markers);
+  node->get_parameter("panel_obstacles.frame_id", config.panel_obstacles.frame_id);
+  if (config.panel_obstacles.frame_id.empty())
+  {
+    config.panel_obstacles.frame_id = "base_link";
+  }
+  node->get_parameter("panel_obstacles.unit_scale", config.panel_obstacles.unit_scale);
+  if (!std::isfinite(config.panel_obstacles.unit_scale) || config.panel_obstacles.unit_scale <= 0.0)
+  {
+    config.panel_obstacles.unit_scale = 1.0;
+  }
+  node->get_parameter("panel_obstacles.wall_thickness_m", config.panel_obstacles.wall_thickness_m);
+  if (!std::isfinite(config.panel_obstacles.wall_thickness_m) || config.panel_obstacles.wall_thickness_m <= 0.0)
+  {
+    config.panel_obstacles.wall_thickness_m = 0.02;
+  }
+  node->get_parameter("panel_obstacles.aabb_margin_m", config.panel_obstacles.aabb_margin_m);
+  if (!std::isfinite(config.panel_obstacles.aabb_margin_m) || config.panel_obstacles.aabb_margin_m < 0.0)
+  {
+    config.panel_obstacles.aabb_margin_m = 0.0;
+  }
+  config.panel_obstacles.panels.clear();
+  std::string panel_1_id;
+  std::vector<double> panel_1_corners;
+  std::string panel_2_id;
+  std::vector<double> panel_2_corners;
+  node->get_parameter("panel_obstacles.panel_1_id", panel_1_id);
+  node->get_parameter("panel_obstacles.panel_1_corners_xyz", panel_1_corners);
+  node->get_parameter("panel_obstacles.panel_2_id", panel_2_id);
+  node->get_parameter("panel_obstacles.panel_2_corners_xyz", panel_2_corners);
+  if (!panel_1_id.empty() && panel_1_corners.size() >= 12u)
+  {
+    PanelObstacleEntry e;
+    e.id = panel_1_id;
+    e.corners_xyz = std::move(panel_1_corners);
+    config.panel_obstacles.panels.push_back(std::move(e));
+  }
+  if (!panel_2_id.empty() && panel_2_corners.size() >= 12u)
+  {
+    PanelObstacleEntry e;
+    e.id = panel_2_id;
+    e.corners_xyz = std::move(panel_2_corners);
+    config.panel_obstacles.panels.push_back(std::move(e));
   }
 }
 

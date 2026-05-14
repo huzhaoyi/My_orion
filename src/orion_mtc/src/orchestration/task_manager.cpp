@@ -2024,7 +2024,19 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             if (extract_task.solutions().empty())
             {
               reportJobPreparationStage("TARGET_INSERT", "insert_pre_extract_plan", "");
+              if (estop_requested_.load())
+              {
+                setStateError("E_STOP");
+                estop_requested_.store(false);
+                return false;
+              }
               const moveit::core::MoveItErrorCode extract_plan_result = extract_task.plan(3);
+              if (estop_requested_.load())
+              {
+                setStateError("E_STOP");
+                estop_requested_.store(false);
+                return false;
+              }
               if (!extract_plan_result || extract_task.solutions().empty())
               {
                 std::ostringstream os;
@@ -2037,6 +2049,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
               }
               else
               {
+                if (estop_requested_.load())
+                {
+                  setStateError("E_STOP");
+                  estop_requested_.store(false);
+                  return false;
+                }
                 moveit_task_constructor_msgs::msg::Solution extract_solution_msg;
                 extract_task.solutions().front()->toMsg(extract_solution_msg, &extract_task.introspection());
                 if (!solution_executor_->executeSolution(
@@ -2105,6 +2123,15 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         return false;
       }
       moveit::core::MoveItErrorCode plan_result_local = task_local.plan(5);
+      if (estop_requested_.load())
+      {
+        setStateError("E_STOP");
+        estop_requested_.store(false);
+        RCLCPP_WARN(LOGGER,
+                    "handleTargetInsert: E_STOP after MTC plan (%s), abort further insert planning",
+                    plan_tag.c_str());
+        return false;
+      }
       if (!plan_result_local || task_local.solutions().empty())
       {
         std::ostringstream os;
@@ -2114,12 +2141,6 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                                  pose_try.pose.position.x,
                                  pose_try.pose.position.y,
                                  pose_try.pose.position.z);
-        if (estop_requested_.load())
-        {
-          setStateError("E_STOP");
-          estop_requested_.store(false);
-          return false;
-        }
         return false;
       }
       task_local.solutions().front()->toMsg(solution_msg, &task_local.introspection());
@@ -2128,6 +2149,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     };
 
     bool planned = try_plan_with_pose(pose_base, "nominal");
+    if (estop_requested_.load())
+    {
+      setStateError("E_STOP");
+      estop_requested_.store(false);
+      return false;
+    }
     if (!planned)
     {
       const Eigen::Vector3d axis_local = normalizedInsertAxisLocalFromConfig(config_.peg_insert);
@@ -2173,6 +2200,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
           pose_try.pose.orientation.z = q_try.z();
           pose_try.pose.orientation.w = q_try.w();
           planned = try_plan_with_pose(pose_try, candidate.second);
+          if (estop_requested_.load())
+          {
+            setStateError("E_STOP");
+            estop_requested_.store(false);
+            return false;
+          }
           if (planned)
           {
             RCLCPP_INFO(LOGGER, "handleTargetInsert: planned with orientation fallback %s",
@@ -2296,6 +2329,12 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       }
     } latch_monitor_guard{ &stop_latch_monitor, &latch_monitor_thread };
 
+    if (estop_requested_.load())
+    {
+      setStateError("E_STOP");
+      estop_requested_.store(false);
+      return false;
+    }
     if (!solution_executor_->executeSolution(
             solution_msg, wait_for_gripped_fn_, stage_report_fn_, current_task_id_, "TARGET_INSERT",
             insert_stage_names, makeEstopAbortFn(),
@@ -2336,9 +2375,18 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 if (!post_release_pre_replan_attempted)
                 {
                   post_release_pre_replan_attempted = true;
-                  post_release_pre_replan_ok =
-                      insert_builder_->planPostReleaseMoveToPreInsertSubTrajectory(pose_base,
-                                                                                  post_release_pre_replan_sub);
+                  if (estop_requested_.load())
+                  {
+                    post_release_pre_replan_ok = false;
+                    RCLCPP_WARN(LOGGER,
+                                "handleTargetInsert: post-release move to pre-insert replan skipped (E_STOP)");
+                  }
+                  else
+                  {
+                    post_release_pre_replan_ok =
+                        insert_builder_->planPostReleaseMoveToPreInsertSubTrajectory(pose_base,
+                                                                                    post_release_pre_replan_sub);
+                  }
                   if (!post_release_pre_replan_ok)
                   {
                     RCLCPP_WARN(LOGGER,
@@ -2383,21 +2431,31 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
               }
               if (!lift_replan_subs_cache)
               {
-                std::vector<moveit_task_constructor_msgs::msg::SubTrajectory> segs;
-                if (!insert_builder_->planArmLiftRetreatSubTrajectories(pose_base, segs)
-                    || segs.size() != 3u)
+                if (estop_requested_.load())
                 {
-                  RCLCPP_WARN(LOGGER,
-                              "handleTargetInsert: lift replan from current state failed, "
-                              "using original lift segments");
                   lift_replan_subs_cache =
                       std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>();
+                  RCLCPP_WARN(LOGGER,
+                              "handleTargetInsert: lift retreat replan skipped (E_STOP), using original lift");
                 }
                 else
                 {
-                  lift_replan_subs_cache =
-                      std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>(
-                          std::move(segs));
+                  std::vector<moveit_task_constructor_msgs::msg::SubTrajectory> segs;
+                  if (!insert_builder_->planArmLiftRetreatSubTrajectories(pose_base, segs)
+                      || segs.size() != 3u)
+                  {
+                    RCLCPP_WARN(LOGGER,
+                                "handleTargetInsert: lift replan from current state failed, "
+                                "using original lift segments");
+                    lift_replan_subs_cache =
+                        std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>();
+                  }
+                  else
+                  {
+                    lift_replan_subs_cache =
+                        std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>(
+                            std::move(segs));
+                  }
                 }
               }
               if (lift_slot >= lift_replan_subs_cache->size())
@@ -2857,6 +2915,24 @@ std::string TaskManager::submitJob(const ManipulationJob& job, std::string* out_
   const int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::system_clock::now().time_since_epoch()).count();
   j.created_at_ns = now_ns;
+
+  if (estop_requested_.load())
+  {
+    const char* reason = "E_STOP";
+    RCLCPP_WARN(LOGGER, "submitJob rejected: type=%s source=%s reason=%s",
+                jobTypeToCString(j.type),
+                j.source.empty() ? "(none)" : j.source.c_str(), reason);
+    if (out_reject_reason)
+    {
+      *out_reject_reason = reason;
+    }
+    if (job_event_fn_)
+    {
+      job_event_fn_(j.job_id, jobTypeToCString(j.type), j.source, static_cast<uint32_t>(j.priority),
+                    "REJECTED", false, reason, j.created_at_ns, 0, 0);
+    }
+    return "";
+  }
 
   if (policy_.reject_new_jobs_while_busy)
   {

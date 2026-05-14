@@ -11,6 +11,9 @@ namespace orion_mtc
 
 constexpr const char* const MANIPULATOR_NS = "/manipulator";
 
+/* 孔位旁静态面板可视化（与 TaskManager 孔位 markers 同命名空间习惯） */
+constexpr const char PANEL_OBSTACLES_MARKERS_TOPIC[] = "/manipulator/panel_obstacles_markers";
+
 /* TargetSensor 规划场景中的 peg 网格 id（与缆绳 object 区分） */
 constexpr const char TARGET_SENSOR_PEG_COLLISION_ID[] = "targetsensor_peg";
 

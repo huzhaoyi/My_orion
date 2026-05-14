@@ -206,6 +206,177 @@ function createScene(containerEl) {
   baseAxesGroup.add(labelZ);
   world.add(baseAxesGroup);
 
+  /* 孔位旁静态面板（/manipulator/panel_obstacles_markers）；可见性由「目标」或「碰撞体」图层控制 */
+  const ROS_BASE_TO_SCENE_Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+  const panelObstaclesGroup = new THREE.Group();
+  panelObstaclesGroup.name = 'panel_obstacles';
+  panelObstaclesGroup.visible = false;
+  world.add(panelObstaclesGroup);
+
+  /* 与「目标」或「碰撞体」图层联动（默认开「目标」即可见孔旁面板） */
+  let panelObstaclesOverlayOn = false;
+
+  function syncPanelObstaclesGroupVisibility() {
+    panelObstaclesGroup.visible = panelObstaclesOverlayOn && panelObstaclesGroup.children.length > 0;
+  }
+
+  function setPanelObstaclesOverlayOn(on) {
+    panelObstaclesOverlayOn = !!on;
+    syncPanelObstaclesGroupVisibility();
+  }
+
+  function rosPositionToSceneVec3(pos) {
+    const v = new THREE.Vector3(Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.z) || 0);
+    v.applyQuaternion(ROS_BASE_TO_SCENE_Q);
+    return v;
+  }
+
+  function disposePanelObstacleMeshes() {
+    while (panelObstaclesGroup.children.length > 0) {
+      const ch = panelObstaclesGroup.children[0];
+      panelObstaclesGroup.remove(ch);
+      ch.traverse((obj) => {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+      });
+    }
+  }
+
+  const MARKER_ACTION_ADD = 0;
+  const MARKER_ACTION_DELETEALL = 3;
+  const MARKER_TYPE_CUBE = 1;
+
+  function normalizeMarkersList(rawMarkers) {
+    if (rawMarkers == null) {
+      return null;
+    }
+    if (Array.isArray(rawMarkers)) {
+      return rawMarkers;
+    }
+    if (typeof rawMarkers === 'object') {
+      const keys = Object.keys(rawMarkers);
+      const numericKeys = keys.filter((k) => /^\d+$/.test(k)).sort((a, b) => Number(a) - Number(b));
+      if (numericKeys.length > 0) {
+        return numericKeys.map((k) => rawMarkers[k]);
+      }
+      return Object.values(rawMarkers);
+    }
+    return null;
+  }
+
+  function markerActionToInt(action) {
+    if (action === undefined || action === null) {
+      return NaN;
+    }
+    if (typeof action === 'number' && Number.isFinite(action)) {
+      return action;
+    }
+    const s = String(action).toUpperCase();
+    if (s === 'ADD' || s === 'MODIFY') {
+      return 0;
+    }
+    if (s === 'DELETE') {
+      return 2;
+    }
+    if (s === 'DELETEALL') {
+      return 3;
+    }
+    const n = Number(action);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function markerTypeToInt(typ) {
+    if (typ === undefined || typ === null) {
+      return NaN;
+    }
+    if (typeof typ === 'number' && Number.isFinite(typ)) {
+      return typ;
+    }
+    const s = String(typ).toUpperCase();
+    const byName = {
+      ARROW: 0,
+      CUBE: 1,
+      SPHERE: 2,
+      CYLINDER: 3,
+      LINE_STRIP: 4,
+      LINE_LIST: 5,
+    };
+    if (byName[s] !== undefined) {
+      return byName[s];
+    }
+    const n = Number(typ);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function numOr(v, fallback) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function updatePanelObstaclesFromMarkerArray(msg) {
+    disposePanelObstacleMeshes();
+    if (!msg || typeof msg !== 'object') {
+      syncPanelObstaclesGroupVisibility();
+      return;
+    }
+    const markersList = normalizeMarkersList(msg.markers);
+    if (!Array.isArray(markersList)) {
+      syncPanelObstaclesGroupVisibility();
+      return;
+    }
+    const panelMat = new THREE.MeshStandardMaterial({
+      color: 0xd97706,
+      metalness: 0.15,
+      roughness: 0.55,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    });
+    for (let i = 0; i < markersList.length; i += 1) {
+      const m = markersList[i];
+      if (!m || typeof m !== 'object') {
+        continue;
+      }
+      const action = markerActionToInt(m.action);
+      const typ = markerTypeToInt(m.type);
+      if (action === MARKER_ACTION_DELETEALL) {
+        continue;
+      }
+      if (action !== MARKER_ACTION_ADD || typ !== MARKER_TYPE_CUBE) {
+        continue;
+      }
+      const sc = m.scale || {};
+      const sx = numOr(sc.x, NaN);
+      const sy = numOr(sc.y, NaN);
+      const sz = numOr(sc.z, NaN);
+      if (!Number.isFinite(sx) || !Number.isFinite(sy) || !Number.isFinite(sz) || sx <= 0 || sy <= 0 || sz <= 0) {
+        continue;
+      }
+      const geom = new THREE.BoxGeometry(sx, sy, sz);
+      const mesh = new THREE.Mesh(geom, panelMat);
+      mesh.name = 'panel_obstacle_box';
+      const p = m.pose && m.pose.position ? m.pose.position : null;
+      if (p) {
+        mesh.position.copy(rosPositionToSceneVec3(p));
+      }
+      const qros = m.pose && m.pose.orientation ? m.pose.orientation : null;
+      if (qros && qros.x !== undefined) {
+        const tq = new THREE.Quaternion(
+          Number(qros.x) || 0,
+          Number(qros.y) || 0,
+          Number(qros.z) || 0,
+          Number(qros.w) !== undefined ? Number(qros.w) : 1
+        );
+        mesh.quaternion.copy(new THREE.Quaternion().copy(ROS_BASE_TO_SCENE_Q).multiply(tq));
+      } else {
+        mesh.quaternion.copy(ROS_BASE_TO_SCENE_Q);
+      }
+      panelObstaclesGroup.add(mesh);
+    }
+    syncPanelObstaclesGroupVisibility();
+  }
+
   /* 机械臂 STL 模型（异步加载）+ 轮廓线；碰撞体显示状态在模型加载后补刷 */
   let robotModel = null;
   /** 加载完成前收到的 joint_states，避免「表格已更新、模型仍零位」 */
@@ -583,9 +754,12 @@ function createScene(containerEl) {
     targetObjectComposed,
     rovAxesGroup,
     trajectoryLine,
+    panelObstaclesGroup,
     setRobotJointValues,
     setFollowTcp,
     setCollisionDebugVisible,
+    setPanelObstaclesOverlayOn,
+    updatePanelObstaclesFromMarkerArray,
     resize,
     dispose,
     LAYER_NAMES,

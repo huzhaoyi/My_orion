@@ -144,6 +144,11 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (tInfo.key === 'showCoordFrames') {
           if (sceneApiRef.rovAxesGroup) sceneApiRef.rovAxesGroup.visible = cb.checked;
         }
+        if (sceneApiRef.setPanelObstaclesOverlayOn) {
+          sceneApiRef.setPanelObstaclesOverlayOn(
+            !!(layerToggles.showTargets || layerToggles.showCollision)
+          );
+        }
       }
     });
     div.appendChild(label);
@@ -498,6 +503,14 @@ function mount(containerId) {
       sceneApi.trajectoryLine.visible = layerToggles.showTrajectory;
     } else {
       sceneApi.trajectoryLine.visible = false;
+    }
+    if (sceneApi.updatePanelObstaclesFromMarkerArray) {
+      sceneApi.updatePanelObstaclesFromMarkerArray(s.panelObstaclesMarkers);
+    }
+    if (sceneApi.setPanelObstaclesOverlayOn) {
+      sceneApi.setPanelObstaclesOverlayOn(
+        !!(layerToggles.showTargets || layerToggles.showCollision)
+      );
     }
   }
 

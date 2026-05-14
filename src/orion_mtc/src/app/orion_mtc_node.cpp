@@ -10,14 +10,19 @@
 #include "orion_mtc/perception/pose_cache.hpp"
 #include "orion_mtc/perception/target_cache.hpp"
 #include "orion_mtc/perception/vector3_cache.hpp"
+#include "orion_mtc/planning/collision_object_utils.hpp"
 #include "orion_mtc/scene/planning_scene_manager.hpp"
 #include "orion_mtc/execution/trajectory_executor.hpp"
 #include "orion_mtc/execution/solution_executor.hpp"
 #include "orion_mtc/orchestration/task_manager.hpp"
+#include "orion_mtc/core/constants.hpp"
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
+#include <shape_msgs/msg/solid_primitive.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/buffer.h>
+#include <tf2/time.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <algorithm>
@@ -28,6 +33,63 @@ static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc");
 
 namespace orion_mtc
 {
+
+namespace
+{
+
+visualization_msgs::msg::MarkerArray buildPanelObstacleMarkers(
+    const rclcpp::Time& stamp,
+    const std::vector<moveit_msgs::msg::CollisionObject>& collision_objects)
+{
+  visualization_msgs::msg::MarkerArray out;
+  if (collision_objects.empty())
+  {
+    return out;
+  }
+  const std::string frame_id = collision_objects.front().header.frame_id.empty()
+                                   ? "base_link"
+                                   : collision_objects.front().header.frame_id;
+  visualization_msgs::msg::Marker delete_all;
+  delete_all.header.frame_id = frame_id;
+  delete_all.header.stamp = stamp;
+  delete_all.ns = "panel_obstacles";
+  delete_all.id = 0;
+  delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
+  out.markers.push_back(delete_all);
+
+  int32_t marker_id = 1;
+  for (const auto& co : collision_objects)
+  {
+    if (co.primitives.empty() || co.primitive_poses.empty())
+    {
+      continue;
+    }
+    const shape_msgs::msg::SolidPrimitive& prim = co.primitives.front();
+    if (prim.type != shape_msgs::msg::SolidPrimitive::BOX || prim.dimensions.size() < 3u)
+    {
+      continue;
+    }
+    visualization_msgs::msg::Marker m;
+    m.header.frame_id = co.header.frame_id.empty() ? frame_id : co.header.frame_id;
+    m.header.stamp = stamp;
+    m.ns = "panel_obstacles";
+    m.id = marker_id++;
+    m.type = visualization_msgs::msg::Marker::CUBE;
+    m.action = visualization_msgs::msg::Marker::ADD;
+    m.pose = co.primitive_poses.front();
+    m.scale.x = prim.dimensions[0];
+    m.scale.y = prim.dimensions[1];
+    m.scale.z = prim.dimensions[2];
+    m.color.r = 0.85f;
+    m.color.g = 0.45f;
+    m.color.b = 0.12f;
+    m.color.a = 0.42f;
+    out.markers.push_back(m);
+  }
+  return out;
+}
+
+}  // namespace
 
 /*
  * 双节点构造：orion_mtc_node 承载参数与 FeasibilityChecker；action_client 承载订阅/服务/TF。
@@ -267,12 +329,96 @@ rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getPlanningN
 }
 
 /*
- * main 线程在 spin 前调用：当前不在此加载 world 碰撞体（物体在 MTC 任务内添加）；
- * 若策略 auto_start_worker 为真则启动后台 Worker。
+ * 启动后调用：可选将 panel_obstacles 写入 PlanningScene 并发布 MarkerArray；若策略 auto_start_worker 为真则起 Worker。
  */
 void OrionMTCNode::setupPlanningScene()
 {
-    RCLCPP_INFO(LOGGER, "setupPlanningScene: object added in-task (add object stage), no /collision_object publish");
+    const PanelObstaclesConfig& poc = config_.panel_obstacles;
+    if (poc.enable && !poc.panels.empty() && scene_manager_)
+    {
+        if (tf_buffer_ && (poc.frame_id == "map" || poc.frame_id == "odom"))
+        {
+            std::string tf_err;
+            const bool have_tf = tf_buffer_->canTransform("base_link",
+                                                          poc.frame_id,
+                                                          tf2::TimePointZero,
+                                                          tf2::durationFromSec(8.0),
+                                                          &tf_err);
+            if (!have_tf)
+            {
+                RCLCPP_WARN(LOGGER,
+                            "panel_obstacles: TF base_link<-%s not ready within 8s: %s (HoloOcean PoseSensor / "
+                            "target_sensor_to_object_pose 需先发布 map→rov0)",
+                            poc.frame_id.c_str(),
+                            tf_err.c_str());
+            }
+            else
+            {
+                RCLCPP_INFO(LOGGER,
+                            "panel_obstacles: TF base_link<-%s ready, applying world collision boxes",
+                            poc.frame_id.c_str());
+            }
+        }
+        std::vector<moveit_msgs::msg::CollisionObject> objs;
+        objs.reserve(poc.panels.size());
+        for (const auto& panel : poc.panels)
+        {
+            if (panel.id.empty() || panel.corners_xyz.size() < 12u)
+            {
+                RCLCPP_WARN(LOGGER,
+                            "panel_obstacles: skip panel id='%s' corners size=%zu (need 12 floats)",
+                            panel.id.c_str(),
+                            panel.corners_xyz.size());
+                continue;
+            }
+            moveit_msgs::msg::CollisionObject co = makePanelBoxCollisionObject(panel.id,
+                                                                               poc.frame_id,
+                                                                               panel.corners_xyz,
+                                                                               poc.unit_scale,
+                                                                               poc.wall_thickness_m,
+                                                                               poc.aabb_margin_m,
+                                                                               moveit_msgs::msg::CollisionObject::ADD);
+            co.header.stamp = action_client_node_->now();
+            objs.push_back(std::move(co));
+        }
+        if (!objs.empty())
+        {
+            /* 首次启动 scene 中尚无 hole_panel_*，先 REMOVE 会令 apply_planning_scene 失败；仅 ADD 即可写入/覆盖 */
+            const bool sync_ok = scene_manager_->syncWorldCollisionObjects(objs, false);
+            if (!sync_ok)
+            {
+                RCLCPP_WARN(LOGGER,
+                            "panel_obstacles: syncWorldCollisionObjects failed; planning scene unchanged, "
+                            "markers not published");
+            }
+            else
+            {
+                if (poc.publish_markers)
+                {
+                    if (!panel_obstacles_markers_pub_)
+                    {
+                        auto qos = rclcpp::QoS(1).reliable().transient_local();
+                        panel_obstacles_markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
+                            PANEL_OBSTACLES_MARKERS_TOPIC, qos);
+                    }
+                    const visualization_msgs::msg::MarkerArray markers =
+                        buildPanelObstacleMarkers(node_->now(), objs);
+                    panel_obstacles_markers_pub_->publish(markers);
+                }
+                RCLCPP_INFO(LOGGER,
+                            "panel_obstacles: applied %zu world box(es) frame=%s unit_scale=%.4f publish_markers=%s",
+                            objs.size(),
+                            poc.frame_id.c_str(),
+                            poc.unit_scale,
+                            poc.publish_markers ? "true" : "false");
+            }
+        }
+    }
+    else
+    {
+        RCLCPP_INFO(LOGGER,
+                    "setupPlanningScene: panel_obstacles disabled or empty (object still added in-task)");
+    }
     if (task_manager_->getPolicy().auto_start_worker)
     {
         task_manager_->startWorker();

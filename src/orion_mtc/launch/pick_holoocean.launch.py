@@ -10,8 +10,12 @@ FollowJointTrajectory action，由 trajectory_to_agent_bridge 接收并转为 Ag
 需能导入 holoocean_interfaces：通过环境变量 HOLOOCEAN_ROS_INSTALL 指定 holoocean-ros 的 install 目录，
 或先 source 该工作区的 setup.bash，本 launch 会为桥接节点注入其 Python 路径。
 是否默认启动手柄桥接 / RViz：见 orion_mtc/config/orion_mtc_params.yaml 中 use_joy_manipulator、start_rviz（launch 参数仍可覆盖）。
+孔位旁面板 panel_obstacles：见 orion_holoocean_bridge/config/panel_obstacles_mtc_fragment.yaml；
+pick_holoocean 合并进 orion_mtc_node，并写入 target_sensor_to_object_pose 参数，使面板 Marker 与 /manipulator/target_insert_holes 同 stamp 发布。
 """
+import copy
 import os
+import tempfile
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -157,13 +161,37 @@ def generate_launch_description():
     demo_launch = os.path.join(orion_moveit_share, "launch", "demo.launch.py")
     bridge_params = os.path.join(orion_holoocean_share, "config", "holoocean_bridge_params.yaml")
 
+    bridge_cfg = {}
     traj_bridge_params = {}
+    target_sensor_params_file = bridge_params
     if os.path.isfile(bridge_params):
         with open(bridge_params, "r") as f:
-            bridge_cfg = yaml.safe_load(f)
+            bridge_cfg = yaml.safe_load(f) or {}
         traj_section = (bridge_cfg or {}).get("trajectory_to_agent_bridge", {})
         if isinstance(traj_section, dict):
             traj_bridge_params = traj_section.get("ros__parameters", traj_section) or {}
+
+    panel_fragment_path = os.path.join(orion_holoocean_share, "config", "panel_obstacles_mtc_fragment.yaml")
+    panel_block = None
+    if os.path.isfile(panel_fragment_path):
+        with open(panel_fragment_path, "r") as f:
+            panel_frag = yaml.safe_load(f) or {}
+        if isinstance(panel_frag, dict):
+            panel_block = panel_frag.get("panel_obstacles")
+    if isinstance(panel_block, dict) and panel_block:
+        pcm = copy.deepcopy(panel_block)
+        pcm["publish_markers"] = False
+        move_group_params["panel_obstacles"] = pcm
+        if os.path.isfile(bridge_params):
+            merged_bridge = copy.deepcopy(bridge_cfg)
+            tsp = merged_bridge.setdefault("target_sensor_to_object_pose", {})
+            tsp_r = tsp.setdefault("ros__parameters", {})
+            tsp_r["panel_obstacles"] = copy.deepcopy(panel_block)
+            fd, merged_path = tempfile.mkstemp(prefix="orion_tso_", suffix=".yaml")
+            os.close(fd)
+            with open(merged_path, "w") as f:
+                yaml.safe_dump(merged_bridge, f, default_flow_style=False, allow_unicode=True)
+            target_sensor_params_file = merged_path
 
     # 安全干净退出：延长 SIGINT 后等待时间再升级 SIGTERM/SIGKILL（launch 要求为可迭代/字符串）
     shutdown_timeouts = {"sigterm_timeout": "15", "sigkill_timeout": "5"}
@@ -209,7 +237,7 @@ def generate_launch_description():
         executable="target_sensor_to_object_pose",
         name="target_sensor_to_object_pose",
         output="screen",
-        parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
+        parameters=[target_sensor_params_file] if os.path.isfile(bridge_params) else [],
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
         **shutdown_timeouts,
     )

@@ -180,8 +180,6 @@ peg_insert:
   chamfer_plane_delta_m: 0.002
   # 插入轴向分段数（>1 可降低“单段硬推进”导致的穿入风险）。
   insert_axial_segments: 5
-# 物体/缆绳位姿来源为 ROS 话题（如 /manipulator/object_pose），不在此文件配置。
-# 动态抓取：夹爪段不强制全程闭合；闭合后由 /manipulator/left_arm_gripped 等判定抓稳。
 
 # ---------- 夹爪反馈判定（waitForGripped）----------
 gripper_feedback:

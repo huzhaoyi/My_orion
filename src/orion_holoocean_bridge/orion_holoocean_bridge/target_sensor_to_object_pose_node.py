@@ -15,6 +15,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovarianceStamped, TransformStamped, Vector3Stamped
 from std_msgs.msg import Header
+from visualization_msgs.msg import Marker, MarkerArray
 from holoocean_interfaces.msg import TargetSensor
 from orion_mtc_msgs.msg import PerceptionState, TargetSet
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
@@ -33,6 +34,103 @@ DEFAULT_INSERT_SLOT_WORLD_POSITIONS = (
     (-113.98, 127.798, -131.117),
 )
 DEFAULT_INSERT_SLOT_WORLD_ORIENTATION = (0.0, 0.0, -0.70710678, 0.70710678)
+
+
+def _panel_world_corners_to_base_link_points(
+    corners_xyz,
+    unit_scale,
+    R_rov,
+    t_rov,
+    t_arm_in_rov,
+    offset_xyz,
+):
+    """
+    四角 world/map 坐标（与 targetsensor_slot_*_position_world 同单位）经 ROV 链路到 base_link [m]。
+    corners_xyz: 展平 x,y,z×4；unit_scale 与 MTC makePanelBoxCollisionObject 一致。
+    """
+    us = float(unit_scale)
+    if not math.isfinite(us) or us <= 1.0e-12:
+        us = 1.0
+    out = []
+    n_corner = min(4, len(corners_xyz) // 3)
+    for i in range(n_corner):
+        raw = np.array(
+            [
+                float(corners_xyz[i * 3 + 0]) * us,
+                float(corners_xyz[i * 3 + 1]) * us,
+                float(corners_xyz[i * 3 + 2]) * us,
+            ],
+            dtype=float,
+        )
+        if not np.all(np.isfinite(raw)):
+            continue
+        p_rov = R_rov.T @ (raw - t_rov)
+        p_base = p_rov - t_arm_in_rov + offset_xyz
+        out.append(p_base)
+    return out
+
+
+def _panel_aabb_box_marker(
+    stamp_msg,
+    frame_id,
+    marker_id,
+    base_points,
+    wall_thickness_m,
+    aabb_margin_m,
+):
+    """
+    与 orion_mtc makePanelBoxCollisionObject 一致：AABB + 退化维钳到 wall_thickness + margin。
+    base_points: 长度 4 的 base_link 下三维点列表。
+    """
+    if len(base_points) < 4:
+        return None
+    wall_t = float(wall_thickness_m)
+    if not math.isfinite(wall_t) or wall_t <= 1.0e-6:
+        wall_t = 0.02
+    margin = float(aabb_margin_m)
+    if not math.isfinite(margin) or margin < 0.0:
+        margin = 0.0
+    xs = [float(p[0]) for p in base_points]
+    ys = [float(p[1]) for p in base_points]
+    zs = [float(p[2]) for p in base_points]
+    min_x = min(xs)
+    max_x = max(xs)
+    min_y = min(ys)
+    max_y = max(ys)
+    min_z = min(zs)
+    max_z = max(zs)
+    sx = max_x - min_x + 2.0 * margin
+    sy = max_y - min_y + 2.0 * margin
+    sz = max_z - min_z + 2.0 * margin
+    thin_eps = 1.0e-6
+    if sx < thin_eps:
+        sx = wall_t
+    if sy < thin_eps:
+        sy = wall_t
+    if sz < thin_eps:
+        sz = wall_t
+    m = Marker()
+    m.header.stamp = stamp_msg
+    m.header.frame_id = frame_id
+    m.ns = "panel_obstacles"
+    m.id = int(marker_id)
+    m.type = Marker.CUBE
+    m.action = Marker.ADD
+    m.pose.position.x = float(0.5 * (min_x + max_x))
+    m.pose.position.y = float(0.5 * (min_y + max_y))
+    m.pose.position.z = float(0.5 * (min_z + max_z))
+    m.pose.orientation.w = 1.0
+    m.pose.orientation.x = 0.0
+    m.pose.orientation.y = 0.0
+    m.pose.orientation.z = 0.0
+    m.scale.x = float(sx)
+    m.scale.y = float(sy)
+    m.scale.z = float(sz)
+    m.color.r = 0.85
+    m.color.g = 0.45
+    m.color.b = 0.12
+    m.color.a = 0.42
+    return m
 
 
 def _quat_from_rotation_matrix(R: np.ndarray) -> Tuple[float, float, float, float]:
@@ -220,6 +318,16 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("grasp_offset_along_direction_m", 0.0)
         self.declare_parameter("use_pose_sensor_stamp_for_rov_tf", False)
         self.declare_parameter("target_insert_holes_topic", "/manipulator/target_insert_holes")
+        self.declare_parameter("panel_obstacles_markers_topic", "/manipulator/panel_obstacles_markers")
+        self.declare_parameter("panel_obstacles.enable", False)
+        self.declare_parameter("panel_obstacles.unit_scale", 1.0)
+        self.declare_parameter("panel_obstacles.wall_thickness_m", 0.02)
+        self.declare_parameter("panel_obstacles.aabb_margin_m", 0.0)
+        self.declare_parameter("panel_obstacles.panel_1_id", "")
+        self.declare_parameter("panel_obstacles.panel_2_id", "")
+        _panel_corners_default = [0.0] * 12
+        self.declare_parameter("panel_obstacles.panel_1_corners_xyz", _panel_corners_default)
+        self.declare_parameter("panel_obstacles.panel_2_corners_xyz", _panel_corners_default)
         for slot_index in range(1, 8):
             position_default = list(DEFAULT_INSERT_SLOT_WORLD_POSITIONS[slot_index - 1])
             orientation_default = list(DEFAULT_INSERT_SLOT_WORLD_ORIENTATION)
@@ -313,6 +421,8 @@ class TargetSensorToObjectPoseNode(Node):
         self._last_object_pose: Optional[PoseStamped] = None
         self._last_target_sensor_index: int = -1
         self._last_side_grasp_y_by_index: dict[int, np.ndarray] = {}
+        self._panel_markers_pub = None
+        self._panel_obstacle_runtime_entries = self._make_panel_obstacle_runtime_entries()
 
         self._sub_target = self.create_subscription(
             TargetSensor,
@@ -344,6 +454,84 @@ class TargetSensorToObjectPoseNode(Node):
             self._tf_broadcaster = None
             self._tf_static_broadcaster = None
 
+    def _make_panel_obstacle_runtime_entries(self):
+        """从参数组装面板列表（world 四角）；未启用或无效时返回空列表。"""
+        entries = []
+        if not self.get_parameter("panel_obstacles.enable").get_parameter_value().bool_value:
+            return entries
+        us = self.get_parameter("panel_obstacles.unit_scale").get_parameter_value().double_value
+        wall_m = self.get_parameter("panel_obstacles.wall_thickness_m").get_parameter_value().double_value
+        margin_m = self.get_parameter("panel_obstacles.aabb_margin_m").get_parameter_value().double_value
+        for idx in (1, 2):
+            pid = self.get_parameter("panel_obstacles.panel_{}_id".format(idx)).get_parameter_value().string_value
+            arr = list(
+                self.get_parameter("panel_obstacles.panel_{}_corners_xyz".format(idx)).get_parameter_value().double_array_value
+            )
+            if not pid or len(arr) < 12:
+                continue
+            if all(abs(float(v)) < 1.0e-9 for v in arr):
+                continue
+            entries.append(
+                {
+                    "id": pid,
+                    "corners_xyz": arr,
+                    "unit_scale": us,
+                    "wall_thickness_m": wall_m,
+                    "aabb_margin_m": margin_m,
+                }
+            )
+        if entries:
+            self.get_logger().info(
+                "target_sensor_to_object_pose: panel_obstacles 已加载 {} 块面板，将与 {} 同 stamp 发布 Marker".format(
+                    len(entries),
+                    self.get_parameter("target_insert_holes_topic").get_parameter_value().string_value,
+                )
+            )
+        return entries
+
+    def _publish_panel_obstacle_markers_if_configured(self, stamp, R_rov, t_rov, offset) -> None:
+        """与固定孔位同一 world→base_link 链路发布 /manipulator/panel_obstacles_markers。"""
+        if not self._panel_obstacle_runtime_entries:
+            return
+        arr = MarkerArray()
+        da = Marker()
+        da.header.stamp = stamp
+        da.header.frame_id = self._output_frame_id
+        da.ns = "panel_obstacles"
+        da.id = 0
+        da.action = Marker.DELETEALL
+        arr.markers.append(da)
+        mid = 1
+        for ent in self._panel_obstacle_runtime_entries:
+            pts = _panel_world_corners_to_base_link_points(
+                ent["corners_xyz"],
+                ent["unit_scale"],
+                R_rov,
+                t_rov,
+                self._t_arm_in_rov,
+                offset,
+            )
+            if len(pts) < 4:
+                continue
+            mk = _panel_aabb_box_marker(
+                stamp,
+                self._output_frame_id,
+                mid,
+                pts,
+                ent["wall_thickness_m"],
+                ent["aabb_margin_m"],
+            )
+            if mk is None:
+                continue
+            arr.markers.append(mk)
+            mid += 1
+        if self._panel_markers_pub is None:
+            topic = self.get_parameter("panel_obstacles_markers_topic").get_parameter_value().string_value
+            if not topic:
+                topic = "/manipulator/panel_obstacles_markers"
+            self._panel_markers_pub = self.create_publisher(MarkerArray, topic, 10)
+        self._panel_markers_pub.publish(arr)
+
     def _publish_static_rov_to_base_link(self) -> None:
         """发布一次性 static：rov0 → output_frame（臂基相对 ROV 的平移，无旋转）。"""
         t = TransformStamped()
@@ -363,34 +551,35 @@ class TargetSensorToObjectPoseNode(Node):
         """
         固定 7 孔位 world/map 坐标按 cable 一致链路转换到 base_link：
         p_base = R_rov^T * (p_world - t_rov) - t_arm_in_rov + offset。
+        若配置了 panel_obstacles，同一 stamp 发布面板 Marker（四角与孔位同源 world 坐标）。
         """
         if self._rov_position is None or self._rov_orientation_xyzw is None:
-            return
-        if len(self._fixed_insert_hole_positions_world) == 0:
             return
         R_rov = _quat_to_rotation_matrix(*self._rov_orientation_xyzw)
         t_rov = self._rov_position
         offset = np.array([self._offset_x, self._offset_y, self._offset_z], dtype=float)
-        msg = PoseArray()
-        msg.header.stamp = stamp
-        msg.header.frame_id = self._output_frame_id
-        for slot_index in range(len(self._fixed_insert_hole_positions_world)):
-            p_world = self._fixed_insert_hole_positions_world[slot_index]
-            R_slot_world = self._fixed_insert_hole_rotations_world[slot_index]
-            p_rov = R_rov.T @ (p_world - t_rov)
-            p_base = p_rov - self._t_arm_in_rov + offset
-            R_slot_base = R_rov.T @ R_slot_world
-            q_slot_base = _quat_from_rotation_matrix(R_slot_base)
-            pose = Pose()
-            pose.position.x = float(p_base[0])
-            pose.position.y = float(p_base[1])
-            pose.position.z = float(p_base[2])
-            pose.orientation.x = q_slot_base[0]
-            pose.orientation.y = q_slot_base[1]
-            pose.orientation.z = q_slot_base[2]
-            pose.orientation.w = q_slot_base[3]
-            msg.poses.append(pose)
-        self._pub_target_insert_holes.publish(msg)
+        if len(self._fixed_insert_hole_positions_world) > 0:
+            msg = PoseArray()
+            msg.header.stamp = stamp
+            msg.header.frame_id = self._output_frame_id
+            for slot_index in range(len(self._fixed_insert_hole_positions_world)):
+                p_world = self._fixed_insert_hole_positions_world[slot_index]
+                R_slot_world = self._fixed_insert_hole_rotations_world[slot_index]
+                p_rov = R_rov.T @ (p_world - t_rov)
+                p_base = p_rov - self._t_arm_in_rov + offset
+                R_slot_base = R_rov.T @ R_slot_world
+                q_slot_base = _quat_from_rotation_matrix(R_slot_base)
+                pose = Pose()
+                pose.position.x = float(p_base[0])
+                pose.position.y = float(p_base[1])
+                pose.position.z = float(p_base[2])
+                pose.orientation.x = q_slot_base[0]
+                pose.orientation.y = q_slot_base[1]
+                pose.orientation.z = q_slot_base[2]
+                pose.orientation.w = q_slot_base[3]
+                msg.poses.append(pose)
+            self._pub_target_insert_holes.publish(msg)
+        self._publish_panel_obstacle_markers_if_configured(stamp, R_rov, t_rov, offset)
 
     def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
         """

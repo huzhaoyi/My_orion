@@ -342,4 +342,103 @@ moveit_msgs::msg::CollisionObject makeSegmentCollisionObject(const CableSegment&
   return obj;
 }
 
+/*
+ * 四角点 AABB → BOX 原语；退化维用 wall_thickness_m 保证薄板有法向厚度。
+ */
+moveit_msgs::msg::CollisionObject makePanelBoxCollisionObject(const std::string& object_id,
+                                                               const std::string& frame_id,
+                                                               const std::vector<double>& corners_xyz,
+                                                               double unit_scale,
+                                                               double wall_thickness_m,
+                                                               double aabb_margin_m,
+                                                               uint8_t operation)
+{
+  moveit_msgs::msg::CollisionObject object;
+  object.id = object_id;
+  object.header.frame_id = frame_id;
+  object.operation = operation;
+  object.pose.position.x = 0.0;
+  object.pose.position.y = 0.0;
+  object.pose.position.z = 0.0;
+  object.pose.orientation.w = 1.0;
+  object.pose.orientation.x = 0.0;
+  object.pose.orientation.y = 0.0;
+  object.pose.orientation.z = 0.0;
+
+  const double us = (std::isfinite(unit_scale) && unit_scale > 1.0e-12) ? unit_scale : 1.0;
+  const double margin = (std::isfinite(aabb_margin_m) && aabb_margin_m > 0.0) ? aabb_margin_m : 0.0;
+  const double wall_t = (std::isfinite(wall_thickness_m) && wall_thickness_m > 1.0e-6) ? wall_thickness_m : 0.02;
+
+  double min_x = std::numeric_limits<double>::infinity();
+  double min_y = std::numeric_limits<double>::infinity();
+  double min_z = std::numeric_limits<double>::infinity();
+  double max_x = -std::numeric_limits<double>::infinity();
+  double max_y = -std::numeric_limits<double>::infinity();
+  double max_z = -std::numeric_limits<double>::infinity();
+
+  const std::size_t n_corner = std::min<std::size_t>(4u, corners_xyz.size() / 3u);
+  for (std::size_t i = 0; i < n_corner; ++i)
+  {
+    const double x = corners_xyz[i * 3u + 0u] * us;
+    const double y = corners_xyz[i * 3u + 1u] * us;
+    const double z = corners_xyz[i * 3u + 2u] * us;
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+    {
+      continue;
+    }
+    min_x = std::min(min_x, x);
+    min_y = std::min(min_y, y);
+    min_z = std::min(min_z, z);
+    max_x = std::max(max_x, x);
+    max_y = std::max(max_y, y);
+    max_z = std::max(max_z, z);
+  }
+
+  if (!std::isfinite(min_x) || !std::isfinite(max_x))
+  {
+    shape_msgs::msg::SolidPrimitive box;
+    box.type = shape_msgs::msg::SolidPrimitive::BOX;
+    box.dimensions = { wall_t, wall_t, wall_t };
+    object.primitives.push_back(box);
+    geometry_msgs::msg::Pose pose;
+    pose.orientation.w = 1.0;
+    object.primitive_poses.push_back(pose);
+    return object;
+  }
+
+  double sx = max_x - min_x + 2.0 * margin;
+  double sy = max_y - min_y + 2.0 * margin;
+  double sz = max_z - min_z + 2.0 * margin;
+  const double thin_eps = 1.0e-6;
+  if (sx < thin_eps)
+  {
+    sx = wall_t;
+  }
+  if (sy < thin_eps)
+  {
+    sy = wall_t;
+  }
+  if (sz < thin_eps)
+  {
+    sz = wall_t;
+  }
+
+  shape_msgs::msg::SolidPrimitive box;
+  box.type = shape_msgs::msg::SolidPrimitive::BOX;
+  box.dimensions = { sx, sy, sz };
+
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 0.5 * (min_x + max_x);
+  pose.position.y = 0.5 * (min_y + max_y);
+  pose.position.z = 0.5 * (min_z + max_z);
+  pose.orientation.w = 1.0;
+  pose.orientation.x = 0.0;
+  pose.orientation.y = 0.0;
+  pose.orientation.z = 0.0;
+
+  object.primitives.push_back(box);
+  object.primitive_poses.push_back(pose);
+  return object;
+}
+
 }  // namespace orion_mtc

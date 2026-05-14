@@ -8,6 +8,7 @@
 #include "orion_mtc/core/constants.hpp"
 #include <rclcpp/callback_group.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <atomic>
@@ -68,6 +69,8 @@ private:
     std::atomic<double> left_arm_gripped_{ 0.0 };
 
     std::unique_ptr<ManipulatorRosInterface> manipulator_iface_;
+
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr panel_obstacles_markers_pub_;
 };
 
 }  // namespace orion_mtc

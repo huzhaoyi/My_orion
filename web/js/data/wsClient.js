@@ -283,6 +283,7 @@ function getSubscribedTopicsFlat() {
     prefix + '/job_event',
     prefix + '/task_stage',
     prefix + '/held_object_state',
+    prefix + '/panel_obstacles_markers',
     prefix + '/object_pose_fused',
     kp,
     prefix + '/object_pose',
@@ -342,6 +343,7 @@ function inferType(topic) {
   if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
   if (topic.endsWith('/target_set')) return 'orion_mtc_msgs/msg/TargetSet';
   if (topic.endsWith('/target_insert_holes')) return 'geometry_msgs/msg/PoseArray';
+  if (topic.endsWith('/panel_obstacles_markers')) return 'visualization_msgs/msg/MarkerArray';
   if (topic.endsWith('/object_pose_fused')) return 'geometry_msgs/msg/PoseStamped';
   if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
     return 'geometry_msgs/msg/PoseArray';
@@ -450,6 +452,10 @@ function handleMessage(data) {
   }
   if (data.topic && data.topic.endsWith('/target_insert_holes') && data.msg) {
     stateStore.setTargetInsertHoles(data.msg);
+    return;
+  }
+  if (data.topic && data.topic.endsWith('/panel_obstacles_markers') && data.msg) {
+    stateStore.setPanelObstaclesMarkers(data.msg);
     return;
   }
 }
