@@ -1983,7 +1983,9 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         else
         {
           axis_world /= axis_norm;
-          const double extract_distance = std::max(0.0, pi.insert_depth_m);
+          const double latch_cfg = pi.latch_pre_extract_m;
+          const double extract_distance =
+              (std::isfinite(latch_cfg) && latch_cfg > 1e-6) ? latch_cfg : std::max(0.0, pi.insert_depth_m);
           if (extract_distance > 1e-6)
           {
             reportJobPreparationStage("TARGET_INSERT", "insert_pre_extract_prepare", "");

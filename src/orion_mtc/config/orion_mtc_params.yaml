@@ -138,7 +138,7 @@ peg_insert:
   # true：前置点按 base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
   front_waypoint_use_base_x: true
   # base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
-  front_waypoint_base_x_offset_m: 0.35
+  front_waypoint_base_x_offset_m: 0.55
   # true：pre-insert 先保持 base_link X 安全距离，避免对准阶段直接贴孔。
   pre_insert_use_base_x: true
   # pre-insert 的 base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
@@ -147,6 +147,8 @@ peg_insert:
   front_waypoint_offset_m: 0.10
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
   insert_depth_m: 0.18
+  # 锁存仍占用时新一轮插孔前轴向拔出 [m]：填正数即撤回该米数；0 表示与 insert_depth_m 相同。
+  latch_pre_extract_m: 0.25
   # 插入完成后沿 base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。

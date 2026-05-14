@@ -168,6 +168,11 @@ struct PegInsertConfig
   /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
   double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;
+  /*
+   * 锁存仍占用时，新一轮 TARGET_INSERT 前「沿插入轴反向拔出」距离 [m]。
+   * >0：按该米数；<=0 或未配置正值时与 insert_depth_m 相同（默认 0.0）。
+   */
+  double latch_pre_extract_m = 0.0;
   /* 插孔释放后沿 base_link +Z 线性抬离距离 [m]。 */
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */

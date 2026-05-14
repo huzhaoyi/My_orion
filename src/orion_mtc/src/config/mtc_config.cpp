@@ -478,6 +478,13 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<double>("peg_insert.latch_pre_extract_m", 0.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("peg_insert.retreat_m", 0.12);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -920,6 +927,15 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
     config.peg_insert.front_waypoint_offset_m = 0.0;
   }
   node->get_parameter("peg_insert.insert_depth_m", config.peg_insert.insert_depth_m);
+  node->get_parameter("peg_insert.latch_pre_extract_m", config.peg_insert.latch_pre_extract_m);
+  if (!std::isfinite(config.peg_insert.latch_pre_extract_m))
+  {
+    config.peg_insert.latch_pre_extract_m = 0.0;
+  }
+  if (config.peg_insert.latch_pre_extract_m < 0.0)
+  {
+    config.peg_insert.latch_pre_extract_m = 0.0;
+  }
   node->get_parameter("peg_insert.retreat_m", config.peg_insert.retreat_m);
   node->get_parameter("peg_insert.insert_axis_local_xyz", config.peg_insert.insert_axis_local_xyz);
   if (config.peg_insert.insert_axis_local_xyz.size() != 3u)
