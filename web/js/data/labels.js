@@ -85,6 +85,17 @@ const STAGE_NAME_ZH = {
   retreat: '退离',
   forbid_collision_hand_object: '禁止手物碰撞',
   allow_collision_object_arm: '允许物臂碰撞',
+  pick_prepare_candidates: '候选准备',
+  pick_precheck_ik: '预检（IK / 关节 / 碰撞）',
+  pick_mtc_plan: 'MTC 运动规划',
+  check_pick_geometry: '审批：几何范围',
+  check_pick_ik: '审批：逆解与关节余量',
+  check_pick_collision: '审批：场景碰撞',
+  check_pick_suggest_search: '审批：搜索建议位姿',
+  insert_prepare: '插孔：准备',
+  insert_pre_extract_prepare: '插孔：预拔准备',
+  insert_pre_extract_plan: '插孔：预拔规划',
+  insert_mtc_plan: '插孔：主流程规划',
   close_hand_ready: '闭合手爪(就绪)',
 };
 
@@ -127,7 +138,7 @@ export function stagePillClass(name) {
   if (k.includes('retreat')) return 'stage-pill--retreat';
   if (k.includes('collision') || k.includes('allow ') || k.includes('forbid')) return 'stage-pill--scene';
   if (k.includes('cable') || k.includes('segment')) return 'stage-pill--cable';
-  if (k.includes('orion pick') || k.includes('pick')) return 'stage-pill--task';
+  if (k.includes('orion pick') || k.includes('pick') || k.startsWith('insert_')) return 'stage-pill--task';
   return 'stage-pill--default';
 }
 

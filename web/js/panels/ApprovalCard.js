@@ -6,6 +6,7 @@ import stateStore from '../data/stateStore.js';
 import wsClient from '../data/wsClient.js';
 import toast from '../ui/toast.js';
 import { t, subscribeLocale } from '../data/i18n.js';
+import { stageNameLabel } from '../data/labels.js';
 
 const SEV_PASS = 0;
 const SEV_WARNING = 1;
@@ -72,9 +73,10 @@ function handlePickClick(e) {
     approvalLoading: true,
     approvalTargetIndex: 0,
     approvalTargetTotal: 1,
+    checkPickProgress: null,
   });
   wsClient.checkPick(objectPose, (raw) => {
-    stateStore.setState({ approvalLoading: false });
+    stateStore.setState({ approvalLoading: false, checkPickProgress: null });
     const r = raw && raw.values ? raw.values : raw;
     if (r != null) {
       stateStore.setApprovalResult({
@@ -121,6 +123,15 @@ function renderResult(resultContainerEl) {
     const state = stateStore.getState();
     const res = state.approvalResult;
     const loading = state.approvalLoading || false;
+    const cp = state.checkPickProgress;
+    const esc = (x) => String(x)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+    const phaseLine =
+      loading && cp && cp.stageName
+        ? `${stageNameLabel(cp.stageName)}${cp.detail ? ` · ${esc(cp.detail)}` : ''}`
+        : '';
     const targetIndex = (state.approvalTargetIndex != null ? state.approvalTargetIndex : DEFAULT_PICK_TARGET_INDEX) + 1;
     const targetTotal = state.approvalTargetTotal != null ? state.approvalTargetTotal : 1;
     const targetLabel =
@@ -137,10 +148,11 @@ function renderResult(resultContainerEl) {
     `;
 
     let resultHtml = '';
-    if (loading && !res) {
+    if (loading) {
       resultHtml = `
         <div class="approval-loading">
           <div>${t('approval.loading')}${targetLabel ? ` (${t('approval.target')} ${targetLabel})` : ''}</div>
+          ${phaseLine ? `<div class="approval-phase-line">${phaseLine}</div>` : ''}
           ${stepsHtml}
         </div>
       `;

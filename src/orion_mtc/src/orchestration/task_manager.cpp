@@ -41,6 +41,7 @@
 #include <future>
 #include <functional>
 #include <optional>
+#include <iomanip>
 #include <sstream>
 #include <vector>
 
@@ -54,6 +55,77 @@ static constexpr char TARGET_INSERT_HOLES_TOPIC[] = "/manipulator/target_insert_
 static constexpr char TARGET_INSERT_HOLE_MARKERS_TOPIC[] = "/manipulator/target_insert_hole_markers";
 static constexpr double TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
 static constexpr double TARGET_INSERT_HOLE_MARKER_THICKNESS_M = 0.02;
+
+static double norm3dFromOrigin(double x, double y, double z)
+{
+  return std::sqrt(x * x + y * y + z * z);
+}
+
+static void logTargetPointPlanFail3d(const char* context, double px, double py, double pz)
+{
+  const double d = norm3dFromOrigin(px, py, pz);
+  RCLCPP_WARN(LOGGER,
+              "%s: base_link 参考点 pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
+              context, px, py, pz, d);
+}
+
+static void logTcpFromSceneOnPlanFail(const rclcpp::Node::SharedPtr& node, const char* context,
+                                      const std::string& tcp_link)
+{
+  if (!node)
+  {
+    return;
+  }
+  try
+  {
+    robot_model_loader::RobotModelLoader loader(node);
+    moveit::core::RobotModelConstPtr robot_model = loader.getModel();
+    if (!robot_model)
+    {
+      RCLCPP_WARN(LOGGER, "%s: robot_model 不可用，跳过末端 3D 距离", context);
+      return;
+    }
+    auto client = node->create_client<moveit_msgs::srv::GetPlanningScene>("/get_planning_scene");
+    if (!client->wait_for_service(std::chrono::milliseconds(300)))
+    {
+      RCLCPP_WARN(LOGGER, "%s: GetPlanningScene 不可用，跳过末端 3D 距离", context);
+      return;
+    }
+    auto req = std::make_shared<moveit_msgs::srv::GetPlanningScene::Request>();
+    req->components.components = moveit_msgs::msg::PlanningSceneComponents::ROBOT_STATE;
+    auto fut = client->async_send_request(req);
+    if (fut.wait_for(std::chrono::milliseconds(800)) != std::future_status::ready)
+    {
+      RCLCPP_WARN(LOGGER, "%s: GetPlanningScene 超时，跳过末端 3D 距离", context);
+      return;
+    }
+    moveit_msgs::srv::GetPlanningScene::Response::SharedPtr resp = fut.get();
+    if (!resp)
+    {
+      return;
+    }
+    planning_scene::PlanningScene scene(robot_model);
+    scene.setPlanningSceneMsg(resp->scene);
+    moveit::core::RobotState rs = scene.getCurrentState();
+    if (!rs.knowsFrameTransform(tcp_link))
+    {
+      RCLCPP_WARN(LOGGER, "%s: RobotState 缺少 link %s", context, tcp_link.c_str());
+      return;
+    }
+    const Eigen::Isometry3d T = rs.getGlobalLinkTransform(tcp_link);
+    const double x = T.translation().x();
+    const double y = T.translation().y();
+    const double z = T.translation().z();
+    const double d = norm3dFromOrigin(x, y, z);
+    RCLCPP_ERROR(LOGGER,
+                 "%s: 当前 %s 在 base_link pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
+                 context, tcp_link.c_str(), x, y, z, d);
+  }
+  catch (const std::exception& e)
+  {
+    RCLCPP_WARN(LOGGER, "%s: 查询末端 3D 距离异常: %s", context, e.what());
+  }
+}
 
 /* PICK 任务 MTC 阶段名（与 MTC 子轨迹顺序对齐：首段为 CurrentState） */
 static const std::vector<std::string> PICK_STAGE_NAMES_CABLE_SIDE = {
@@ -858,6 +930,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
 
+    reportJobPreparationStage("PICK", "pick_prepare_candidates",
+                               "candidates=" + std::to_string(candidates.size()));
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
       if (estop_requested_.load())
@@ -867,6 +941,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         return false;
       }
 
+      const std::string cand_detail =
+          "candidate " + std::to_string(i + 1u) + "/" + std::to_string(candidates.size());
+      reportJobPreparationStage("PICK", "pick_precheck_ik", cand_detail);
       const TargetSensorPickCandidate& candidate = candidates[i];
       Eigen::Isometry3d grasp_pose = Eigen::Isometry3d::Identity();
       if (!precheckTargetSensorPickCandidate(
@@ -899,17 +976,22 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         last_plan_detail = e.what();
         RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu INIT_FAILED (%s): %s",
                     i, candidate.label.c_str(), e.what());
+        logTargetPointPlanFail3d("handlePick: targetsensor INIT_FAILED（物体参考点）", obj_x, obj_y, obj_z);
         continue;
       }
 
+      reportJobPreparationStage("PICK", "pick_mtc_plan", cand_detail);
       moveit::core::MoveItErrorCode plan_result = task.plan(5);
       if (!plan_result || task.solutions().empty())
       {
         std::ostringstream os;
         task.explainFailure(os);
         last_plan_detail = os.str();
-        RCLCPP_WARN(LOGGER, "handlePick: targetsensor candidate %zu PLAN_FAILED (%s): %s",
-                    i, candidate.label.c_str(), last_plan_detail.c_str());
+        const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
+        RCLCPP_WARN(LOGGER,
+                    "handlePick: targetsensor candidate %zu PLAN_FAILED (%s) "
+                    "base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s",
+                    i, candidate.label.c_str(), obj_x, obj_y, obj_z, dist_3d, last_plan_detail.c_str());
         if (estop_requested_.load())
         {
           setStateError("E_STOP");
@@ -990,13 +1072,18 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     RCLCPP_ERROR(LOGGER, "handlePick: targetsensor all candidates failed: %s", last_plan_detail.c_str());
     {
-      const double dist_3d = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
+      const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
       RCLCPP_ERROR(LOGGER,
                    "handlePick: 目标位置诊断 pos=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
                    "[参考: max_reach≈1.90 m, min_reach≈0.14 m, z∈[-1.14, 1.85] m]",
                    obj_x, obj_y, obj_z, dist_3d);
     }
-    setStateError("TARGET_SENSOR_PICK: PLAN_FAILED");
+    {
+      const double d = norm3dFromOrigin(obj_x, obj_y, obj_z);
+      std::ostringstream oe;
+      oe << "TARGET_SENSOR_PICK: PLAN_FAILED base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
+      setStateError(oe.str());
+    }
     return false;
   }
 
@@ -1112,6 +1199,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       return false;
     }
 
+    reportJobPreparationStage("PICK", "pick_prepare_candidates",
+                               "candidates=" + std::to_string(candidates.size()));
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
       if (estop_requested_.load())
@@ -1120,6 +1209,9 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         estop_requested_.store(false);
         return false;
       }
+      const std::string cand_detail =
+          "candidate " + std::to_string(i + 1u) + "/" + std::to_string(candidates.size());
+      reportJobPreparationStage("PICK", "pick_precheck_ik", cand_detail);
       const CableGraspCandidate& cand = candidates[i];
       const Eigen::Vector3d p_grasp = cand.grasp_pose.translation();
       const Eigen::Quaterniond q_grasp(cand.grasp_pose.linear());
@@ -1162,14 +1254,20 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       catch (mtc::InitStageException& e)
       {
         RCLCPP_WARN(LOGGER, "handlePick: candidate %zu INIT_FAILED: %s，试下一候选", i, e.what());
+        logTargetPointPlanFail3d("handlePick: cable side INIT_FAILED（物体参考点）", obj_x, obj_y, obj_z);
         continue;
       }
+      reportJobPreparationStage("PICK", "pick_mtc_plan", cand_detail);
       moveit::core::MoveItErrorCode plan_result = task.plan(5);
       if (!plan_result || task.solutions().empty())
       {
         std::ostringstream os;
         task.explainFailure(os);
-        RCLCPP_WARN(LOGGER, "handlePick: candidate %zu PLAN_FAILED: %s，试下一候选", i, os.str().c_str());
+        const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
+        RCLCPP_WARN(LOGGER,
+                    "handlePick: candidate %zu PLAN_FAILED "
+                    "base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s，试下一候选",
+                    i, obj_x, obj_y, obj_z, dist_3d, os.str().c_str());
         if (estop_requested_.load())
         {
           setStateError("E_STOP");
@@ -1247,15 +1345,35 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     }
     RCLCPP_ERROR(LOGGER, "handlePick: 所有侧抓候选均失败（预检/规划/执行）");
     {
-      const double dist_3d = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
+      const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
       RCLCPP_ERROR(LOGGER,
                    "handlePick: 目标位置诊断 pos=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
                    "[参考: max_reach≈1.90 m, min_reach≈0.14 m, z∈[-1.14, 1.85] m]",
                    obj_x, obj_y, obj_z, dist_3d);
     }
-    setStateError("CABLE_SIDE_GRASP: 所有侧抓候选均失败");
+    {
+      const double d = norm3dFromOrigin(obj_x, obj_y, obj_z);
+      std::ostringstream oe;
+      oe << "CABLE_SIDE_GRASP: 所有侧抓候选均失败 base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
+      setStateError(oe.str());
+    }
   }
   return false;
+}
+
+void TaskManager::reportJobPreparationStage(const std::string& ros_task_type, const std::string& stage_name,
+                                            const std::string& detail)
+{
+  if (!stage_report_fn_)
+  {
+    return;
+  }
+  std::string jid;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    jid = current_job_id_;
+  }
+  stage_report_fn_(jid, ros_task_type, 0u, stage_name, "RUNNING", detail);
 }
 
 /*
@@ -1310,11 +1428,13 @@ bool TaskManager::retreatToReady()
     std::ostringstream os;
     task.explainFailure(os);
     RCLCPP_ERROR_STREAM(LOGGER, os.str());
+    logTcpFromSceneOnPlanFail(node_, "retreatToReady plan failed", hand_frame);
     return false;
   }
   if (task.solutions().empty())
   {
     RCLCPP_ERROR(LOGGER, "retreatToReady: no solutions");
+    logTcpFromSceneOnPlanFail(node_, "retreatToReady: no solutions", hand_frame);
     return false;
   }
 
@@ -1365,11 +1485,13 @@ bool TaskManager::handleOpenGripper()
     std::ostringstream os;
     task.explainFailure(os);
     RCLCPP_ERROR_STREAM(LOGGER, os.str());
+    logTcpFromSceneOnPlanFail(node_, "open gripper plan failed", "gripper_tcp");
     return false;
   }
   if (task.solutions().empty())
   {
     RCLCPP_ERROR(LOGGER, "open gripper: no solutions");
+    logTcpFromSceneOnPlanFail(node_, "open gripper: no solutions", "gripper_tcp");
     return false;
   }
   moveit_task_constructor_msgs::msg::Solution solution_msg;
@@ -1473,11 +1595,13 @@ bool TaskManager::handleCloseGripper()
     std::ostringstream os;
     task.explainFailure(os);
     RCLCPP_ERROR_STREAM(LOGGER, os.str());
+    logTcpFromSceneOnPlanFail(node_, "close gripper plan failed", "gripper_tcp");
     return false;
   }
   if (task.solutions().empty())
   {
     RCLCPP_ERROR(LOGGER, "close gripper: no solutions");
+    logTcpFromSceneOnPlanFail(node_, "close gripper: no solutions", "gripper_tcp");
     return false;
   }
   moveit_task_constructor_msgs::msg::Solution solution_msg;
@@ -1585,6 +1709,15 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 object_id.c_str());
 
     {
+      const double d = norm3dFromOrigin(pose_base.pose.position.x, pose_base.pose.position.y,
+                                        pose_base.pose.position.z);
+      std::ostringstream od;
+      od << std::fixed << std::setprecision(3);
+      od << "hole=" << requested_hole << " ‖p‖=" << d << "m";
+      reportJobPreparationStage("TARGET_INSERT", "insert_prepare", od.str());
+    }
+
+    {
       bool need_pre_extract = false;
       int32_t latched_hole = -1;
       {
@@ -1614,6 +1747,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
           const double extract_distance = std::max(0.0, pi.insert_depth_m);
           if (extract_distance > 1e-6)
           {
+            reportJobPreparationStage("TARGET_INSERT", "insert_pre_extract_prepare", "");
             mtc::Task extract_task;
             extract_task.stages()->setName("pre-extract reverse insert");
             extract_task.loadRobotModel(node_);
@@ -1650,12 +1784,17 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             }
             if (extract_task.solutions().empty())
             {
+              reportJobPreparationStage("TARGET_INSERT", "insert_pre_extract_plan", "");
               const moveit::core::MoveItErrorCode extract_plan_result = extract_task.plan(3);
               if (!extract_plan_result || extract_task.solutions().empty())
               {
                 std::ostringstream os;
                 extract_task.explainFailure(os);
                 RCLCPP_WARN_STREAM(LOGGER, "handleTargetInsert: pre-extract plan failed: " << os.str());
+                logTargetPointPlanFail3d("handleTargetInsert: pre-extract plan failed（插孔目标参考点）",
+                                         pose_base.pose.position.x,
+                                         pose_base.pose.position.y,
+                                         pose_base.pose.position.z);
               }
               else
               {
@@ -1709,6 +1848,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         return false;
       }
 
+      reportJobPreparationStage("TARGET_INSERT", "insert_mtc_plan", "tag=" + plan_tag);
       InsertTaskBuildResult built_local = insert_builder_->buildTargetInsertTask(pose_try);
       mtc::Task& task_local = built_local.task;
       try
@@ -1719,6 +1859,10 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       catch (mtc::InitStageException& e)
       {
         RCLCPP_ERROR_STREAM(LOGGER, "target insert init failed (" << plan_tag << "): " << e);
+        logTargetPointPlanFail3d("handleTargetInsert: target insert init failed（插孔目标参考点）",
+                                 pose_try.pose.position.x,
+                                 pose_try.pose.position.y,
+                                 pose_try.pose.position.z);
         return false;
       }
       moveit::core::MoveItErrorCode plan_result_local = task_local.plan(5);
@@ -1727,6 +1871,10 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         std::ostringstream os;
         task_local.explainFailure(os);
         RCLCPP_WARN_STREAM(LOGGER, "target insert plan failed (" << plan_tag << "): " << os.str());
+        logTargetPointPlanFail3d("handleTargetInsert: target insert plan failed（插孔目标参考点）",
+                                 pose_try.pose.position.x,
+                                 pose_try.pose.position.y,
+                                 pose_try.pose.position.z);
         if (estop_requested_.load())
         {
           setStateError("E_STOP");
@@ -1797,10 +1945,8 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     }
     if (!planned)
     {
-      const double dist_3d = std::sqrt(
-          pose_base.pose.position.x * pose_base.pose.position.x +
-          pose_base.pose.position.y * pose_base.pose.position.y +
-          pose_base.pose.position.z * pose_base.pose.position.z);
+      const double dist_3d = norm3dFromOrigin(
+          pose_base.pose.position.x, pose_base.pose.position.y, pose_base.pose.position.z);
       RCLCPP_ERROR(LOGGER,
                    "handleTargetInsert: 规划失败（含姿态回退）| "
                    "目标(base_link)=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
@@ -1922,6 +2068,11 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
             }))
     {
       RCLCPP_ERROR(LOGGER, "target insert execution failed");
+      logTargetPointPlanFail3d("handleTargetInsert: execution failed（插孔目标参考点）",
+                               pose_base.pose.position.x,
+                               pose_base.pose.position.y,
+                               pose_base.pose.position.z);
+      logTcpFromSceneOnPlanFail(node_, "handleTargetInsert: execution failed（末端）", "gripper_tcp");
       return false;
     }
 

@@ -312,6 +312,22 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
             msg.detail = detail;
             pub_task_stage_->publish(msg);
         });
+
+    if (ctx_.feasibility_checker)
+    {
+        ctx_.feasibility_checker->setPickApprovalProgressFn(
+            [this](const std::string& stage_name, const std::string& stage_state, const std::string& detail) {
+                orion_mtc_msgs::msg::TaskStage msg;
+                msg.header.stamp = ctx_.action_client_node->now();
+                msg.header.frame_id = "";
+                msg.job_id = "";
+                msg.task_type = "CHECK_PICK";
+                msg.stage_name = stage_name;
+                msg.stage_state = stage_state;
+                msg.detail = detail;
+                pub_task_stage_->publish(msg);
+            });
+    }
 }
 
 /* 聚合 TaskManager 与 TaskQueue 状态填充 RuntimeStatus 并发布（供 Web/监控轮询）。 */

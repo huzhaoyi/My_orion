@@ -42,6 +42,14 @@ public:
   void setMTCConfig(const MTCConfig* config);
 
   /**
+   * 抓取审批进度：供上位机与 /manipulator/task_stage 同源展示（task_type 由调用方填 CHECK_PICK）。
+   * stage_state 使用 RUNNING / DONE；结束时调用方会发 check_pick_idle + DONE。
+   */
+  void setPickApprovalProgressFn(
+      std::function<void(const std::string& stage_name, const std::string& stage_state,
+                         const std::string& detail)> fn);
+
+  /**
    * 手柄自动/手动刚切换后的短冷却（feasibility.joy_mode_switch_ik_skip_sec）：
    * 此期间应跳过 IK 审批与缆绳预检，避免切换瞬间关节状态瞬变导致误算。
    */
@@ -90,9 +98,13 @@ private:
                            double qx, double qy, double qz, double qw,
                            std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items);
 
+  void emitPickApprovalProgress(const std::string& stage_name, const std::string& stage_state,
+                                const std::string& detail);
+
   rclcpp::Node::SharedPtr node_;
   const MTCConfig* mtc_config_ = nullptr;
   std::function<bool()> estop_predicate_;
+  std::function<void(const std::string&, const std::string&, const std::string&)> pick_approval_progress_fn_;
   FeasibilityParams params_;
   struct Impl;
   std::unique_ptr<Impl> impl_;

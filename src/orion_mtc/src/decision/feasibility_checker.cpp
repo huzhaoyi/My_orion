@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 namespace orion_mtc
@@ -52,6 +53,23 @@ struct FeasibilityChecker::Impl
   std::atomic<int64_t> last_mode_transition_ns{0};
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_joy_manual;
 };
+
+/* 加载 URDF、订阅 joint_states 作为 IK 种子；失败时 robot_model 为空，后续 IK 将报错项 */
+void FeasibilityChecker::setPickApprovalProgressFn(
+    std::function<void(const std::string& stage_name, const std::string& stage_state, const std::string& detail)> fn)
+{
+  pick_approval_progress_fn_ = std::move(fn);
+}
+
+void FeasibilityChecker::emitPickApprovalProgress(const std::string& stage_name, const std::string& stage_state,
+                                                  const std::string& detail)
+{
+  if (!pick_approval_progress_fn_)
+  {
+    return;
+  }
+  pick_approval_progress_fn_(stage_name, stage_state, detail);
+}
 
 /* 加载 URDF、订阅 joint_states 作为 IK 种子；失败时 robot_model 为空，后续 IK 将报错项 */
 FeasibilityChecker::FeasibilityChecker(rclcpp::Node::SharedPtr node)
@@ -448,6 +466,7 @@ void FeasibilityChecker::trySuggestCorrectionPick(
     orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res,
     double obj_z, double grasp_z)
 {
+  emitPickApprovalProgress("check_pick_suggest_search", "RUNNING", "");
   double px = req->object_pose.pose.position.x;
   double py = req->object_pose.pose.position.y;
   double pz = obj_z;
@@ -536,6 +555,10 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
   res->severity = SEV_PASS;
   res->summary = "可执行";
 
+  std::unique_ptr<void, std::function<void(void*)>> pick_approval_ui_guard(
+      reinterpret_cast<void*>(1),
+      [this](void*) { emitPickApprovalProgress("check_pick_idle", "DONE", ""); });
+
   auto abort_pick_if_estop = [&]() -> bool {
     if (estop_predicate_ && estop_predicate_())
     {
@@ -567,6 +590,7 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
   /* 规划 IK frame 已切换为 gripper_tcp（夹爪 TCP），不再需要 Link6->夹爪的固定偏移补偿 */
   double grasp_z = pz;
 
+  emitPickApprovalProgress("check_pick_geometry", "RUNNING", "");
   if (workspaceHasHardLimitViolation(px, py, grasp_z, &res->items))
   {
     res->approved = false;
@@ -618,6 +642,7 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
     return;
   }
 
+  emitPickApprovalProgress("check_pick_ik", "RUNNING", "");
   bool ik_ok = runIkAndJointMargin(impl_->arm_group_name, impl_->hand_frame,
                                   px, py, grasp_z, qx, qy, qz, qw, res->items);
   if (!ik_ok)
@@ -665,6 +690,7 @@ bool FeasibilityChecker::checkTargetCollision(double px, double py, double pz,
   node_->get_parameter_or("feasibility.get_planning_scene_service", svc, std::string(""));
   if (svc.empty())
     return false;
+  emitPickApprovalProgress("check_pick_collision", "RUNNING", "");
   rclcpp::Client<moveit_msgs::srv::GetPlanningScene>::SharedPtr client =
       node_->create_client<moveit_msgs::srv::GetPlanningScene>(svc);
   if (!client->wait_for_service(std::chrono::milliseconds(500)))

@@ -180,6 +180,10 @@ private:
 
   bool retreatToReady();
 
+  /** 任务在 MTC 主执行前上报 task_stage（ros_task_type 如 PICK / TARGET_INSERT） */
+  void reportJobPreparationStage(const std::string& ros_task_type, const std::string& stage_name,
+                                  const std::string& detail);
+
   std::function<bool()> makeEstopAbortFn() const;
 
   bool handleOpenGripper();

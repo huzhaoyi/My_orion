@@ -30,11 +30,20 @@ function render(parentEl) {
     const latchHole = Number.isFinite(Number(s.insertLatchHole)) && Number(s.insertLatchHole) > 0
       ? String(s.insertLatchHole)
       : '—';
+    const detailStr = (s.currentStageDetail || '').trim();
+    const esc = (x) => String(x)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+    const detailRow = detailStr
+      ? `<div class="card-row"><span class="card-label">${t('card.runtime.detail')}</span><span class="card-value runtime-stage-detail">${esc(detailStr)}</span></div>`
+      : '';
     wrap.innerHTML = `
       <div class="card-title">${t('card.runtime.title')}</div>
       <div class="card-row"><span class="card-label">${t('card.runtime.type')}</span><span class="card-value">${jobTypeLabel(s.currentJobType)}</span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.job_id')}</span><span class="card-value">${(s.currentJobId || '—').slice(0, 16)}</span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.stage')}</span><span class="card-value"><span class="stage-pill ${stagePillClass(s.currentStageName)}">${stageNameLabel(s.currentStageName) || '—'}</span></span></div>
+      ${detailRow}
       <div class="card-row"><span class="card-label">${t('card.runtime.worker')}</span><span class="card-value">${statusLabel(s.workerStatus)}</span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.mode')}</span><span class="card-value">${statusLabel(s.taskMode)}</span></div>
       <div class="card-row"><span class="card-label">${t('card.runtime.insert_latch')}</span><span class="card-value">${latchLabel}</span></div>

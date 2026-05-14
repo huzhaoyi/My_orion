@@ -385,7 +385,7 @@ function handleMessage(data) {
     stateStore.pushJobEvent({ ...data.msg, _ts: Date.now() });
     const et = ((data.msg && data.msg.event_type) || '').toUpperCase();
     if (['SUCCEEDED', 'FAILED', 'CANCELLED', 'REJECTED'].includes(et)) {
-      stateStore.setState({ currentStageName: '' });
+      stateStore.setState({ currentStageName: '', currentStageDetail: '' });
       getQueueState((res) => {
         stateStore.applyQueueStateResponse(res);
       });
@@ -395,9 +395,26 @@ function handleMessage(data) {
   if (data.topic && data.topic.endsWith('/task_stage') && data.msg) {
     const stage = { ...data.msg, _ts: Date.now() };
     stateStore.pushTaskStage(stage);
+    const tt = (stage.task_type || '').toUpperCase();
     const st = (stage.stage_state || '').toUpperCase();
+    const name = stage.stage_name || '';
+    const detail = stage.detail || '';
+    const patch = {};
+    if (tt === 'CHECK_PICK') {
+      if (st === 'DONE' || name === 'check_pick_idle') {
+        patch.checkPickProgress = null;
+      } else {
+        patch.checkPickProgress = { stageName: name, detail };
+      }
+    }
     if (st === 'ENTER' || st === 'RUNNING') {
-      stateStore.setState({ currentStageName: stage.stage_name || '' });
+      if (tt !== 'CHECK_PICK') {
+        patch.currentStageName = name;
+        patch.currentStageDetail = detail;
+      }
+    }
+    if (Object.keys(patch).length) {
+      stateStore.setState(patch);
     }
     return;
   }

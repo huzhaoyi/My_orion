@@ -27,6 +27,7 @@ const initialState = {
   currentJobSource: '',
   currentJobPriority: 0,
   currentStageName: '',
+  currentStageDetail: '',
   currentJobStartTime: null,
   currentJobCreatedAt: null,
 
@@ -104,6 +105,9 @@ const initialState = {
   approvalTargetIndex: 1,   // 本次审批用的目标索引（0-based），默认第 2 个
   approvalTargetTotal: 0,   // 当前目标总数，用于显示「第 N 个（共 M 个）」
 
+  /** CHECK_PICK 审批进行中：来自 task_stage（task_type=CHECK_PICK） */
+  checkPickProgress: null,  // null | { stageName: string, detail: string }
+
   // joy_manipulator_node 上位机状态（/joy_manipulator/manual_mode、throttle_percent）
   joyManualMode: null,      // null 未收到；true 手动；false 自动
   joyThrottlePercent: null, // null 未收到；0～100 臂油门比例
@@ -146,13 +150,16 @@ function applyRuntimeStatus(msg) {
       ? String(msg.current_job_id)
       : prev_job_id;
   let next_stage = state.currentStageName;
+  let next_detail = state.currentStageDetail;
   if (!next_job_id)
   {
     next_stage = '';
+    next_detail = '';
   }
   else if (prev_job_id && next_job_id && prev_job_id !== next_job_id)
   {
     next_stage = '';
+    next_detail = '';
   }
   setState({
     workerStatus: msg.worker_status ?? state.workerStatus,
@@ -170,6 +177,7 @@ function applyRuntimeStatus(msg) {
     insertLatchHole: msg.insert_latch_hole ?? state.insertLatchHole,
     lastError: msg.last_error ?? state.lastError,
     currentStageName: next_stage,
+    currentStageDetail: next_detail,
   });
 }
 
