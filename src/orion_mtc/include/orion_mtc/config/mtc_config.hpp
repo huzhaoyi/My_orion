@@ -96,6 +96,24 @@ struct TargetSensorPickConfig
   /** TargetSensor 顶抓姿态绕接近轴滚转候选 [deg]。 */
   std::vector<double> tool_roll_candidates_deg{ 0.0, 45.0, -45.0, 90.0, -90.0 };
   double retreat_distance_m = 0.12;
+  /*
+   * 插孔轴向提示（base_link）：与 peg_insert 任务一致时，抓取阶段可筛掉「沿孔轴端面顶入」类姿态，减少把柄先对孔。
+   * 模长 < 1e-6 表示关闭（不读 TargetSet 时须手动填，或设 insert_axis_hint_target_set_index）。
+   */
+  std::vector<double> insert_axis_hint_base_xyz{ 0.0, 0.0, 0.0 };
+  /** >=0 时从 TargetSet.targets[index].pose 与 peg_insert.insert_axis_local_xyz 推导插入轴（base_link），覆盖为零的 insert_axis_hint_base_xyz。 */
+  int insert_axis_hint_target_set_index = -1;
+  /*
+   * 候选接近方向 approach_dir 与插入提示轴夹角余弦绝对值上限；<1 启用。接近方向几乎平行孔轴时丢弃该候选（依赖 tool_roll/轴 变化）。
+   * 典型 0.72~0.82：侧向包杆，避免端对孔。
+   */
+  double max_abs_dot_approach_insert_hint = 1.0;
+  /** >0 时要求 |dot(rod_world, hint)| >= 此值（rod 由 object 姿态与 rod_axis_local）；用于剔除感知系与任务孔轴严重不一致。 */
+  double insert_hint_min_abs_dot_rod = 0.0;
+  /** 物体局部单位向量；模长 >1e-6 时要求 |dot(handle_world, hint)| <= insert_hint_max_abs_dot_handle。 */
+  std::vector<double> handle_axis_local_xyz{};
+  /** 与 insert_hint_min_abs_dot_rod 配套：把柄方向与孔轴对齐上限（余弦绝对值）。 */
+  double insert_hint_max_abs_dot_handle = 1.0;
 };
 
 /*
@@ -132,6 +150,26 @@ struct PegInsertConfig
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */
   std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };
+  /*
+   * 世界系插入运动方向符号（乘在由孔姿态推出的单位插入轴上；非有限或≈0 时按 1.0）。
+   * -1.0 等价于沿孔轴整体反向（退避/入孔与其它沿轴位移对调）。
+   */
+  double insert_motion_axis_sign = 1.0;
+  /*
+   * 杆体在 gripper_tcp 局部系下的单位方向（尖端相对 TCP 一侧）；与物体 rod_axis_local 独立。
+   * 侧抓时杆常更接近 TCP +Z，顶抓更接近 +Y；与 URDF peg_tip 平移轴不必一致。
+   */
+  std::vector<double> peg_rod_axis_tcp_xyz{ 0.0, 1.0, 0.0 };
+  /*
+   * 当 rod_tcp 在孔定义的插入轴上投影为负时，绕与 rod、插入轴尽量垂直的轴追加 180°，
+   * 使杆与插入同向（缓解“把柄先进/头尾反”且仅改 peg_tip y 无效的情形）。
+   */
+  bool auto_flip_rod_to_insert = false;
+  /*
+   * 在 gripper_tcp 内绕垂直于 peg_rod_axis_tcp_xyz 的轴转 180°（右乘），交换杆尖与把柄端
+   * 相对孔轴的前后；与 auto_flip 不同：不依赖 rod 与插入轴点积符号（把柄先进但 align_dot>=0 时用）。
+   */
+  bool swap_tip_handle_180 = false;
   /* 绕插入轴旋转末端姿态 [deg]（仅改姿态不改插入方向）；常用 180.0 以翻转“杆/孔前后”。 */
   double tool_roll_about_insert_axis_deg = 0.0;
   /* gripper_tcp 局部姿态偏置 [deg]，顺序 roll/pitch/yaw；用于“像 link5 一样”微调插孔朝向。 */

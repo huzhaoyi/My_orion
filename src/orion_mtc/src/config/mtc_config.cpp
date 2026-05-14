@@ -1,6 +1,7 @@
 /* mtc_config：自 ROS 参数声明加载抓取几何与工作空间审批阈值 */
 
 #include "orion_mtc/config/mtc_config.hpp"
+#include <cmath>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/exceptions.hpp>
 #include <string>
@@ -368,6 +369,52 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.insert_axis_hint_base_xyz",
+        std::vector<double>{ 0.0, 0.0, 0.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<int>("target_sensor_pick.insert_axis_hint_target_set_index", -1);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.max_abs_dot_approach_insert_hint", 1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.insert_hint_min_abs_dot_rod", 0.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>(
+        "target_sensor_pick.handle_axis_local_xyz",
+        std::vector<double>{});
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("target_sensor_pick.insert_hint_max_abs_dot_handle", 1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<double>("peg_insert.pre_offset_m", 0.10);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -440,6 +487,35 @@ void declareParameters(rclcpp::Node* node)
   {
     node->declare_parameter<std::vector<double>>("peg_insert.insert_axis_local_xyz",
                                                  std::vector<double>{ 1.0, 0.0, 0.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.insert_motion_axis_sign", 1.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::vector<double>>("peg_insert.peg_rod_axis_tcp_xyz",
+                                                 std::vector<double>{ 0.0, 1.0, 0.0 });
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.auto_flip_rod_to_insert", false);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.swap_tip_handle_180", false);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
@@ -716,6 +792,42 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.target_sensor_pick.tool_roll_candidates_deg = { 0.0 };
   }
+  node->get_parameter("target_sensor_pick.insert_axis_hint_base_xyz",
+                      config.target_sensor_pick.insert_axis_hint_base_xyz);
+  node->get_parameter("target_sensor_pick.insert_axis_hint_target_set_index",
+                      config.target_sensor_pick.insert_axis_hint_target_set_index);
+  node->get_parameter("target_sensor_pick.max_abs_dot_approach_insert_hint",
+                      config.target_sensor_pick.max_abs_dot_approach_insert_hint);
+  node->get_parameter("target_sensor_pick.insert_hint_min_abs_dot_rod",
+                      config.target_sensor_pick.insert_hint_min_abs_dot_rod);
+  node->get_parameter("target_sensor_pick.handle_axis_local_xyz",
+                      config.target_sensor_pick.handle_axis_local_xyz);
+  node->get_parameter("target_sensor_pick.insert_hint_max_abs_dot_handle",
+                      config.target_sensor_pick.insert_hint_max_abs_dot_handle);
+  if (config.target_sensor_pick.max_abs_dot_approach_insert_hint < 0.0)
+  {
+    config.target_sensor_pick.max_abs_dot_approach_insert_hint = 0.0;
+  }
+  if (config.target_sensor_pick.max_abs_dot_approach_insert_hint > 1.0)
+  {
+    config.target_sensor_pick.max_abs_dot_approach_insert_hint = 1.0;
+  }
+  if (config.target_sensor_pick.insert_hint_min_abs_dot_rod < 0.0)
+  {
+    config.target_sensor_pick.insert_hint_min_abs_dot_rod = 0.0;
+  }
+  if (config.target_sensor_pick.insert_hint_min_abs_dot_rod > 1.0)
+  {
+    config.target_sensor_pick.insert_hint_min_abs_dot_rod = 1.0;
+  }
+  if (config.target_sensor_pick.insert_hint_max_abs_dot_handle < 0.0)
+  {
+    config.target_sensor_pick.insert_hint_max_abs_dot_handle = 0.0;
+  }
+  if (config.target_sensor_pick.insert_hint_max_abs_dot_handle > 1.0)
+  {
+    config.target_sensor_pick.insert_hint_max_abs_dot_handle = 1.0;
+  }
   node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
   node->get_parameter("peg_insert.go_ready_before_insert", config.peg_insert.go_ready_before_insert);
   node->get_parameter("peg_insert.enable_front_waypoint", config.peg_insert.enable_front_waypoint);
@@ -744,6 +856,19 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   {
     config.peg_insert.insert_axis_local_xyz = { 1.0, 0.0, 0.0 };
   }
+  node->get_parameter("peg_insert.insert_motion_axis_sign", config.peg_insert.insert_motion_axis_sign);
+  if (!std::isfinite(config.peg_insert.insert_motion_axis_sign)
+      || std::abs(config.peg_insert.insert_motion_axis_sign) < 1e-9)
+  {
+    config.peg_insert.insert_motion_axis_sign = 1.0;
+  }
+  node->get_parameter("peg_insert.peg_rod_axis_tcp_xyz", config.peg_insert.peg_rod_axis_tcp_xyz);
+  if (config.peg_insert.peg_rod_axis_tcp_xyz.size() != 3u)
+  {
+    config.peg_insert.peg_rod_axis_tcp_xyz = { 0.0, 1.0, 0.0 };
+  }
+  node->get_parameter("peg_insert.auto_flip_rod_to_insert", config.peg_insert.auto_flip_rod_to_insert);
+  node->get_parameter("peg_insert.swap_tip_handle_180", config.peg_insert.swap_tip_handle_180);
   node->get_parameter("peg_insert.tool_roll_about_insert_axis_deg",
                       config.peg_insert.tool_roll_about_insert_axis_deg);
   node->get_parameter("peg_insert.tool_rpy_offset_deg", config.peg_insert.tool_rpy_offset_deg);

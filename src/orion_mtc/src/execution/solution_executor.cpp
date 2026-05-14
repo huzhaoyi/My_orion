@@ -149,7 +149,7 @@ SolutionExecutor::SolutionExecutor(PlanningSceneManager* scene_manager,
  * 手爪段可根据 wait_for_gripped 在闭合/张开后等待传感器。stage_report 可选。
  */
 bool SolutionExecutor::executeSolution(
-    const moveit_task_constructor_msgs::msg::Solution& solution_msg,
+    moveit_task_constructor_msgs::msg::Solution& solution_msg,
     WaitForGrippedFn wait_for_gripped,
     StageReportFn stage_report,
     const std::string& job_id,
@@ -157,7 +157,8 @@ bool SolutionExecutor::executeSolution(
     const std::vector<std::string>& stage_names,
     ShouldAbortFn should_abort,
     ShouldExecuteSegmentFn should_execute_segment,
-    AfterSegmentFn after_segment)
+    AfterSegmentFn after_segment,
+    SubTrajectoryMutatorFn mutate_sub_before_execute)
 {
   if (solution_msg.sub_trajectory.empty())
   {
@@ -203,7 +204,11 @@ bool SolutionExecutor::executeSolution(
       stage_report(job_id, task_type, i, name, "ENTER", "");
       stage_report(job_id, task_type, i, name, "RUNNING", "");
     }
-    const auto& sub = solution_msg.sub_trajectory[i];
+    moveit_task_constructor_msgs::msg::SubTrajectory& sub = solution_msg.sub_trajectory[i];
+    if (mutate_sub_before_execute)
+    {
+      mutate_sub_before_execute(i, name, sub);
+    }
     if (task_type == "TARGET_INSERT" && isHandOnlySegment(sub) && name != "open hand")
     {
       if (stage_report)

@@ -6,6 +6,7 @@
 #include "orion_mtc/core/held_object.hpp"
 #include <geometry_msgs/msg/pose.hpp>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
+#include <moveit_task_constructor_msgs/msg/sub_trajectory.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -46,6 +47,10 @@ using ShouldExecuteSegmentFn = std::function<bool(std::size_t stage_index, const
 /* 单段执行完成回调（仅在该段实际执行成功后触发）。 */
 using AfterSegmentFn = std::function<void(std::size_t stage_index, const std::string& stage_name)>;
 
+/* 在发送子轨迹到控制器前就地修改（例如早锁存后替换 lift clear 为从 CurrentState 重规划结果）。 */
+using SubTrajectoryMutatorFn = std::function<void(std::size_t stage_index, const std::string& stage_name,
+                                                  moveit_task_constructor_msgs::msg::SubTrajectory& sub)>;
+
 class SolutionExecutor
 {
 public:
@@ -53,8 +58,9 @@ public:
   ~SolutionExecutor() = default;
 
   /* 通用 solution 执行：按段 apply scene、发轨迹，手部段后根据闭合/张开调用 wait_for_gripped。
-   * 可选 stage_report：每段执行前后回调，stage_names 长度可小于 segment 数，不足用 segment_N */
-  bool executeSolution(const moveit_task_constructor_msgs::msg::Solution& solution_msg,
+   * 可选 stage_report：每段执行前后回调，stage_names 长度可小于 segment 数，不足用 segment_N
+   * mutate_sub_before_execute：在 executeSubTrajectory 前就地修改该段 SubTrajectory（可为 nullptr）。 */
+  bool executeSolution(moveit_task_constructor_msgs::msg::Solution& solution_msg,
                       WaitForGrippedFn wait_for_gripped,
                       StageReportFn stage_report = nullptr,
                       const std::string& job_id = "",
@@ -62,7 +68,8 @@ public:
                       const std::vector<std::string>& stage_names = {},
                       ShouldAbortFn should_abort = nullptr,
                       ShouldExecuteSegmentFn should_execute_segment = nullptr,
-                      AfterSegmentFn after_segment = nullptr);
+                      AfterSegmentFn after_segment = nullptr,
+                      SubTrajectoryMutatorFn mutate_sub_before_execute = nullptr);
 
   /* Pick 专用：执行中在 attach 段后根据末端 FK 填充 held_context_out。可选 stage_report 同上。
    * cable_world_object_ids：与 pick 任务中 add 的 world 缆绳段 id 一致，用于 remove 后同步 scene；空则不再额外扫 id

@@ -27,6 +27,7 @@
 #include <moveit_msgs/srv/get_planning_scene.hpp>
 #include <moveit_msgs/msg/planning_scene_components.hpp>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
+#include <moveit_task_constructor_msgs/msg/sub_trajectory.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
@@ -179,6 +180,181 @@ struct TargetSensorPickCandidate
   std::string label;
 };
 
+struct InsertAxisHintPrecheckState
+{
+  Eigen::Vector3d hint = Eigen::Vector3d::Zero();
+  double max_abs_dot_approach = 1.0;
+  double min_abs_dot_rod = 0.0;
+  Eigen::Vector3d handle_local = Eigen::Vector3d::Zero();
+  double max_abs_dot_handle = 1.0;
+  int rod_axis_local = 2;
+
+  bool has_hint() const
+  {
+    return hint.norm() >= 1e-6;
+  }
+
+  bool any_enabled() const
+  {
+    if (!has_hint())
+    {
+      return false;
+    }
+    const bool ap = max_abs_dot_approach < 1.0 - 1e-9;
+    const bool rd = min_abs_dot_rod > 1e-6;
+    const bool hd = handle_local.norm() > 1e-6 && max_abs_dot_handle < 1.0 - 1e-9;
+    return ap || rd || hd;
+  }
+};
+
+static Eigen::Vector3d tsPickLocalAxisUnit(int axis_local)
+{
+  if (axis_local == 0)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  if (axis_local == 1)
+  {
+    return Eigen::Vector3d::UnitY();
+  }
+  return Eigen::Vector3d::UnitZ();
+}
+
+static Eigen::Vector3d targetSensorApproachDirWorld(const TargetSensorPickCandidate& candidate)
+{
+  const geometry_msgs::msg::Pose& pose = candidate.object_pose.pose;
+  Eigen::Quaterniond q_object(
+      pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+  if (q_object.norm() < 1e-9)
+  {
+    q_object = Eigen::Quaterniond::Identity();
+  }
+  q_object.normalize();
+  const Eigen::Vector3d local_axis = tsPickLocalAxisUnit(candidate.approach_axis_local);
+  const Eigen::Vector3d n_geom = (q_object * local_axis).normalized();
+  const double sign = (candidate.approach_sign < 0.0) ? -1.0 : 1.0;
+  return n_geom * sign;
+}
+
+static Eigen::Vector3d normalizedInsertAxisLocalParam(const std::vector<double>& p)
+{
+  if (p.size() != 3u)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  Eigen::Vector3d axis(p[0], p[1], p[2]);
+  const double n = axis.norm();
+  if (!std::isfinite(axis.x()) || !std::isfinite(axis.y()) || !std::isfinite(axis.z()) || n < 1e-9)
+  {
+    return Eigen::Vector3d::UnitX();
+  }
+  return axis / n;
+}
+
+static Eigen::Vector3d insertAxisWorldFromHolePose(const geometry_msgs::msg::Pose& hole_pose,
+                                                   const std::vector<double>& axis_local_param)
+{
+  const Eigen::Vector3d axis_local = normalizedInsertAxisLocalParam(axis_local_param);
+  Eigen::Quaterniond q(hole_pose.orientation.w, hole_pose.orientation.x, hole_pose.orientation.y,
+                       hole_pose.orientation.z);
+  if (q.norm() < 1e-9)
+  {
+    q.setIdentity();
+  }
+  q.normalize();
+  Eigen::Vector3d v = q * axis_local;
+  const double n = v.norm();
+  if (n < 1e-9)
+  {
+    return axis_local;
+  }
+  return v / n;
+}
+
+static bool insertAxisHintPrecheckPasses(const InsertAxisHintPrecheckState& ih,
+                                         const geometry_msgs::msg::Pose& object_pose,
+                                         const Eigen::Vector3d& approach_world,
+                                         const rclcpp::Logger& logger,
+                                         std::size_t candidate_index,
+                                         const char* candidate_label)
+{
+  if (!ih.any_enabled())
+  {
+    return true;
+  }
+  const Eigen::Vector3d h = ih.hint.normalized();
+  Eigen::Vector3d app = approach_world;
+  if (app.norm() < 1e-9)
+  {
+    return true;
+  }
+  app.normalize();
+
+  if (ih.max_abs_dot_approach < 1.0 - 1e-9)
+  {
+    const double d_ap = std::abs(app.dot(h));
+    if (d_ap > ih.max_abs_dot_approach + 1e-9)
+    {
+      RCLCPP_WARN(logger,
+                  "handlePick: targetsensor candidate %zu insert-hint reject (|dot(approach,hint)|=%.3f > %.3f) "
+                  "(%s)",
+                  candidate_index,
+                  d_ap,
+                  ih.max_abs_dot_approach,
+                  candidate_label != nullptr ? candidate_label : "");
+      return false;
+    }
+  }
+
+  if (ih.min_abs_dot_rod > 1e-6)
+  {
+    Eigen::Quaterniond qo(object_pose.orientation.w, object_pose.orientation.x, object_pose.orientation.y,
+                            object_pose.orientation.z);
+    if (qo.norm() < 1e-9)
+    {
+      qo.setIdentity();
+    }
+    qo.normalize();
+    const Eigen::Vector3d rod_w = (qo * tsPickLocalAxisUnit(ih.rod_axis_local)).normalized();
+    const double d_rd = std::abs(rod_w.dot(h));
+    if (d_rd < ih.min_abs_dot_rod - 1e-9)
+    {
+      RCLCPP_WARN(logger,
+                  "handlePick: targetsensor candidate %zu insert-hint reject (|dot(rod,hint)|=%.3f < %.3f) (%s)",
+                  candidate_index,
+                  d_rd,
+                  ih.min_abs_dot_rod,
+                  candidate_label != nullptr ? candidate_label : "");
+      return false;
+    }
+  }
+
+  if (ih.handle_local.norm() > 1e-6 && ih.max_abs_dot_handle < 1.0 - 1e-9)
+  {
+    Eigen::Quaterniond qo(object_pose.orientation.w, object_pose.orientation.x, object_pose.orientation.y,
+                            object_pose.orientation.z);
+    if (qo.norm() < 1e-9)
+    {
+      qo.setIdentity();
+    }
+    qo.normalize();
+    const Eigen::Vector3d handle_w = (qo * ih.handle_local).normalized();
+    const double d_hd = std::abs(handle_w.dot(h));
+    if (d_hd > ih.max_abs_dot_handle + 1e-9)
+    {
+      RCLCPP_WARN(logger,
+                  "handlePick: targetsensor candidate %zu insert-hint reject (|dot(handle,hint)|=%.3f > %.3f) "
+                  "(%s)",
+                  candidate_index,
+                  d_hd,
+                  ih.max_abs_dot_handle,
+                  candidate_label != nullptr ? candidate_label : "");
+      return false;
+    }
+  }
+  return true;
+}
+
 bool buildTargetSensorGoalPoses(const TargetSensorPickCandidate& candidate,
                                 double grasp_depth_m,
                                 double surface_backoff_m,
@@ -259,7 +435,8 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
                                        const std::string& hand_frame,
                                        double grasp_depth_m,
                                        double surface_backoff_m,
-                                       Eigen::Isometry3d& out_grasp_pose)
+                                       Eigen::Isometry3d& out_grasp_pose,
+                                       const InsertAxisHintPrecheckState* insert_hint_precheck)
 {
   Eigen::Isometry3d pregrasp_pose = Eigen::Isometry3d::Identity();
   if (!buildTargetSensorGoalPoses(
@@ -270,6 +447,19 @@ bool precheckTargetSensorPickCandidate(const rclcpp::Logger& logger,
           pregrasp_pose))
   {
     return false;
+  }
+  if (insert_hint_precheck != nullptr && insert_hint_precheck->any_enabled())
+  {
+    const Eigen::Vector3d approach_w = targetSensorApproachDirWorld(candidate);
+    if (!insertAxisHintPrecheckPasses(*insert_hint_precheck,
+                                      candidate.object_pose.pose,
+                                      approach_w,
+                                      logger,
+                                      candidate_index,
+                                      candidate.label.c_str()))
+    {
+      return false;
+    }
   }
   if (!robot_model)
   {
@@ -930,6 +1120,55 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       }
     }
 
+    InsertAxisHintPrecheckState insert_axis_hint{};
+    insert_axis_hint.max_abs_dot_approach = config_.target_sensor_pick.max_abs_dot_approach_insert_hint;
+    insert_axis_hint.min_abs_dot_rod = config_.target_sensor_pick.insert_hint_min_abs_dot_rod;
+    insert_axis_hint.max_abs_dot_handle = config_.target_sensor_pick.insert_hint_max_abs_dot_handle;
+    insert_axis_hint.rod_axis_local = config_.target_sensor_pick.rod_axis_local;
+    if (config_.target_sensor_pick.handle_axis_local_xyz.size() == 3u)
+    {
+      insert_axis_hint.handle_local << config_.target_sensor_pick.handle_axis_local_xyz[0],
+          config_.target_sensor_pick.handle_axis_local_xyz[1],
+          config_.target_sensor_pick.handle_axis_local_xyz[2];
+    }
+    {
+      const int hint_slot = config_.target_sensor_pick.insert_axis_hint_target_set_index;
+      if (hint_slot >= 0 && get_latest_target_set_fn_)
+      {
+        const std::optional<orion_mtc_msgs::msg::TargetSet> ts_latest = get_latest_target_set_fn_();
+        if (ts_latest.has_value() &&
+            static_cast<std::size_t>(hint_slot) < ts_latest->targets.size())
+        {
+          insert_axis_hint.hint =
+              insertAxisWorldFromHolePose(ts_latest->targets[static_cast<std::size_t>(hint_slot)].pose,
+                                          config_.peg_insert.insert_axis_local_xyz);
+        }
+      }
+      if (insert_axis_hint.hint.norm() < 1e-6 &&
+          config_.target_sensor_pick.insert_axis_hint_base_xyz.size() == 3u)
+      {
+        insert_axis_hint.hint << config_.target_sensor_pick.insert_axis_hint_base_xyz[0],
+            config_.target_sensor_pick.insert_axis_hint_base_xyz[1],
+            config_.target_sensor_pick.insert_axis_hint_base_xyz[2];
+      }
+      if (insert_axis_hint.hint.norm() >= 1e-6)
+      {
+        insert_axis_hint.hint.normalize();
+      }
+      if (insert_axis_hint.any_enabled())
+      {
+        RCLCPP_INFO(LOGGER,
+                    "handlePick: targetsensor insert-hint precheck active hint=(%.3f,%.3f,%.3f) "
+                    "max|dot(appr,h)|=%.3f min|dot(rod,h)|=%.3f max|dot(hdl,h)|=%.3f",
+                    insert_axis_hint.hint.x(),
+                    insert_axis_hint.hint.y(),
+                    insert_axis_hint.hint.z(),
+                    insert_axis_hint.max_abs_dot_approach,
+                    insert_axis_hint.min_abs_dot_rod,
+                    insert_axis_hint.max_abs_dot_handle);
+      }
+    }
+
     reportJobPreparationStage("PICK", "pick_prepare_candidates",
                                "candidates=" + std::to_string(candidates.size()));
     for (std::size_t i = 0; i < candidates.size(); ++i)
@@ -949,8 +1188,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       if (!precheckTargetSensorPickCandidate(
               LOGGER, i, candidate, robot_model, scene_for_ik_seed,
               arm_group_name, hand_frame, config_.target_sensor_pick.grasp_depth_m,
-              config_.target_sensor_pick.surface_backoff_m,
-              grasp_pose))
+              config_.target_sensor_pick.surface_backoff_m, grasp_pose,
+              insert_axis_hint.any_enabled() ? &insert_axis_hint : nullptr))
       {
         continue;
       }
@@ -1441,8 +1680,8 @@ bool TaskManager::retreatToReady()
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
   // 就绪位闭合不做夹紧确认，避免空载时 wait_for_gripped 超时等待
-  if (!solution_executor_->executeSolution(solution_msg, nullptr, nullptr, "", "", {},
-                                          makeEstopAbortFn()))
+  if (!solution_executor_->executeSolution(solution_msg, nullptr, nullptr, "", "", {}, makeEstopAbortFn(),
+                                            nullptr, nullptr, nullptr))
   {
     RCLCPP_ERROR(LOGGER, "retreatToReady execution failed");
     return false;
@@ -1497,7 +1736,7 @@ bool TaskManager::handleOpenGripper()
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
   if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, nullptr, "", "", {},
-                                          makeEstopAbortFn()))
+                                            makeEstopAbortFn(), nullptr, nullptr, nullptr))
   {
     RCLCPP_ERROR(LOGGER, "open gripper execution failed");
     return false;
@@ -1607,7 +1846,7 @@ bool TaskManager::handleCloseGripper()
   moveit_task_constructor_msgs::msg::Solution solution_msg;
   task.solutions().front()->toMsg(solution_msg, &task.introspection());
   if (!solution_executor_->executeSolution(solution_msg, wait_for_gripped_fn_, nullptr, "", "", {},
-                                          makeEstopAbortFn()))
+                                            makeEstopAbortFn(), nullptr, nullptr, nullptr))
   {
     RCLCPP_ERROR(LOGGER, "close gripper execution failed");
     return false;
@@ -1803,7 +2042,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                 if (!solution_executor_->executeSolution(
                         extract_solution_msg, wait_for_gripped_fn_, stage_report_fn_, current_task_id_,
                         "TARGET_INSERT", std::vector<std::string>{ "current", "pre-extract reverse insert" },
-                        makeEstopAbortFn()))
+                        makeEstopAbortFn(), nullptr, nullptr, nullptr))
                 {
                   RCLCPP_WARN(LOGGER, "handleTargetInsert: pre-extract execution failed, continue insert");
                 }
@@ -1956,6 +2195,21 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       return false;
     }
 
+    std::vector<size_t> insert_lift_stage_indices;
+    for (size_t si = 0; si < insert_stage_names.size(); ++si)
+    {
+      const std::string& sn = insert_stage_names[si];
+      if (sn == "lift clear" || sn.rfind("lift clear segment ", 0) == 0)
+      {
+        insert_lift_stage_indices.push_back(si);
+      }
+    }
+    std::atomic<bool> insert_need_lift_replan_from_current(false);
+    std::shared_ptr<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>> lift_replan_subs_cache;
+    bool post_release_pre_replan_attempted = false;
+    bool post_release_pre_replan_ok = false;
+    moveit_task_constructor_msgs::msg::SubTrajectory post_release_pre_replan_sub;
+
     std::atomic<bool> insert_latch_hit(false);
     std::atomic<bool> stop_latch_monitor(false);
     std::atomic<bool> latch_sampling_enabled(false);
@@ -2051,6 +2305,10 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
               latch_sampling_enabled.store(is_descend_stage);
               if (insert_latch_hit.load() && is_insert_descend_stage(stage_name))
               {
+                if (insert_lift_stage_indices.size() == 3u)
+                {
+                  insert_need_lift_replan_from_current.store(true);
+                }
                 return false;
               }
               return true;
@@ -2065,6 +2323,98 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
                             "handleTargetInsert: latch transient observed after descend stage, "
                             "wait monitor debounce to confirm");
               }
+            },
+            [&](std::size_t stage_index, const std::string& name,
+                moveit_task_constructor_msgs::msg::SubTrajectory& sub)
+            {
+              if (!insert_need_lift_replan_from_current.load())
+              {
+                return;
+              }
+              if (name == "move to pre-insert (post release)")
+              {
+                if (!post_release_pre_replan_attempted)
+                {
+                  post_release_pre_replan_attempted = true;
+                  post_release_pre_replan_ok =
+                      insert_builder_->planPostReleaseMoveToPreInsertSubTrajectory(pose_base,
+                                                                                  post_release_pre_replan_sub);
+                  if (!post_release_pre_replan_ok)
+                  {
+                    RCLCPP_WARN(LOGGER,
+                                "handleTargetInsert: post-release move to pre-insert replan failed, "
+                                "using original segment");
+                  }
+                }
+                if (post_release_pre_replan_ok)
+                {
+                  moveit_task_constructor_msgs::msg::SubTrajectory merged = post_release_pre_replan_sub;
+                  if (sub.scene_diff.is_diff)
+                  {
+                    merged.scene_diff = sub.scene_diff;
+                  }
+                  if (merged.execution_info.controller_names.empty()
+                      && !sub.execution_info.controller_names.empty())
+                  {
+                    merged.execution_info = sub.execution_info;
+                  }
+                  sub = std::move(merged);
+                }
+                return;
+              }
+              const bool is_lift =
+                  (name == "lift clear" || name.rfind("lift clear segment ", 0) == 0);
+              if (!is_lift)
+              {
+                return;
+              }
+              size_t lift_slot = insert_lift_stage_indices.size();
+              for (size_t k = 0; k < insert_lift_stage_indices.size(); ++k)
+              {
+                if (insert_lift_stage_indices[k] == stage_index)
+                {
+                  lift_slot = k;
+                  break;
+                }
+              }
+              if (lift_slot >= insert_lift_stage_indices.size())
+              {
+                return;
+              }
+              if (!lift_replan_subs_cache)
+              {
+                std::vector<moveit_task_constructor_msgs::msg::SubTrajectory> segs;
+                if (!insert_builder_->planArmLiftRetreatSubTrajectories(pose_base, segs)
+                    || segs.size() != 3u)
+                {
+                  RCLCPP_WARN(LOGGER,
+                              "handleTargetInsert: lift replan from current state failed, "
+                              "using original lift segments");
+                  lift_replan_subs_cache =
+                      std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>();
+                }
+                else
+                {
+                  lift_replan_subs_cache =
+                      std::make_shared<std::vector<moveit_task_constructor_msgs::msg::SubTrajectory>>(
+                          std::move(segs));
+                }
+              }
+              if (lift_slot >= lift_replan_subs_cache->size())
+              {
+                return;
+              }
+              moveit_task_constructor_msgs::msg::SubTrajectory merged = (*lift_replan_subs_cache)[lift_slot];
+              if (sub.scene_diff.is_diff)
+              {
+                merged.scene_diff = sub.scene_diff;
+              }
+              if (merged.execution_info.controller_names.empty()
+                  && !sub.execution_info.controller_names.empty())
+              {
+                merged.execution_info = sub.execution_info;
+              }
+              sub = std::move(merged);
             }))
     {
       RCLCPP_ERROR(LOGGER, "target insert execution failed");

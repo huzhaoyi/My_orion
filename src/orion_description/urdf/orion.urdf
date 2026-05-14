@@ -221,17 +221,18 @@
 
   <!-- 插孔专用 IK 参考点：对齐被持物插头尖端（insert_task_builder 中 setIKFrame 使用此帧）。
        偏移推导（基于 pick 参数，坐标系为 gripper_tcp local frame）：
-         y = handle_half_length = 0.08 m（沿 peg 长轴方向；peg 长轴 = gripper_tcp Y）
+         |y| = handle_half_length = 0.08 m（沿 peg 长轴；peg 长轴 = gripper_tcp Y）
              = grasp_offset(0.122671) - keypoint_to_handle_start(0.042671) = 0.08 m
+         y 符号：尖端相对 gripper_tcp 沿 +Y 或 -Y 取决于 STL/夹持方向；若规划出现「把柄先进孔」则对 y 取反。
          z = surface_backoff_m(0.05) - grasp_depth_m(0.015) = 0.035 m（沿抓取接近轴）
        若插入后深度偏差，调整 y（沿 peg 轴）；若横向对不准，调整 z（垂直 peg 轴）。
-       d_base 若指向与预期相反，可将 y 改为 -0.08。 -->
+       d_base 若指向与预期相反，可将 y 改为 -0.08（与现场「杆尖先进孔」一致）。 -->
   <link name="peg_tip"/>
 
   <joint name="joint_gripper_tcp_peg_tip" type="fixed">
     <parent link="gripper_tcp"/>
     <child link="peg_tip"/>
-    <origin xyz="0.0 0.08 0.035" rpy="0.0 0.0 0.0"/>
+    <origin xyz="0.0 -0.08 0.035" rpy="0.0 0.0 0.0"/>
   </joint>
 
   <joint name="joint_Link6_Link7" type="revolute">
