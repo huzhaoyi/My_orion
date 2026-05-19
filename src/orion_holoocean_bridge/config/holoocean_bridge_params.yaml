@@ -4,7 +4,7 @@ arm_sensor_to_joint_state:
     arm_sensor_topic: "/holoocean/rov0/ArmSensor"
     joint_states_topic: "joint_states"
     joints_in_degrees: true
-    publish_frame_id: "base_link"
+    publish_frame_id: "arm_base_link"
     # 发布 left_arm_gripped 供 MTC 动态抓取时等待“抓稳/松开”（须与 MTC 订阅一致：/manipulator/left_arm_gripped）
     gripped_topic: "/manipulator/left_arm_gripped"
 
@@ -22,7 +22,7 @@ trajectory_to_agent_bridge:
     agent_frame_id: "rov0"
     publish_rate_hz: 50.0
 
-# TargetSensor 世界系 xyz + direction → base_link 下 object_pose（MTC 抓取）+ perception_state（旧多目标逻辑，可选）
+# TargetSensor 世界系 xyz + direction → arm_base_link 下 object_pose（MTC 抓取）+ perception_state（旧多目标逻辑，可选）
 target_sensor_to_object_pose:
   ros__parameters:
     target_sensor_topic: "/holoocean/rov0/TargetSensor"
@@ -34,8 +34,9 @@ target_sensor_to_object_pose:
     target_set_topic: "/manipulator/target_set"
     target_insert_holes_topic: "/manipulator/target_insert_holes"
     world_frame_id: "map"
-    publish_tf: true
-    output_frame_id: "base_link"
+    # 与 sealien_ctrlpilot_location 同跑时务必 false，避免 /tf 上 rov0→arm_base_link 与同事 odom→base_link(ROV) 冲突
+    publish_tf: false
+    output_frame_id: "arm_base_link"
     target_index: 1
     use_left_arm: true
     left_arm_base_in_rov_x: 1.55
@@ -53,7 +54,7 @@ target_sensor_to_object_pose:
     grasp_offset_along_direction_m: 0.122671
     # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
     use_pose_sensor_stamp_for_rov_tf: false
-    # 固定7插孔：world/map 坐标；节点内按 world->rov->base_link 链路转换后发布。
+    # 固定7插孔：world/map 坐标；节点内按 world->rov->arm_base_link 链路转换后发布。
     targetsensor_slot_1_position_world: [-113.98, 129.085, -132.1]
     targetsensor_slot_1_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
     targetsensor_slot_2_position_world: [-113.98, 128.85, -132.1]
@@ -70,7 +71,7 @@ target_sensor_to_object_pose:
     targetsensor_slot_7_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
     # 孔位旁面板：与 panel_obstacles_mtc_fragment.yaml 同目录；pick_holoocean 会合并进本节点与 orion_mtc_node。
 
-# CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF base_link→cable
+# CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF arm_base_link→cable
 # 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1
 # 注意：部分数据源虽然 header.frame_id=COM，但 positions 实际给的是 map/world 坐标（接近 ROV(map)）。
 cable_sensor_to_object_pose:
@@ -82,8 +83,9 @@ cable_sensor_to_object_pose:
     object_axis_topic: "/manipulator/object_axis"
     perception_state_topic: "/manipulator/perception_state"
     world_frame_id: "map"
-    publish_tf: true
-    output_frame_id: "base_link"
+    # 与 sealien_ctrlpilot_location 同跑时务必 false，避免 /tf 上 rov0→arm_base_link 与同事 odom→base_link(ROV) 冲突
+    publish_tf: false
+    output_frame_id: "arm_base_link"
     use_left_arm: true
     left_arm_base_in_rov_x: 1.55
     left_arm_base_in_rov_y: 0.5653

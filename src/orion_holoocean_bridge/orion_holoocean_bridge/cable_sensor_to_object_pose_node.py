@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-将 HoloOcean CableSensor（COM 系下 位置 + 轴向 + 欧拉角）转换为 MTC 所需的 object_pose（base_link 下）。
+将 HoloOcean CableSensor（COM 系下 位置 + 轴向 + 欧拉角）转换为 MTC 所需的 object_pose（arm_base_link 下）。
 单目标：3m 长、直径 5cm 缆绳。
 
 支持分字段声明 positions/directions/euler 所在系（world/rov/com），与仿真版本差异兼容；
@@ -133,7 +133,7 @@ def _rotation_matrix_from_rpy(roll: float, pitch: float, yaw: float) -> np.ndarr
 class CableSensorToObjectPoseNode(Node):
     """
     订阅 CableSensor（COM 系：位置 + 轴向 + 欧拉角）和 ROV 位姿，
-    将缆绳目标变换到 base_link，发布 object_pose 与 perception_state。
+    将缆绳目标变换到 arm_base_link，发布 object_pose 与 perception_state。
     """
 
     def __init__(self) -> None:
@@ -145,7 +145,7 @@ class CableSensorToObjectPoseNode(Node):
         self.declare_parameter("world_frame_id", "map")
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
-        self.declare_parameter("output_frame_id", "base_link")
+        self.declare_parameter("output_frame_id", "arm_base_link")
         self.declare_parameter("object_axis_topic", "object_axis")
         self.declare_parameter("use_left_arm", True)
         self.declare_parameter("left_arm_base_in_rov_x", DEFAULT_LEFT_ARM_BASE_IN_ROV[0])
@@ -230,12 +230,12 @@ class CableSensorToObjectPoseNode(Node):
         if self._publish_tf:
             self._tf_broadcaster = TransformBroadcaster(self)
             self._tf_static_broadcaster = StaticTransformBroadcaster(self)
-            self._publish_static_rov_to_base_link()
+            self._publish_static_rov_to_arm_base_link()
         else:
             self._tf_broadcaster = None
             self._tf_static_broadcaster = None
 
-    def _publish_static_rov_to_base_link(self) -> None:
+    def _publish_static_rov_to_arm_base_link(self) -> None:
         """static TF：rov0 → output_frame，臂基在 ROV 内平移。"""
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
@@ -316,10 +316,10 @@ class CableSensorToObjectPoseNode(Node):
             ps.object_axis_direction.z = 1.0
         ps.object_confidence = 1.0
         ps.target_sensor_selected_index = -1
-        ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base else PoseStamped()
-        if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
-            ps.rov_pose_in_base_link.header.stamp = stamp
-            ps.rov_pose_in_base_link.header.frame_id = self._output_frame_id
+        ps.rov_pose_in_arm_base_link = self._last_rov_in_base if self._last_rov_in_base else PoseStamped()
+        if ps.rov_pose_in_arm_base_link.header.stamp.sec == 0 and ps.rov_pose_in_arm_base_link.header.stamp.nanosec == 0:
+            ps.rov_pose_in_arm_base_link.header.stamp = stamp
+            ps.rov_pose_in_arm_base_link.header.frame_id = self._output_frame_id
         ps.rov_pose_in_world = self._last_rov_pose_in_world if self._last_rov_pose_in_world else PoseStamped()
         if ps.rov_pose_in_world.header.stamp.sec == 0 and ps.rov_pose_in_world.header.stamp.nanosec == 0:
             ps.rov_pose_in_world.header.stamp = stamp
@@ -328,7 +328,7 @@ class CableSensorToObjectPoseNode(Node):
 
     def _on_cable_sensor(self, msg: CableSensor) -> None:
         """
-        仅支持 num_cables=1：按 frame 参数把位置/方向变到 world 再入 base_link，
+        仅支持 num_cables=1：按 frame 参数把位置/方向变到 world 再入 arm_base_link，
         用轴向生成圆柱姿态，发布 object_pose、axis、可选 cable TF、perception_state。
         """
         if msg.num_cables <= 0:
@@ -448,7 +448,7 @@ class CableSensorToObjectPoseNode(Node):
                 "cable_sensor_to_object_pose: 已收到 CableSensor，发布 object_pose（缆绳单目标）"
             )
         # self.get_logger().info(
-        #     "cable_sensor_to_object_pose: 缆绳 base_link 位姿 x=%.3f y=%.3f z=%.3f（供 MTC 抓取目标）"
+        #     "cable_sensor_to_object_pose: 缆绳 arm_base_link 位姿 x=%.3f y=%.3f z=%.3f（供 MTC 抓取目标）"
         #     % (float(p_base[0]), float(p_base[1]), float(p_base[2])),
         #     throttle_duration_sec=2.0,
         # )

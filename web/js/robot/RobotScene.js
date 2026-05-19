@@ -187,7 +187,7 @@ function createScene(containerEl) {
   world.add(grid);
   robot.position.y = GRID_Y;
 
-  /* 基坐标系 - ROS base_link 语义：与 RobotModelLoader 根节点相同，Z-up(URDF) -> 场景 Y-up */
+  /* 基坐标系 - ROS arm_base_link 语义：与 RobotModelLoader 根节点相同，Z-up(URDF) -> 场景 Y-up */
   const ROS_Z_UP_TO_SCENE_Y_UP = -Math.PI / 2;
   const baseAxesGroup = new THREE.Group();
   baseAxesGroup.name = 'base_axes';
@@ -574,7 +574,7 @@ function createScene(containerEl) {
   });
   targets.add(targetSensorObjectComposed);
 
-  /* 插孔调试可视化：环形孔位（base_link->scene 变换后由 Viewport3D 更新位姿）。 */
+  /* 插孔调试可视化：环形孔位（arm_base_link->scene 变换后由 Viewport3D 更新位姿）。 */
   const targetInsertHolesGroup = new THREE.Group();
   targetInsertHolesGroup.name = 'target_insert_holes_group';
   targetInsertHolesGroup.visible = false;
@@ -661,7 +661,7 @@ function createScene(containerEl) {
   keypointsPolyline.visible = false;
   targets.add(keypointsPolyline);
 
-  /* ROV 坐标系（base_link 下，由 rov_pose_in_base_link 更新） */
+  /* ROV 坐标系（arm_base_link 下，由 rov_pose_in_arm_base_link 更新） */
   const ROV_AXIS_SIZE = 0.12;
   const rovAxesGroup = new THREE.Group();
   rovAxesGroup.name = 'rov_axes';

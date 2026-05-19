@@ -40,11 +40,14 @@ public:
     ~OrionMTCNode();
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getPlanningNodeBaseInterface();
+    /** 订阅 /manipulator/tf，供面板与 TCP 查询 arm_base_link */
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getManipulatorTfNodeBaseInterface();
     void setupPlanningScene();
 
 private:
     void initModules();
     void initInterfaces();
+    bool tryApplyPanelObstacles();
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Node::SharedPtr action_client_node_;
@@ -63,8 +66,13 @@ private:
     std::shared_ptr<SolutionExecutor> solution_executor_;
     std::shared_ptr<TaskManager> task_manager_;
     std::shared_ptr<FeasibilityChecker> feasibility_checker_;
+    /** /tf：同事 odom→base_link(ROV)→sensor_left，Action 外参 */
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp::Node::SharedPtr manipulator_tf_node_;
+    std::shared_ptr<tf2_ros::Buffer> manipulator_tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> manipulator_tf_listener_;
+    rclcpp::TimerBase::SharedPtr panel_obstacles_retry_timer_;
 
     std::atomic<double> left_arm_gripped_{ 0.0 };
 

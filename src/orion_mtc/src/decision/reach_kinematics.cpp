@@ -18,10 +18,10 @@ constexpr double k_default_kinematic_margin = 1.08;
 }  // namespace
 
 /*
- * 自 tip_link 沿 parent 链累加 joint origin 平移范数至 base_link，作为「伸直」上界近似；链断或找不到返回 -1。
+ * 自 tip_link 沿 parent 链累加 joint origin 平移范数至 arm_base_link，作为「伸直」上界近似；链断或找不到返回 -1。
  */
 double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
-                                        const std::string& base_link,
+                                        const std::string& arm_base_link,
                                         const std::string& tip_link)
 {
   const moveit::core::LinkModel* tip = model.getLinkModel(tip_link);
@@ -31,12 +31,12 @@ double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
   }
   double sum = 0.0;
   const moveit::core::LinkModel* cur = tip;
-  while (cur && cur->getName() != base_link)
+  while (cur && cur->getName() != arm_base_link)
   {
     sum += cur->getJointOriginTransform().translation().norm();
     cur = cur->getParentLinkModel();
   }
-  if (!cur || cur->getName() != base_link)
+  if (!cur || cur->getName() != arm_base_link)
   {
     return -1.0;
   }
@@ -49,7 +49,7 @@ double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
 ResolvedReachLimits resolveFeasibilityReachLimits(
     const rclcpp::Node::SharedPtr& node,
     const std::shared_ptr<const moveit::core::RobotModel>& robot_model,
-    const std::string& base_link,
+    const std::string& arm_base_link,
     const std::string& tip_link)
 {
   ResolvedReachLimits out;
@@ -83,7 +83,7 @@ ResolvedReachLimits resolveFeasibilityReachLimits(
   {
     if (robot_model)
     {
-      out.kinematic_ub_m = computeKinematicReachUpperBoundM(*robot_model, base_link, tip_link);
+      out.kinematic_ub_m = computeKinematicReachUpperBoundM(*robot_model, arm_base_link, tip_link);
       if (out.kinematic_ub_m >= 0.0)
       {
         out.hard_m = out.kinematic_ub_m * margin;

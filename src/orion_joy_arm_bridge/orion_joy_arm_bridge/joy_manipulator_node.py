@@ -166,7 +166,7 @@ class JoyManipulatorNode(Node):
         self.declare_parameter("right_emergency_stop_button_index", 0)
         self.declare_parameter("right_clear_estop_button_index", 5)
         self.declare_parameter("arm_joint_names", [
-            "joint_base_link_Link1",
+            "joint_arm_base_link_Link1",
             "joint_Link1_Link2",
             "joint_Link2_Link3",
             "joint_LinkVirtual_Link4",

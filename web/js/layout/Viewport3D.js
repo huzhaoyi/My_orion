@@ -11,7 +11,7 @@ import { t, subscribeLocale } from '../data/i18n.js';
 let sceneApi = null;
 let unsubscribeState = null;
 
-/* base_link 为 Z-up（ROS），场景为 Y-up（Three.js），坐标变换：rotateX(-π/2) */
+/* arm_base_link 为 Z-up（ROS），场景为 Y-up（Three.js），坐标变换：rotateX(-π/2) */
 const Z_UP_TO_Y_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 const layerToggles = {
   showTargets: true,
@@ -178,6 +178,77 @@ function createJoystickTable(containerEl) {
   return { panel, tbody: table.querySelector('#joystick-table-body') };
 }
 
+/** HoloOcean ArmSensor 左臂 7 关节（度），与 ros2 topic echo 一致。 */
+function createHolooceanArmTable(containerEl) {
+  const panel = document.createElement('div');
+  panel.className = 'viewport-3d__joystick-panel viewport-3d__holoocean-panel';
+  const title = document.createElement('div');
+  title.className = 'viewport-3d__joystick-panel-title';
+  title.textContent = t('viewport.holoocean_joints');
+  panel.appendChild(title);
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'viewport-3d__joystick-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'viewport-3d__joystick-table';
+  table.innerHTML = `<thead><tr><th>${t('viewport.holoocean_joint_col')}</th><th>°</th></tr></thead><tbody id="holoocean-arm-table-body"></tbody>`;
+  tableWrap.appendChild(table);
+  panel.appendChild(tableWrap);
+  const grippedRow = document.createElement('div');
+  grippedRow.className = 'viewport-3d__holoocean-gripped';
+  grippedRow.id = 'holoocean-arm-gripped';
+  panel.appendChild(grippedRow);
+  containerEl.appendChild(panel);
+  return {
+    panel,
+    tbody: table.querySelector('#holoocean-arm-table-body'),
+    grippedEl: grippedRow,
+  };
+}
+
+/** @param {{ html: string }} [cacheRef] */
+function updateHolooceanArmTable(tbody, jointsDeg, gripped, grippedEl, valid, cacheRef) {
+  const rowLabels = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', t('viewport.gripper')];
+  if (!tbody) {
+    return;
+  }
+  let html;
+  if (!valid || !Array.isArray(jointsDeg) || jointsDeg.length === 0) {
+    html = `<tr><td colspan="2" class="viewport-3d__joystick-empty">${t('viewport.no_data')}</td></tr>`;
+  } else {
+    const rows = [];
+    for (let i = 0; i < rowLabels.length; i += 1) {
+      const label = rowLabels[i];
+      const v = jointsDeg[i] != null ? Number(jointsDeg[i]) : 0;
+      const degStr = Number.isFinite(v) ? v.toFixed(4) : '0.0000';
+      const titleAttr = i < 6 ? `left_arm_joints[${i}]` : 'left_arm_joints[6]';
+      rows.push(
+        `<tr><td class="viewport-3d__joystick-name" title="${titleAttr}">${label}</td><td>${degStr}</td></tr>`
+      );
+    }
+    html = rows.join('');
+  }
+  if (cacheRef && cacheRef.html === html) {
+    if (grippedEl) {
+      const grippedText = valid && gripped != null && Number.isFinite(Number(gripped))
+        ? `${t('viewport.holoocean_gripped')}: ${Number(gripped).toFixed(3)}`
+        : '';
+      if (grippedEl.textContent !== grippedText) {
+        grippedEl.textContent = grippedText;
+      }
+    }
+    return;
+  }
+  if (cacheRef) {
+    cacheRef.html = html;
+  }
+  tbody.innerHTML = html;
+  if (grippedEl) {
+    grippedEl.textContent = valid && gripped != null && Number.isFinite(Number(gripped))
+      ? `${t('viewport.holoocean_gripped')}: ${Number(gripped).toFixed(3)}`
+      : '';
+  }
+}
+
 /* Orion：6 臂关节 + 2 夹爪关节(Link7/Link8)，表格显示为 6+1=7 行 */
 const HAND_JOINT_NAMES = ['joint_Link6_Link7', 'joint_Link6_Link8'];
 
@@ -283,7 +354,13 @@ function mount(containerId) {
   const { panel: joystickPanel, tbody: joystickTbody } = createJoystickTable(el);
   el.appendChild(joystickPanel);
 
+  const {
+    tbody: holooceanArmTbody,
+    grippedEl: holooceanGrippedEl,
+  } = createHolooceanArmTable(el);
+
   const joystickTableHtmlCache = { html: '' };
+  const holooceanArmTableHtmlCache = { html: '' };
 
   function applyViewportI18n() {
     const layerPanel = el.querySelector('.viewport-3d__layer-panel');
@@ -294,9 +371,17 @@ function mount(containerId) {
         span.textContent = ` ${t(key)}`;
       });
     }
-    const joyTitle = el.querySelector('.viewport-3d__joystick-panel-title');
-    if (joyTitle) {
-      joyTitle.textContent = t('viewport.joints');
+    const joyTitles = el.querySelectorAll('.viewport-3d__joystick-panel-title');
+    if (joyTitles.length > 0) {
+      joyTitles[0].textContent = t('viewport.joints');
+    }
+    const holooceanTitle = el.querySelector('.viewport-3d__holoocean-panel .viewport-3d__joystick-panel-title');
+    if (holooceanTitle) {
+      holooceanTitle.textContent = t('viewport.holoocean_joints');
+    }
+    const holooceanThead = el.querySelector('.viewport-3d__holoocean-panel .viewport-3d__joystick-table thead tr');
+    if (holooceanThead) {
+      holooceanThead.innerHTML = `<th>${t('viewport.holoocean_joint_col')}</th><th>°</th>`;
     }
     const joyThead = el.querySelector('.viewport-3d__joystick-table thead tr');
     if (joyThead) {
@@ -313,10 +398,15 @@ function mount(containerId) {
       followSpan.textContent = ` ${t('viewport.follow_tcp')}`;
     }
     joystickTableHtmlCache.html = '';
-    updateJoystickTable(
-      joystickTbody,
-      stateStore.getState().jointNames,
-      stateStore.getState().jointPositions,
+    holooceanArmTableHtmlCache.html = '';
+    const st = stateStore.getState();
+    updateJoystickTable(joystickTbody, st.jointNames, st.jointPositions, null);
+    updateHolooceanArmTable(
+      holooceanArmTbody,
+      st.holooceanLeftArmJointsDeg,
+      st.holooceanLeftArmGripped,
+      holooceanGrippedEl,
+      st.holooceanArmSensorValid,
       null
     );
   }
@@ -337,6 +427,14 @@ function mount(containerId) {
   function updateFromState(s) {
     if (!sceneApi) return;
     updateJoystickTable(joystickTbody, s.jointNames, s.jointPositions, joystickTableHtmlCache);
+    updateHolooceanArmTable(
+      holooceanArmTbody,
+      s.holooceanLeftArmJointsDeg,
+      s.holooceanLeftArmGripped,
+      holooceanGrippedEl,
+      s.holooceanArmSensorValid,
+      holooceanArmTableHtmlCache
+    );
     function applyBaseLinkToScene(pos) {
       const v = new THREE.Vector3(pos.x, pos.y, pos.z);
       v.applyQuaternion(Z_UP_TO_Y_UP);
@@ -445,7 +543,7 @@ function mount(containerId) {
     const rovPos = rosToThreePosition(s.rovPoseInBaseLink?.position);
     if (sceneApi.rovAxesGroup) {
       sceneApi.rovAxesGroup.position.copy(applyBaseLinkToScene(rovPos));
-      /* 与机械臂/base_axes 一致：ROS base_link(Z-up) → 场景，再乘 ROV 在 base_link 下的姿态 */
+      /* 与机械臂/base_axes 一致：ROS arm_base_link(Z-up) → 场景，再乘 ROV 在 arm_base_link 下的姿态 */
       const qScene = new THREE.Quaternion().copy(Z_UP_TO_Y_UP);
       const qRov = s.rovPoseInBaseLink?.orientation
         ? rosToThreeQuaternion(s.rovPoseInBaseLink.orientation)

@@ -175,7 +175,7 @@ function registerGlobalHandlers() {
         const object_pose = wsClient.buildPoseStamped(
           target.position,
           target.orientation,
-          'base_link'
+          'arm_base_link'
         );
         wsClient.submitJob({
           job_type: wsClient.JOB_TYPE.PICK,
@@ -212,7 +212,7 @@ function registerGlobalHandlers() {
       const fallbackPose = wsClient.buildPoseStamped(
         s.targetSensorObjectPose.position,
         s.targetSensorObjectPose.orientation,
-        'base_link'
+        'arm_base_link'
       );
       wsClient.submitJob({
         job_type: wsClient.JOB_TYPE.PICK,
@@ -296,8 +296,8 @@ function registerGlobalHandlers() {
       }
       const slotPoseFromHoles = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses[slot - 1] : null;
       if (!slotPoseFromHoles || !slotPoseFromHoles.position) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定7孔 base_link 孔位`);
-        toast.warn(`孔位 ${String(slot)} 暂无 base_link 目标（请确认 /manipulator/target_insert_holes）`);
+        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定7孔 arm_base_link 孔位`);
+        toast.warn(`孔位 ${String(slot)} 暂无 arm_base_link 目标（请确认 /manipulator/target_insert_holes）`);
         return;
       }
       const normalizeQuaternion = (q) => {
@@ -339,7 +339,7 @@ function registerGlobalHandlers() {
           z: Number(slotPoseFromHoles.position.z),
         },
         targetOrientation,
-        'base_link'
+        'arm_base_link'
       );
       wsClient.submitJob({
         job_type: wsClient.JOB_TYPE.TARGET_INSERT,
@@ -355,7 +355,7 @@ function registerGlobalHandlers() {
           (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
         stateStore.pushSystemLog(
           ok ? 'info' : 'error',
-          `TargetSensor insert slot=${slot} base_link=(${Number(target_pose.pose.position.x).toFixed(3)}, ${Number(target_pose.pose.position.y).toFixed(3)}, ${Number(target_pose.pose.position.z).toFixed(3)}), ori=${orientationSource}: ${msg}`
+          `TargetSensor insert slot=${slot} arm_base_link=(${Number(target_pose.pose.position.x).toFixed(3)}, ${Number(target_pose.pose.position.y).toFixed(3)}, ${Number(target_pose.pose.position.z).toFixed(3)}), ori=${orientationSource}: ${msg}`
         );
         if (ok) {
           toast.success(msg);

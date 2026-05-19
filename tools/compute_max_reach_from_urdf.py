@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-与 orion_mtc reach_kinematics.cpp 一致：沿 base_link←…←gripper_tcp 累加各子连杆
+与 orion_mtc reach_kinematics.cpp 一致：沿 arm_base_link←…←gripper_tcp 累加各子连杆
 joint 的 origin xyz 范数（MoveIt LinkModel::getJointOriginTransform().translation().norm() 的 URDF 来源）。
 
 URDF 或规划模型变更后重跑本脚本，将输出的 feasibility 数值写回 orion_mtc/config/orion_mtc_params.yaml。
@@ -27,7 +27,7 @@ def _joint_xyz(joint_el: ET.Element) -> list[float]:
     return [float(raw[0]), float(raw[1]), float(raw[2])]
 
 
-def compute_kinematic_ub_m(urdf_path: str, tip_link: str, base_link: str) -> tuple[float, list[tuple[str, list[float], float]]]:
+def compute_kinematic_ub_m(urdf_path: str, tip_link: str, arm_base_link: str) -> tuple[float, list[tuple[str, list[float], float]]]:
     """
     自 tip 沿 URDF 父链走向 base，对每个 joint 的 origin xyz 取范数并累加，得到与 MoveIt LinkModel 链长一致的上界近似。
 
@@ -48,9 +48,9 @@ def compute_kinematic_ub_m(urdf_path: str, tip_link: str, base_link: str) -> tup
     cur = tip_link
     total = 0.0
     steps: list[tuple[str, list[float], float]] = []
-    while cur != base_link:
+    while cur != arm_base_link:
         if cur not in child_to:
-            raise ValueError(f"无法从 {tip_link} 沿父链走到 {base_link}：在 link '{cur}' 处断开")
+            raise ValueError(f"无法从 {tip_link} 沿父链走到 {arm_base_link}：在 link '{cur}' 处断开")
         parent, xyz, jname = child_to[cur]
         n = _norm_xyz(xyz)
         total += n
@@ -69,7 +69,7 @@ def main() -> int:
         help="URDF 路径（相对仓库根或绝对路径）",
     )
     ap.add_argument("--tip", default="gripper_tcp", help="末端 link 名")
-    ap.add_argument("--base", default="base_link", help="臂基 link 名")
+    ap.add_argument("--base", default="arm_base_link", help="臂基 link 名")
     ap.add_argument("--margin", type=float, default=1.08, help="与 feasibility.max_reach_hard_kinematic_margin 一致")
     ap.add_argument("--soft-ratio", type=float, default=0.92, help="soft = hard × 该值")
     ap.add_argument("--verbose", action="store_true", help="打印各关节贡献")

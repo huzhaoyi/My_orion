@@ -47,7 +47,7 @@ visualization_msgs::msg::MarkerArray buildPanelObstacleMarkers(
     return out;
   }
   const std::string frame_id = collision_objects.front().header.frame_id.empty()
-                                   ? "base_link"
+                                   ? "arm_base_link"
                                    : collision_objects.front().header.frame_id;
   visualization_msgs::msg::Marker delete_all;
   delete_all.header.frame_id = frame_id;
@@ -87,6 +87,51 @@ visualization_msgs::msg::MarkerArray buildPanelObstacleMarkers(
     out.markers.push_back(m);
   }
   return out;
+}
+
+/*
+ * 将面板四角点从 src_frame 变换到 dst_frame；corners_xyz 为 x,y,z 交替共 12 个数。
+ */
+bool transformPanelCorners(const tf2_ros::Buffer& tf_buffer,
+                           const std::string& src_frame,
+                           const std::string& dst_frame,
+                           const std::vector<double>& corners_xyz,
+                           std::vector<double>& corners_out)
+{
+  if (corners_xyz.size() < 12u || src_frame.empty() || dst_frame.empty())
+  {
+    return false;
+  }
+  if (src_frame == dst_frame)
+  {
+    corners_out = corners_xyz;
+    return true;
+  }
+  corners_out.clear();
+  corners_out.reserve(12u);
+  const tf2::Duration timeout = tf2::durationFromSec(2.0);
+  for (size_t i = 0; i < 4u; ++i)
+  {
+    geometry_msgs::msg::PointStamped pin;
+    pin.header.frame_id = src_frame;
+    pin.header.stamp.sec = 0;
+    pin.header.stamp.nanosec = 0;
+    pin.point.x = corners_xyz[i * 3u + 0u];
+    pin.point.y = corners_xyz[i * 3u + 1u];
+    pin.point.z = corners_xyz[i * 3u + 2u];
+    try
+    {
+      const geometry_msgs::msg::PointStamped pout = tf_buffer.transform(pin, dst_frame, timeout);
+      corners_out.push_back(pout.point.x);
+      corners_out.push_back(pout.point.y);
+      corners_out.push_back(pout.point.z);
+    }
+    catch (const std::exception&)
+    {
+      return false;
+    }
+  }
+  return corners_out.size() >= 12u;
 }
 
 }  // namespace
@@ -239,7 +284,17 @@ void OrionMTCNode::initModules()
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(action_client_node_->get_clock());
     tf_buffer_->setUsingDedicatedThread(true);
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, true);
-    task_manager_->setTransformToBaseLinkCallback(
+
+    rclcpp::NodeOptions manip_tf_opts;
+    manip_tf_opts.arguments(
+        { "--ros-args", "-r", "tf:=/manipulator/tf", "-r", "tf_static:=/manipulator/tf_static" });
+    manipulator_tf_node_ = std::make_shared<rclcpp::Node>("orion_mtc_manip_tf", manip_tf_opts);
+    manipulator_tf_buffer_ = std::make_shared<tf2_ros::Buffer>(manipulator_tf_node_->get_clock());
+    manipulator_tf_buffer_->setUsingDedicatedThread(true);
+    manipulator_tf_listener_ =
+        std::make_shared<tf2_ros::TransformListener>(*manipulator_tf_buffer_, manipulator_tf_node_, true);
+
+    task_manager_->setTransformToArmBaseLinkCallback(
         [this](geometry_msgs::msg::PoseStamped& pose, geometry_msgs::msg::Vector3Stamped* axis) {
             const std::string& tf_target = config_.manipulator_frame.tf_target_frame;
             const std::string& plan_frame = config_.manipulator_frame.planning_frame_id;
@@ -247,6 +302,25 @@ void OrionMTCNode::initModules()
 
             if (src_frame == plan_frame)
             {
+                return true;
+            }
+            /* 旧接口/Web 曾用 base_link 表示臂根；location 的 /tf 上 base_link 为 ROV，禁止误变换。 */
+            if (src_frame == "base_link")
+            {
+                RCLCPP_WARN_THROTTLE(
+                    LOGGER,
+                    *action_client_node_->get_clock(),
+                    30000,
+                    "Manipulator pose frame_id=base_link is legacy (planning frame is %s; colleague ROV uses "
+                    "base_link on /tf). Remapping to %s without TF — use arm_base_link or %s explicitly.",
+                    plan_frame.c_str(),
+                    plan_frame.c_str(),
+                    tf_target.c_str());
+                pose.header.frame_id = plan_frame;
+                if (axis != nullptr)
+                {
+                    axis->header.frame_id = plan_frame;
+                }
                 return true;
             }
             if (src_frame == tf_target)
@@ -350,7 +424,8 @@ void OrionMTCNode::initInterfaces()
                                      perception_snapshot_,
                                      target_selector_,
                                      &left_arm_gripped_,
-                                     tf_buffer_ };
+                                     tf_buffer_,
+                                     manipulator_tf_buffer_ };
 
     manipulator_iface_ = std::make_unique<ManipulatorRosInterface>(ctx);
     manipulator_iface_->registerSubscriptionsAndServices();
@@ -368,90 +443,175 @@ rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getPlanningN
     return node_->get_node_base_interface();
 }
 
+rclcpp::node_interfaces::NodeBaseInterface::SharedPtr OrionMTCNode::getManipulatorTfNodeBaseInterface()
+{
+    return manipulator_tf_node_ ? manipulator_tf_node_->get_node_base_interface() : nullptr;
+}
+
+/*
+ * 面板四角从 poc.frame_id（map/odom）变换到 planning_frame（arm_base_link）后写入 MoveIt。
+ * 优先 /manipulator/tf（map→world→arm_base_link）；odom 时回退 /tf→sensor_left 再按同安装点写入臂系。
+ */
+bool OrionMTCNode::tryApplyPanelObstacles()
+{
+    const PanelObstaclesConfig& poc = config_.panel_obstacles;
+    if (!poc.enable || poc.panels.empty() || !scene_manager_)
+    {
+        return false;
+    }
+
+    const std::string& plan_frame = config_.manipulator_frame.planning_frame_id;
+    const std::string& tf_target = config_.manipulator_frame.tf_target_frame;
+
+    if (manipulator_tf_buffer_ && (poc.frame_id == "map" || poc.frame_id == "world"))
+    {
+        std::string tf_err;
+        const bool have_tf = manipulator_tf_buffer_->canTransform(plan_frame,
+                                                                  poc.frame_id,
+                                                                  tf2::TimePointZero,
+                                                                  tf2::durationFromSec(8.0),
+                                                                  &tf_err);
+        if (!have_tf)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "panel_obstacles: manipulator TF %s<-%s not ready within 8s: %s "
+                        "(pick_holoocean 需 static map→world 与 world→arm_base_link)",
+                        plan_frame.c_str(),
+                        poc.frame_id.c_str(),
+                        tf_err.c_str());
+        }
+    }
+    else if (tf_buffer_ && poc.frame_id == "odom" && !tf_target.empty())
+    {
+        std::string tf_err;
+        const bool have_tf = tf_buffer_->canTransform(tf_target,
+                                                    poc.frame_id,
+                                                    tf2::TimePointZero,
+                                                    tf2::durationFromSec(8.0),
+                                                    &tf_err);
+        if (!have_tf)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "panel_obstacles: global TF %s<-%s not ready within 8s: %s "
+                        "(需 sealien_ctrlpilot_location)",
+                        tf_target.c_str(),
+                        poc.frame_id.c_str(),
+                        tf_err.c_str());
+        }
+    }
+
+    std::vector<moveit_msgs::msg::CollisionObject> objs;
+    objs.reserve(poc.panels.size());
+    for (const auto& panel : poc.panels)
+    {
+        if (panel.id.empty() || panel.corners_xyz.size() < 12u)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "panel_obstacles: skip panel id='%s' corners size=%zu (need 12 floats)",
+                        panel.id.c_str(),
+                        panel.corners_xyz.size());
+            continue;
+        }
+
+        std::vector<double> corners_plan;
+        bool transformed = false;
+        if (manipulator_tf_buffer_ &&
+            (poc.frame_id == "map" || poc.frame_id == "world" || poc.frame_id == plan_frame))
+        {
+            transformed = transformPanelCorners(*manipulator_tf_buffer_,
+                                                poc.frame_id,
+                                                plan_frame,
+                                                panel.corners_xyz,
+                                                corners_plan);
+        }
+        if (!transformed && tf_buffer_ && poc.frame_id == "odom" && !tf_target.empty())
+        {
+            std::vector<double> corners_sensor;
+            if (transformPanelCorners(*tf_buffer_, poc.frame_id, tf_target, panel.corners_xyz, corners_sensor))
+            {
+                corners_plan = std::move(corners_sensor);
+                transformed = true;
+            }
+        }
+
+        const std::string& co_frame = transformed ? plan_frame : poc.frame_id;
+        const std::vector<double>& co_corners = transformed ? corners_plan : panel.corners_xyz;
+        if (!transformed)
+        {
+            RCLCPP_WARN(LOGGER,
+                        "panel_obstacles: panel '%s' corners not transformed (%s -> %s), "
+                        "MoveIt may reject frame",
+                        panel.id.c_str(),
+                        poc.frame_id.c_str(),
+                        plan_frame.c_str());
+        }
+
+        moveit_msgs::msg::CollisionObject co = makePanelBoxCollisionObject(panel.id,
+                                                                           co_frame,
+                                                                           co_corners,
+                                                                           poc.unit_scale,
+                                                                           poc.wall_thickness_m,
+                                                                           poc.aabb_margin_m,
+                                                                           moveit_msgs::msg::CollisionObject::ADD);
+        co.header.stamp = action_client_node_->now();
+        objs.push_back(std::move(co));
+    }
+
+    if (objs.empty())
+    {
+        return false;
+    }
+
+    const bool sync_ok = scene_manager_->syncWorldCollisionObjects(objs, false);
+    if (!sync_ok)
+    {
+        RCLCPP_WARN(LOGGER,
+                    "panel_obstacles: syncWorldCollisionObjects failed; planning scene unchanged");
+        return false;
+    }
+
+    if (poc.publish_markers)
+    {
+        if (!panel_obstacles_markers_pub_)
+        {
+            auto qos = rclcpp::QoS(1).reliable().transient_local();
+            panel_obstacles_markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
+                PANEL_OBSTACLES_MARKERS_TOPIC, qos);
+        }
+        const visualization_msgs::msg::MarkerArray markers = buildPanelObstacleMarkers(node_->now(), objs);
+        panel_obstacles_markers_pub_->publish(markers);
+    }
+
+    RCLCPP_INFO(LOGGER,
+                "panel_obstacles: applied %zu box(es) in frame=%s (src=%s) publish_markers=%s",
+                objs.size(),
+                plan_frame.c_str(),
+                poc.frame_id.c_str(),
+                poc.publish_markers ? "true" : "false");
+    return true;
+}
+
 /*
  * 启动后调用：可选将 panel_obstacles 写入 PlanningScene 并发布 MarkerArray；若策略 auto_start_worker 为真则起 Worker。
  */
 void OrionMTCNode::setupPlanningScene()
 {
     const PanelObstaclesConfig& poc = config_.panel_obstacles;
-    if (poc.enable && !poc.panels.empty() && scene_manager_)
+    if (poc.enable && !poc.panels.empty())
     {
-        if (tf_buffer_ && (poc.frame_id == "map" || poc.frame_id == "odom"))
+        if (!tryApplyPanelObstacles())
         {
-            std::string tf_err;
-            const bool have_tf = tf_buffer_->canTransform("base_link",
-                                                          poc.frame_id,
-                                                          tf2::TimePointZero,
-                                                          tf2::durationFromSec(8.0),
-                                                          &tf_err);
-            if (!have_tf)
-            {
-                RCLCPP_WARN(LOGGER,
-                            "panel_obstacles: TF base_link<-%s not ready within 8s: %s (HoloOcean PoseSensor / "
-                            "target_sensor_to_object_pose 需先发布 map→rov0)",
-                            poc.frame_id.c_str(),
-                            tf_err.c_str());
-            }
-            else
-            {
-                RCLCPP_INFO(LOGGER,
-                            "panel_obstacles: TF base_link<-%s ready, applying world collision boxes",
-                            poc.frame_id.c_str());
-            }
-        }
-        std::vector<moveit_msgs::msg::CollisionObject> objs;
-        objs.reserve(poc.panels.size());
-        for (const auto& panel : poc.panels)
-        {
-            if (panel.id.empty() || panel.corners_xyz.size() < 12u)
-            {
-                RCLCPP_WARN(LOGGER,
-                            "panel_obstacles: skip panel id='%s' corners size=%zu (need 12 floats)",
-                            panel.id.c_str(),
-                            panel.corners_xyz.size());
-                continue;
-            }
-            moveit_msgs::msg::CollisionObject co = makePanelBoxCollisionObject(panel.id,
-                                                                               poc.frame_id,
-                                                                               panel.corners_xyz,
-                                                                               poc.unit_scale,
-                                                                               poc.wall_thickness_m,
-                                                                               poc.aabb_margin_m,
-                                                                               moveit_msgs::msg::CollisionObject::ADD);
-            co.header.stamp = action_client_node_->now();
-            objs.push_back(std::move(co));
-        }
-        if (!objs.empty())
-        {
-            /* 首次启动 scene 中尚无 hole_panel_*，先 REMOVE 会令 apply_planning_scene 失败；仅 ADD 即可写入/覆盖 */
-            const bool sync_ok = scene_manager_->syncWorldCollisionObjects(objs, false);
-            if (!sync_ok)
-            {
-                RCLCPP_WARN(LOGGER,
-                            "panel_obstacles: syncWorldCollisionObjects failed; planning scene unchanged, "
-                            "markers not published");
-            }
-            else
-            {
-                if (poc.publish_markers)
-                {
-                    if (!panel_obstacles_markers_pub_)
+            panel_obstacles_retry_timer_ = node_->create_wall_timer(
+                std::chrono::seconds(5),
+                [this]() {
+                    if (tryApplyPanelObstacles())
                     {
-                        auto qos = rclcpp::QoS(1).reliable().transient_local();
-                        panel_obstacles_markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
-                            PANEL_OBSTACLES_MARKERS_TOPIC, qos);
+                        panel_obstacles_retry_timer_->cancel();
+                        panel_obstacles_retry_timer_.reset();
                     }
-                    const visualization_msgs::msg::MarkerArray markers =
-                        buildPanelObstacleMarkers(node_->now(), objs);
-                    panel_obstacles_markers_pub_->publish(markers);
-                }
-                RCLCPP_INFO(LOGGER,
-                            "panel_obstacles: applied %zu world box(es) frame=%s unit_scale=%.4f publish_markers=%s",
-                            objs.size(),
-                            poc.frame_id.c_str(),
-                            poc.unit_scale,
-                            poc.publish_markers ? "true" : "false");
-            }
+                });
+            RCLCPP_INFO(LOGGER,
+                        "panel_obstacles: initial sync failed or TF not ready; will retry every 5s");
         }
     }
     else

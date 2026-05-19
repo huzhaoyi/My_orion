@@ -26,7 +26,7 @@ public:
   InsertTaskBuilder(const rclcpp::Node::SharedPtr& node, const MTCConfig& config);
 
   /*
-   * target_pose：孔位姿（base_link），姿态的局部 -Z 为插入轴（与历史竖直孔「沿 -world Z 下降」一致）。
+   * target_pose：孔位姿（arm_base_link），姿态的局部 -Z 为插入轴（与历史竖直孔「沿 -world Z 下降」一致）。
    */
   InsertTaskBuildResult buildTargetInsertTask(const geometry_msgs::msg::PoseStamped& target_pose) const;
 

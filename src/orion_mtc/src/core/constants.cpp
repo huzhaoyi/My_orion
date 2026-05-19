@@ -32,7 +32,7 @@ const std::vector<std::string> CABLE_LOCAL_APPROACH_ALLOWED_LINKS = {
 };
 
 const std::vector<std::string> TARGET_SENSOR_PEG_ALLOWED_LINKS = {
-    "base_link",
+    "arm_base_link",
     "Link1",
     "Link2",
     "Link3",
@@ -49,7 +49,7 @@ const std::vector<std::string> TARGET_SENSOR_PEG_ALLOWED_LINKS = {
  * MoveIt group「arm」关节名顺序，与轨迹/自碰判断一致。
  */
 const std::vector<std::string> ARM_JOINTS = {
-    "joint_base_link_Link1", "joint_Link1_Link2", "joint_Link2_Link3",
+    "joint_arm_base_link_Link1", "joint_Link1_Link2", "joint_Link2_Link3",
     "joint_LinkVirtual_Link4", "joint_Link4_Link5", "joint_Link5_Link6"
 };
 

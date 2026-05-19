@@ -615,7 +615,7 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
-    node->declare_parameter<std::string>("panel_obstacles.frame_id", "base_link");
+    node->declare_parameter<std::string>("panel_obstacles.frame_id", "arm_base_link");
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
@@ -678,7 +678,7 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
-    node->declare_parameter<std::string>("manipulator_frame.planning_frame_id", "base_link");
+    node->declare_parameter<std::string>("manipulator_frame.planning_frame_id", "arm_base_link");
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
@@ -993,7 +993,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("panel_obstacles.frame_id", config.panel_obstacles.frame_id);
   if (config.panel_obstacles.frame_id.empty())
   {
-    config.panel_obstacles.frame_id = "base_link";
+    config.panel_obstacles.frame_id = "arm_base_link";
   }
   node->get_parameter("panel_obstacles.unit_scale", config.panel_obstacles.unit_scale);
   if (!std::isfinite(config.panel_obstacles.unit_scale) || config.panel_obstacles.unit_scale <= 0.0)
@@ -1041,7 +1041,7 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   }
   if (config.manipulator_frame.planning_frame_id.empty())
   {
-    config.manipulator_frame.planning_frame_id = "base_link";
+    config.manipulator_frame.planning_frame_id = "arm_base_link";
   }
 }
 

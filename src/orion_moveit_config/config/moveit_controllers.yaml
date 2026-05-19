@@ -17,7 +17,7 @@ moveit_simple_controller_manager:
     type: FollowJointTrajectory
     default: true
     joints:
-      - joint_base_link_Link1
+      - joint_arm_base_link_Link1
       - joint_Link1_Link2
       - joint_Link2_Link3
       - joint_LinkVirtual_Link4

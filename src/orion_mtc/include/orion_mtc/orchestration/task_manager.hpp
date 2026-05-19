@@ -89,10 +89,10 @@ public:
       std::function<std::optional<geometry_msgs::msg::PoseStamped>()> fused_pose,
       std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fused_axis);
 
-  using TransformToBaseLinkFn =
+  using TransformToArmBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
-  void setTransformToBaseLinkCallback(TransformToBaseLinkFn fn);
-  /** 外系/同事坐标系 → manipulator_frame（与 setTransformToBaseLinkCallback 相同语义） */
+  void setTransformToArmBaseLinkCallback(TransformToArmBaseLinkFn fn);
+  /** 外系/同事坐标系 → manipulator_frame（与 setTransformToArmBaseLinkCallback 相同语义） */
   bool transformPoseToPlanningFrame(geometry_msgs::msg::PoseStamped& pose,
                                   geometry_msgs::msg::Vector3Stamped* axis = nullptr);
   void setGetLatestTargetSetCallback(
@@ -211,7 +211,7 @@ private:
   std::function<std::optional<geometry_msgs::msg::PoseStamped>()> get_latest_object_pose_fused_fn_;
   std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> get_latest_object_axis_fused_fn_;
   std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> get_latest_target_set_fn_;
-  TransformToBaseLinkFn transform_to_base_link_fn_;
+  TransformToArmBaseLinkFn transform_to_arm_base_link_fn_;
   FeasibilityChecker* feasibility_checker_ = nullptr;
 
   JobEventFn job_event_fn_;

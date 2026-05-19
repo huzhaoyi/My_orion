@@ -74,6 +74,20 @@ const char* graspSourceName(orion_mtc::GraspSource gs)
     }
 }
 
+/* 旧版位姿仍标 base_link（臂根）；与 location 的 ROV base_link 同名，禁止走 /tf。 */
+void normalizeLegacyManipulatorPoseFrame(geometry_msgs::msg::PoseStamped& ps,
+                                       const rclcpp::Logger& logger,
+                                       const char* context)
+{
+    if (ps.header.frame_id == "base_link")
+    {
+        RCLCPP_WARN(logger,
+                    "%s: legacy frame_id base_link remapped to arm_base_link (no TF)",
+                    context);
+        ps.header.frame_id = "arm_base_link";
+    }
+}
+
 const char* roboticArmModeNameChinese(orion_mtc::RobotTaskMode mode)
 {
     switch (mode)
@@ -842,6 +856,14 @@ void ManipulatorRosInterface::handleSubmitJob(
     job.object_pose = req->object_pose;
     job.tcp_pose = req->tcp_pose;
     job.source = "submit_job_service";
+    if (job.target_pose.has_value())
+    {
+        normalizeLegacyManipulatorPoseFrame(*job.target_pose, ctx_.logger, "handleSubmitJob target_pose");
+    }
+    if (job.object_pose.has_value())
+    {
+        normalizeLegacyManipulatorPoseFrame(*job.object_pose, ctx_.logger, "handleSubmitJob object_pose");
+    }
     if (job.type == JobType::PICK && job.grasp_source == GraspSource::TARGET_SENSOR)
     {
         std::size_t target_index = 0;
@@ -1129,6 +1151,49 @@ void ManipulatorRosInterface::logRoboticArmPose(const char* phase,
                 pose.pose.orientation.w);
 }
 
+void ManipulatorRosInterface::logRoboticArmOrderReceived(
+    const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order) const
+{
+    const char* task_verb =
+        (order.type == robotic_arm_cmd::REQUEST_TYPE_INSERT) ? "插孔" : "抓取";
+    RCLCPP_INFO(ctx_.logger,
+                "%s 阶段=%s收到数据 | 类型=%s 坐标系=%s 位置=(%.4f, %.4f, %.4f) "
+                "四元数=(%.4f, %.4f, %.4f, %.4f)",
+                kRoboticArmCmdLogTag,
+                task_verb,
+                roboticArmRequestTypeName(order.type),
+                order.header.frame_id.c_str(),
+                order.keypoint.position.x,
+                order.keypoint.position.y,
+                order.keypoint.position.z,
+                order.keypoint.orientation.x,
+                order.keypoint.orientation.y,
+                order.keypoint.orientation.z,
+                order.keypoint.orientation.w);
+}
+
+void ManipulatorRosInterface::logRoboticArmPlanningPose(
+    uint8_t request_type,
+    const char* stage,
+    const geometry_msgs::msg::PoseStamped& pose) const
+{
+    const char* task_verb =
+        (request_type == robotic_arm_cmd::REQUEST_TYPE_INSERT) ? "插孔" : "抓取";
+    RCLCPP_INFO(ctx_.logger,
+                "%s 阶段=%s%s | 坐标系=%s 位置=(%.4f, %.4f, %.4f) 四元数=(%.4f, %.4f, %.4f, %.4f)",
+                kRoboticArmCmdLogTag,
+                task_verb,
+                stage,
+                pose.header.frame_id.c_str(),
+                pose.pose.position.x,
+                pose.pose.position.y,
+                pose.pose.position.z,
+                pose.pose.orientation.x,
+                pose.pose.orientation.y,
+                pose.pose.orientation.z,
+                pose.pose.orientation.w);
+}
+
 bool ManipulatorRosInterface::isRoboticArmFrameAllowed(const std::string& frame_id) const
 {
     if (frame_id.empty())
@@ -1153,24 +1218,30 @@ geometry_msgs::msg::PoseStamped ManipulatorRosInterface::roboticArmOrderToPoseSt
     out.header = order.header;
     if (out.header.frame_id.empty())
     {
-        out.header.frame_id = "base_link";
+        out.header.frame_id = "arm_base_link";
+    }
+    else if (out.header.frame_id == "base_link")
+    {
+        out.header.frame_id = "arm_base_link";
     }
     out.pose = order.keypoint;
     return out;
 }
 
-geometry_msgs::msg::Pose ManipulatorRosInterface::lookupTcpPoseInBaseLink() const
+geometry_msgs::msg::Pose ManipulatorRosInterface::lookupTcpPoseInArmBaseLink() const
 {
     geometry_msgs::msg::Pose pose;
     pose.orientation.w = 1.0;
-    if (!ctx_.tf_buffer)
+    const std::shared_ptr<tf2_ros::Buffer> arm_tf =
+        ctx_.manipulator_tf_buffer ? ctx_.manipulator_tf_buffer : ctx_.tf_buffer;
+    if (!arm_tf)
     {
         return pose;
     }
     try
     {
-        const geometry_msgs::msg::TransformStamped T = ctx_.tf_buffer->lookupTransform(
-            "base_link", robotic_arm_cmd_feedback_tcp_frame_, tf2::TimePointZero);
+        const geometry_msgs::msg::TransformStamped T = arm_tf->lookupTransform(
+            "arm_base_link", robotic_arm_cmd_feedback_tcp_frame_, tf2::TimePointZero);
         pose.position.x = T.transform.translation.x;
         pose.position.y = T.transform.translation.y;
         pose.position.z = T.transform.translation.z;
@@ -1178,7 +1249,7 @@ geometry_msgs::msg::Pose ManipulatorRosInterface::lookupTcpPoseInBaseLink() cons
     }
     catch (const std::exception& e)
     {
-        RCLCPP_DEBUG(ctx_.logger, "lookupTcpPoseInBaseLink: %s", e.what());
+        RCLCPP_DEBUG(ctx_.logger, "lookupTcpPoseInArmBaseLink: %s", e.what());
     }
     return pose;
 }
@@ -1193,7 +1264,7 @@ void ManipulatorRosInterface::runRoboticArmFeedbackLoop(
     while (!stop_flag.load() && rclcpp::ok())
     {
         auto feedback = std::make_shared<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Feedback>();
-        feedback->pose = lookupTcpPoseInBaseLink();
+        feedback->pose = lookupTcpPoseInArmBaseLink();
         goal_handle->publish_feedback(feedback);
         if (robotic_arm_cmd_verbose_ && (tick == 0U || tick % 20U == 0U))
         {
@@ -1222,10 +1293,7 @@ rclcpp_action::GoalResponse ManipulatorRosInterface::handleRoboticArmGoalRequest
         return rclcpp_action::GoalResponse::REJECT;
     }
     const auto& order = goal->order;
-    {
-        geometry_msgs::msg::PoseStamped preview = roboticArmOrderToPoseStamped(order);
-        logRoboticArmPose("目标关键点", preview);
-    }
+    logRoboticArmOrderReceived(order);
     logRoboticArmPhase("校验目标",
                        std::string("类型=") + roboticArmRequestTypeName(order.type) +
                            " 坐标系=" + order.header.frame_id);
@@ -1337,12 +1405,13 @@ void ManipulatorRosInterface::handleRoboticArmGoalAccepted(
             return;
         }
 
+        const uint8_t request_type = goal->order.type;
         geometry_msgs::msg::PoseStamped stamped = roboticArmOrderToPoseStamped(goal->order);
-        logRoboticArmPose("规划输入位姿(变换前)", stamped);
+        logRoboticArmPlanningPose(request_type, "规划输入位姿(变换前)", stamped);
         geometry_msgs::msg::PoseStamped stamped_plan = stamped;
         if (ctx_.task_manager->transformPoseToPlanningFrame(stamped_plan))
         {
-            logRoboticArmPose("规划输入位姿(变换后)", stamped_plan);
+            logRoboticArmPlanningPose(request_type, "规划输入位姿(变换后)", stamped_plan);
         }
         else
         {
@@ -1398,12 +1467,14 @@ void ManipulatorRosInterface::handleRoboticArmGoalAccepted(
                     logRoboticArmPhase("跳过杆轴注入", "杆轴模长过小");
                 }
             }
+            logRoboticArmPlanningPose(request_type, "送入抓取规划", stamped_plan);
             logRoboticArmPhase("开始抓取规划", std::string("感知链=") + graspSourceName(gs));
             ok = ctx_.task_manager->handlePick(stamped, "external", gs);
             logRoboticArmPhase("抓取规划结束", ok ? "成功" : "失败");
         }
         else if (goal->order.type == robotic_arm_cmd::REQUEST_TYPE_INSERT)
         {
+            logRoboticArmPlanningPose(request_type, "送入插孔规划", stamped_plan);
             logRoboticArmPhase("开始插孔规划");
             ok = ctx_.task_manager->handleTargetInsert(stamped, "external");
             logRoboticArmPhase("插孔规划结束", ok ? "成功" : "失败");
@@ -1434,7 +1505,7 @@ void ManipulatorRosInterface::handleRoboticArmGoalAccepted(
             result->result = robotic_arm_cmd::RESULT_ESTOP;
         }
         const auto fb_final = std::make_shared<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Feedback>();
-        fb_final->pose = lookupTcpPoseInBaseLink();
+        fb_final->pose = lookupTcpPoseInArmBaseLink();
         goal_handle->publish_feedback(fb_final);
 
         std::ostringstream finish_detail;

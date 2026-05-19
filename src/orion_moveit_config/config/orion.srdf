@@ -1,9 +1,9 @@
 <?xml version="1.0" ?>
 <robot name="orion">
 
-  <!-- arm: base_link -> Link6 (wrist) -->
+  <!-- arm: arm_base_link -> Link6 (wrist) -->
   <group name="arm">
-    <chain base_link="base_link" tip_link="Link6" />
+    <chain base_link="arm_base_link" tip_link="Link6" />
   </group>
 
   <!-- hand: gripper joints Link7, Link8 -->
@@ -14,7 +14,7 @@
 
   <!-- 臂+手组合组（仅关节列表，非链）：供 MTC ExecuteTaskSolution 执行含 8 关节的轨迹时匹配 -->
   <group name="arm_with_hand">
-    <joint name="joint_base_link_Link1" />
+    <joint name="joint_arm_base_link_Link1" />
     <joint name="joint_Link1_Link2" />
     <joint name="joint_Link2_Link3" />
     <joint name="joint_LinkVirtual_Link4" />
@@ -28,7 +28,7 @@
 
   <!-- named poses for arm (ready/home) -->
   <group_state name="ready" group="arm">
-    <joint name="joint_base_link_Link1" value="0" />
+    <joint name="joint_arm_base_link_Link1" value="0" />
     <joint name="joint_Link1_Link2" value="0" />
     <joint name="joint_Link2_Link3" value="0" />
     <joint name="joint_LinkVirtual_Link4" value="0" />
@@ -38,7 +38,7 @@
 
   <!-- 放置前运输姿态：长杆时在 pre-place 前先移到此姿态以减小扫掠；默认与 ready 同，可改为杆轴朝外/朝上 -->
   <group_state name="transport" group="arm">
-    <joint name="joint_base_link_Link1" value="0" />
+    <joint name="joint_arm_base_link_Link1" value="0" />
     <joint name="joint_Link1_Link2" value="0" />
     <joint name="joint_Link2_Link3" value="0" />
     <joint name="joint_LinkVirtual_Link4" value="0" />
@@ -59,10 +59,10 @@
   </group_state>
 
   <!-- disable self-collision: adjacent + non-adjacent pairs that cause false positives -->
-  <!-- arm chain: base_link -> Link1 -> Link2 -> Link3 -> LinkVirtual -> Link4 -> Link5 -> Link6; hand: Link7, Link8 -->
+  <!-- arm chain: arm_base_link -> Link1 -> Link2 -> Link3 -> LinkVirtual -> Link4 -> Link5 -> Link6; hand: Link7, Link8 -->
   <!-- adjacent -->
-  <disable_collisions link1="base_link" link2="Link1" reason="Default" />
-  <disable_collisions link1="base_link" link2="Link2" reason="Default" />
+  <disable_collisions link1="arm_base_link" link2="Link1" reason="Default" />
+  <disable_collisions link1="arm_base_link" link2="Link2" reason="Default" />
   <disable_collisions link1="Link1" link2="Link2" reason="Adjacent" />
   <disable_collisions link1="Link2" link2="Link3" reason="Adjacent" />
   <disable_collisions link1="Link3" link2="LinkVirtual" reason="Adjacent" />
@@ -73,7 +73,7 @@
   <disable_collisions link1="Link6" link2="Link8" reason="Adjacent" />
   <disable_collisions link1="Link7" link2="Link8" reason="Adjacent" />
   <!-- non-adjacent: base / shoulder -->
-  <disable_collisions link1="base_link" link2="Link3" reason="Default" />
+  <disable_collisions link1="arm_base_link" link2="Link3" reason="Default" />
   <disable_collisions link1="Link1" link2="Link3" reason="Default" />
   <disable_collisions link1="Link1" link2="Link4" reason="Default" />
   <disable_collisions link1="Link2" link2="LinkVirtual" reason="Default" />

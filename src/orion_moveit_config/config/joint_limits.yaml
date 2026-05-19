@@ -1,7 +1,7 @@
 # joint_limits.yaml for Orion arm + hand
 # Pilz 规划器需要 has_deceleration_limits / max_deceleration（负值），否则会报 Failed loading deceleration limits
 joint_limits:
-  joint_base_link_Link1:
+  joint_arm_base_link_Link1:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true

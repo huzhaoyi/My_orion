@@ -1,4 +1,4 @@
-/* 从 MoveIt RobotModel 估计 gripper_tcp 相对 base_link 的可达距离上界，并解析 feasibility 参数 */
+/* 从 MoveIt RobotModel 估计 gripper_tcp 相对 arm_base_link 的可达距离上界，并解析 feasibility 参数 */
 
 #ifndef ORION_MTC_DECISION_REACH_KINEMATICS_HPP
 #define ORION_MTC_DECISION_REACH_KINEMATICS_HPP
@@ -22,12 +22,12 @@ namespace orion_mtc
 inline constexpr double KINEMATIC_SOFT_REACH_RATIO = 0.92;
 
 /*
- * 沿 URDF 从 tip_link 走向 base_link，累加各子连杆 joint origin 平移范数。
+ * 沿 URDF 从 tip_link 走向 arm_base_link，累加各子连杆 joint origin 平移范数。
  * 为可达球半径的保守上界（三角不等式）；真实最大可能略小。
  * 返回上界 [m]；链不存在则返回 -1.0
  */
 double computeKinematicReachUpperBoundM(const moveit::core::RobotModel& model,
-                                        const std::string& base_link,
+                                        const std::string& arm_base_link,
                                         const std::string& tip_link);
 
 struct ResolvedReachLimits
@@ -51,7 +51,7 @@ struct ResolvedReachLimits
 ResolvedReachLimits resolveFeasibilityReachLimits(
     const rclcpp::Node::SharedPtr& node,
     const std::shared_ptr<const moveit::core::RobotModel>& robot_model,
-    const std::string& base_link,
+    const std::string& arm_base_link,
     const std::string& tip_link);
 
 }  // namespace orion_mtc

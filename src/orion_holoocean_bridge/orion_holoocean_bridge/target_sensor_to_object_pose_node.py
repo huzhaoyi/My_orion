@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-将 HoloOcean TargetSensor（世界系下 xyz + 圆柱轴方向）转换为 MTC 所需的 /object_pose（base_link 下）。
-订阅 ROV 位姿（PoseSensor，世界系），将目标点从世界系变换到机械臂 base_link，并用 direction 构造物体姿态（无欧拉角时由方向向量推导）。
+将 HoloOcean TargetSensor（世界系下 xyz + 圆柱轴方向）转换为 MTC 所需的 /object_pose（arm_base_link 下）。
+订阅 ROV 位姿（PoseSensor，世界系），将目标点从世界系变换到机械臂 arm_base_link，并用 direction 构造物体姿态（无欧拉角时由方向向量推导）。
 
 并行发布：object_axis（Vector3Stamped）、perception_state（物体+ROV+多目标几何）、可选 map 下各 target_k TF；
-静态 TF rov0→base_link 表臂基在 ROV 系平移。
+静态 TF rov0→arm_base_link 表臂基在 ROV 系平移。
 """
 
 import math
@@ -36,7 +36,7 @@ DEFAULT_INSERT_SLOT_WORLD_POSITIONS = (
 DEFAULT_INSERT_SLOT_WORLD_ORIENTATION = (0.0, 0.0, -0.70710678, 0.70710678)
 
 
-def _panel_world_corners_to_base_link_points(
+def _panel_world_corners_to_arm_base_link_points(
     corners_xyz,
     unit_scale,
     R_rov,
@@ -45,7 +45,7 @@ def _panel_world_corners_to_base_link_points(
     offset_xyz,
 ):
     """
-    四角 world/map 坐标（与 targetsensor_slot_*_position_world 同单位）经 ROV 链路到 base_link [m]。
+    四角 world/map 坐标（与 targetsensor_slot_*_position_world 同单位）经 ROV 链路到 arm_base_link [m]。
     corners_xyz: 展平 x,y,z×4；unit_scale 与 MTC makePanelBoxCollisionObject 一致。
     """
     us = float(unit_scale)
@@ -80,7 +80,7 @@ def _panel_aabb_box_marker(
 ):
     """
     与 orion_mtc makePanelBoxCollisionObject 一致：AABB + 退化维钳到 wall_thickness + margin。
-    base_points: 长度 4 的 base_link 下三维点列表。
+    base_points: 长度 4 的 arm_base_link 下三维点列表。
     """
     if len(base_points) < 4:
         return None
@@ -193,10 +193,10 @@ def _rotation_matrix_side_grasp_from_direction(
     y_axis_hint: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
-    由圆柱轴方向构造侧向抓取坐标系（base_link 下）的旋转矩阵。
+    由圆柱轴方向构造侧向抓取坐标系（arm_base_link 下）的旋转矩阵。
     约定：y = 夹爪闭合方向（垂直于圆柱轴），z = 末端接近方向（垂直于圆柱轴，从外侧指向物体）。
     这样末端从 z 方向接近、夹爪沿 y 方向闭合，从圆柱侧面包夹。
-    direction 为圆柱轴单位向量（在 base_link 下）；会做归一化与符号统一（a.z >= 0）。
+    direction 为圆柱轴单位向量（在 arm_base_link 下）；会做归一化与符号统一（a.z >= 0）。
     """
     a = np.asarray(direction, dtype=float).ravel()[:3]
     n = np.linalg.norm(a)
@@ -288,7 +288,7 @@ def _angles_to_radians(a0: float, a1: float, a2: float) -> Tuple[float, float, f
 
 class TargetSensorToObjectPoseNode(Node):
     """
-    订阅 TargetSensor（世界系 xyz + direction）和 ROV 位姿，将选定目标变换到 base_link 并发布 /object_pose。
+    订阅 TargetSensor（世界系 xyz + direction）和 ROV 位姿，将选定目标变换到 arm_base_link 并发布 /object_pose。
     姿态由 direction（圆柱轴）推导，无欧拉角输入。
     """
 
@@ -302,7 +302,7 @@ class TargetSensorToObjectPoseNode(Node):
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("perception_state_topic", "perception_state")
         self.declare_parameter("target_set_topic", "target_set")
-        self.declare_parameter("output_frame_id", "base_link")
+        self.declare_parameter("output_frame_id", "arm_base_link")
         self.declare_parameter("object_axis_topic", "object_axis")
         self.declare_parameter("target_index", 1)
         self.declare_parameter("use_left_arm", True)
@@ -449,7 +449,7 @@ class TargetSensorToObjectPoseNode(Node):
         if self._publish_tf:
             self._tf_broadcaster = TransformBroadcaster(self)
             self._tf_static_broadcaster = StaticTransformBroadcaster(self)
-            self._publish_static_rov_to_base_link()
+            self._publish_static_rov_to_arm_base_link()
         else:
             self._tf_broadcaster = None
             self._tf_static_broadcaster = None
@@ -490,7 +490,7 @@ class TargetSensorToObjectPoseNode(Node):
         return entries
 
     def _publish_panel_obstacle_markers_if_configured(self, stamp, R_rov, t_rov, offset) -> None:
-        """与固定孔位同一 world→base_link 链路发布 /manipulator/panel_obstacles_markers。"""
+        """与固定孔位同一 world→arm_base_link 链路发布 /manipulator/panel_obstacles_markers。"""
         if not self._panel_obstacle_runtime_entries:
             return
         arr = MarkerArray()
@@ -503,7 +503,7 @@ class TargetSensorToObjectPoseNode(Node):
         arr.markers.append(da)
         mid = 1
         for ent in self._panel_obstacle_runtime_entries:
-            pts = _panel_world_corners_to_base_link_points(
+            pts = _panel_world_corners_to_arm_base_link_points(
                 ent["corners_xyz"],
                 ent["unit_scale"],
                 R_rov,
@@ -532,7 +532,7 @@ class TargetSensorToObjectPoseNode(Node):
             self._panel_markers_pub = self.create_publisher(MarkerArray, topic, 10)
         self._panel_markers_pub.publish(arr)
 
-    def _publish_static_rov_to_base_link(self) -> None:
+    def _publish_static_rov_to_arm_base_link(self) -> None:
         """发布一次性 static：rov0 → output_frame（臂基相对 ROV 的平移，无旋转）。"""
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
@@ -549,7 +549,7 @@ class TargetSensorToObjectPoseNode(Node):
 
     def _publish_fixed_target_insert_holes(self, stamp) -> None:
         """
-        固定 7 孔位 world/map 坐标按 cable 一致链路转换到 base_link：
+        固定 7 孔位 world/map 坐标按 cable 一致链路转换到 arm_base_link：
         p_base = R_rov^T * (p_world - t_rov) - t_arm_in_rov + offset。
         若配置了 panel_obstacles，同一 stamp 发布面板 Marker（四角与孔位同源 world 坐标）。
         """
@@ -639,7 +639,7 @@ class TargetSensorToObjectPoseNode(Node):
         ps.object_pose = self._last_object_pose
         ps.target_sensor_object_pose = self._last_object_pose
         ps.target_sensor_selected_index = int(self._last_target_sensor_index)
-        ps.rov_pose_in_base_link = rov_in_base
+        ps.rov_pose_in_arm_base_link = rov_in_base
         ps.rov_pose_in_world = rov_in_world
         self._pub_perception_state.publish(ps)
         if not hasattr(self, "_rov_pose_logged"):
@@ -688,7 +688,7 @@ class TargetSensorToObjectPoseNode(Node):
                 t.transform.rotation.w = 1.0
                 self._tf_broadcaster.sendTransform(t)
 
-        # 发布多目标集合（base_link），供 MTC 目标选择 + 抓取候选
+        # 发布多目标集合（arm_base_link），供 MTC 目标选择 + 抓取候选
         has_euler = hasattr(msg, "euler_angles") and len(msg.euler_angles) >= n * 3
         positions_base = []
         directions_base = []
@@ -817,10 +817,10 @@ class TargetSensorToObjectPoseNode(Node):
         ps.object_axis_direction.z = float(d_base[2])
         ps.object_confidence = 1.0
         ps.target_sensor_selected_index = int(self._last_target_sensor_index)
-        ps.rov_pose_in_base_link = self._last_rov_in_base if self._last_rov_in_base is not None else PoseStamped()
-        if ps.rov_pose_in_base_link.header.stamp.sec == 0 and ps.rov_pose_in_base_link.header.stamp.nanosec == 0:
-            ps.rov_pose_in_base_link.header.stamp = stamp
-            ps.rov_pose_in_base_link.header.frame_id = self._output_frame_id
+        ps.rov_pose_in_arm_base_link = self._last_rov_in_base if self._last_rov_in_base is not None else PoseStamped()
+        if ps.rov_pose_in_arm_base_link.header.stamp.sec == 0 and ps.rov_pose_in_arm_base_link.header.stamp.nanosec == 0:
+            ps.rov_pose_in_arm_base_link.header.stamp = stamp
+            ps.rov_pose_in_arm_base_link.header.frame_id = self._output_frame_id
         ps.rov_pose_in_world = self._last_rov_pose_in_world if self._last_rov_pose_in_world is not None else PoseStamped()
         if ps.rov_pose_in_world.header.stamp.sec == 0 and ps.rov_pose_in_world.header.stamp.nanosec == 0:
             ps.rov_pose_in_world.header.stamp = stamp

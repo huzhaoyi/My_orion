@@ -1,5 +1,5 @@
 # Pick action: 选目标、生成抓取位姿、闭合夹爪、确认已抓住，保存抓取上下文
-# Goal: 目标物体位姿（base_link 下）
+# Goal: 目标物体位姿（arm_base_link 下）
 geometry_msgs/PoseStamped object_pose
 # 可选：物体 ID，用于日志与 held_object 上报
 string object_id

@@ -20,7 +20,7 @@ robotic_arm_cmd:
 # 外系目标 TF：同事 odom 等 → sensor_left_roboticarm；与 planning_frame_id 同点则只改 frame_id
 manipulator_frame:
   tf_target_frame: "sensor_left_roboticarm"
-  planning_frame_id: "base_link"
+  planning_frame_id: "arm_base_link"
 
 # =============================================================================
 # orion_mtc 应用参数（抓取几何 + 可行性 + 运行策略）
@@ -125,7 +125,7 @@ target_sensor_pick:
   fallback_pregrasp_distances_m: [0.03, 0.04, 0.05, 0.26, 0.34, 0.40]
   # 接近方向符号候选：顶部优先阶段先尝试主侧，失败后自动试另一侧。
   approach_sign_candidates: [-1.0, 1.0]
-  # 是否根据目标 base_link.y 动态调整 sign 优先级（减少无效候选）。
+  # 是否根据目标 arm_base_link.y 动态调整 sign 优先级（减少无效候选）。
   dynamic_sign_priority_enable: true
   # 目标 y<0 时优先 sign（当前场景统计更易命中 +1）。
   preferred_sign_for_negative_y: 1.0
@@ -138,7 +138,7 @@ target_sensor_pick:
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
   # ---------- 抓取候选 vs 后续插孔几何（根本避免「沿孔轴端顶入 / 把柄朝孔」）----------
-  # base_link 下插入方向单位向量；模长≈0 则不用此项（可改由 insert_axis_hint_target_set_index 自动算）。
+  # arm_base_link 下插入方向单位向量；模长≈0 则不用此项（可改由 insert_axis_hint_target_set_index 自动算）。
   insert_axis_hint_base_xyz: [0.0, 0.0, 0.0]
   # >=0：从 /manipulator/target_set.targets[index] 孔位与 peg_insert.insert_axis_local_xyz 推导插入轴（覆盖为零的 insert_axis_hint_base_xyz）。
   insert_axis_hint_target_set_index: -1
@@ -151,7 +151,7 @@ target_sensor_pick:
   handle_axis_local_xyz: [0.0, 0.0, 0.0]
   insert_hint_max_abs_dot_handle: 1.0
 
-# TargetSensor 插孔：目标位姿由 submit_job 直接提供（建议 frame_id=base_link）。
+# TargetSensor 插孔：目标位姿由 submit_job 直接提供（建议 frame_id=arm_base_link）。
 peg_insert:
   # 轴向预插入距离 [m]（从孔位沿插入轴反向退让，作为 axis_pre_pose）。
   pre_offset_m: 0.04
@@ -159,13 +159,13 @@ peg_insert:
   go_ready_before_insert: true
   # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
   enable_front_waypoint: true
-  # true：前置点按 base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
+  # true：前置点按 arm_base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
   front_waypoint_use_base_x: true
-  # base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
+  # arm_base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
   front_waypoint_base_x_offset_m: 0.55
-  # true：pre-insert 先保持 base_link X 安全距离，避免对准阶段直接贴孔。
+  # true：pre-insert 先保持 arm_base_link X 安全距离，避免对准阶段直接贴孔。
   pre_insert_use_base_x: true
-  # pre-insert 的 base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
+  # pre-insert 的 arm_base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
   pre_insert_base_x_offset_m: 0.24
   # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
   front_waypoint_offset_m: 0.10
@@ -173,7 +173,7 @@ peg_insert:
   insert_depth_m: 0.18
   # 锁存仍占用时新一轮插孔前轴向拔出 [m]：填正数即撤回该米数；0 表示与 insert_depth_m 相同。
   latch_pre_extract_m: 0.25
-  # 插入完成后沿 base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
+  # 插入完成后沿 arm_base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
   retreat_m: 0.08
   # 插入轴在孔位局部系下的方向（会归一化）：当前按 +Y 定义以匹配“沿 X 方向插入”的现场标定。
   insert_axis_local_xyz: [0.0, -1.0, 0.0]
@@ -224,7 +224,7 @@ gripper_feedback:
 
 # ---------- 可行性审批（FeasibilityChecker：check_pick / 入队前工作空间）----------
 # 几何参考：orion_description/urdf/orion.urdf，末端为 gripper_tcp（与 MoveIt IK 一致，不含开合爪）。
-# 全包络量级（base_link）：|p|_max≈1.85 m，|p|_min≈0.02 m，z 约 [-1.82, 1.83] m。
+# 全包络量级（arm_base_link）：|p|_max≈1.85 m，|p|_min≈0.02 m，z 约 [-1.82, 1.83] m。
 # 下列为操作包络：校核的是目标点（物体/缆绳中心）相对基座的距离与高度，不是 TCP。
 feasibility:
   # 径向 ‖p‖ 硬上限 [m]：超过则拒绝（WORKSPACE）；略低于 URDF 统计最大以留 IK/奇异/侧抓余量。
@@ -233,9 +233,9 @@ feasibility:
   max_reach_soft: 1.66
   # 径向 ‖p‖ 安全下限 [m]：过近拒绝，缓解折叠自碰与病态 IK。
   min_reach_safe: 0.14
-  # 目标点 base_link z [m] 允许下限（经验包络，窄于 URDF 极端 z）。
+  # 目标点 arm_base_link z [m] 允许下限（经验包络，窄于 URDF 极端 z）。
   z_min: -1.14
-  # 目标点 base_link z [m] 允许上限。
+  # 目标点 arm_base_link z [m] 允许上限。
   z_max: 1.85
   # 主动关节距 URDF 限位小于该值 [rad] 时审批给出关节余量警告。
   joint_margin_warning_rad: 0.10

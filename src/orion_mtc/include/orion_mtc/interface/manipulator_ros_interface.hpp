@@ -59,7 +59,10 @@ struct ManipulatorInterfaceContext
     std::shared_ptr<PerceptionSnapshotProvider> perception_provider;
     std::shared_ptr<TargetSelector> target_selector;
     std::atomic<double>* left_arm_gripped;
+    /** 全局 /tf（定位、Action） */
     std::shared_ptr<tf2_ros::Buffer> tf_buffer;
+    /** /manipulator/tf（MoveIt 臂系 arm_base_link） */
+    std::shared_ptr<tf2_ros::Buffer> manipulator_tf_buffer;
 };
 
 class ManipulatorRosInterface
@@ -92,10 +95,15 @@ private:
     createRoboticArmCmdActionServer(const std::string& action_path);
     void logRoboticArmPhase(const char* phase, const std::string& detail = std::string()) const;
     void logRoboticArmPose(const char* phase, const geometry_msgs::msg::PoseStamped& pose) const;
+    void logRoboticArmOrderReceived(
+        const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order) const;
+    void logRoboticArmPlanningPose(uint8_t request_type,
+                                   const char* stage,
+                                   const geometry_msgs::msg::PoseStamped& pose) const;
     bool isRoboticArmFrameAllowed(const std::string& frame_id) const;
     static geometry_msgs::msg::PoseStamped roboticArmOrderToPoseStamped(
         const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order);
-    geometry_msgs::msg::Pose lookupTcpPoseInBaseLink() const;
+    geometry_msgs::msg::Pose lookupTcpPoseInArmBaseLink() const;
     void runRoboticArmFeedbackLoop(
         const std::shared_ptr<rclcpp_action::ServerGoalHandle<
             sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle,
@@ -185,8 +193,8 @@ private:
     rclcpp::Publisher<orion_mtc_msgs::msg::RecoveryEvent>::SharedPtr pub_recovery_event_;
     rclcpp::TimerBase::SharedPtr runtime_status_timer_;
 
-    PoseCache cable_pose_cache_{"base_link"};
-    PoseCache targetsensor_pose_cache_{"base_link"};
+    PoseCache cable_pose_cache_{"arm_base_link"};
+    PoseCache targetsensor_pose_cache_{"arm_base_link"};
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_cable_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_targetsensor_;
 };

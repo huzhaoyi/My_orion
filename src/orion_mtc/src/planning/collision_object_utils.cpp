@@ -234,7 +234,7 @@ geometry_msgs::msg::Pose composePose(const geometry_msgs::msg::Pose& base,
 }
 
 /*
- * id=object_id、frame=base_link 的整根缆绳圆柱（与规划默认「单物体」一致）；operation 传 ADD/REMOVE。
+ * id=object_id、frame=arm_base_link 的整根缆绳圆柱（与规划默认「单物体」一致）；operation 传 ADD/REMOVE。
  */
 moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& object_id,
                                                             const geometry_msgs::msg::Pose& object_pose,
@@ -242,7 +242,7 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
 {
   moveit_msgs::msg::CollisionObject object;
   object.id = object_id;
-  object.header.frame_id = "base_link";
+  object.header.frame_id = "arm_base_link";
 
   // 缆绳建模：3m 长、直径 5cm 的圆柱体（MoveIt SolidPrimitive::CYLINDER: [height, radius]）
   shape_msgs::msg::SolidPrimitive cable;

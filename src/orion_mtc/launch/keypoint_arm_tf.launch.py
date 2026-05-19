@@ -6,16 +6,16 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
 
 - false（默认）：本地感知调试。分两种情况：
   * tf_under_manipulator=false（默认）：独立小 TF 树 camera→sensor_link→left_arm_base/right_arm_base；
-    与 **仅** 含 base_link→Link* 的 URDF **不连通**，勿与 pick_holoocean 同时使用。
-  * tf_under_manipulator=true（如 pick_holoocean）：base_link→camera **非单位**，按视觉与臂基几何约定：
+    与 **仅** 含 arm_base_link→Link* 的 URDF **不连通**，勿与 pick_holoocean 同时使用。
+  * tf_under_manipulator=true（如 pick_holoocean）：arm_base_link→camera **非单位**，按视觉与臂基几何约定：
     **平移** (-1.55,-0.5653,0.283628) m，**旋转**绕 camera Z 轴 −90°（四元数 qx=qy=0, qz=-qw=−√2/2），使
-    「camera 下点 (x_v,y_v,z_v)」到 base_link 为 (y_v−1.55, −x_v−0.5653, z_v+0.283628)，与 **左臂安装**一致；
-    **不再**使用旧的「链式逆」循环置换四元数 **(0.5,0.5,0.5,−0.5)**。感知链仍为 base_link→camera→sensor_link；
-    **tf_under 不播 left_arm_base**；融合位姿在 **base_link** 发布，姿态来自 Keypoints **directions/euler_angles**（与 keypoints 同源坐标系）。
+    「camera 下点 (x_v,y_v,z_v)」到 arm_base_link 为 (y_v−1.55, −x_v−0.5653, z_v+0.283628)，与 **左臂安装**一致；
+    **不再**使用旧的「链式逆」循环置换四元数 **(0.5,0.5,0.5,−0.5)**。感知链仍为 arm_base_link→camera→sensor_link；
+    **tf_under 不播 left_arm_base**；融合位姿在 **arm_base_link** 发布，姿态来自 Keypoints **directions/euler_angles**（与 keypoints 同源坐标系）。
 
 - true：对接 sealien_ctrlpilot_location（rov.urdf_simulate.xml 等）。仅启动 keypoint 节点；帧名与
   robot_state_publisher 一致：sensor_camera1、sensor_left_roboticarm、sensor_right_roboticarm。
-  需已运行机体 URDF + odom→base_link 等，使 TF 树完整。
+  需已运行 sealien_ctrlpilot_location（odom→base_link(ROV)→sensor_left_roboticarm）；臂规划系为 arm_base_link。
 
 启动参数 use_mock_keypoints:=true 时不订阅 /perception/sonar/keypoints，按参数注入假数据。
 
@@ -59,13 +59,13 @@ def _launch_setup(context, *_args, **_kwargs):
             "mock_preset": mock_preset,
         }
     elif tf_under and not use_platform:
-        # pick_holoocean / MTC：URDF 为 world→base_link→Link*，无 left_arm_base；将感知树挂到 base_link。
-        # base_link→camera 已为 Rz(-90°)+平移，侧抓位置无需再叠 z 标定；q_corr 默认单位（若与桥接姿态仍差可再设参数）。
+        # pick_holoocean / MTC：URDF 为 world→arm_base_link→Link*，无 left_arm_base；将感知树挂到 arm_base_link。
+        # arm_base_link→camera 已为 Rz(-90°)+平移，侧抓位置无需再叠 z 标定；q_corr 默认单位（若与桥接姿态仍差可再设参数）。
         keypoint_params = {
             "input_topic": "/perception/sonar/keypoints",
             "source_frame_override": "sensor_link",
-            "left_arm_frame": "base_link",
-            "right_arm_frame": "base_link",
+            "left_arm_frame": "arm_base_link",
+            "right_arm_frame": "arm_base_link",
             "tf_timeout_sec": 0.5,
             "tf_use_latest_timestamp": True,
             "qos_best_effort": False,
@@ -143,12 +143,12 @@ def _launch_setup(context, *_args, **_kwargs):
     )
 
     if tf_under:
-        # base_link→camera：Rz(-90°) + 平移，与手算 p_b=(y_v−1.55, −x_v−0.5653, z_v+0.283628) 一致（tf2：p_b=R p_c+t）。
+        # arm_base_link→camera：Rz(-90°) + 平移，与手算 p_b=(y_v−1.55, −x_v−0.5653, z_v+0.283628) 一致（tf2：p_b=R p_c+t）。
         # 勿与独立分支 left_arm 平移脱节：1.55/0.5653/0.283628 与 arm 安装约定一致时应同组修改。
         base_to_camera = Node(
             package="tf2_ros",
             executable="static_transform_publisher",
-            name="static_base_link_to_camera",
+            name="static_arm_base_link_to_camera",
             arguments=[
                 "--x",
                 "-1.55",
@@ -165,7 +165,7 @@ def _launch_setup(context, *_args, **_kwargs):
                 "--qw",
                 "0.7071067811865476",
                 "--frame-id",
-                "base_link",
+                "arm_base_link",
                 "--child-frame-id",
                 "camera",
             ],

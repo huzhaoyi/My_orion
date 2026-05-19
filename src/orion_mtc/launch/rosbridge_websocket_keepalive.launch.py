@@ -7,6 +7,8 @@
 因此这两项通过 **可执行文件命令行** `--websocket_ping_interval` / `--websocket_ping_timeout` 传入（ argparse 在 declare 前得到 float）。
 
 pick_holoocean 默认包含本 launch。也可单独：ros2 launch orion_mtc rosbridge_websocket_keepalive.launch.py
+
+网页可直接订阅 /holoocean/rov0/ArmSensor（holoocean_interfaces），需工作空间已 source holoocean_interfaces。
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction

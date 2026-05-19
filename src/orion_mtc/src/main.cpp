@@ -22,7 +22,15 @@ int main(int argc, char** argv)
   auto spin_thread = std::make_unique<std::thread>([&executor, &node]() {
     executor.add_node(node->getNodeBaseInterface());
     executor.add_node(node->getPlanningNodeBaseInterface());
+    if (auto manip_tf = node->getManipulatorTfNodeBaseInterface())
+    {
+      executor.add_node(manip_tf);
+    }
     executor.spin();
+    if (auto manip_tf = node->getManipulatorTfNodeBaseInterface())
+    {
+      executor.remove_node(manip_tf);
+    }
     executor.remove_node(node->getPlanningNodeBaseInterface());
     executor.remove_node(node->getNodeBaseInterface());
   });

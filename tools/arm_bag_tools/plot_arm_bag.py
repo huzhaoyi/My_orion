@@ -60,7 +60,7 @@ except ImportError as e:
 
 RAD_TO_DEG = 180.0 / math.pi
 ARM_JOINT_NAMES = [
-    "joint_base_link_Link1",
+    "joint_arm_base_link_Link1",
     "joint_Link1_Link2",
     "joint_Link2_Link3",
     "joint_LinkVirtual_Link4",

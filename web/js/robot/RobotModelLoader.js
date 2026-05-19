@@ -28,7 +28,7 @@ function gripperAngleForDisplay(rad) {
 }
 
 const JOINT_DEFS = [
-  { name: 'joint_base_link_Link1', xyz: [0, 0, 0], rpy: [0, 0, 0], axis: [1, 0, 0] },
+  { name: 'joint_arm_base_link_Link1', xyz: [0, 0, 0], rpy: [0, 0, 0], axis: [1, 0, 0] },
   { name: 'joint_Link1_Link2', xyz: [-0.0105, 0, 0.0699], rpy: [0, 0, 0], axis: [0, 1, 0] },
   { name: 'joint_Link2_Link3', xyz: [-0.2247, 0, 0.8662], rpy: [0, 0, 0], axis: [0, 1, 0] },
   { name: 'joint_Link3_LinkVirtual', xyz: [0.1835, 0, 0.0157], rpy: [0, -3.97248, 0], axis: null },
@@ -39,7 +39,7 @@ const JOINT_DEFS = [
   { name: 'joint_Link6_Link8', xyz: [-0.0363, 0, 0.047], rpy: [0, 0, 0], axis: [0, 1, 0] },
 ];
 
-/* 正运动学链：base_link → gripper_tcp（5×revolute + 连续腕 roll + Link3 固定偏置 + TCP），与 orion.urdf 一致；采样后按 feasibility 硬限过滤 */
+/* 正运动学链：arm_base_link → gripper_tcp（5×revolute + 连续腕 roll + Link3 固定偏置 + TCP），与 orion.urdf 一致；采样后按 feasibility 硬限过滤 */
 const FK_ORIGINS = [
   [0, 0, 0],
   [-0.0105, 0, 0.0699],
@@ -191,7 +191,7 @@ export function getWorkspaceBoundsForDoc() {
       y_m: { min: u.minY, max: u.maxY },
       z_m: { min: u.minZ, max: u.maxZ },
     },
-    /** 与后端 object_pose 校验一致：base_link 原点到目标中心距离 */
+    /** 与后端 object_pose 校验一致：arm_base_link 原点到目标中心距离 */
     radial_m: { min: F.min_reach_safe_m, max: F.max_reach_hard_m },
     soft_reach_m: F.max_reach_soft_m,
     from_kinematics: true,
@@ -252,13 +252,13 @@ function makeJointGroup(jointDef) {
   return g;
 }
 
-/** 异步链式加载 base_link…Link8 的 STL，挂接 setJointValues；根节点已做 Z-up→Y-up 倾斜。 */
+/** 异步链式加载 arm_base_link…Link8 的 STL，挂接 setJointValues；根节点已做 Z-up→Y-up 倾斜。 */
 export function loadRobotModel() {
   const root = new THREE.Group();
   root.name = 'orion';
   const jointTransforms = [];
 
-  return addMesh(root, 'base_link').then(() => {
+  return addMesh(root, 'arm_base_link').then(() => {
     let parent = root;
     let ji = 0;
 

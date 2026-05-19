@@ -7,11 +7,12 @@
  *   /manipulator/held_object_state (HeldObjectState)
  *   /manipulator/object_pose（原抓取方式：各类感知桥接）
  *   /manipulator/object_pose_fused（视觉+声呐 Keypoints 中心线）
- *   /manipulator/keypoints_base_link（geometry_msgs/PoseArray：各关键点已变换到 base_link 等，供 UI）
+ *   /manipulator/keypoints_arm_base_link（geometry_msgs/PoseArray：各关键点已变换到 arm_base_link 等，供 UI）
  *   /manipulator/perception_state (PerceptionState：物体+ROV+多目标，供感知卡片与 3D 显示)
- *   /manipulator/target_set (TargetSet：TargetSensor 多目标 base_link，与 MTC 一致)
+ *   /manipulator/target_set (TargetSet：TargetSensor 多目标 arm_base_link，与 MTC 一致)
  *   /manipulator/target_insert_holes (PoseArray：插孔位姿，供前端/RViz 调试显示)
  *   /manipulator/web/joint_states (JointState；Web 降频通道，默认 15Hz，可用 ?joint_states_topic= 覆盖)
+ *   /holoocean/rov0/ArmSensor (holoocean_interfaces/WorkingClassROVArmSensor；左臂 7 关节原生度，可用 ?arm_sensor_topic= 覆盖)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
  * 服务（与 orion_mtc_node 一致）：
@@ -144,7 +145,7 @@ function getTopicPrefix() {
 }
 
 /**
- * Keypoints PoseArray 订阅全名；默认 `{prefix}/keypoints_base_link`。
+ * Keypoints PoseArray 订阅全名；默认 `{prefix}/keypoints_arm_base_link`。
  * `?keypoints_topic=/a/b` 或 `?keypoints=/a/b` 覆盖（须与 keypoint_to_arm_tf 的 keypoints_posearray_topic 一致）。
  */
 function getKeypointsSubscribeTopic() {
@@ -161,7 +162,7 @@ function getKeypointsSubscribeTopic() {
     }
   }
   const p = String(getTopicPrefix()).replace(/\/+$/, '');
-  return `${p}/keypoints_base_link`;
+  return `${p}/keypoints_arm_base_link`;
 }
 
 /** 最近一次订阅的 keypoints 话题全名（供 inferType / handleMessage 对齐）。 */
@@ -173,6 +174,19 @@ function getJoyUiPrefix() {
   const p = params.get('joy_ui');
   if (p) return p.replace(/\/$/, '');
   return '/joy_manipulator';
+}
+
+/** HoloOcean ArmSensor 订阅话题；默认 /holoocean/rov0/ArmSensor，可用 ?arm_sensor_topic= 覆盖。 */
+function getArmSensorTopic() {
+  const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+  const custom = params.get('arm_sensor_topic');
+  if (custom) {
+    const t = String(custom).trim();
+    if (t.length > 0) {
+      return t.startsWith('/') ? t.replace(/\/+$/, '') : '/' + t.replace(/\/+$/, '');
+    }
+  }
+  return '/holoocean/rov0/ArmSensor';
 }
 
 /** Web 侧 JointState 订阅话题；默认 /manipulator/web/joint_states，可用 ?joint_states_topic= 覆盖。 */
@@ -213,6 +227,10 @@ function connect() {
       stateStore.applyQueueStateResponse(res);
     });
     stateStore.pushSystemLog('info', `订阅 Keypoints 轨迹: ${subscribedKeypointsTopic}（geometry_msgs/PoseArray）`);
+    stateStore.pushSystemLog(
+      'info',
+      `订阅 ArmSensor: ${getArmSensorTopic()}（holoocean_interfaces/WorkingClassROVArmSensor）`
+    );
   };
 
   ws.onclose = (ev) => {
@@ -227,6 +245,9 @@ function connect() {
       keypointsTrace: null,
       keypointsTraceValid: false,
       keypointsTraceUpdatedAt: null,
+      holooceanLeftArmJointsDeg: [],
+      holooceanLeftArmGripped: null,
+      holooceanArmSensorValid: false,
     });
     if (!pageUnloading) {
       const code = (ev && Number.isFinite(ev.code)) ? ev.code : 0;
@@ -268,7 +289,7 @@ function isKeypointsTraceTopic(topic) {
   if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
     return true;
   }
-  const base = '/keypoints_base_link';
+  const base = '/keypoints_arm_base_link';
   return topic === base || topic.endsWith(base);
 }
 
@@ -278,6 +299,7 @@ function getSubscribedTopicsFlat() {
   const joyUi = getJoyUiPrefix();
   const kp = getKeypointsSubscribeTopic();
   const webJointStates = getWebJointStatesTopic();
+  const armSensorTopic = getArmSensorTopic();
   const topics = [
     prefix + '/runtime_status',
     prefix + '/job_event',
@@ -291,6 +313,7 @@ function getSubscribedTopicsFlat() {
     prefix + '/target_set',
     prefix + '/target_insert_holes',
     webJointStates,
+    armSensorTopic,
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
   ];
@@ -348,9 +371,10 @@ function inferType(topic) {
   if (subscribedKeypointsTopic && topic === subscribedKeypointsTopic) {
     return 'geometry_msgs/msg/PoseArray';
   }
-  if (topic.endsWith('/keypoints_base_link')) return 'geometry_msgs/msg/PoseArray';
+  if (topic.endsWith('/keypoints_arm_base_link')) return 'geometry_msgs/msg/PoseArray';
   if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
+  if (topic.includes('ArmSensor')) return 'holoocean_interfaces/msg/WorkingClassROVArmSensor';
   if (topic.endsWith('/manual_mode')) return 'std_msgs/msg/Bool';
   if (topic.endsWith('/throttle_percent')) return 'std_msgs/msg/Float32';
   return 'std_msgs/msg/String';
@@ -359,8 +383,8 @@ function inferType(topic) {
 /** 单条 rosbridge 入站：分发到 stateStore（runtime_status、job_event、task_stage、持物、位姿、关节等）。 */
 function handleMessage(data) {
   if (!data.topic || !data.msg) return;
-  /* joint_states 高频：收包时间戳与关节值在 setJointState 内合并或节流，避免每帧两次 setState。 */
-  if (!data.topic.endsWith('/joint_states')) {
+  /* joint_states / ArmSensor 高频：收包在 stateStore 内合并或节流，避免每帧两次 setState。 */
+  if (!data.topic.endsWith('/joint_states') && !data.topic.includes('ArmSensor')) {
     stateStore.touchRosTopicRx(data.topic);
   }
   if (data.topic.endsWith('/manual_mode') && Object.prototype.hasOwnProperty.call(data.msg, 'data')) {
@@ -440,6 +464,10 @@ function handleMessage(data) {
     const names = data.msg.name || [];
     const pos = data.msg.position || [];
     stateStore.setJointState(names, pos, data.topic);
+    return;
+  }
+  if (data.topic && data.topic.includes('ArmSensor') && data.msg) {
+    stateStore.setHolooceanArmSensor(data.msg, data.topic);
     return;
   }
   if (data.topic && data.topic.endsWith('/perception_state') && data.msg) {
@@ -583,8 +611,25 @@ const GRASP_SOURCE = {
   TARGET_SENSOR: 2,
 };
 
+/** 旧版曾用 base_link 表示臂根；与 location 的 ROV base_link 同名，提交前统一为 arm_base_link。 */
+const LEGACY_MANIPULATOR_FRAME_ALIASES = new Set(['base_link']);
+
+function normalizeManipulatorPoseFrame(poseStamped) {
+  if (!poseStamped || !poseStamped.header) {
+    return poseStamped;
+  }
+  const fid = String(poseStamped.header.frame_id || '');
+  if (LEGACY_MANIPULATOR_FRAME_ALIASES.has(fid)) {
+    return {
+      ...poseStamped,
+      header: { ...poseStamped.header, frame_id: 'arm_base_link' },
+    };
+  }
+  return poseStamped;
+}
+
 /** 构造简化 geometry_msgs/PoseStamped 字面量（供 submit_job 嵌套）。 */
-function buildPoseStamped(position, orientation, frameId = 'base_link') {
+function buildPoseStamped(position, orientation, frameId = 'arm_base_link') {
   return {
     header: { frame_id: frameId, stamp: { sec: 0, nanosec: 0 } },
     pose: {
@@ -615,8 +660,14 @@ function submitJob(options, callback) {
     priority,
     grasp_source,
   };
-  if (target_pose) args.target_pose = target_pose.header ? target_pose : buildPoseStamped(target_pose.pose?.position || target_pose.position, target_pose.pose?.orientation || target_pose.orientation);
-  if (object_pose) args.object_pose = object_pose.header ? object_pose : buildPoseStamped(object_pose.pose?.position || object_pose.position, object_pose.pose?.orientation || object_pose.orientation);
+  if (target_pose) {
+    const tp = target_pose.header ? target_pose : buildPoseStamped(target_pose.pose?.position || target_pose.position, target_pose.pose?.orientation || target_pose.orientation);
+    args.target_pose = normalizeManipulatorPoseFrame(tp);
+  }
+  if (object_pose) {
+    const op = object_pose.header ? object_pose : buildPoseStamped(object_pose.pose?.position || object_pose.position, object_pose.pose?.orientation || object_pose.orientation);
+    args.object_pose = normalizeManipulatorPoseFrame(op);
+  }
   if (tcp_pose) args.tcp_pose = tcp_pose.pose || tcp_pose;
   callService(getTopicPrefix() + '/submit_job', args, callback);
 }
@@ -646,8 +697,8 @@ function getRecentJobs(maxCount, callback) {
 function checkPick(objectPose, callback) {
   const pose = objectPose && objectPose.pose
     ? objectPose
-    : { header: { frame_id: 'base_link' }, pose: objectPose || { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } };
-  if (!pose.header) pose.header = { frame_id: 'base_link' };
+    : { header: { frame_id: 'arm_base_link' }, pose: objectPose || { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } };
+  if (!pose.header) pose.header = { frame_id: 'arm_base_link' };
   callService(getTopicPrefix() + '/check_pick', { object_pose: pose }, callback, { timeout_ms: 5000 });
 }
 

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="orion">
   <!-- ROV + 左臂模型（来自 rov_urdf/orion_left.urdf），mesh 路径相对本 urdf：../meshes/stl/ -->
-  <!-- 规划用碰撞体与 visual 一致；需在 orion_description/meshes/stl/ 下放置 base_link_left.stl 与 Link1..Link8.stl -->
-  <!-- KDL 要求根 link 无惯性，故增加虚拟根 world，base_link 为其固定子 link -->
+  <!-- 规划用碰撞体与 visual 一致；需在 orion_description/meshes/stl/ 下放置 arm_base_link_left.stl 与 Link1..Link8.stl -->
+  <!-- KDL 要求根 link 无惯性，故增加虚拟根 world，arm_base_link 为其固定子 link -->
 
   <!-- ==================== LINKS ==================== -->
 
@@ -12,13 +12,13 @@
 
   <joint name="world_joint" type="fixed">
     <parent link="world"/>
-    <child link="base_link"/>
+    <child link="arm_base_link"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
   </joint>
 
-  <link name="base_link">
+  <link name="arm_base_link">
     <visual>
-      <geometry><mesh filename="../meshes/stl/base_link_left.stl"/></geometry>
+      <geometry><mesh filename="../meshes/stl/arm_base_link_left.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
     <!-- 碰撞用简单 box，避免 ROV mesh 顶点过多导致 PlanningScene 超时；尺寸可依实机调整 -->
@@ -157,8 +157,8 @@
   <!-- ==================== JOINTS ==================== -->
   <!-- 标称：方位/肩/肘/腕俯仰 ±120°；前臂 roll ±180°；腕 roll 连续；夹爪 ±90° -->
 
-  <joint name="joint_base_link_Link1" type="revolute">
-    <parent link="base_link"/>
+  <joint name="joint_arm_base_link_Link1" type="revolute">
+    <parent link="arm_base_link"/>
     <child link="Link1"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="1 0 0"/>

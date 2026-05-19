@@ -4,8 +4,8 @@
 bool set_holding
 string object_id          # 持物时物体 ID，如 "unknown"
 bool tracked              # true=提供完整位姿进入 HOLDING_TRACKED
-geometry_msgs/Pose object_pose   # tracked 时：base_link 下物体位姿（抓取时）
-geometry_msgs/Pose tcp_pose      # tracked 时：base_link 下 TCP 位姿（抓取时）
+geometry_msgs/Pose object_pose   # tracked 时：arm_base_link 下物体位姿（抓取时）
+geometry_msgs/Pose tcp_pose      # tracked 时：arm_base_link 下 TCP 位姿（抓取时）
 ---
 bool success
 string message

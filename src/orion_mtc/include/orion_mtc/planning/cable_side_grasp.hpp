@@ -16,14 +16,14 @@
 namespace orion_mtc
 {
 
-/** 缆绳检测输入：position/direction 需已在规划系（如 base_link）下 */
+/** 缆绳检测输入：position/direction 需已在规划系（如 arm_base_link）下 */
 struct CableDetection
 {
   Eigen::Vector3d position;
   Eigen::Vector3d direction;  // 单位向量，缆绳轴线
 };
 
-/** 单条抓取候选：grasp_pose / pregrasp_pose 为 base_link 下 */
+/** 单条抓取候选：grasp_pose / pregrasp_pose 为 arm_base_link 下 */
 struct CableGraspCandidate
 {
   Eigen::Isometry3d grasp_pose;
@@ -41,7 +41,7 @@ struct CableGraspCandidate
 
 /*
  * 生成侧向包夹抓取候选（±法向、多接近距离、轴向微移、滚转），按 score 升序排序。
- * 输入 cable 的 position/direction 必须在规划系（base_link）下。
+ * 输入 cable 的 position/direction 必须在规划系（arm_base_link）下。
  */
 std::vector<CableGraspCandidate> generateCableSideGrasps(const CableDetection& cable,
                                                          const CableGraspConfig& cfg);

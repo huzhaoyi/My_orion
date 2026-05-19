@@ -16,14 +16,14 @@ namespace orion_mtc
 geometry_msgs::msg::Pose composePose(const geometry_msgs::msg::Pose& base,
                                       const geometry_msgs::msg::Pose& local);
 
-/* 统一生成 target 组合碰撞体：杆 + 把手框，primitive_poses 为世界系（base_link） */
+/* 统一生成 target 组合碰撞体：杆 + 把手框，primitive_poses 为世界系（arm_base_link） */
 moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& object_id,
                                                              const geometry_msgs::msg::Pose& object_pose,
                                                              uint8_t operation);
 
 /*
  * TargetSensor peg：package://orion_description/meshes/stl/target_new.stl，mesh 局部旋转与前端 RobotScene.js
- *（bbox 对齐长轴到 +Y + 绕局部 X 躺平）一致；object_pose 为感知物体位姿（base_link）。
+ *（bbox 对齐长轴到 +Y + 绕局部 X 躺平）一致；object_pose 为感知物体位姿（arm_base_link）。
  */
 moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::string& object_id,
                                                                       const std::string& frame_id,

@@ -3,9 +3,9 @@
 
   <!-- ==================== LINKS ==================== -->
 
-  <link name="base_link">
+  <link name="arm_base_link">
     <visual>
-      <geometry><mesh filename="meshes/stl/base_link_right.stl"/></geometry>
+      <geometry><mesh filename="meshes/stl/arm_base_link_right.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
     <inertial>
@@ -113,9 +113,9 @@
   <!-- ==================== JOINTS ==================== -->
   <!-- 标称与 orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±180°，J6 continuous，夹爪 ±π -->
 
-  <!-- base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
-  <joint name="joint_base_link_Link1" type="revolute">
-    <parent link="base_link"/>
+  <!-- arm_base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
+  <joint name="joint_arm_base_link_Link1" type="revolute">
+    <parent link="arm_base_link"/>
     <child link="Link1"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="1 0 0"/>

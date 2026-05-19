@@ -6,7 +6,7 @@ left_arm_gripped 发布到话题供 MTC 动态抓取时等待“抓稳/松开”
 
 对应关系（以 WorkingClassROVArmSensor 消息定义为准）：
 - left_arm_joints[0..5] = Joint1..Joint6，left_arm_joints[6] = Gripper，单位度。
-- Orion 臂关节顺序：joint_base_link_Link1..joint_Link5_Link6 即 Joint1..Joint6，夹爪为 Link7/Link8。
+- Orion 臂关节顺序：joint_arm_base_link_Link1..joint_Link5_Link6 即 Joint1..Joint6，夹爪为 Link7/Link8。
 - 1:1 映射：left_arm_joints[i] -> Orion 第 i 个臂关节，left_arm_joints[6] -> 夹爪。
 
 发布：sensor_msgs/JointState（全臂+双手关节名）、left_arm_gripped（Float32，供 MTC 等待抓稳）。
@@ -23,9 +23,9 @@ from holoocean_interfaces.msg import WorkingClassROVArmSensor
 
 
 # 与 orion_moveit_config / orion_mtc 一致的关节名
-# 臂关节：joint_base_link_Link1..joint_Link5_Link6，AgentCommand 左臂 command[8..13]
+# 臂关节：joint_arm_base_link_Link1..joint_Link5_Link6，AgentCommand 左臂 command[8..13]
 ARM_JOINT_NAMES = [
-    "joint_base_link_Link1",
+    "joint_arm_base_link_Link1",
     "joint_Link1_Link2",
     "joint_Link2_Link3",
     "joint_LinkVirtual_Link4",
@@ -66,7 +66,7 @@ class ArmSensorToJointStateNode(Node):
         self.declare_parameter("arm_sensor_topic", "/holoocean/rov0/ArmSensor")
         self.declare_parameter("joint_states_topic", "joint_states")
         self.declare_parameter("joints_in_degrees", True)
-        self.declare_parameter("publish_frame_id", "base_link")
+        self.declare_parameter("publish_frame_id", "arm_base_link")
         self.declare_parameter("gripped_topic", "left_arm_gripped")
 
         arm_sensor_topic = self.get_parameter("arm_sensor_topic").get_parameter_value().string_value

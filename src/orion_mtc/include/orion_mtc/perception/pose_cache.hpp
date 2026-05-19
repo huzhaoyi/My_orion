@@ -16,8 +16,8 @@ namespace orion_mtc
 class PoseCache
 {
 public:
-  /** 期望的 frame_id，默认 "base_link"；update 时若不一致则忽略并打 WARN */
-  explicit PoseCache(const std::string& expected_frame_id = "base_link");
+  /** 期望的 frame_id，默认 "arm_base_link"；update 时若不一致则忽略并打 WARN */
+  explicit PoseCache(const std::string& expected_frame_id = "arm_base_link");
   void update(const geometry_msgs::msg::PoseStamped& msg);
   bool hasPose() const;
   std::optional<geometry_msgs::msg::PoseStamped> latest() const;

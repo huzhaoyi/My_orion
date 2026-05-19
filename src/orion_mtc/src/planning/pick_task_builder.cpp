@@ -120,9 +120,9 @@ mtc::Task PickTaskBuilder::buildFromCableCandidate(
     auto stage_acm = std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link6", "Link7", "Link8" }, true);
     stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
-    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
+    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "arm_base_link" }, true);
     stage_acm->allowCollisions("Link7", std::vector<std::string>{ "Link2" }, true);
-    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
+    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "arm_base_link" }, true);
     task.add(std::move(stage_acm));
   }
 
@@ -279,9 +279,9 @@ mtc::Task PickTaskBuilder::buildFromTargetSensorPose(
     auto stage_acm = std::make_unique<mtc::stages::ModifyPlanningScene>("allow self-collision (pregrasp)");
     stage_acm->allowCollisions("Link1", std::vector<std::string>{ "Link6", "Link7", "Link8" }, true);
     stage_acm->allowCollisions("Link2", std::vector<std::string>{ "Link8" }, true);
-    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "base_link" }, true);
+    stage_acm->allowCollisions("Link7", std::vector<std::string>{ "arm_base_link" }, true);
     stage_acm->allowCollisions("Link7", std::vector<std::string>{ "Link2" }, true);
-    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "base_link" }, true);
+    stage_acm->allowCollisions("Link8", std::vector<std::string>{ "arm_base_link" }, true);
     task.add(std::move(stage_acm));
   }
 

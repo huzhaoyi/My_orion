@@ -4,13 +4,13 @@
   <!-- ==================== LINKS ==================== -->
   <!-- mesh path relative to this urdf when installed: ../meshes/stl/ -->
 
-  <link name="base_link">
+  <link name="arm_base_link">
     <visual>
-      <geometry><mesh filename="../meshes/stl/base_link.stl"/></geometry>
+      <geometry><mesh filename="../meshes/stl/arm_base_link.stl"/></geometry>
       <material name="grey"><color rgba="0.7 0.7 0.7 1.0"/></material>
     </visual>
     <collision>
-      <geometry><mesh filename="../meshes/stl/base_link.stl"/></geometry>
+      <geometry><mesh filename="../meshes/stl/arm_base_link.stl"/></geometry>
     </collision>
     <inertial>
       <mass value="1.0"/>
@@ -140,8 +140,8 @@
   <!-- ==================== JOINTS ==================== -->
   <!-- 历史备份：关节限位已与 orion_description/urdf/orion.urdf 标称对齐（其余 link/mesh 可能仍过时） -->
 
-  <joint name="joint_base_link_Link1" type="revolute">
-    <parent link="base_link"/>
+  <joint name="joint_arm_base_link_Link1" type="revolute">
+    <parent link="arm_base_link"/>
     <child link="Link1"/>
     <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
     <axis xyz="1 0 0"/>

@@ -66,7 +66,7 @@ static void logTargetPointPlanFail3d(const char* context, double px, double py, 
 {
   const double d = norm3dFromOrigin(px, py, pz);
   RCLCPP_WARN(LOGGER,
-              "%s: base_link 参考点 pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
+              "%s: arm_base_link 参考点 pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
               context, px, py, pz, d);
 }
 
@@ -119,7 +119,7 @@ static void logTcpFromSceneOnPlanFail(const rclcpp::Node::SharedPtr& node, const
     const double z = T.translation().z();
     const double d = norm3dFromOrigin(x, y, z);
     RCLCPP_ERROR(LOGGER,
-                 "%s: 当前 %s 在 base_link pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
+                 "%s: 当前 %s 在 arm_base_link pos=(%.3f, %.3f, %.3f) 相对原点 3D距离 ‖p‖=%.3f m",
                  context, tcp_link.c_str(), x, y, z, d);
   }
   catch (const std::exception& e)
@@ -592,7 +592,7 @@ TaskManager::~TaskManager()
   stopWorker();
 }
 
-/* 注入审批器指针；handlePick 在 base_link 下会调用 objectPoseWithinWorkspaceHardLimits。nullptr 则跳过工作空间硬校验。 */
+/* 注入审批器指针；handlePick 在 arm_base_link 下会调用 objectPoseWithinWorkspaceHardLimits。nullptr 则跳过工作空间硬校验。 */
 void TaskManager::setFeasibilityChecker(FeasibilityChecker* checker)
 {
   feasibility_checker_ = checker;
@@ -631,7 +631,7 @@ std::string TaskManager::genTaskId(const char* prefix)
 
 /*
  * 同步抓取主路径（即时调用，非队列）：缆绳侧向多候选 MTC。
- * 流程：急停/持物/ busy / 夹爪 locked 检查 → TF 到 base_link（可选回调）→ feasibility 硬限
+ * 流程：急停/持物/ busy / 夹爪 locked 检查 → TF 到 arm_base_link（可选回调）→ feasibility 硬限
  * → 取 object_axis → buildCableSegments + generateCableSideGrasps → 逐候选 precheck → MTC plan
  * → executePickSolution（夹紧检测）→ 成功则 HOLDING_TRACKED；失败可换候选；夹紧失败则 retreatToReady。
  * object_id 空时持物场景标记默认为 "cable"。
@@ -682,10 +682,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     current_task_id_ = genTaskId("pick");
   }
 
-  /* 支持世界系输入：变换到 base_link 后再规划。规划系必须与机械臂 base_link 一致（URDF 改加 ROV 后根为 world，但 base_link 仍为臂根）。 */
+  /* 支持世界系输入：变换到 arm_base_link 后再规划。规划系必须与机械臂 arm_base_link 一致（URDF 改加 ROV 后根为 world，但 arm_base_link 仍为臂根）。 */
   RCLCPP_INFO(LOGGER,
               "handlePick: 收到 object_pose frame_id=%s pos=(%.4f, %.4f, %.4f) grasp_source=%s "
-              "[规划系应为机械臂 base_link]",
+              "[规划系应为机械臂 arm_base_link]",
               object_pose.header.frame_id.c_str(),
               object_pose.pose.position.x,
               object_pose.pose.position.y,
@@ -704,10 +704,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     axis_stamped = get_latest_object_axis_legacy_fn_();
   }
   const std::string& plan_frame_id = config_.manipulator_frame.planning_frame_id;
-  if (pose_base.header.frame_id != plan_frame_id && transform_to_base_link_fn_)
+  if (pose_base.header.frame_id != plan_frame_id && transform_to_arm_base_link_fn_)
   {
     geometry_msgs::msg::Vector3Stamped* axis_ptr = axis_stamped.has_value() ? &(*axis_stamped) : nullptr;
-    if (transform_to_base_link_fn_(pose_base, axis_ptr))
+    if (transform_to_arm_base_link_fn_(pose_base, axis_ptr))
     {
       RCLCPP_INFO(LOGGER,
                   "handlePick: 已将目标从 %s 变换到 %s",
@@ -724,7 +724,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   if (pose_base.header.frame_id != plan_frame_id)
   {
     RCLCPP_WARN(LOGGER,
-                "handlePick: frame_id '%s'，规划使用 %s 系；若不一致请设置 setTransformToBaseLinkCallback",
+                "handlePick: frame_id '%s'，规划使用 %s 系；若不一致请设置 setTransformToArmBaseLinkCallback",
                 pose_base.header.frame_id.c_str(),
                 plan_frame_id.c_str());
   }
@@ -740,7 +740,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   }
   else if (feasibility_checker_ != nullptr)
   {
-    RCLCPP_WARN(LOGGER, "handlePick: object_pose 未在 base_link（当前 %s），跳过工作空间硬校验",
+    RCLCPP_WARN(LOGGER, "handlePick: object_pose 未在 arm_base_link（当前 %s），跳过工作空间硬校验",
                 pose_base.header.frame_id.c_str());
   }
   RCLCPP_INFO(LOGGER,
@@ -1237,7 +1237,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
         RCLCPP_WARN(LOGGER,
                     "handlePick: targetsensor candidate %zu PLAN_FAILED (%s) "
-                    "base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s",
+                    "arm_base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s",
                     i, candidate.label.c_str(), obj_x, obj_y, obj_z, dist_3d, last_plan_detail.c_str());
         if (estop_requested_.load())
         {
@@ -1328,7 +1328,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       const double d = norm3dFromOrigin(obj_x, obj_y, obj_z);
       std::ostringstream oe;
-      oe << "TARGET_SENSOR_PICK: PLAN_FAILED base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
+      oe << "TARGET_SENSOR_PICK: PLAN_FAILED arm_base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
       setStateError(oe.str());
     }
     return false;
@@ -1422,12 +1422,12 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       const std::string model_frame = robot_model->getModelFrame();
       RCLCPP_INFO(LOGGER,
-                  "handlePick: MoveIt 模型根系=%s，规划/碰撞体使用 plan_frame=%s（应与机械臂 base_link 一致）",
+                  "handlePick: MoveIt 模型根系=%s，规划/碰撞体使用 plan_frame=%s（应与机械臂 arm_base_link 一致）",
                   model_frame.c_str(), plan_frame.c_str());
       if (model_frame != plan_frame)
       {
         RCLCPP_WARN(LOGGER,
-                    "handlePick: 模型根系 %s 与 plan_frame %s 不同；若 URDF 为 world->base_link 则 base_link 与 world 同原点",
+                    "handlePick: 模型根系 %s 与 plan_frame %s 不同；若 URDF 为 world->arm_base_link 则 arm_base_link 与 world 同原点",
                     model_frame.c_str(), plan_frame.c_str());
       }
     }
@@ -1513,7 +1513,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
         const double dist_3d = norm3dFromOrigin(obj_x, obj_y, obj_z);
         RCLCPP_WARN(LOGGER,
                     "handlePick: candidate %zu PLAN_FAILED "
-                    "base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s，试下一候选",
+                    "arm_base_link object pos=(%.3f,%.3f,%.3f) ‖p‖=%.3f m: %s，试下一候选",
                     i, obj_x, obj_y, obj_z, dist_3d, os.str().c_str());
         if (estop_requested_.load())
         {
@@ -1601,7 +1601,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     {
       const double d = norm3dFromOrigin(obj_x, obj_y, obj_z);
       std::ostringstream oe;
-      oe << "CABLE_SIDE_GRASP: 所有侧抓候选均失败 base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
+      oe << "CABLE_SIDE_GRASP: 所有侧抓候选均失败 arm_base_link‖p‖=" << std::fixed << std::setprecision(3) << d << "m";
       setStateError(oe.str());
     }
   }
@@ -1919,11 +1919,11 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
 
     const std::string& plan_frame_id = config_.manipulator_frame.planning_frame_id;
     const std::string src_frame_before_xform = pose_base.header.frame_id;
-    if (pose_base.header.frame_id != plan_frame_id && transform_to_base_link_fn_)
+    if (pose_base.header.frame_id != plan_frame_id && transform_to_arm_base_link_fn_)
     {
       const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
       pose_base.header.stamp = stamp_latest_tf;
-      if (!transform_to_base_link_fn_(pose_base, nullptr))
+      if (!transform_to_arm_base_link_fn_(pose_base, nullptr))
       {
         RCLCPP_ERROR(LOGGER,
                     "handleTargetInsert: transform target_pose(%s)->%s failed",
@@ -1932,10 +1932,10 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
         return false;
       }
     }
-    else if (pose_base.header.frame_id != plan_frame_id && !transform_to_base_link_fn_)
+    else if (pose_base.header.frame_id != plan_frame_id && !transform_to_arm_base_link_fn_)
     {
       RCLCPP_ERROR(LOGGER,
-                   "handleTargetInsert: target_pose(%s) needs transform_to_base_link callback",
+                   "handleTargetInsert: target_pose(%s) needs transform_to_arm_base_link callback",
                    src_frame_before_xform.c_str());
       return false;
     }
@@ -2237,7 +2237,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
           pose_base.pose.position.x, pose_base.pose.position.y, pose_base.pose.position.z);
       RCLCPP_ERROR(LOGGER,
                    "handleTargetInsert: 规划失败（含姿态回退）| "
-                   "目标(base_link)=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
+                   "目标(arm_base_link)=(%.3f, %.3f, %.3f) 3D距离=%.3f m "
                    "[参考: max_reach≈1.90 m, min_reach≈0.14 m]",
                    pose_base.pose.position.x, pose_base.pose.position.y,
                    pose_base.pose.position.z, dist_3d);
@@ -2617,7 +2617,7 @@ void TaskManager::setGetLatestObjectPoseCallback(
   get_latest_object_pose_legacy_fn_ = std::move(fn);
 }
 
-/* 提供缆绳轴向 Vector3Stamped；handlePick 与 TF 回调配合 transform_to_base_link_fn_ 使用。 */
+/* 提供缆绳轴向 Vector3Stamped；handlePick 与 TF 回调配合 transform_to_arm_base_link_fn_ 使用。 */
 void TaskManager::setGetLatestObjectAxisCallback(
     std::function<std::optional<geometry_msgs::msg::Vector3Stamped>()> fn)
 {
@@ -2636,10 +2636,10 @@ void TaskManager::setGraspChainPerceptionCallbacks(
   get_latest_object_axis_fused_fn_ = std::move(fused_axis);
 }
 
-/* 将 PoseStamped（及可选 Vector3Stamped 轴）从感知系变换到 base_link；失败则保留原 frame_id 并打 WARN。 */
-void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
+/* 将 PoseStamped（及可选 Vector3Stamped 轴）从感知系变换到 arm_base_link；失败则保留原 frame_id 并打 WARN。 */
+void TaskManager::setTransformToArmBaseLinkCallback(TransformToArmBaseLinkFn fn)
 {
-  transform_to_base_link_fn_ = std::move(fn);
+  transform_to_arm_base_link_fn_ = std::move(fn);
   publishTargetInsertHoleDebug();
 }
 
@@ -2651,11 +2651,11 @@ bool TaskManager::transformPoseToPlanningFrame(geometry_msgs::msg::PoseStamped& 
   {
     return true;
   }
-  if (!transform_to_base_link_fn_)
+  if (!transform_to_arm_base_link_fn_)
   {
     return false;
   }
-  return transform_to_base_link_fn_(pose, axis);
+  return transform_to_arm_base_link_fn_(pose, axis);
 }
 
 std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHolePosesBaseLink(bool emit_log) const
@@ -2673,7 +2673,7 @@ void TaskManager::publishTargetInsertHoleDebug()
   }
   const auto holes = collectTargetInsertHolePosesBaseLink(false);
   geometry_msgs::msg::PoseArray pose_array;
-  pose_array.header.frame_id = "base_link";
+  pose_array.header.frame_id = "arm_base_link";
   pose_array.header.stamp = node_->now();
   pose_array.poses.reserve(holes.size());
   visualization_msgs::msg::MarkerArray markers;

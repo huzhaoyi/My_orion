@@ -46,7 +46,7 @@ const initialState = {
   // 感知状态（来自话题 object_pose）
   objectPoseValid: false,
   perceptionUpdatedAt: null,
-  objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } base_link，与 /object_pose 一致
+  objectPose: null,   // { position: {x,y,z}, orientation: {x,y,z,w} } arm_base_link，与 /object_pose 一致
   cableObjectPoseValid: false,
   cableObjectPose: null,   // perception_state.cable_object_pose（缆绳）
   targetSensorObjectPoseValid: false,
@@ -55,7 +55,7 @@ const initialState = {
   targetSetTargets: [],          // /target_set 解析：{ index, objectId, position, orientation }[]
   targetSetValid: false,
   targetSetUpdatedAt: null,
-  targetInsertHolePoses: [],     // /target_insert_holes: base_link 孔位 PoseArray
+  targetInsertHolePoses: [],     // /target_insert_holes: arm_base_link 孔位 PoseArray
   targetInsertHolesValid: false,
   targetInsertHolesUpdatedAt: null,
   panelObstaclesMarkers: null,
@@ -63,12 +63,12 @@ const initialState = {
   fusedObjectPoseValid: false,
   fusedObjectPose: null,
   fusedPerceptionUpdatedAt: null,
-  // keypoint_to_arm_tf 发布的 PoseArray（与 object_pose_fused 同 output_grasp_frame，默认 base_link）
+  // keypoint_to_arm_tf 发布的 PoseArray（与 object_pose_fused 同 output_grasp_frame，默认 arm_base_link）
   keypointsTraceValid: false,
   keypointsTrace: null,  // { frameId: string, points: [{x,y,z}] }
   keypointsTraceUpdatedAt: null,
   // 单缆绳：object_pose，无多目标集合
-  rovPoseInBaseLink: null,  // ROV 在 base_link 下
+  rovPoseInBaseLink: null,  // ROV 在 arm_base_link 下
   rovPoseInWorld: null,     // ROV 在世界系 (map) 下，来自 perception_state
 
   /* 感知相关话题最后一次收到 rosbridge 消息的时间戳（ms，与 data.topic 全名一致） */
@@ -77,6 +77,12 @@ const initialState = {
   // 关节状态（来自 joint_states，驱动 3D）
   jointNames: [],
   jointPositions: [],
+
+  // HoloOcean ArmSensor 左臂原生关节角（度，与 ros2 topic echo 一致）
+  holooceanLeftArmJointsDeg: [],
+  holooceanLeftArmGripped: null,
+  holooceanArmSensorValid: false,
+  holooceanArmSensorUpdatedAt: null,
 
   // 轨迹点（用于 3D 显示，可选）
   trajectoryPoints: [],
@@ -275,6 +281,10 @@ function setConnection(which, value) {
     partial.targetInsertHolesValid = false;
     partial.targetInsertHolesUpdatedAt = null;
     partial.panelObstaclesMarkers = null;
+    partial.holooceanLeftArmJointsDeg = [];
+    partial.holooceanLeftArmGripped = null;
+    partial.holooceanArmSensorValid = false;
+    partial.holooceanArmSensorUpdatedAt = null;
   }
   setState(partial);
 }
@@ -391,7 +401,7 @@ function setKeypointsTrace(poseArrayMsg) {
       keypointsTrace: null,
       keypointsTraceValid: false,
     });
-    _warnKeypointsTraceParseOnce('keypoints_base_link: 消息为空或非对象，无法显示点列');
+    _warnKeypointsTraceParseOnce('keypoints_arm_base_link: 消息为空或非对象，无法显示点列');
     return;
   }
   let poses = raw.poses;
@@ -404,12 +414,12 @@ function setKeypointsTrace(poseArrayMsg) {
       keypointsTraceValid: false,
     });
     _warnKeypointsTraceParseOnce(
-      'keypoints_base_link: 无 poses 数组（请确认 rosbridge 类型 geometry_msgs/PoseArray 与 topic 一致）'
+      'keypoints_arm_base_link: 无 poses 数组（请确认 rosbridge 类型 geometry_msgs/PoseArray 与 topic 一致）'
     );
     return;
   }
   const frameId =
-    raw.header && raw.header.frame_id != null ? String(raw.header.frame_id) : 'base_link';
+    raw.header && raw.header.frame_id != null ? String(raw.header.frame_id) : 'arm_base_link';
 
   const numOrNull = (v) => {
     const n = v === undefined || v === null ? NaN : Number(v);
@@ -442,7 +452,7 @@ function setKeypointsTrace(poseArrayMsg) {
     });
     if (poses.length > 0) {
       _warnKeypointsTraceParseOnce(
-        'keypoints_base_link: poses 有元素但 position 无法解析为数字（检查 rosbridge JSON）'
+        'keypoints_arm_base_link: poses 有元素但 position 无法解析为数字（检查 rosbridge JSON）'
       );
     }
     return;
@@ -575,6 +585,66 @@ function setTrajectoryPoints(points) {
   setState({ trajectoryPoints: points || [] });
 }
 
+const HOLOOCEAN_ARM_JOINT_COUNT = 7;
+let _pendingHolooceanArm = null;
+let _holooceanArmRafId = null;
+
+function _flushPendingHolooceanArm() {
+  _holooceanArmRafId = null;
+  const p = _pendingHolooceanArm;
+  _pendingHolooceanArm = null;
+  if (!p) {
+    return;
+  }
+  const partial = {
+    holooceanLeftArmJointsDeg: p.jointsDeg,
+    holooceanLeftArmGripped: p.gripped,
+    holooceanArmSensorValid: true,
+    holooceanArmSensorUpdatedAt: Date.now(),
+  };
+  if (p.topicForRx) {
+    const key = normalizeRosTopicKey(p.topicForRx);
+    if (key) {
+      partial.rosTopicLastRxAt = { ...(state.rosTopicLastRxAt || {}), [key]: Date.now() };
+    }
+  }
+  setState(partial);
+}
+
+/**
+ * @param {object} msg WorkingClassROVArmSensor（rosbridge JSON）
+ * @param {string} [topicForRx] ArmSensor 全路径
+ */
+function setHolooceanArmSensor(msg, topicForRx) {
+  if (!msg || typeof msg !== 'object') {
+    return;
+  }
+  const raw = msg.left_arm_joints;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return;
+  }
+  const jointsDeg = [];
+  for (let i = 0; i < HOLOOCEAN_ARM_JOINT_COUNT; i += 1) {
+    const v = Number(raw[i]);
+    jointsDeg.push(Number.isFinite(v) ? v : 0.0);
+  }
+  let gripped = null;
+  if (msg.left_arm_gripped != null) {
+    const g = Number(msg.left_arm_gripped);
+    if (Number.isFinite(g)) {
+      gripped = g;
+    }
+  }
+  _pendingHolooceanArm = {
+    jointsDeg,
+    gripped,
+    topicForRx: topicForRx || null,
+  };
+  if (_holooceanArmRafId == null) {
+    _holooceanArmRafId = requestAnimationFrame(_flushPendingHolooceanArm);
+  }
+}
+
 function setRovPoseInBaseLink(poseStampedOrNull) {
   if (!poseStampedOrNull) {
     setState({ rovPoseInBaseLink: null });
@@ -647,8 +717,8 @@ function setPerceptionState(msg) {
       patch.targetSensorSelectedIndex = -1;
     }
   }
-  if (msg.rov_pose_in_base_link && msg.rov_pose_in_base_link.pose) {
-    const p = msg.rov_pose_in_base_link.pose;
+  if (msg.rov_pose_in_arm_base_link && msg.rov_pose_in_arm_base_link.pose) {
+    const p = msg.rov_pose_in_arm_base_link.pose;
     patch.rovPoseInBaseLink = {
       position: p.position || { x: 0, y: 0, z: 0 },
       orientation: p.orientation || { x: 0, y: 0, z: 0, w: 1 },
@@ -668,7 +738,7 @@ function setPerceptionState(msg) {
   setState(patch);
 }
 
-/** /manipulator/target_set：多目标 base_link 位姿表（与 MTC TargetSelector 同源）。 */
+/** /manipulator/target_set：多目标 arm_base_link 位姿表（与 MTC TargetSelector 同源）。 */
 function setTargetSet(msg) {
   if (!msg) {
     setState({
@@ -854,6 +924,7 @@ export default {
   setFusedObjectPose,
   setKeypointsTrace,
   setJointState,
+  setHolooceanArmSensor,
   setTrajectoryPoints,
   setRovPoseInBaseLink,
   setPerceptionState,

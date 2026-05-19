@@ -62,7 +62,7 @@ function handlePickClick(e) {
   }
   const s = stateStore.getState();
   const objectPose = s.objectPoseValid && s.objectPose
-    ? { header: { frame_id: 'base_link' }, pose: s.objectPose }
+    ? { header: { frame_id: 'arm_base_link' }, pose: s.objectPose }
     : null;
   if (!objectPose) {
     stateStore.pushSystemLog('warn', t('approval.toast_no_pose'));

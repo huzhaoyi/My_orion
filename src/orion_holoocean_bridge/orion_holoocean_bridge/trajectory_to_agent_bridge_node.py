@@ -36,7 +36,7 @@ ORION_TO_HOLOOCEAN_LEFT_ARM_SIGN = (1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
 
 # 与 orion_moveit_config / arm_sensor 一致的关节名，用于按名从 trajectory 中取位置（RViz 下发顺序可能不同）
 ARM_JOINT_NAMES = [
-    "joint_base_link_Link1",
+    "joint_arm_base_link_Link1",
     "joint_Link1_Link2",
     "joint_Link2_Link3",
     "joint_LinkVirtual_Link4",

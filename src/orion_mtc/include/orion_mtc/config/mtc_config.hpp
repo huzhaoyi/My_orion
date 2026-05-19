@@ -87,7 +87,7 @@ struct TargetSensorPickConfig
   std::vector<double> fallback_pregrasp_distances_m{ 0.06, 0.08, 0.10, 0.14, 0.20, 0.26 };
   /** 接近方向符号候选（通常包含 +1/-1）；空时回退为 approach_normal_sign。 */
   std::vector<double> approach_sign_candidates{ -1.0, 1.0 };
-  /** 是否根据目标横向位置（base_link.y）动态调整 sign 优先顺序。 */
+  /** 是否根据目标横向位置（arm_base_link.y）动态调整 sign 优先顺序。 */
   bool dynamic_sign_priority_enable = true;
   /** 当目标 y < 0 时优先的 sign（常用 +1）。 */
   double preferred_sign_for_negative_y = 1.0;
@@ -97,11 +97,11 @@ struct TargetSensorPickConfig
   std::vector<double> tool_roll_candidates_deg{ 0.0, 45.0, -45.0, 90.0, -90.0 };
   double retreat_distance_m = 0.12;
   /*
-   * 插孔轴向提示（base_link）：与 peg_insert 任务一致时，抓取阶段可筛掉「沿孔轴端面顶入」类姿态，减少把柄先对孔。
+   * 插孔轴向提示（arm_base_link）：与 peg_insert 任务一致时，抓取阶段可筛掉「沿孔轴端面顶入」类姿态，减少把柄先对孔。
    * 模长 < 1e-6 表示关闭（不读 TargetSet 时须手动填，或设 insert_axis_hint_target_set_index）。
    */
   std::vector<double> insert_axis_hint_base_xyz{ 0.0, 0.0, 0.0 };
-  /** >=0 时从 TargetSet.targets[index].pose 与 peg_insert.insert_axis_local_xyz 推导插入轴（base_link），覆盖为零的 insert_axis_hint_base_xyz。 */
+  /** >=0 时从 TargetSet.targets[index].pose 与 peg_insert.insert_axis_local_xyz 推导插入轴（arm_base_link），覆盖为零的 insert_axis_hint_base_xyz。 */
   int insert_axis_hint_target_set_index = -1;
   /*
    * 候选接近方向 approach_dir 与插入提示轴夹角余弦绝对值上限；<1 启用。接近方向几乎平行孔轴时丢弃该候选（依赖 tool_roll/轴 变化）。
@@ -129,7 +129,7 @@ struct PanelObstacleEntry
 struct PanelObstaclesConfig
 {
   bool enable = false;
-  std::string frame_id = "base_link";
+  std::string frame_id = "arm_base_link";
   double unit_scale = 0.01;
   double wall_thickness_m = 0.02;
   double aabb_margin_m = 0.005;
@@ -152,18 +152,18 @@ struct PegInsertConfig
    */
   bool enable_front_waypoint = false;
   /*
-   * true：前置点按 base_link 的 X 轴构造（x = target.x - front_waypoint_base_x_offset_m，y/z 与 target 相同）。
+   * true：前置点按 arm_base_link 的 X 轴构造（x = target.x - front_waypoint_base_x_offset_m，y/z 与 target 相同）。
    * false：沿插入轴从 pre-insert 反向退 front_waypoint_offset_m。
    */
   bool front_waypoint_use_base_x = false;
-  /* 前置点在 base_link X 方向相对孔位的退让距离 [m]（front_waypoint_use_base_x=true 时生效）。 */
+  /* 前置点在 arm_base_link X 方向相对孔位的退让距离 [m]（front_waypoint_use_base_x=true 时生效）。 */
   double front_waypoint_base_x_offset_m = 0.10;
   /*
-   * true：pre-insert 按 base_link X 轴保持安全距离（x = target.x - pre_insert_base_x_offset_m），
+   * true：pre-insert 按 arm_base_link X 轴保持安全距离（x = target.x - pre_insert_base_x_offset_m），
    * 让对准阶段不直接贴孔。
    */
   bool pre_insert_use_base_x = false;
-  /* pre-insert 在 base_link X 方向相对孔位的退让距离 [m]（pre_insert_use_base_x=true 时生效）。 */
+  /* pre-insert 在 arm_base_link X 方向相对孔位的退让距离 [m]（pre_insert_use_base_x=true 时生效）。 */
   double pre_insert_base_x_offset_m = 0.20;
   /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
   double front_waypoint_offset_m = 0.08;
@@ -173,7 +173,7 @@ struct PegInsertConfig
    * >0：按该米数；<=0 或未配置正值时与 insert_depth_m 相同（默认 0.0）。
    */
   double latch_pre_extract_m = 0.0;
-  /* 插孔释放后沿 base_link +Z 线性抬离距离 [m]。 */
+  /* 插孔释放后沿 arm_base_link +Z 线性抬离距离 [m]。 */
   double retreat_m = 0.12;
   /* 局部插入轴（hole/slot 局部系），默认 +X；运行时会自动归一化。 */
   std::vector<double> insert_axis_local_xyz{ 1.0, 0.0, 0.0 };
@@ -218,7 +218,7 @@ struct PegInsertConfig
 struct ManipulatorFrameConfig
 {
   std::string tf_target_frame = "sensor_left_roboticarm";
-  std::string planning_frame_id = "base_link";
+  std::string planning_frame_id = "arm_base_link";
 };
 
 struct MTCConfig

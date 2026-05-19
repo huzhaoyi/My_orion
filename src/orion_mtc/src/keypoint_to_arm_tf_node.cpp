@@ -411,14 +411,14 @@ private:
             mock_period_sec_ = 0.05;
         }
 
-        output_grasp_frame_ = declare_parameter<std::string>("output_grasp_frame", "base_link");
+        output_grasp_frame_ = declare_parameter<std::string>("output_grasp_frame", "arm_base_link");
         grasp_pose_topic_ =
             declare_parameter<std::string>("grasp_pose_topic", "/manipulator/object_pose_fused");
         grasp_axis_topic_ =
             declare_parameter<std::string>("grasp_axis_topic", "/manipulator/object_axis_fused");
         publish_keypoints_posearray_ = declare_parameter<bool>("publish_keypoints_posearray", true);
         keypoints_posearray_topic_ =
-            declare_parameter<std::string>("keypoints_posearray_topic", "/manipulator/keypoints_base_link");
+            declare_parameter<std::string>("keypoints_posearray_topic", "/manipulator/keypoints_arm_base_link");
 
         const double corr_w = declare_parameter<double>("fused_grasp_orientation_correction_w", 1.0);
         const double corr_x = declare_parameter<double>("fused_grasp_orientation_correction_x", 0.0);
@@ -1134,7 +1134,7 @@ private:
     std::string grasp_pose_topic_;
     std::string grasp_axis_topic_;
     bool publish_keypoints_posearray_{true};
-    std::string keypoints_posearray_topic_{"/manipulator/keypoints_base_link"};
+    std::string keypoints_posearray_topic_{"/manipulator/keypoints_arm_base_link"};
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_grasp_pose_;
     rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_grasp_axis_;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_keypoints_posearray_;

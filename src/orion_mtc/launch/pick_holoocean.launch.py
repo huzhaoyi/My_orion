@@ -296,8 +296,11 @@ def generate_launch_description():
     )
     arg_keypoint_platform = DeclareLaunchArgument(
         "keypoint_use_platform_tf",
-        default_value="false",
-        description="真机平台 URDF（sensor_camera1 等）时设 true，与 keypoint_arm_tf 一致",
+        default_value="true",
+        description=(
+            "true：对接 sealien_ctrlpilot_location（sensor_camera1/sensor_left_roboticarm）；"
+            "与同事栈一起跑时建议保持 true"
+        ),
     )
     arg_keypoint_preset = DeclareLaunchArgument(
         "keypoint_mock_preset",
@@ -354,6 +357,15 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("start_keypoint_to_arm_tf")),
     )
 
+    static_map_to_world_manipulator = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_map_to_world_manipulator",
+        arguments=["0", "0", "0", "0", "0", "0", "1", "map", "world"],
+        remappings=[("tf", "/manipulator/tf"), ("tf_static", "/manipulator/tf_static")],
+        condition=IfCondition(LaunchConfiguration("tf_under_manipulator")),
+    )
+
     actions = [
         arg_use_joy,
         arg_start_rviz,
@@ -377,6 +389,7 @@ def generate_launch_description():
                 ("start_rviz", LaunchConfiguration("start_rviz")),
             ],
         ),
+        static_map_to_world_manipulator,
         bridge_node,
         trajectory_bridge_node,
         web_joint_state_relay_node,

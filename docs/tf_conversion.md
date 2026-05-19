@@ -2,6 +2,18 @@
 
 机械臂基座相对 ROV 仅存在**平移**，无旋转。
 
+**帧名约定（与 sealien_ctrlpilot_location 并存）**
+
+| 帧名 | 包/用途 |
+|------|---------|
+| **`arm_base_link`** | 本仓库 MoveIt / MTC / HoloOcean 桥 / Web：`orion.urdf` 臂根 |
+| **`base_link`** | 同事 location：ROV 机体中心（勿与 `arm_base_link` 混用） |
+| **`sensor_left_roboticarm`** | 同事 URDF 左臂安装点；Action 外参 `odom`→此帧后标为 `arm_base_link` 规划 |
+
+联调时 HoloOcean 桥建议 **`publish_tf: false`**，由 location 发 `odom→base_link(ROV)`；臂树在 `/manipulator/tf` 上为 `map→world→arm_base_link→Link*`（`pick_holoocean` 发 static `map→world`）。`orion_mtc` 用双 TF Buffer：`/tf` 供 Action，`/manipulator/tf` 供面板与 TCP。
+
+**Web / `submit_job` / `RoboticArmCmd`**：孔位与抓取目标请使用 **`arm_base_link`**。若仍提交 `frame_id=base_link`（旧版臂根命名），`orion_mtc` 会**不做 TF**、直接当作 `arm_base_link` 并打 WARN，避免与 location 的 ROV `base_link` 误连 `/tf` 导致孔位偏移。
+
 ---
 
 ## 1. 坐标系约定
@@ -10,12 +22,12 @@
 |--------|------|
 | **世界系 (world / map)** | HoloOcean 全局系，单位：米。 |
 | **ROV 系 (COM / rov0)** | ROV 本体/质心坐标系。 |
-| **机械臂 base_link** | Orion 左/右臂基座，MoveIt/MTC 在该系下规划。 |
+| **机械臂 arm_base_link** | Orion 左/右臂基座，MoveIt/MTC 在该系下规划。 |
 
 **数据来源（均为世界系）：**
 
 - **TargetSensor**：目标点。`positions` / `directions` 为世界系下的多目标位置与轴向。
-- **PoseSensor**：ROV 位姿。`pose.pose` 为 ROV 在世界系下的位置与姿态，用于 world→ROV→base_link 变换。
+- **PoseSensor**：ROV 位姿。`pose.pose` 为 ROV 在世界系下的位置与姿态，用于 world→ROV→arm_base_link 变换。
 
 ---
 
@@ -30,8 +42,8 @@
 
 即：
 
-- **左臂 base_link 相对 ROV**：平移 `(1.55, 0.5653, -0.283628)`，旋转为单位阵。
-- **右臂 base_link 相对 ROV**：平移 `(1.55, -0.5653, -0.283628)`，旋转为单位阵。
+- **左臂 arm_base_link 相对 ROV**：平移 `(1.55, 0.5653, -0.283628)`，旋转为单位阵。
+- **右臂 arm_base_link 相对 ROV**：平移 `(1.55, -0.5653, -0.283628)`，旋转为单位阵。
 
 ---
 
@@ -40,12 +52,12 @@
 ```
 holoocean_global_frame (或 map)
     └── rov0 / COM                    # 由 /holoocean/rov0/PoseSensor 驱动
-            ├── left_arm_base_link     # 固定: 平移 (1.55, 0.5653, -0.283628)
+            ├── arm_base_link     # 固定: 平移 (1.55, 0.5653, -0.283628)
             └── right_arm_base_link    # 固定: 平移 (1.55, -0.5653, -0.283628)
 ```
 
 - **world → rov0**：由 HoloOcean 话题提供（位姿随 ROV 运动变化）。
-- **rov0 → left_arm_base_link / right_arm_base_link**：静态平移，无旋转，可用 `StaticTransformBroadcaster` 发布。
+- **rov0 → arm_base_link / right_arm_base_link**：静态平移，无旋转，可用 `StaticTransformBroadcaster` 发布。
 
 ---
 
@@ -64,7 +76,7 @@ holoocean_global_frame (或 map)
 p_{rov} = R_{world \to rov}^{-1} \, (p_{world} - t_{world \to rov})
 \]
 
-### 4.2 ROV 系 → 左/右臂 base_link（仅平移）
+### 4.2 ROV 系 → 左/右臂 arm_base_link（仅平移）
 
 - **左臂**：\( t_{rov \to left} = (1.55,\, 0.5653,\, -0.283628)^T \)  
   \( p_{left} = p_{rov} - t_{rov \to left} \)
@@ -72,7 +84,7 @@ p_{rov} = R_{world \to rov}^{-1} \, (p_{world} - t_{world \to rov})
 - **右臂**：\( t_{rov \to right} = (1.55,\, -0.5653,\, -0.283628)^T \)  
   \( p_{right} = p_{rov} - t_{rov \to right} \)
 
-### 4.3 世界系抓取点 → 左臂 base_link（供 MTC /object_pose）
+### 4.3 世界系抓取点 → 左臂 arm_base_link（供 MTC /object_pose）
 
 1. 世界 → ROV：\( p_{rov} = R_{world \to rov}^{-1} (p_{world} - t_{world \to rov}) \)
 2. ROV → 左臂：\( p_{left} = p_{rov} - (1.55,\, 0.5653,\, -0.283628)^T \)
@@ -103,4 +115,4 @@ RIGHT_ARM_BASE_IN_ROV_Z = -0.283628
 |------|------|
 | `/holoocean/rov0/PoseSensor` | **ROV**：世界系下 ROV 位姿 (geometry_msgs/PoseWithCovarianceStamped) |
 c| `/holoocean/rov0/TargetSensor` | **目标点**：世界系下多目标 positions + directions |
-| `/object_pose` | MTC 输入，需为 base_link 下的 PoseStamped（由 TargetSensor + PoseSensor 变换得到） |
+| `/object_pose` | MTC 输入，需为 arm_base_link 下的 PoseStamped（由 TargetSensor + PoseSensor 变换得到） |

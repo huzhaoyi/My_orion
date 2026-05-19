@@ -2,7 +2,7 @@
 
 本文档用于**配置抓取目标与安全边界**时参考；**与执行端硬拒绝一致**的标量以 `src/orion_mtc/config/orion_mtc_params.yaml` 的 **`feasibility`** 为准。
 
-## 与后端一致的硬限（base_link，物体/缆绳中心）
+## 与后端一致的硬限（arm_base_link，物体/缆绳中心）
 
 | 项 | 含义 | 典型值 (m) | 参数名 |
 |----|------|------------|--------|
@@ -12,7 +12,7 @@
 | **Z 下限** | 高度过低拒绝 | -0.55 | `z_min` |
 | **Z 上限** | 过高拒绝 | 1.55 | `z_max` |
 
-坐标系：**base_link**（`orion.urdf`），单位 m。URDF 或策略变更时请同时改 yaml、**`web/js/data/feasibilityWorkspace.js`**（与前端展示同步）。
+坐标系：**arm_base_link**（`orion.urdf`），单位 m。URDF 或策略变更时请同时改 yaml、**`web/js/data/feasibilityWorkspace.js`**（与前端展示同步）。
 
 ## Web 与 3D 示意
 

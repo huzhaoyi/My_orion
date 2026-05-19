@@ -16,7 +16,7 @@ namespace orion_mtc
 class Vector3Cache
 {
 public:
-  explicit Vector3Cache(const std::string& expected_frame_id = "base_link");
+  explicit Vector3Cache(const std::string& expected_frame_id = "arm_base_link");
   void update(const geometry_msgs::msg::Vector3Stamped& msg);
   bool hasData() const;
   std::optional<geometry_msgs::msg::Vector3Stamped> latest() const;

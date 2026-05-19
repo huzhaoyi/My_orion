@@ -124,7 +124,7 @@ bool PlanningSceneManager::applyObjectPoseToPlanningScene(double px, double py, 
   scene.is_diff = true;
   moveit_msgs::msg::CollisionObject remove_obj;
   remove_obj.id = "object";
-  remove_obj.header.frame_id = "base_link";
+  remove_obj.header.frame_id = "arm_base_link";
   remove_obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
   scene.world.collision_objects.push_back(remove_obj);
   geometry_msgs::msg::Pose target_pose;
@@ -236,7 +236,7 @@ bool PlanningSceneManager::clearAttachedObjectFromPlanningScene(const std::strin
   /* held_unknown 包络在 Link6；held_tracked / object 与规划 TCP 一致，挂在 gripper_tcp */
   att.link_name = (object_id == "held_unknown") ? "Link6" : "gripper_tcp";
   att.object.id = object_id;
-  att.object.header.frame_id = "base_link";
+  att.object.header.frame_id = "arm_base_link";
   att.object.operation = moveit_msgs::msg::CollisionObject::REMOVE;
   moveit_msgs::msg::PlanningScene scene;
   scene.is_diff = true;
@@ -280,7 +280,7 @@ bool PlanningSceneManager::removeWorldObject(const std::string& object_id)
   scene.is_diff = true;
   moveit_msgs::msg::CollisionObject obj;
   obj.id = object_id;
-  obj.header.frame_id = "base_link";
+  obj.header.frame_id = "arm_base_link";
   obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
   scene.world.collision_objects.push_back(obj);
   auto req = std::make_shared<moveit_msgs::srv::ApplyPlanningScene::Request>();

@@ -1,5 +1,5 @@
 /**
- * 与 src/orion_mtc/config/orion_mtc_params.yaml → feasibility 块一致（物体/缆绳中心在 base_link）
+ * 与 src/orion_mtc/config/orion_mtc_params.yaml → feasibility 块一致（物体/缆绳中心在 arm_base_link）
  * URDF：orion_description/urdf/orion.urdf；变更 yaml 时请同步此处。
  */
 export const FEASIBILITY_WORKSPACE = {
