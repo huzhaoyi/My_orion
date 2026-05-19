@@ -211,9 +211,20 @@ struct PegInsertConfig
   int insert_axial_segments = 1;
 };
 
+/*
+ * 外系目标（如同事 odom）经 TF 落入 tf_target_frame，再写入 planning_frame_id 供 MoveIt。
+ * tf_target_frame 与 planning_frame_id 同物理安装点时，仅改 frame_id、不做二次 TF。
+ */
+struct ManipulatorFrameConfig
+{
+  std::string tf_target_frame = "sensor_left_roboticarm";
+  std::string planning_frame_id = "base_link";
+};
+
 struct MTCConfig
 {
   double grasp_offset_along_axis = 0.0f;
+  ManipulatorFrameConfig manipulator_frame;
   CableGraspConfig cable_grasp;
   TargetSensorPickConfig target_sensor_pick;
   PegInsertConfig peg_insert;

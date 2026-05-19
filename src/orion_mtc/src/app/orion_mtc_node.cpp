@@ -112,7 +112,7 @@ OrionMTCNode::~OrionMTCNode() = default;
 
 /*
  * 创建感知缓存、PlanningSceneManager、Trajectory/SolutionExecutor、TaskManager；
- * 注入 wait_for_gripped（轮询 left_arm_gripped）、gripper_locked、latest pose/axis、tf2 到 base_link 的变换与 FeasibilityChecker。
+ * 注入 wait_for_gripped（轮询 left_arm_gripped）、gripper_locked、latest pose/axis、外系 TF 变换与 FeasibilityChecker。
  */
 void OrionMTCNode::initModules()
 {
@@ -241,50 +241,89 @@ void OrionMTCNode::initModules()
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, action_client_node_, true);
     task_manager_->setTransformToBaseLinkCallback(
         [this](geometry_msgs::msg::PoseStamped& pose, geometry_msgs::msg::Vector3Stamped* axis) {
-            try
+            const std::string& tf_target = config_.manipulator_frame.tf_target_frame;
+            const std::string& plan_frame = config_.manipulator_frame.planning_frame_id;
+            const std::string src_frame = pose.header.frame_id;
+
+            if (src_frame == plan_frame)
             {
-                rclcpp::Time t(pose.header.stamp.sec, pose.header.stamp.nanosec);
-                geometry_msgs::msg::TransformStamped T =
-                    tf_buffer_->lookupTransform("base_link", pose.header.frame_id, t);
+                return true;
+            }
+            if (src_frame == tf_target)
+            {
+                pose.header.frame_id = plan_frame;
+                if (axis != nullptr)
+                {
+                    axis->header.frame_id = plan_frame;
+                }
+                RCLCPP_INFO(LOGGER,
+                            "transform: %s 与 %s 同安装点，仅改 frame_id -> %s pos=(%.4f, %.4f, %.4f)",
+                            tf_target.c_str(),
+                            plan_frame.c_str(),
+                            plan_frame.c_str(),
+                            pose.pose.position.x,
+                            pose.pose.position.y,
+                            pose.pose.position.z);
+                return true;
+            }
+
+            const std::string lookup_target =
+                tf_target.empty() ? plan_frame : tf_target;
+
+            auto apply_transform = [&](const geometry_msgs::msg::TransformStamped& T, bool used_latest) {
                 geometry_msgs::msg::PoseStamped out;
                 tf2::doTransform(pose, out, T);
                 pose = out;
-                pose.header.frame_id = "base_link";
+                pose.header.frame_id = plan_frame;
                 if (axis != nullptr)
                 {
                     geometry_msgs::msg::Vector3Stamped axis_out;
                     tf2::doTransform(*axis, axis_out, T);
                     axis->vector = axis_out.vector;
-                    axis->header.frame_id = "base_link";
+                    axis->header.frame_id = plan_frame;
                 }
+                RCLCPP_INFO(LOGGER,
+                            "transform: %s -> %s (TF 目标=%s%s) pos=(%.4f, %.4f, %.4f)",
+                            src_frame.c_str(),
+                            plan_frame.c_str(),
+                            lookup_target.c_str(),
+                            used_latest ? ", latest" : "",
+                            pose.pose.position.x,
+                            pose.pose.position.y,
+                            pose.pose.position.z);
+            };
+
+            try
+            {
+                rclcpp::Time t(pose.header.stamp.sec, pose.header.stamp.nanosec);
+                geometry_msgs::msg::TransformStamped T =
+                    tf_buffer_->lookupTransform(lookup_target, src_frame, t);
+                apply_transform(T, false);
                 return true;
             }
             catch (const std::exception& e)
             {
                 try
                 {
-                    // 当请求时刻略超 TF 最新时刻（常见于 now() 与桥接发布存在毫秒级抖动），回退 latest 以避免未来外推失败。
                     geometry_msgs::msg::TransformStamped T_latest =
-                        tf_buffer_->lookupTransform("base_link", pose.header.frame_id, tf2::TimePointZero);
-                    geometry_msgs::msg::PoseStamped out_latest;
-                    tf2::doTransform(pose, out_latest, T_latest);
-                    pose = out_latest;
-                    pose.header.frame_id = "base_link";
-                    if (axis != nullptr)
-                    {
-                        geometry_msgs::msg::Vector3Stamped axis_out;
-                        tf2::doTransform(*axis, axis_out, T_latest);
-                        axis->vector = axis_out.vector;
-                        axis->header.frame_id = "base_link";
-                    }
+                        tf_buffer_->lookupTransform(lookup_target, src_frame, tf2::TimePointZero);
+                    apply_transform(T_latest, true);
                     RCLCPP_WARN(LOGGER,
-                                "transform to base_link fallback to latest TF due to stamped lookup failure: %s",
+                                "transform %s -> %s fallback to latest TF: %s",
+                                src_frame.c_str(),
+                                plan_frame.c_str(),
                                 e.what());
                     return true;
                 }
                 catch (const std::exception& e2)
                 {
-                    RCLCPP_WARN(LOGGER, "transform to base_link failed: %s; fallback failed: %s", e.what(), e2.what());
+                    RCLCPP_WARN(LOGGER,
+                                "transform %s -> %s (via %s) failed: %s; fallback failed: %s",
+                                src_frame.c_str(),
+                                plan_frame.c_str(),
+                                lookup_target.c_str(),
+                                e.what(),
+                                e2.what());
                     return false;
                 }
             }
@@ -310,7 +349,8 @@ void OrionMTCNode::initInterfaces()
                                      object_axis_fused_cache_,
                                      perception_snapshot_,
                                      target_selector_,
-                                     &left_arm_gripped_ };
+                                     &left_arm_gripped_,
+                                     tf_buffer_ };
 
     manipulator_iface_ = std::make_unique<ManipulatorRosInterface>(ctx);
     manipulator_iface_->registerSubscriptionsAndServices();

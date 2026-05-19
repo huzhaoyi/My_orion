@@ -703,24 +703,32 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
   {
     axis_stamped = get_latest_object_axis_legacy_fn_();
   }
-  if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+  const std::string& plan_frame_id = config_.manipulator_frame.planning_frame_id;
+  if (pose_base.header.frame_id != plan_frame_id && transform_to_base_link_fn_)
   {
     geometry_msgs::msg::Vector3Stamped* axis_ptr = axis_stamped.has_value() ? &(*axis_stamped) : nullptr;
     if (transform_to_base_link_fn_(pose_base, axis_ptr))
     {
-      RCLCPP_INFO(LOGGER, "handlePick: 已将目标从 %s 变换到 base_link", object_pose.header.frame_id.c_str());
+      RCLCPP_INFO(LOGGER,
+                  "handlePick: 已将目标从 %s 变换到 %s",
+                  object_pose.header.frame_id.c_str(),
+                  plan_frame_id.c_str());
     }
     else
     {
-      RCLCPP_WARN(LOGGER, "handlePick: 变换到 base_link 失败，按原 frame_id 使用（可能规划异常）");
+      RCLCPP_WARN(LOGGER,
+                  "handlePick: 变换到 %s 失败，按原 frame_id 使用（可能规划异常）",
+                  plan_frame_id.c_str());
     }
   }
-  if (pose_base.header.frame_id != "base_link")
+  if (pose_base.header.frame_id != plan_frame_id)
   {
-    RCLCPP_WARN(LOGGER, "handlePick: frame_id '%s'，规划使用 base_link 系；若不一致请设置 setTransformToBaseLinkCallback",
-                pose_base.header.frame_id.c_str());
+    RCLCPP_WARN(LOGGER,
+                "handlePick: frame_id '%s'，规划使用 %s 系；若不一致请设置 setTransformToBaseLinkCallback",
+                pose_base.header.frame_id.c_str(),
+                plan_frame_id.c_str());
   }
-  if (feasibility_checker_ != nullptr && pose_base.header.frame_id == "base_link")
+  if (feasibility_checker_ != nullptr && pose_base.header.frame_id == plan_frame_id)
   {
     std::string ws_reject;
     if (!feasibility_checker_->objectPoseWithinWorkspaceHardLimits(pose_base.pose, ws_reject))
@@ -752,7 +760,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       scene_manager_->removeWorldObject(TARGET_SENSOR_PEG_COLLISION_ID);
     }
     const std::string held_id = object_id.empty() ? "targetsensor" : object_id;
-    const std::string plan_frame = "base_link";
+    const std::string plan_frame = plan_frame_id;
     std::string last_plan_detail = "";
     moveit::core::RobotModelConstPtr robot_model;
     planning_scene::PlanningScenePtr scene_for_ik_seed;
@@ -1372,7 +1380,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       cable_world_ids.push_back(seg.id);
     }
     std::vector<CableGraspCandidate> candidates = generateCableSideGrasps(cable, config_.cable_grasp);
-    const std::string plan_frame = "base_link";
+    const std::string plan_frame = plan_frame_id;
     const std::string held_id = object_id.empty() ? "cable" : object_id;
     moveit::core::RobotModelConstPtr robot_model;
     moveit_msgs::msg::PlanningScene scene_base_msg;
@@ -1909,35 +1917,41 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
     const rclcpp::Time stamp_now = node_->now();
     const int32_t requested_hole = parseTargetSlotFromObjectId(object_id);
 
+    const std::string& plan_frame_id = config_.manipulator_frame.planning_frame_id;
     const std::string src_frame_before_xform = pose_base.header.frame_id;
-    if (pose_base.header.frame_id != "base_link" && transform_to_base_link_fn_)
+    if (pose_base.header.frame_id != plan_frame_id && transform_to_base_link_fn_)
     {
       const rclcpp::Time stamp_latest_tf(0, 0, node_->get_clock()->get_clock_type());
       pose_base.header.stamp = stamp_latest_tf;
       if (!transform_to_base_link_fn_(pose_base, nullptr))
       {
-        RCLCPP_ERROR(LOGGER, "handleTargetInsert: transform target_pose(%s)->base_link failed",
-                     src_frame_before_xform.c_str());
+        RCLCPP_ERROR(LOGGER,
+                    "handleTargetInsert: transform target_pose(%s)->%s failed",
+                    src_frame_before_xform.c_str(),
+                    plan_frame_id.c_str());
         return false;
       }
     }
-    else if (pose_base.header.frame_id != "base_link" && !transform_to_base_link_fn_)
+    else if (pose_base.header.frame_id != plan_frame_id && !transform_to_base_link_fn_)
     {
       RCLCPP_ERROR(LOGGER,
                    "handleTargetInsert: target_pose(%s) needs transform_to_base_link callback",
                    src_frame_before_xform.c_str());
       return false;
     }
-    if (pose_base.header.frame_id != "base_link")
+    if (pose_base.header.frame_id != plan_frame_id)
     {
-      RCLCPP_ERROR(LOGGER, "handleTargetInsert: target_pose frame must be base_link (got %s)",
+      RCLCPP_ERROR(LOGGER,
+                   "handleTargetInsert: target_pose frame must be %s (got %s)",
+                   plan_frame_id.c_str(),
                    pose_base.header.frame_id.c_str());
       return false;
     }
     pose_base.header.stamp = stamp_now;
     RCLCPP_INFO(LOGGER,
-                "handleTargetInsert: planning target frame=base_link pos=(%.4f, %.4f, %.4f) "
+                "handleTargetInsert: planning target frame=%s pos=(%.4f, %.4f, %.4f) "
                 "quat=(%.4f, %.4f, %.4f, %.4f) object_id=%s",
+                plan_frame_id.c_str(),
                 pose_base.pose.position.x,
                 pose_base.pose.position.y,
                 pose_base.pose.position.z,
@@ -2627,6 +2641,21 @@ void TaskManager::setTransformToBaseLinkCallback(TransformToBaseLinkFn fn)
 {
   transform_to_base_link_fn_ = std::move(fn);
   publishTargetInsertHoleDebug();
+}
+
+bool TaskManager::transformPoseToPlanningFrame(geometry_msgs::msg::PoseStamped& pose,
+                                               geometry_msgs::msg::Vector3Stamped* axis)
+{
+  const std::string& plan_frame = config_.manipulator_frame.planning_frame_id;
+  if (pose.header.frame_id == plan_frame)
+  {
+    return true;
+  }
+  if (!transform_to_base_link_fn_)
+  {
+    return false;
+  }
+  return transform_to_base_link_fn_(pose, axis);
 }
 
 std::vector<geometry_msgs::msg::PoseStamped> TaskManager::collectTargetInsertHolePosesBaseLink(bool emit_log) const

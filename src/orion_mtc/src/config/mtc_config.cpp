@@ -669,6 +669,20 @@ void declareParameters(rclcpp::Node* node)
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
   }
+  try
+  {
+    node->declare_parameter<std::string>("manipulator_frame.tf_target_frame", "sensor_left_roboticarm");
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<std::string>("manipulator_frame.planning_frame_id", "base_link");
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
 }
 
 /*
@@ -1018,6 +1032,16 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
     e.id = panel_2_id;
     e.corners_xyz = std::move(panel_2_corners);
     config.panel_obstacles.panels.push_back(std::move(e));
+  }
+  node->get_parameter("manipulator_frame.tf_target_frame", config.manipulator_frame.tf_target_frame);
+  node->get_parameter("manipulator_frame.planning_frame_id", config.manipulator_frame.planning_frame_id);
+  if (config.manipulator_frame.tf_target_frame.empty())
+  {
+    config.manipulator_frame.tf_target_frame = "sensor_left_roboticarm";
+  }
+  if (config.manipulator_frame.planning_frame_id.empty())
+  {
+    config.manipulator_frame.planning_frame_id = "base_link";
   }
 }
 

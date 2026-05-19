@@ -12,7 +12,10 @@
 #include "orion_mtc/perception/pose_cache.hpp"
 #include "orion_mtc/perception/target_cache.hpp"
 #include "orion_mtc/perception/vector3_cache.hpp"
+#include "orion_mtc/interface/robotic_arm_cmd_types.hpp"
 #include <orion_mtc_msgs/action/pick.hpp>
+#include <sealien_ctrlpilot_msgmanagement/action/robotic_arm_cmd.hpp>
+#include <tf2_ros/buffer.h>
 #include <orion_mtc_msgs/srv/get_robot_state.hpp>
 #include <orion_mtc_msgs/srv/get_queue_state.hpp>
 #include <orion_mtc_msgs/srv/get_recent_jobs.hpp>
@@ -56,6 +59,7 @@ struct ManipulatorInterfaceContext
     std::shared_ptr<PerceptionSnapshotProvider> perception_provider;
     std::shared_ptr<TargetSelector> target_selector;
     std::atomic<double>* left_arm_gripped;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 };
 
 class ManipulatorRosInterface
@@ -81,6 +85,31 @@ private:
         const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& goal_handle);
     void handlePickGoalAccepted(
         const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& goal_handle);
+
+    void loadRoboticArmCmdParams();
+    std::string resolveRoboticArmActionPath(const std::string& action_name, bool under_manipulator_ns) const;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr
+    createRoboticArmCmdActionServer(const std::string& action_path);
+    void logRoboticArmPhase(const char* phase, const std::string& detail = std::string()) const;
+    void logRoboticArmPose(const char* phase, const geometry_msgs::msg::PoseStamped& pose) const;
+    bool isRoboticArmFrameAllowed(const std::string& frame_id) const;
+    static geometry_msgs::msg::PoseStamped roboticArmOrderToPoseStamped(
+        const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order);
+    geometry_msgs::msg::Pose lookupTcpPoseInBaseLink() const;
+    void runRoboticArmFeedbackLoop(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle,
+        std::atomic<bool>& stop_flag) const;
+
+    rclcpp_action::GoalResponse handleRoboticArmGoalRequest(
+        const rclcpp_action::GoalUUID& uuid,
+        std::shared_ptr<const sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Goal> goal);
+    rclcpp_action::CancelResponse handleRoboticArmGoalCancel(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle);
+    void handleRoboticArmGoalAccepted(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle);
 
     void handleGetRobotState(const std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Request> req,
                              std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Response> res);
@@ -123,6 +152,18 @@ private:
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
 
     rclcpp_action::Server<orion_mtc_msgs::action::Pick>::SharedPtr pick_action_server_;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr robotic_arm_cmd_server_;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr
+        robotic_arm_cmd_root_alias_server_;
+
+    std::string robotic_arm_cmd_action_name_{"robotic_arm_cmd"};
+    bool robotic_arm_cmd_register_root_alias_ = true;
+    bool robotic_arm_cmd_enable_ = true;
+    bool robotic_arm_cmd_verbose_ = true;
+    bool robotic_arm_cmd_use_cable_side_grasp_ = false;
+    bool robotic_arm_cmd_reject_right_frames_ = true;
+    double robotic_arm_cmd_feedback_hz_ = 10.0;
+    std::string robotic_arm_cmd_feedback_tcp_frame_{"gripper_tcp"};
     rclcpp::Service<orion_mtc_msgs::srv::GetRobotState>::SharedPtr get_robot_state_srv_;
     rclcpp::Service<orion_mtc_msgs::srv::GetQueueState>::SharedPtr get_queue_state_srv_;
     rclcpp::Service<orion_mtc_msgs::srv::GetRecentJobs>::SharedPtr get_recent_jobs_srv_;

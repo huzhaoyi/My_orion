@@ -97,6 +97,7 @@ ament_target_dependencies(mtc_node
   visualization_msgs
   std_srvs
   orion_mtc_msgs
+  sealien_ctrlpilot_msgmanagement
   tf2_ros
 )
 

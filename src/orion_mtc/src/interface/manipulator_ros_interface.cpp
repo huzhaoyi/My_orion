@@ -1,6 +1,7 @@
 /* ManipulatorRosInterface：注册 /manipulator 下订阅、服务、Action 与状态发布定时器 */
 
 #include "orion_mtc/interface/manipulator_ros_interface.hpp"
+#include "orion_mtc/interface/robotic_arm_cmd_types.hpp"
 #include "orion_mtc/core/constants.hpp"
 #include "orion_mtc/perception/perception_snapshot.hpp"
 #include "orion_mtc/core/manipulation_job.hpp"
@@ -9,10 +10,88 @@
 #include "orion_mtc/core/job_result_code.hpp"
 #include <builtin_interfaces/msg/time.hpp>
 #include <orion_mtc_msgs/msg/job_execution_record.hpp>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <thread>
+
+namespace
+{
+constexpr char kRoboticArmCmdLogTag[] = "[机械臂任务]";
+
+const char* roboticArmRequestTypeName(uint8_t type)
+{
+    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP)
+    {
+        return "抓取(0)";
+    }
+    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_INSERT)
+    {
+        return "插孔(1)";
+    }
+    return "未知类型";
+}
+
+const char* roboticArmResultName(uint8_t result)
+{
+    switch (result)
+    {
+        case orion_mtc::robotic_arm_cmd::RESULT_SUCCESS:
+            return "成功(0)";
+        case orion_mtc::robotic_arm_cmd::RESULT_EXEC_FAILED:
+            return "执行失败(1)";
+        case orion_mtc::robotic_arm_cmd::RESULT_REJECTED_STATE:
+            return "状态拒绝(2)";
+        case orion_mtc::robotic_arm_cmd::RESULT_REJECTED_NO_HELD:
+            return "未持物(3)";
+        case orion_mtc::robotic_arm_cmd::RESULT_ESTOP:
+            return "急停(4)";
+        case orion_mtc::robotic_arm_cmd::RESULT_INVALID:
+            return "参数无效(5)";
+        default:
+            return "未知结果";
+    }
+}
+
+const char* graspSourceName(orion_mtc::GraspSource gs)
+{
+    switch (gs)
+    {
+        case orion_mtc::GraspSource::FUSED:
+            return "融合感知链";
+        case orion_mtc::GraspSource::TARGET_SENSOR:
+            return "目标传感器链";
+        case orion_mtc::GraspSource::LEGACY:
+        default:
+            return "缆绳侧抓链";
+    }
+}
+
+const char* roboticArmModeNameChinese(orion_mtc::RobotTaskMode mode)
+{
+    switch (mode)
+    {
+        case orion_mtc::RobotTaskMode::PICKING:
+            return "抓取中";
+        case orion_mtc::RobotTaskMode::HOLDING_TRACKED:
+            return "持物跟踪";
+        case orion_mtc::RobotTaskMode::HOLDING_UNTRACKED:
+            return "持物未跟踪";
+        case orion_mtc::RobotTaskMode::ERROR:
+            return "错误";
+        case orion_mtc::RobotTaskMode::IDLE:
+        default:
+            return "空闲";
+    }
+}
+}  // namespace
 
 namespace
 {
@@ -76,6 +155,7 @@ ManipulatorRosInterface::ManipulatorRosInterface(ManipulatorInterfaceContext ctx
  */
 void ManipulatorRosInterface::registerSubscriptionsAndServices()
 {
+    loadRoboticArmCmdParams();
     const std::string ns(MANIPULATOR_NS);
     sub_object_pose_ = ctx_.action_client_node->create_subscription<geometry_msgs::msg::PoseStamped>(
         ns + "/object_pose", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -152,6 +232,39 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& h) {
             handlePickGoalAccepted(h);
         });
+    if (robotic_arm_cmd_enable_)
+    {
+        const std::string primary_path = resolveRoboticArmActionPath(robotic_arm_cmd_action_name_, true);
+        robotic_arm_cmd_server_ = createRoboticArmCmdActionServer(primary_path);
+        std::string alias_note;
+        if (robotic_arm_cmd_register_root_alias_ && !robotic_arm_cmd_action_name_.empty() &&
+            robotic_arm_cmd_action_name_.front() != '/')
+        {
+            const std::string root_path = resolveRoboticArmActionPath(robotic_arm_cmd_action_name_, false);
+            if (root_path != primary_path)
+            {
+                robotic_arm_cmd_root_alias_server_ = createRoboticArmCmdActionServer(root_path);
+                alias_note = " 根别名=" + root_path;
+            }
+        }
+        RCLCPP_INFO(ctx_.logger,
+                    "%s Action 服务已就绪: 主路径=%s（action_name=%s 详细日志=%s 缆绳侧抓=%s 拒绝右臂系=%s 反馈=%.1fHz）%s",
+                    kRoboticArmCmdLogTag,
+                    primary_path.c_str(),
+                    robotic_arm_cmd_action_name_.c_str(),
+                    robotic_arm_cmd_verbose_ ? "开" : "关",
+                    robotic_arm_cmd_use_cable_side_grasp_ ? "开" : "关",
+                    robotic_arm_cmd_reject_right_frames_ ? "开" : "关",
+                    robotic_arm_cmd_feedback_hz_,
+                    alias_note.c_str());
+        RCLCPP_INFO(ctx_.logger,
+                    "%s 同事客户端: create_client(..., \"%s\") 时节点命名空间须为 /manipulator，"
+                    "或使用绝对名 \"%s\"；无命名空间时可连根别名 /%s",
+                    kRoboticArmCmdLogTag,
+                    robotic_arm_cmd_action_name_.c_str(),
+                    primary_path.c_str(),
+                    robotic_arm_cmd_action_name_.c_str());
+    }
     get_robot_state_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::GetRobotState>(
         ns + "/get_robot_state",
         [this](const std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Request> req,
@@ -894,6 +1007,454 @@ void ManipulatorRosInterface::handleGoToReadyService(const std::shared_ptr<std_s
     {
         RCLCPP_WARN(ctx_.logger, "service go_to_ready: %s", msg_out.c_str());
     }
+}
+
+std::string ManipulatorRosInterface::resolveRoboticArmActionPath(const std::string& action_name,
+                                                               bool under_manipulator_ns) const
+{
+    if (action_name.empty())
+    {
+        return std::string(MANIPULATOR_NS) + "/robotic_arm_cmd";
+    }
+    if (action_name.front() == '/')
+    {
+        return action_name;
+    }
+    if (under_manipulator_ns)
+    {
+        return std::string(MANIPULATOR_NS) + "/" + action_name;
+    }
+    return "/" + action_name;
+}
+
+rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr
+ManipulatorRosInterface::createRoboticArmCmdActionServer(const std::string& action_path)
+{
+    return rclcpp_action::create_server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>(
+        ctx_.action_client_node,
+        action_path,
+        [this](const rclcpp_action::GoalUUID& uuid,
+               std::shared_ptr<const sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Goal> goal) {
+            return handleRoboticArmGoalRequest(uuid, goal);
+        },
+        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+                   sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& h) {
+            return handleRoboticArmGoalCancel(h);
+        },
+        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+                   sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& h) {
+            handleRoboticArmGoalAccepted(h);
+        });
+}
+
+void ManipulatorRosInterface::loadRoboticArmCmdParams()
+{
+    if (!ctx_.action_client_node)
+    {
+        return;
+    }
+    rclcpp::Node* const node = ctx_.action_client_node.get();
+    auto declare_or_get_bool = [node](const char* name, bool default_val) {
+        const std::string key(name);
+        if (!node->has_parameter(key))
+        {
+            node->declare_parameter(key, default_val);
+        }
+        return node->get_parameter(key).get_value<bool>();
+    };
+    auto declare_or_get_string = [node](const char* name, const std::string& default_val) {
+        const std::string key(name);
+        if (!node->has_parameter(key))
+        {
+            node->declare_parameter(key, default_val);
+        }
+        return node->get_parameter(key).get_value<std::string>();
+    };
+    auto declare_or_get_double = [node](const char* name, double default_val) {
+        const std::string key(name);
+        if (!node->has_parameter(key))
+        {
+            node->declare_parameter(key, default_val);
+        }
+        return node->get_parameter(key).get_value<double>();
+    };
+
+    robotic_arm_cmd_enable_ = declare_or_get_bool("robotic_arm_cmd.enable", true);
+    robotic_arm_cmd_action_name_ = declare_or_get_string("robotic_arm_cmd.action_name", "robotic_arm_cmd");
+    robotic_arm_cmd_register_root_alias_ =
+        declare_or_get_bool("robotic_arm_cmd.register_root_alias", true);
+    robotic_arm_cmd_verbose_ = declare_or_get_bool("robotic_arm_cmd.verbose", true);
+    robotic_arm_cmd_use_cable_side_grasp_ = declare_or_get_bool("robotic_arm_cmd.use_cable_side_grasp", false);
+    robotic_arm_cmd_reject_right_frames_ = declare_or_get_bool("robotic_arm_cmd.reject_right_arm_frames", true);
+    robotic_arm_cmd_feedback_hz_ = declare_or_get_double("robotic_arm_cmd.feedback_hz", 10.0);
+    robotic_arm_cmd_feedback_tcp_frame_ =
+        declare_or_get_string("robotic_arm_cmd.feedback_tcp_frame", "gripper_tcp");
+    if (robotic_arm_cmd_feedback_hz_ < 0.5)
+    {
+        robotic_arm_cmd_feedback_hz_ = 0.5;
+    }
+}
+
+void ManipulatorRosInterface::logRoboticArmPhase(const char* phase, const std::string& detail) const
+{
+    if (detail.empty())
+    {
+        RCLCPP_INFO(ctx_.logger, "%s 阶段=%s", kRoboticArmCmdLogTag, phase);
+    }
+    else
+    {
+        RCLCPP_INFO(ctx_.logger, "%s 阶段=%s | %s", kRoboticArmCmdLogTag, phase, detail.c_str());
+    }
+}
+
+void ManipulatorRosInterface::logRoboticArmPose(const char* phase,
+                                                const geometry_msgs::msg::PoseStamped& pose) const
+{
+    if (!robotic_arm_cmd_verbose_)
+    {
+        logRoboticArmPhase(phase, "坐标系=" + pose.header.frame_id);
+        return;
+    }
+    RCLCPP_INFO(ctx_.logger,
+                "%s 阶段=%s | 坐标系=%s 位置=(%.4f, %.4f, %.4f) 四元数=(%.4f, %.4f, %.4f, %.4f)",
+                kRoboticArmCmdLogTag,
+                phase,
+                pose.header.frame_id.c_str(),
+                pose.pose.position.x,
+                pose.pose.position.y,
+                pose.pose.position.z,
+                pose.pose.orientation.x,
+                pose.pose.orientation.y,
+                pose.pose.orientation.z,
+                pose.pose.orientation.w);
+}
+
+bool ManipulatorRosInterface::isRoboticArmFrameAllowed(const std::string& frame_id) const
+{
+    if (frame_id.empty())
+    {
+        return false;
+    }
+    if (!robotic_arm_cmd_reject_right_frames_)
+    {
+        return true;
+    }
+    std::string lower = frame_id;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return lower.find("right") == std::string::npos;
+}
+
+geometry_msgs::msg::PoseStamped ManipulatorRosInterface::roboticArmOrderToPoseStamped(
+    const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order)
+{
+    geometry_msgs::msg::PoseStamped out;
+    out.header = order.header;
+    if (out.header.frame_id.empty())
+    {
+        out.header.frame_id = "base_link";
+    }
+    out.pose = order.keypoint;
+    return out;
+}
+
+geometry_msgs::msg::Pose ManipulatorRosInterface::lookupTcpPoseInBaseLink() const
+{
+    geometry_msgs::msg::Pose pose;
+    pose.orientation.w = 1.0;
+    if (!ctx_.tf_buffer)
+    {
+        return pose;
+    }
+    try
+    {
+        const geometry_msgs::msg::TransformStamped T = ctx_.tf_buffer->lookupTransform(
+            "base_link", robotic_arm_cmd_feedback_tcp_frame_, tf2::TimePointZero);
+        pose.position.x = T.transform.translation.x;
+        pose.position.y = T.transform.translation.y;
+        pose.position.z = T.transform.translation.z;
+        pose.orientation = T.transform.rotation;
+    }
+    catch (const std::exception& e)
+    {
+        RCLCPP_DEBUG(ctx_.logger, "lookupTcpPoseInBaseLink: %s", e.what());
+    }
+    return pose;
+}
+
+void ManipulatorRosInterface::runRoboticArmFeedbackLoop(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>&
+        goal_handle,
+    std::atomic<bool>& stop_flag) const
+{
+    const auto period = std::chrono::duration<double>(1.0 / robotic_arm_cmd_feedback_hz_);
+    std::size_t tick = 0U;
+    while (!stop_flag.load() && rclcpp::ok())
+    {
+        auto feedback = std::make_shared<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Feedback>();
+        feedback->pose = lookupTcpPoseInBaseLink();
+        goal_handle->publish_feedback(feedback);
+        if (robotic_arm_cmd_verbose_ && (tick == 0U || tick % 20U == 0U))
+        {
+            RCLCPP_INFO(ctx_.logger,
+                        "%s 阶段=反馈心跳 | 序号=%zu TCP位置=(%.4f, %.4f, %.4f)",
+                        kRoboticArmCmdLogTag,
+                        tick,
+                        feedback->pose.position.x,
+                        feedback->pose.position.y,
+                        feedback->pose.position.z);
+        }
+        ++tick;
+        std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(period));
+    }
+    logRoboticArmPhase("反馈线程结束", "心跳次数=" + std::to_string(tick));
+}
+
+rclcpp_action::GoalResponse ManipulatorRosInterface::handleRoboticArmGoalRequest(
+    const rclcpp_action::GoalUUID&,
+    std::shared_ptr<const sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Goal> goal)
+{
+    logRoboticArmPhase("收到目标");
+    if (!goal)
+    {
+        logRoboticArmPhase("拒绝目标", "目标为空");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    const auto& order = goal->order;
+    {
+        geometry_msgs::msg::PoseStamped preview = roboticArmOrderToPoseStamped(order);
+        logRoboticArmPose("目标关键点", preview);
+    }
+    logRoboticArmPhase("校验目标",
+                       std::string("类型=") + roboticArmRequestTypeName(order.type) +
+                           " 坐标系=" + order.header.frame_id);
+    if (order.type != robotic_arm_cmd::REQUEST_TYPE_GRASP && order.type != robotic_arm_cmd::REQUEST_TYPE_INSERT)
+    {
+        logRoboticArmPhase("拒绝目标", "任务类型无效");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    if (!isRoboticArmFrameAllowed(order.header.frame_id))
+    {
+        logRoboticArmPhase("拒绝目标", "右臂坐标系不允许（仅支持左臂）");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    if (ctx_.task_manager->isEmergencyStopRequested())
+    {
+        logRoboticArmPhase("拒绝目标", "急停已触发");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    if (order.type == robotic_arm_cmd::REQUEST_TYPE_GRASP)
+    {
+        const RobotTaskMode mode = ctx_.task_manager->getMode();
+        std::ostringstream oss;
+        oss << "模式=" << roboticArmModeNameChinese(mode) << " 夹爪反馈=" << ctx_.left_arm_gripped->load()
+            << " 夹爪锁定=" << (isGripperLocked() ? "是" : "否");
+        logRoboticArmPhase("抓取前状态", oss.str());
+        if (isHolding(mode))
+        {
+            logRoboticArmPhase("拒绝目标", "已在持物状态");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+        if (isGripperLocked())
+        {
+            logRoboticArmPhase("拒绝目标", "夹爪已锁定有物");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+        if (!canAcceptPick(mode))
+        {
+            logRoboticArmPhase("拒绝目标", "忙碌，无法接受抓取");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+        if (ctx_.feasibility_checker && ctx_.feasibility_checker->inJoyModeSwitchIkCooldown())
+        {
+            logRoboticArmPhase("拒绝目标", "手柄自动/手动切换冷却中");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+    }
+    else
+    {
+        const RobotTaskMode mode = ctx_.task_manager->getMode();
+        const bool held = ctx_.task_manager->getHeldObject().valid || isHolding(mode);
+        std::ostringstream oss;
+        oss << "模式=" << roboticArmModeNameChinese(mode) << " 已持物=" << (held ? "是" : "否")
+            << " 夹爪锁定=" << (isGripperLocked() ? "是" : "否");
+        logRoboticArmPhase("插孔前状态", oss.str());
+        if (!held && !isGripperLocked())
+        {
+            logRoboticArmPhase("拒绝目标", "未持物，不能插孔");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+        if (mode == RobotTaskMode::PICKING)
+        {
+            logRoboticArmPhase("拒绝目标", "正在抓取中");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
+    }
+    logRoboticArmPhase("接受目标", roboticArmRequestTypeName(order.type));
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse ManipulatorRosInterface::handleRoboticArmGoalCancel(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>&)
+{
+    logRoboticArmPhase("取消请求", "不支持取消");
+    return rclcpp_action::CancelResponse::REJECT;
+}
+
+void ManipulatorRosInterface::handleRoboticArmGoalAccepted(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>&
+        goal_handle)
+{
+    logRoboticArmPhase("执行线程启动");
+    std::thread([this, goal_handle]() {
+        const auto goal = goal_handle->get_goal();
+        auto result = std::make_shared<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Result>();
+        result->result = robotic_arm_cmd::RESULT_INVALID;
+
+        if (!goal)
+        {
+            logRoboticArmPhase("执行中止", "工作线程内目标为空");
+            goal_handle->abort(result);
+            return;
+        }
+
+        logRoboticArmPhase("开始执行", roboticArmRequestTypeName(goal->order.type));
+
+        if (ctx_.task_manager->isEmergencyStopRequested())
+        {
+            result->result = robotic_arm_cmd::RESULT_ESTOP;
+            logRoboticArmPhase("执行中止", roboticArmResultName(result->result));
+            goal_handle->abort(result);
+            return;
+        }
+
+        if (!isRoboticArmFrameAllowed(goal->order.header.frame_id))
+        {
+            result->result = robotic_arm_cmd::RESULT_INVALID;
+            logRoboticArmPhase("执行中止", "工作线程内坐标系不允许");
+            goal_handle->abort(result);
+            return;
+        }
+
+        geometry_msgs::msg::PoseStamped stamped = roboticArmOrderToPoseStamped(goal->order);
+        logRoboticArmPose("规划输入位姿(变换前)", stamped);
+        geometry_msgs::msg::PoseStamped stamped_plan = stamped;
+        if (ctx_.task_manager->transformPoseToPlanningFrame(stamped_plan))
+        {
+            logRoboticArmPose("规划输入位姿(变换后)", stamped_plan);
+        }
+        else
+        {
+            logRoboticArmPhase("变换未完成", "将依赖 handlePick/handleTargetInsert 内再次尝试 TF");
+        }
+        std::atomic<bool> stop_feedback{ false };
+        std::thread feedback_thread;
+        if (robotic_arm_cmd_feedback_hz_ > 0.0)
+        {
+            logRoboticArmPhase("反馈线程启动",
+                               "频率=" + std::to_string(robotic_arm_cmd_feedback_hz_) + "Hz TCP坐标系=" +
+                                   robotic_arm_cmd_feedback_tcp_frame_);
+            feedback_thread = std::thread([this, goal_handle, &stop_feedback]() {
+                runRoboticArmFeedbackLoop(goal_handle, stop_feedback);
+            });
+        }
+        else
+        {
+            logRoboticArmPhase("反馈已关闭", "feedback_hz<=0");
+        }
+
+        bool ok = false;
+        if (goal->order.type == robotic_arm_cmd::REQUEST_TYPE_GRASP)
+        {
+            GraspSource gs = GraspSource::TARGET_SENSOR;
+            if (robotic_arm_cmd_use_cable_side_grasp_ && ctx_.object_axis_cache)
+            {
+                gs = GraspSource::LEGACY;
+                tf2::Quaternion q;
+                tf2::fromMsg(stamped.pose.orientation, q);
+                const tf2::Matrix3x3 rot(q);
+                tf2::Vector3 rod = rot.getColumn(2);
+                if (rod.length() < 1e-9)
+                {
+                    rod = rot.getColumn(1);
+                }
+                if (rod.length() >= 1e-9)
+                {
+                    rod.normalize();
+                    geometry_msgs::msg::Vector3Stamped axis;
+                    axis.header = stamped.header;
+                    axis.vector.x = rod.x();
+                    axis.vector.y = rod.y();
+                    axis.vector.z = rod.z();
+                    ctx_.object_axis_cache->update(axis);
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(4) << "杆轴=(" << axis.vector.x << ", " << axis.vector.y
+                        << ", " << axis.vector.z << ")";
+                    logRoboticArmPhase("已注入杆轴", oss.str());
+                }
+                else
+                {
+                    logRoboticArmPhase("跳过杆轴注入", "杆轴模长过小");
+                }
+            }
+            logRoboticArmPhase("开始抓取规划", std::string("感知链=") + graspSourceName(gs));
+            ok = ctx_.task_manager->handlePick(stamped, "external", gs);
+            logRoboticArmPhase("抓取规划结束", ok ? "成功" : "失败");
+        }
+        else if (goal->order.type == robotic_arm_cmd::REQUEST_TYPE_INSERT)
+        {
+            logRoboticArmPhase("开始插孔规划");
+            ok = ctx_.task_manager->handleTargetInsert(stamped, "external");
+            logRoboticArmPhase("插孔规划结束", ok ? "成功" : "失败");
+        }
+        else
+        {
+            result->result = robotic_arm_cmd::RESULT_INVALID;
+            logRoboticArmPhase("执行中止", "工作线程内任务类型无效");
+            stop_feedback.store(true);
+            if (feedback_thread.joinable())
+            {
+                feedback_thread.join();
+            }
+            goal_handle->abort(result);
+            return;
+        }
+
+        stop_feedback.store(true);
+        if (feedback_thread.joinable())
+        {
+            logRoboticArmPhase("等待反馈线程结束");
+            feedback_thread.join();
+        }
+
+        result->result = ok ? robotic_arm_cmd::RESULT_SUCCESS : robotic_arm_cmd::RESULT_EXEC_FAILED;
+        if (ctx_.task_manager->isEmergencyStopRequested())
+        {
+            result->result = robotic_arm_cmd::RESULT_ESTOP;
+        }
+        const auto fb_final = std::make_shared<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Feedback>();
+        fb_final->pose = lookupTcpPoseInBaseLink();
+        goal_handle->publish_feedback(fb_final);
+
+        std::ostringstream finish_detail;
+        finish_detail << "类型=" << roboticArmRequestTypeName(goal->order.type)
+                      << " 结果=" << roboticArmResultName(result->result)
+                      << " 任务号=" << ctx_.task_manager->getTaskId()
+                      << " 模式=" << roboticArmModeNameChinese(ctx_.task_manager->getMode())
+                      << " 最近错误=" << ctx_.task_manager->getLastError();
+        if (ok)
+        {
+            logRoboticArmPhase("返回成功", finish_detail.str());
+            goal_handle->succeed(result);
+        }
+        else
+        {
+            logRoboticArmPhase("返回失败", finish_detail.str());
+            goal_handle->abort(result);
+        }
+        logRoboticArmPhase("执行线程结束");
+    }).detach();
 }
 
 }  // namespace orion_mtc

@@ -61,6 +61,8 @@ public:
   bool handlePick(const geometry_msgs::msg::PoseStamped& object_pose, const std::string& object_id,
                   GraspSource grasp_source = GraspSource::LEGACY);
 
+  bool handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id);
+
   bool handleSyncHeldObject(bool set_holding, bool tracked,
                            const std::string& object_id,
                            const geometry_msgs::msg::Pose& object_pose,
@@ -90,6 +92,9 @@ public:
   using TransformToBaseLinkFn =
       std::function<bool(geometry_msgs::msg::PoseStamped&, geometry_msgs::msg::Vector3Stamped*)>;
   void setTransformToBaseLinkCallback(TransformToBaseLinkFn fn);
+  /** 外系/同事坐标系 → manipulator_frame（与 setTransformToBaseLinkCallback 相同语义） */
+  bool transformPoseToPlanningFrame(geometry_msgs::msg::PoseStamped& pose,
+                                  geometry_msgs::msg::Vector3Stamped* axis = nullptr);
   void setGetLatestTargetSetCallback(
       std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> fn);
 
@@ -188,7 +193,6 @@ private:
 
   bool handleOpenGripper();
   bool handleCloseGripper();
-  bool handleTargetInsert(const geometry_msgs::msg::PoseStamped& target_pose, const std::string& object_id);
   void publishTargetInsertHoleDebug();
   std::vector<geometry_msgs::msg::PoseStamped> collectTargetInsertHolePosesBaseLink(bool emit_log) const;
 

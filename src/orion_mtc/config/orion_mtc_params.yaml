@@ -1,4 +1,28 @@
 # =============================================================================
+# 同事任务接口：sealien_ctrlpilot_msgmanagement/RoboticArmCmd（/manipulator/robotic_arm_cmd）
+# order.type: 0=抓取（缆/销统一） 1=插孔；order.keypoint=geometry_msgs/Pose（含位置+姿态）
+# =============================================================================
+robotic_arm_cmd:
+  enable: true
+  # Action 短名（与同事 create_client(..., "robotic_arm_cmd") 一致）；主路径 /manipulator/<action_name>
+  action_name: "robotic_arm_cmd"
+  # 额外注册 /robotic_arm_cmd，便于同事节点无命名空间时连接
+  register_root_alias: true
+  # 流程调试：true 时打印关键点数值、反馈心跳等；阶段日志 [机械臂任务] 始终打印
+  verbose: true
+  # false：TARGET_SENSOR 抓取链（默认，与侧抓 Pose 约定一致）
+  # true：LEGACY 缆绳侧抓，并从 keypoint 姿态局部 Z 轴注入 object_axis
+  use_cable_side_grasp: false
+  reject_right_arm_frames: true
+  feedback_hz: 10.0
+  feedback_tcp_frame: "gripper_tcp"
+
+# 外系目标 TF：同事 odom 等 → sensor_left_roboticarm；与 planning_frame_id 同点则只改 frame_id
+manipulator_frame:
+  tf_target_frame: "sensor_left_roboticarm"
+  planning_frame_id: "base_link"
+
+# =============================================================================
 # orion_mtc 应用参数（抓取几何 + 可行性 + 运行策略）
 # 由 pick_holoocean.launch.py 经 load_composable_node / 参数文件合并注入 orion_mtc_node。
 # 历史：原 pick_params.yaml 与 runtime_policy.yaml 已合并为本单文件。
