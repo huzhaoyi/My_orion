@@ -26,7 +26,7 @@ else
   echo "Orion 上位机: 服务目录 $SCRIPT_DIR"
   echo "访问地址: $URL（仅本机绑定 ${HOST}）"
 fi
-echo "连接 ROS: 建议启动项目自带 rosbridge（pick_holoocean 内已集成）"
+echo "连接 ROS: 建议 ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py（内含 rosbridge）"
 echo "          默认跨机：rosbridge_address=0.0.0.0，WS 默认 ws://127.0.0.1:9091（本机访问）"
 echo "          跨机访问网页请使用 ?ws=ws://<ROS主机IP>:9091；仅本机安全模式可改 rosbridge_address=127.0.0.1"
 echo "按 Ctrl+C 停止服务"

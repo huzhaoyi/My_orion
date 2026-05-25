@@ -32,7 +32,7 @@ manipulator_frame:
 
 # =============================================================================
 # orion_mtc 应用参数（抓取几何 + 可行性 + 运行策略）
-# 由 pick_holoocean.launch.py 经 load_composable_node / 参数文件合并注入 orion_mtc_node。
+# 由 sealien_ctrlpilot_manipulator_orion.launch.py 合并注入 orion_mtc_node。
 # 历史：原 pick_params.yaml 与 runtime_policy.yaml 已合并为本单文件。
 #
 # 下列仅被 launch 读取、不进入 orion_mtc_node 的参数见文件末尾：
@@ -279,8 +279,4 @@ runtime_policy:
   # true：worker 忙时拒绝新 SubmitJob（策略门控）。
   reject_new_jobs_while_busy: false
 
-# ---------- 仅 pick_holoocean.launch.py 使用（不注入 orion_mtc_node）----------
-# true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）。
-use_joy_manipulator: true
-# true：启动 RViz；默认 false 便于无头仿真与网页联调。
-start_rviz: false
+# ---------- launch 层默认已迁至 sealien_ctrlpilot_manipulator_orion/config/default.yaml ----------

@@ -1,0 +1,11 @@
+# sealien_ctrlpilot_manipulator_orion launch 默认（仅 launch 使用，不注入 orion_mtc_node）
+# MTC 业务参数见 orion_mtc/config/orion_mtc_params.yaml
+
+# true：默认再启动 orion_joy_arm_bridge（/left_joy、/right_joy）
+use_joy_manipulator: true
+# true：启动 RViz；默认 false 便于无头仿真与网页联调
+start_rviz: false
+# rosbridge 在栈末延迟启动（秒）；0 表示仅顺序置后
+rosbridge_startup_delay_sec: 5.0
+rosbridge_port: 9091
+rosbridge_address: "0.0.0.0"

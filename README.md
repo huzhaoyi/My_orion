@@ -4,6 +4,20 @@ ROS 2 工作空间，用于 Orion 机械臂与 **HoloOcean** 仿真联调：关�
 
 ## 包结构
 
+仓库顶层 **`sealien_ctrlpilot_manipulator_orion`** 为统一入口包（布局同 `sealien_ctrlpilot_controller`：`package.xml`、`launch/`、`config/` 在仓库根；实现子包在 `src/`）：
+
+```
+sealien_ctrlpilot_manipulator_orion/
+├── package.xml
+├── CMakeLists.txt
+├── launch/sealien_ctrlpilot_manipulator_orion.launch.py
+├── config/default.yaml
+└── src/
+    ├── orion_mtc/
+    ├── orion_holoocean_bridge/
+    └── ...
+```
+
 | 包名 | 说明 |
 |------|------|
 | **orion_description** | 机器人 URDF、网格与描述资源 |
@@ -12,6 +26,7 @@ ROS 2 工作空间，用于 Orion 机械臂与 **HoloOcean** 仿真联调：关�
 | **orion_mtc** | 基于 MoveIt Task Constructor 的**抓取**节点（仅 pick / 夹爪 / 持物同步，无放置任务）。内部按 **app / interface / perception / decision / planning / execution / scene / orchestration** 分层：`ManipulatorRosInterface` 负责 ROS 订阅与服务；`TaskManager` 编排；`PickTaskBuilder` + MTC 只做运动序列；`SolutionExecutor`/`TrajectoryExecutor` 执行；`PlanningSceneManager` 管理 scene；`FeasibilityChecker` 与 `cable_side_pick_precheck` 做审批与缆绳侧抓预检；**`target_set` + `TargetSelector`** 与 **`object_pose`** 二选一供抓取目标。规划末端参考系为 URDF **`gripper_tcp`**。任务队列 + Worker，支持优先级与去重；夹取失败时自动回到 ready 并设 IDLE；另提供 **打开/闭合夹爪** 服务（仅动夹爪，臂关节保持当前 joint_states）；Action 即时执行，话题/SubmitJob 异步入队。另含调试可执行文件 **`keypoint_to_arm_tf_node`**：订阅 **`/keypoints`**，消息类型与 **`cable_detect` 等发布端一致，为 **`sealien_ctrlpilot_msgmanagement/msg/Keypoints`**（与仓库内 `orion_mtc_msgs/Keypoints` 字段相同但 **ROS 类型名不同，不可混用**）。将关键点从源帧（`header.frame_id`，常见 `camera`）经 TF 变换到 **`left_arm_base` / `right_arm_base`** 并打印。依赖 **`sealien_ctrlpilot_msgmanagement`** 包需在编译/运行前已安装或 `source` 其 `install/setup.bash`（与 `pick_holoocean.launch.py` **分离** 的 launch：`keypoint_arm_tf.launch.py`） |
 | **orion_holoocean_bridge** | HoloOcean 桥接：ArmSensor → `joint_states`；FollowJointTrajectory 经 **trajectory_to_agent_bridge** 转为 AgentCommand 发往 HoloOcean 执行；**target_sensor_to_object_pose**：TargetSensor（positions + directions）+ ROV 里程计 → arm_base_link 下 `/object_pose`；**cable_sensor_to_object_pose**：CableSensor（单缆绳）→ world 下变换到 arm_base_link 后发布 `/object_pose` |
 | **orion_joy_arm_bridge** | 双路 `sensor_msgs/Joy`（默认 `/left_joy`、`/right_joy`）：**右手全局**：`buttons[0]`→`emergency_stop`，`buttons[5]` 松开→`clear_estop`；**自动**：`pick_trigger`、右手 **axes[6]**（默认同配置）进入 +1/-1 区边沿→`open_gripper`/`close_gripper`、ready 松手→调用 `go_to_ready`（Trigger 服务）；**手动**：6 臂 + 左手 9/10 + 右手轴持续积分开/合爪。参数见 `joy_manipulator.yaml`。 |
+| **sealien_ctrlpilot_manipulator_orion** | HoloOcean 联调**统一入口包**（仓库根）：`launch/sealien_ctrlpilot_manipulator_orion.launch.py` + `config/default.yaml` |
 
 ## 依赖
 
@@ -53,7 +68,7 @@ source install/setup.bash
 
 ## ROS 话题与服务（程序默认 · 当前使用）
 
-**命名约定**：抓取应用层统一在 **`/manipulator`** 下（代码常量 `MANIPULATOR_NS`）。下列「程序」指仓库内默认参数/源码；「**当前 pick_holoocean**」指 `ros2 launch orion_mtc pick_holoocean.launch.py` 实际拉起的节点与 `holoocean_bridge_params.yaml` 中的话题名。
+**命名约定**：抓取应用层统一在 **`/manipulator`** 下（代码常量 `MANIPULATOR_NS`）。下列「程序」指仓库内默认参数/源码；「**当前 HoloOcean 联调 launch**」指 `ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py` 实际拉起的节点与 `holoocean_bridge_params.yaml` 中的话题名。
 
 ### 程序内——`orion_mtc`（`mtc_node`）
 
@@ -171,13 +186,13 @@ source install/setup.bash
 
 ```bash
 # 确保已设置 HOLOOCEAN_ROS_INSTALL 或已 source holoocean-ros 的 install
-ros2 launch orion_mtc pick_holoocean.launch.py
+ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py
 
-# 手柄桥接：在 orion_mtc/config/orion_mtc_params.yaml 中设 use_joy_manipulator: true 后，直接 launch 即可；或临时覆盖：
-ros2 launch orion_mtc pick_holoocean.launch.py use_joy_manipulator:=true
+# 手柄桥接：在 config/default.yaml 中设 use_joy_manipulator: true 后，直接 launch 即可；或临时覆盖：
+ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py use_joy_manipulator:=true
 
-# RViz：默认由 orion_mtc_params.yaml 的 start_rviz 控制（默认 false）；临时打开：
-ros2 launch orion_mtc pick_holoocean.launch.py start_rviz:=true
+# RViz：默认由 config/default.yaml 的 start_rviz 控制（默认 false）；临时打开：
+ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py start_rviz:=true
 
 # 仅手柄节点 + 参数文件
 ros2 launch orion_joy_arm_bridge joy_manipulator.launch.py
@@ -309,7 +324,7 @@ ros2 topic pub -1 /keypoints sealien_ctrlpilot_msgmanagement/msg/Keypoints \
 
 2. **启动 HoloOcean 场景与 launch**
 
-   终端 1：`ros2 launch orion_mtc pick_holoocean.launch.py`
+   终端 1：`ros2 launch sealien_ctrlpilot_manipulator_orion sealien_ctrlpilot_manipulator_orion.launch.py`
 
 3. **终端 2：触发与状态查询**
 
