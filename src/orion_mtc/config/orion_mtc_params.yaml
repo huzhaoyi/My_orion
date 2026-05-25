@@ -1,6 +1,8 @@
 # =============================================================================
 # 同事任务接口：sealien_ctrlpilot_msgmanagement/RoboticArmCmd（/manipulator/robotic_arm_cmd）
-# order.type: 0=抓取（缆/销统一） 1=插孔；order.keypoint=geometry_msgs/Pose（含位置+姿态）
+# order.type: 0=销钉抓取  1=插孔  2=缆绳抓取  3=开爪  4=关爪  5=回ready
+# CancelGoal：急停→开爪→ready(关爪)→clear_estop（任意 type 含 3/4/5 均适用）
+# order.keypoint=geometry_msgs/Pose（0/1/2 需要；3/4/5 可忽略）
 # =============================================================================
 robotic_arm_cmd:
   enable: true
@@ -10,12 +12,18 @@ robotic_arm_cmd:
   register_root_alias: true
   # 流程调试：true 时打印关键点数值、反馈心跳等；阶段日志 [机械臂任务] 始终打印
   verbose: true
-  # false：TARGET_SENSOR 抓取链（默认，与侧抓 Pose 约定一致）
-  # true：LEGACY 缆绳侧抓，并从 keypoint 姿态局部 Z 轴注入 object_axis
+  # 已废弃：缆绳请用 order.type=2；为 true 且 type=0 时仅打 WARN，仍走 TARGET_SENSOR
   use_cable_side_grasp: false
   reject_right_arm_frames: true
   feedback_hz: 10.0
   feedback_tcp_frame: "gripper_tcp"
+  # 仅 order.type=2（缆绳抓取）在 TF 到 arm_base_link 后右乘物体系标定：q_plan = q_tf * q_corr
+  # type=0/1 不使用。标定：TF 后 xyzw≈(0,0,-0.693,0.721) → 目标 ≈(0.7071,0,0,0.7071)（odom 现场）
+  apply_orientation_correction_after_tf: true
+  orientation_correction_w:  0.497
+  orientation_correction_x:  0.497
+  orientation_correction_y:  0.503
+  orientation_correction_z:  0.503
 
 # 外系目标 TF：同事 odom 等 → sensor_left_roboticarm；与 planning_frame_id 同点则只改 frame_id
 manipulator_frame:

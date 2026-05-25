@@ -159,6 +159,16 @@ public:
   /** 规划并执行回 SRDF ready + 闭合夹爪；若正在抓取或 worker 执行 job 则拒绝 */
   bool tryGoToReady(std::string& out_message);
 
+  /*
+   * RoboticArmCmd Cancel 复位链：开爪 → retreatToReady（ready+关爪）→ clear_estop。
+   * 调用前应先 requestEmergencyStop；复位运动期间忽略 estop 中止谓词。
+   */
+  bool runRoboticArmCancelRecovery();
+
+  /** 同步开/关夹爪（仅 hand group），供 RoboticArmCmd type 3/4 与复位链使用 */
+  bool handleOpenGripper();
+  bool handleCloseGripper();
+
   struct JobExecutionRecordEntry
   {
     std::string job_id;
@@ -191,8 +201,6 @@ private:
 
   std::function<bool()> makeEstopAbortFn() const;
 
-  bool handleOpenGripper();
-  bool handleCloseGripper();
   void publishTargetInsertHoleDebug();
   std::vector<geometry_msgs::msg::PoseStamped> collectTargetInsertHolePosesBaseLink(bool emit_log) const;
 
@@ -236,6 +244,7 @@ private:
 
   std::atomic<bool> worker_running_{ false };
   std::atomic<bool> estop_requested_{ false };
+  std::atomic<bool> cancel_recovery_active_{ false };
   std::thread worker_thread_;
   mutable std::mutex worker_mutex_;
   WorkerStatus worker_status_ = WorkerStatus::STOPPED;

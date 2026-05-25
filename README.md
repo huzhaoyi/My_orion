@@ -140,7 +140,7 @@ source install/setup.bash
 | 类型 | 名称 | 说明 |
 |------|------|------|
 | Action | `/manipulator/pick` | 即时抓取：Goal 为 `object_pose`（arm_base_link）、可选 `object_id` |
-| Action | `/manipulator/robotic_arm_cmd`（另可选别名 `/robotic_arm_cmd`） | 同事任务接口：`sealien_ctrlpilot_msgmanagement/RoboticArmCmd`；客户端 `create_client(..., "robotic_arm_cmd")` 时节点命名空间须为 **`/manipulator`**，或改用绝对名 `/manipulator/robotic_arm_cmd`；`order.type` 0=抓取、1=插孔 |
+| Action | `/manipulator/robotic_arm_cmd`（另可选别名 `/robotic_arm_cmd`） | 同事任务接口：`sealien_ctrlpilot_msgmanagement/RoboticArmCmd`；`order.type` **0=销钉抓取**、**1=插孔**、**2=缆绳抓取**、**3=开爪**、**4=关爪**、**5=回 ready**；**CancelGoal** 固定执行急停→开爪→ready(关爪)→解除急停 |
 | 服务 | `/manipulator/get_robot_state` | 当前 `mode`、`task_id`、`held_object_id`、`has_held_object`、`last_error` |
 | 服务 | `/manipulator/get_queue_state` | 队列与 Worker：`queue_size`、`current_job_id/type`、`next_job_id/type`、`worker_status`、`worker_running`、`queue_empty`、`last_error` |
 | 服务 | `/manipulator/submit_job` | 异步入队：提交 PICK、RESET_HELD_OBJECT、SYNC_HELD_OBJECT、OPEN_GRIPPER、CLOSE_GRIPPER（`job_type` 0～4），返回 `job_id` 或拒绝原因 |

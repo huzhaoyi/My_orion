@@ -3496,7 +3496,48 @@ bool TaskManager::executeJob(const ManipulationJob& job)
 /* 返回捕获 estop_requested_ 的原子谓词，传入 executePickSolution/executeSolution 以在急停时打断分段执行。 */
 std::function<bool()> TaskManager::makeEstopAbortFn() const
 {
-  return [this]() { return estop_requested_.load(); };
+  return [this]() {
+    if (cancel_recovery_active_.load())
+    {
+      return false;
+    }
+    return estop_requested_.load();
+  };
+}
+
+bool TaskManager::runRoboticArmCancelRecovery()
+{
+  RCLCPP_WARN(LOGGER, "runRoboticArmCancelRecovery: open gripper -> retreatToReady -> clear_estop");
+  cancel_recovery_active_.store(true);
+  if (!handleOpenGripper())
+  {
+    RCLCPP_WARN(LOGGER, "runRoboticArmCancelRecovery: open gripper failed, continue to ready");
+  }
+  const bool ready_ok = retreatToReady();
+  cancel_recovery_active_.store(false);
+  clearEmergencyStopLatch();
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (ready_ok)
+    {
+      last_error_.clear();
+      task_mode_ = RobotTaskMode::IDLE;
+    }
+    else
+    {
+      last_error_ = "CANCEL_RECOVERY: retreatToReady failed";
+      task_mode_ = RobotTaskMode::ERROR;
+    }
+  }
+  if (ready_ok)
+  {
+    RCLCPP_INFO(LOGGER, "runRoboticArmCancelRecovery: finished (IDLE, gripper closed at ready)");
+  }
+  else
+  {
+    RCLCPP_ERROR(LOGGER, "runRoboticArmCancelRecovery: retreatToReady failed");
+  }
+  return ready_ok;
 }
 
 /*

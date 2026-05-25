@@ -38,6 +38,7 @@
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <Eigen/Geometry>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -100,6 +101,7 @@ private:
     void logRoboticArmPlanningPose(uint8_t request_type,
                                    const char* stage,
                                    const geometry_msgs::msg::PoseStamped& pose) const;
+    void applyRoboticArmOrientationCorrectionAfterTf(geometry_msgs::msg::PoseStamped& pose) const;
     bool isRoboticArmFrameAllowed(const std::string& frame_id) const;
     static geometry_msgs::msg::PoseStamped roboticArmOrderToPoseStamped(
         const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order);
@@ -172,6 +174,9 @@ private:
     bool robotic_arm_cmd_reject_right_frames_ = true;
     double robotic_arm_cmd_feedback_hz_ = 10.0;
     std::string robotic_arm_cmd_feedback_tcp_frame_{"gripper_tcp"};
+    bool robotic_arm_cmd_apply_orientation_correction_after_tf_ = true;
+    std::string robotic_arm_cmd_planning_frame_id_{"arm_base_link"};
+    Eigen::Quaterniond robotic_arm_cmd_orientation_correction_{1.0, 0.0, 0.0, 0.0};
     rclcpp::Service<orion_mtc_msgs::srv::GetRobotState>::SharedPtr get_robot_state_srv_;
     rclcpp::Service<orion_mtc_msgs::srv::GetQueueState>::SharedPtr get_queue_state_srv_;
     rclcpp::Service<orion_mtc_msgs::srv::GetRecentJobs>::SharedPtr get_recent_jobs_srv_;
