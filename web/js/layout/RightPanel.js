@@ -82,7 +82,7 @@ function renderTaskTab(container) {
     const idx = i + 1;
     return `<option value="${idx}">${t('right.target_index_prefix')}${idx}</option>`;
   }).join('');
-  const slot_options_html = Array.from({ length: 7 }, (_, i) => {
+  const slot_options_html = Array.from({ length: 3 }, (_, i) => {
     const idx = i + 1;
     return `<option value="${idx}">${t('right.target_slot_prefix')}${idx}</option>`;
   }).join('');

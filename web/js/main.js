@@ -296,7 +296,7 @@ function registerGlobalHandlers() {
       }
       const slotPoseFromHoles = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses[slot - 1] : null;
       if (!slotPoseFromHoles || !slotPoseFromHoles.position) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定7孔 arm_base_link 孔位`);
+        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定3孔 arm_base_link 孔位`);
         toast.warn(`孔位 ${String(slot)} 暂无 arm_base_link 目标（请确认 /manipulator/target_insert_holes）`);
         return;
       }

@@ -54,21 +54,13 @@ target_sensor_to_object_pose:
     grasp_offset_along_direction_m: 0.122671
     # false：map→rov0 与 perception 用节点时钟，避免 HoloOcean 重启后仿真时间回退导致 TF_OLD_DATA
     use_pose_sensor_stamp_for_rov_tf: false
-    # 固定7插孔：world/map 坐标；节点内按 world->rov->arm_base_link 链路转换后发布。
-    targetsensor_slot_1_position_world: [-113.98, 129.085, -132.1]
+    # 固定3插孔：world/map 坐标；节点内按 world->rov->arm_base_link 链路转换后发布。
+    targetsensor_slot_1_position_world: [-162.649, 85.66733, -131.1388]
     targetsensor_slot_1_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_2_position_world: [-113.98, 128.85, -132.1]
+    targetsensor_slot_2_position_world: [-162.649, 85.43484, -131.1388]
     targetsensor_slot_2_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_3_position_world: [-113.98, 129.085, -132.353]
+    targetsensor_slot_3_position_world: [-162.649, 85.20445, -131.1388]
     targetsensor_slot_3_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_4_position_world: [-113.98, 128.85, -132.353]
-    targetsensor_slot_4_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_5_position_world: [-113.98, 128.62, -132.357]
-    targetsensor_slot_5_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_6_position_world: [-113.98, 127.798, -130.885]
-    targetsensor_slot_6_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    targetsensor_slot_7_position_world: [-113.98, 127.798, -131.117]
-    targetsensor_slot_7_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
     # 孔位旁面板：与 panel_obstacles_mtc_fragment.yaml 同目录；pick_holoocean 会合并进本节点与 orion_mtc_node。
 
 # CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF arm_base_link→cable

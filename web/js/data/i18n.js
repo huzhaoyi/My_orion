@@ -167,7 +167,7 @@ const MESSAGES = {
     'card.perception.table_id': 'ID',
     'card.perception.cable_table_caption': '缆绳目标（arm_base_link）',
     'card.perception.target_table_caption': 'TargetSensor 多目标（/target_set，侧抓系）',
-    'card.perception.target_insert_holes_caption': '固定7插孔（/target_insert_holes，arm_base_link）',
+    'card.perception.target_insert_holes_caption': '固定3插孔（/target_insert_holes，arm_base_link）',
     'card.perception.table_empty': '暂无',
     'card.perception.target_grasp_index': '桥接用于 /object_pose 的下标',
 
@@ -441,7 +441,7 @@ const MESSAGES = {
     'card.perception.table_id': 'ID',
     'card.perception.cable_table_caption': 'Cable target (arm_base_link)',
     'card.perception.target_table_caption': 'TargetSensor targets (/target_set, side grasp)',
-    'card.perception.target_insert_holes_caption': 'Fixed 7 insert holes (/target_insert_holes, arm_base_link)',
+    'card.perception.target_insert_holes_caption': 'Fixed 3 insert holes (/target_insert_holes, arm_base_link)',
     'card.perception.table_empty': 'None',
     'card.perception.target_grasp_index': 'Index used for /object_pose (bridge target_index)',
 

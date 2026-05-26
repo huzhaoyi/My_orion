@@ -24,14 +24,11 @@ from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 # 机械臂基座在 ROV 系下平移 [m] 的默认值，仅平移无旋转（与 docs/tf_conversion.md 一致）；可由参数覆盖
 DEFAULT_LEFT_ARM_BASE_IN_ROV = (1.55, 0.5653, -0.283628)
 DEFAULT_RIGHT_ARM_BASE_IN_ROV = (1.55, -0.5653, -0.283628)
+NUM_FIXED_INSERT_SLOTS = 3
 DEFAULT_INSERT_SLOT_WORLD_POSITIONS = (
-    (-113.98, 129.085, -132.1),
-    (-113.98, 128.85, -132.1),
-    (-113.98, 129.085, -132.353),
-    (-113.98, 128.85, -132.353),
-    (-113.98, 128.62, -132.357),
-    (-113.98, 127.798, -130.885),
-    (-113.98, 127.798, -131.117),
+    (-162.649, 85.66733, -131.1388),
+    (-162.649, 85.43484, -131.1388),
+    (-162.649, 85.20445, -131.1388),
 )
 DEFAULT_INSERT_SLOT_WORLD_ORIENTATION = (0.0, 0.0, -0.70710678, 0.70710678)
 
@@ -328,7 +325,7 @@ class TargetSensorToObjectPoseNode(Node):
         _panel_corners_default = [0.0] * 12
         self.declare_parameter("panel_obstacles.panel_1_corners_xyz", _panel_corners_default)
         self.declare_parameter("panel_obstacles.panel_2_corners_xyz", _panel_corners_default)
-        for slot_index in range(1, 8):
+        for slot_index in range(1, NUM_FIXED_INSERT_SLOTS + 1):
             position_default = list(DEFAULT_INSERT_SLOT_WORLD_POSITIONS[slot_index - 1])
             orientation_default = list(DEFAULT_INSERT_SLOT_WORLD_ORIENTATION)
             self.declare_parameter(
@@ -380,7 +377,7 @@ class TargetSensorToObjectPoseNode(Node):
         )
         self._fixed_insert_hole_positions_world: list[np.ndarray] = []
         self._fixed_insert_hole_rotations_world: list[np.ndarray] = []
-        for slot_index in range(1, 8):
+        for slot_index in range(1, NUM_FIXED_INSERT_SLOTS + 1):
             slot_position = self.get_parameter(
                 "targetsensor_slot_{}_position_world".format(slot_index)
             ).get_parameter_value().double_array_value
@@ -549,7 +546,7 @@ class TargetSensorToObjectPoseNode(Node):
 
     def _publish_fixed_target_insert_holes(self, stamp) -> None:
         """
-        固定 7 孔位 world/map 坐标按 cable 一致链路转换到 arm_base_link：
+        固定插孔 world/map 坐标按 cable 一致链路转换到 arm_base_link：
         p_base = R_rov^T * (p_world - t_rov) - t_arm_in_rov + offset。
         若配置了 panel_obstacles，同一 stamp 发布面板 Marker（四角与孔位同源 world 坐标）。
         """

@@ -578,7 +578,7 @@ function createScene(containerEl) {
   const targetInsertHolesGroup = new THREE.Group();
   targetInsertHolesGroup.name = 'target_insert_holes_group';
   targetInsertHolesGroup.visible = false;
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     const holePoseNode = new THREE.Group();
     holePoseNode.name = `target_insert_hole_${i}`;
     holePoseNode.visible = false;
