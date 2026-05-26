@@ -43,7 +43,9 @@ chmod +x scripts/install_ros_dependencies.sh   # 首次
 
 ## 构建
 
-在 **colcon 工作空间根目录**（例如 `sealien_ws`，其下应有 `src/`、`install/`）编译。编译后**必须在同一终端** `source install/setup.bash`，否则会出现 `PackageNotFoundError`（如找不到 `sealien_ctrlpilot_manipulator_orion_joy_arm_bridge`）。
+在 **colcon 工作空间根目录**（例如 `sealien_ws`，其下应有 `src/`、`install/`）编译。**不要**在本 git 仓库根目录执行 `colcon build`（会在仓库内生成 `build/`、`install/`，且易与 `sealien_ws/install` 混用导致 launch 找错包）。若已误生成，可执行 `./scripts/clean_repo_artifacts.sh` 清理仓库内产物及 `src/orion_*` 残留空壳。
+
+编译后**必须在同一终端** `source install/setup.bash`（指向 **sealien_ws/install**），否则会出现 `PackageNotFoundError`（如找不到 `sealien_ctrlpilot_manipulator_orion_joy_arm_bridge`）。
 
 ```bash
 # 推荐：一键编译并 source（脚本默认推断 <本仓库>/../../.. 为工作空间根）

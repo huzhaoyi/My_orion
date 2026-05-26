@@ -1,10 +1,14 @@
-# Colcon 构建产物
+# Colcon 构建产物（仅在 sealien_ws 根目录 build，勿在 git 仓库根目录 colcon build）
 build/
 install/
 log/
 
+# 包名重命名后本地残留的空壳目录（仅 __pycache__ 等，勿提交）
+src/orion_*/
+
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.pyo
 *.egg-info/
