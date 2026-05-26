@@ -1,10 +1,10 @@
 /* runtime_policy_loader：声明并读取失败后恢复/入队策略等参数 */
 
-#include "orion_mtc/config/runtime_policy_loader.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/config/runtime_policy_loader.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/exceptions.hpp>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -64,4 +64,4 @@ void loadRuntimePolicyFromNode(const std::shared_ptr<rclcpp::Node>& node, Runtim
   node->get_parameter(prefix + "reject_new_jobs_while_busy", policy.reject_new_jobs_while_busy);
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

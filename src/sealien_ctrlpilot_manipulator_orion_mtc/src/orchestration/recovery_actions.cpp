@@ -1,15 +1,15 @@
 /* recovery_actions：失败后按 policy 清 scene、复位持物、可选 Pilz 回 ready */
 
-#include "orion_mtc/orchestration/recovery_actions.hpp"
-#include "orion_mtc/orchestration/task_manager.hpp"
-#include "orion_mtc/core/constants.hpp"
-#include "orion_mtc/scene/planning_scene_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/recovery_actions.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/task_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/scene/planning_scene_manager.hpp"
 #include <rclcpp/rclcpp.hpp>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.recovery");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.recovery");
 
 /*
  * 保存 scene 与 task 管理指针；不拥有所有权，与 OrionMTCNode 生命周期对齐。
@@ -84,4 +84,4 @@ bool RecoveryActions::goHomeIfSafe()
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

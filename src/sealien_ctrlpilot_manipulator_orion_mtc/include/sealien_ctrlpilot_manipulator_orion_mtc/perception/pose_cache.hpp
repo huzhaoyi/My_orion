@@ -1,0 +1,41 @@
+/* 感知输入缓存层：收消息、校验 frame_id、保存最后一帧、线程安全读取、wait/latest/has_data */
+
+#ifndef ORION_MTC_PERCEPTION_POSE_CACHE_HPP
+#define ORION_MTC_PERCEPTION_POSE_CACHE_HPP
+
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
+#include <string>
+
+namespace sealien_ctrlpilot_manipulator_orion_mtc
+{
+
+class PoseCache
+{
+public:
+  /** 期望的 frame_id，默认 "arm_base_link"；update 时若不一致则忽略并打 WARN */
+  explicit PoseCache(const std::string& expected_frame_id = "arm_base_link");
+  void update(const geometry_msgs::msg::PoseStamped& msg);
+  bool hasPose() const;
+  std::optional<geometry_msgs::msg::PoseStamped> latest() const;
+  /** 阻塞等待直到有数据或超时；out 仅在返回 true 时有效 */
+  bool waitForPose(std::chrono::milliseconds timeout,
+                   geometry_msgs::msg::PoseStamped& out) const;
+  /** 阻塞直到发生一次 update 或超时；返回是否在超时前收到新 update（便于调用方打日志） */
+  bool waitForNextUpdate(std::chrono::milliseconds timeout) const;
+
+private:
+  std::string expected_frame_id_;
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cv_;
+  geometry_msgs::msg::PoseStamped pose_;
+  bool has_pose_ = false;
+  uint64_t update_count_ = 0;
+};
+
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc
+
+#endif  // ORION_MTC_PERCEPTION_POSE_CACHE_HPP

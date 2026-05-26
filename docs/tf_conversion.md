@@ -10,9 +10,9 @@
 | **`base_link`** | 同事 location：ROV 机体中心（勿与 `arm_base_link` 混用） |
 | **`sensor_left_roboticarm`** | 同事 URDF 左臂安装点；Action 外参 `odom`→此帧后标为 `arm_base_link` 规划 |
 
-联调时 HoloOcean 桥建议 **`publish_tf: false`**，由 location 发 `odom→base_link(ROV)`；臂树在 `/manipulator/tf` 上为 `map→world→arm_base_link→Link*`（`pick_holoocean` 发 static `map→world`）。`orion_mtc` 用双 TF Buffer：`/tf` 供 Action，`/manipulator/tf` 供面板与 TCP。
+联调时 HoloOcean 桥建议 **`publish_tf: false`**，由 location 发 `odom→base_link(ROV)`；臂树在 `/manipulator/tf` 上为 `map→world→arm_base_link→Link*`（`pick_holoocean` 发 static `map→world`）。`sealien_ctrlpilot_manipulator_orion_mtc` 用双 TF Buffer：`/tf` 供 Action，`/manipulator/tf` 供面板与 TCP。
 
-**Web / `submit_job` / `RoboticArmCmd`**：孔位与抓取目标请使用 **`arm_base_link`**。若仍提交 `frame_id=base_link`（旧版臂根命名），`orion_mtc` 会**不做 TF**、直接当作 `arm_base_link` 并打 WARN，避免与 location 的 ROV `base_link` 误连 `/tf` 导致孔位偏移。
+**Web / `submit_job` / `RoboticArmCmd`**：孔位与抓取目标请使用 **`arm_base_link`**。若仍提交 `frame_id=base_link`（旧版臂根命名），`sealien_ctrlpilot_manipulator_orion_mtc` 会**不做 TF**、直接当作 `arm_base_link` 并打 WARN，避免与 location 的 ROV `base_link` 误连 `/tf` 导致孔位偏移。
 
 ---
 

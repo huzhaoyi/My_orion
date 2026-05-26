@@ -149,7 +149,7 @@ function subscribeRosTopicRx(fn) {
   return () => rosTopicRxListeners.delete(fn);
 }
 
-/* 与 orion_mtc_msgs/msg/RuntimeStatus.msg 字段一一对应（ROS 为 snake_case） */
+/* 与 sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/RuntimeStatus.msg 字段一一对应（ROS 为 snake_case） */
 function applyRuntimeStatus(msg) {
   const prev_job_id = state.currentJobId || '';
   const next_job_id =
@@ -188,7 +188,7 @@ function applyRuntimeStatus(msg) {
   });
 }
 
-/* 与 orion_mtc_msgs/srv/GetQueueState.srv 响应用于同步 queueList / nextJobId */
+/* 与 sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/GetQueueState.srv 响应用于同步 queueList / nextJobId */
 function applyQueueStateResponse(res) {
   if (!res)
   {
@@ -213,7 +213,7 @@ function applyQueueStateResponse(res) {
   });
 }
 
-/* 与 orion_mtc_msgs/msg/HeldObjectState.msg 字段一一对应 */
+/* 与 sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/HeldObjectState.msg 字段一一对应 */
 function applyHeldObjectState(msg) {
   setState({
     heldValid: msg.valid ?? state.heldValid,
@@ -230,7 +230,7 @@ function setRecentJobs(list) {
   setState({ recentJobs: Array.isArray(list) ? list : [] });
 }
 
-/* 与 orion_mtc_msgs/srv/GetRobotState.srv 响应字段一一对应 */
+/* 与 sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/GetRobotState.srv 响应字段一一对应 */
 function applyGetRobotStateResponse(res) {
   if (!res) return;
   setState({

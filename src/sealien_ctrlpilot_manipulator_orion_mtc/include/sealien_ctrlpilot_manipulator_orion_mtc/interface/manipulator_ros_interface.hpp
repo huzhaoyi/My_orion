@@ -1,0 +1,209 @@
+/* ROS 接口层：订阅/服务/Action 与 app 层装配分离，话题名保持 manipulator 命名空间下不变 */
+
+#ifndef ORION_MTC_INTERFACE_MANIPULATOR_ROS_INTERFACE_HPP
+#define ORION_MTC_INTERFACE_MANIPULATOR_ROS_INTERFACE_HPP
+
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/held_object.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/feasibility_checker.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/target_selector.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/task_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/task_queue.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/perception_snapshot_provider.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/pose_cache.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/target_cache.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/vector3_cache.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/interface/robotic_arm_cmd_types.hpp"
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/action/pick.hpp>
+#include <sealien_ctrlpilot_msgmanagement/action/robotic_arm_cmd.hpp>
+#include <tf2_ros/buffer.h>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/get_robot_state.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/get_queue_state.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/get_recent_jobs.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/cancel_job.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/reset_held_object.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/submit_job.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/sync_held_object.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/srv/check_pick.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/runtime_status.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/job_event.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/task_stage.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/held_object_state.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/recovery_event.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/target_set.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/timer.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/float32.hpp>
+#include <std_srvs/srv/trigger.hpp>
+#include <Eigen/Geometry>
+#include <atomic>
+#include <memory>
+#include <string>
+
+namespace sealien_ctrlpilot_manipulator_orion_mtc
+{
+
+struct ManipulatorInterfaceContext
+{
+    rclcpp::Logger logger;
+    rclcpp::Node::SharedPtr action_client_node;
+    std::shared_ptr<TaskManager> task_manager;
+    std::shared_ptr<FeasibilityChecker> feasibility_checker;
+    std::shared_ptr<PoseCache> object_pose_cache;
+    std::shared_ptr<TargetCache> target_cache;
+    std::shared_ptr<Vector3Cache> object_axis_cache;
+    std::shared_ptr<PoseCache> object_pose_fused_cache;
+    std::shared_ptr<Vector3Cache> object_axis_fused_cache;
+    std::shared_ptr<PerceptionSnapshotProvider> perception_provider;
+    std::shared_ptr<TargetSelector> target_selector;
+    std::atomic<double>* left_arm_gripped;
+    /** 全局 /tf（定位、Action） */
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer;
+    /** /manipulator/tf（MoveIt 臂系 arm_base_link） */
+    std::shared_ptr<tf2_ros::Buffer> manipulator_tf_buffer;
+};
+
+class ManipulatorRosInterface
+{
+public:
+    explicit ManipulatorRosInterface(ManipulatorInterfaceContext ctx);
+
+    void registerSubscriptionsAndServices();
+    void registerStatusPublishersAndCallbacks();
+
+private:
+    void publishRuntimeStatus();
+    void onPickTriggerReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerCableReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerTargetSensorReceived(const std_msgs::msg::Empty::SharedPtr msg);
+    void onPickTriggerFusedReceived(const std_msgs::msg::Empty::SharedPtr msg);
+
+    bool isGripperLocked() const;
+
+    rclcpp_action::GoalResponse handlePickGoalRequest(const rclcpp_action::GoalUUID& uuid,
+                                                      std::shared_ptr<const sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick::Goal> goal);
+    rclcpp_action::CancelResponse handlePickGoalCancel(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>& goal_handle);
+    void handlePickGoalAccepted(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>& goal_handle);
+
+    void loadRoboticArmCmdParams();
+    std::string resolveRoboticArmActionPath(const std::string& action_name, bool under_manipulator_ns) const;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr
+    createRoboticArmCmdActionServer(const std::string& action_path);
+    void logRoboticArmPhase(const char* phase, const std::string& detail = std::string()) const;
+    void logRoboticArmPose(const char* phase, const geometry_msgs::msg::PoseStamped& pose) const;
+    void logRoboticArmOrderReceived(
+        const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order) const;
+    void logRoboticArmPlanningPose(uint8_t request_type,
+                                   const char* stage,
+                                   const geometry_msgs::msg::PoseStamped& pose) const;
+    void applyRoboticArmOrientationCorrectionAfterTf(geometry_msgs::msg::PoseStamped& pose) const;
+    bool isRoboticArmFrameAllowed(const std::string& frame_id) const;
+    static geometry_msgs::msg::PoseStamped roboticArmOrderToPoseStamped(
+        const sealien_ctrlpilot_msgmanagement::msg::RoboticArmRequest& order);
+    geometry_msgs::msg::Pose lookupTcpPoseInArmBaseLink() const;
+    void runRoboticArmFeedbackLoop(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle,
+        std::atomic<bool>& stop_flag) const;
+
+    rclcpp_action::GoalResponse handleRoboticArmGoalRequest(
+        const rclcpp_action::GoalUUID& uuid,
+        std::shared_ptr<const sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd::Goal> goal);
+    rclcpp_action::CancelResponse handleRoboticArmGoalCancel(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle);
+    void handleRoboticArmGoalAccepted(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<
+            sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>>& goal_handle);
+
+    void handleGetRobotState(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Request> req,
+                             std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Response> res);
+    void handleGetQueueState(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Request> req,
+                             std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Response> res);
+    void handleGetRecentJobs(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Request> req,
+                             std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Response> res);
+    void handleResetHeldObject(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Request> req,
+                               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Response> res);
+    void handleSubmitJob(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Request> req,
+                         std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Response> res);
+    void handleCancelJob(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Request> req,
+                         std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Response> res);
+    void handleSyncHeldObject(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Request> req,
+                              std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Response> res);
+    void handleCheckPick(const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Request> req,
+                         std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Response> res);
+    void handleOpenGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                           std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleCloseGripper(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                            std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleEmergencyStopService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                    std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleClearEstopService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+    void handleGoToReadyService(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+    ManipulatorInterfaceContext ctx_;
+
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_fused_;
+    rclcpp::Subscription<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet>::SharedPtr sub_target_set_;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_object_axis_fused_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_cable_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_targetsensor_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr sub_pick_trigger_fused_;
+    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_left_arm_gripped_;
+
+    rclcpp_action::Server<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>::SharedPtr pick_action_server_;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr robotic_arm_cmd_server_;
+    rclcpp_action::Server<sealien_ctrlpilot_msgmanagement::action::RoboticArmCmd>::SharedPtr
+        robotic_arm_cmd_root_alias_server_;
+
+    std::string robotic_arm_cmd_action_name_{"robotic_arm_cmd"};
+    bool robotic_arm_cmd_register_root_alias_ = true;
+    bool robotic_arm_cmd_enable_ = true;
+    bool robotic_arm_cmd_verbose_ = true;
+    bool robotic_arm_cmd_use_cable_side_grasp_ = false;
+    bool robotic_arm_cmd_reject_right_frames_ = true;
+    double robotic_arm_cmd_feedback_hz_ = 10.0;
+    std::string robotic_arm_cmd_feedback_tcp_frame_{"gripper_tcp"};
+    bool robotic_arm_cmd_apply_orientation_correction_after_tf_ = true;
+    std::string robotic_arm_cmd_planning_frame_id_{"arm_base_link"};
+    Eigen::Quaterniond robotic_arm_cmd_orientation_correction_{1.0, 0.0, 0.0, 0.0};
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState>::SharedPtr get_robot_state_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState>::SharedPtr get_queue_state_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs>::SharedPtr get_recent_jobs_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob>::SharedPtr cancel_job_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject>::SharedPtr reset_held_object_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob>::SharedPtr submit_job_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject>::SharedPtr sync_held_object_srv_;
+    rclcpp::Service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick>::SharedPtr check_pick_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr open_gripper_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr close_gripper_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr emergency_stop_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_estop_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr go_to_ready_srv_;
+
+    rclcpp::Publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RuntimeStatus>::SharedPtr pub_runtime_status_;
+    rclcpp::Publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::JobEvent>::SharedPtr pub_job_event_;
+    rclcpp::Publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TaskStage>::SharedPtr pub_task_stage_;
+    rclcpp::Publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::HeldObjectState>::SharedPtr pub_held_object_state_;
+    rclcpp::Publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RecoveryEvent>::SharedPtr pub_recovery_event_;
+    rclcpp::TimerBase::SharedPtr runtime_status_timer_;
+
+    PoseCache cable_pose_cache_{"arm_base_link"};
+    PoseCache targetsensor_pose_cache_{"arm_base_link"};
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_cable_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_object_pose_targetsensor_;
+};
+
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc
+
+#endif  // ORION_MTC_INTERFACE_MANIPULATOR_ROS_INTERFACE_HPP

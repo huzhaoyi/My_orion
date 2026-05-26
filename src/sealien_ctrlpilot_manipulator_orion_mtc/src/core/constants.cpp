@@ -1,8 +1,8 @@
 /* constants：ARM_JOINTS / HAND_JOINTS 及 allowed collision 链接名列表 */
 
-#include "orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -58,4 +58,4 @@ const std::vector<std::string> ARM_JOINTS = {
  */
 const std::vector<std::string> HAND_JOINTS = { "joint_Link6_Link7", "joint_Link6_Link8" };
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

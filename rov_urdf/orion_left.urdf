@@ -111,7 +111,7 @@
   </link>
 
   <!-- ==================== JOINTS ==================== -->
-  <!-- 标称与 orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±180°，J6 continuous，夹爪 ±π -->
+  <!-- 标称与 sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf 一致：J1~J3/J5 ±120°，J4 ±180°，J6 continuous，夹爪 ±π -->
 
   <!-- arm_base_link -> Link1 : revolute, axis X, origin (0,0,0) rot (0,0,0) -->
   <joint name="joint_arm_base_link_Link1" type="revolute">

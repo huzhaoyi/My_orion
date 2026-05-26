@@ -423,7 +423,7 @@ function createScene(containerEl) {
     robot.add(link);
   });
 
-  /* 工作空间示意框：gripper_tcp 粗网格采样 ∩ feasibility 硬限（与 orion_mtc_params 一致） */
+  /* 工作空间示意框：gripper_tcp 粗网格采样 ∩ feasibility 硬限（与 sealien_ctrlpilot_manipulator_orion_mtc_params 一致） */
   const wsBounds = getWorkspaceBoundsScene();
   const wsMin = new THREE.Vector3(wsBounds.min.x, wsBounds.min.y, wsBounds.min.z);
   const wsMax = new THREE.Vector3(wsBounds.max.x, wsBounds.max.y, wsBounds.max.z);
@@ -521,7 +521,7 @@ function createScene(containerEl) {
   targets.add(pickMarkerTargetSensor);
 
   /*
-   * TargetSensor 目标物模型：直接加载 orion_description/target_new.stl（由 sync/start 脚本同步到 web）。
+   * TargetSensor 目标物模型：直接加载 sealien_ctrlpilot_manipulator_orion_description/target_new.stl（由 sync/start 脚本同步到 web）。
    * 位姿直接使用 perception_state.target_sensor_object_pose，避免前端临时建模导致的轴向偏差。
    */
   const targetSensorObjectComposed = new THREE.Group();

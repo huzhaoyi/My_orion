@@ -1,13 +1,13 @@
 /* cable_side_grasp：缆检测 + 配置 → 侧向接近/预抓姿态候选，及 Eigen/ROS 位姿互转 */
 
-#include "orion_mtc/planning/cable_side_grasp.hpp"
-#include "orion_mtc/planning/cable_segments.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/cable_side_grasp.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/cable_segments.hpp"
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
 #include <optional>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 namespace
@@ -248,4 +248,4 @@ geometry_msgs::msg::Vector3Stamped toVector3Stamped(const Eigen::Vector3d& v,
   return vs;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

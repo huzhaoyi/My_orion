@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-与 orion_mtc reach_kinematics.cpp 一致：沿 arm_base_link←…←gripper_tcp 累加各子连杆
+与 sealien_ctrlpilot_manipulator_orion_mtc reach_kinematics.cpp 一致：沿 arm_base_link←…←gripper_tcp 累加各子连杆
 joint 的 origin xyz 范数（MoveIt LinkModel::getJointOriginTransform().translation().norm() 的 URDF 来源）。
 
-URDF 或规划模型变更后重跑本脚本，将输出的 feasibility 数值写回 orion_mtc/config/orion_mtc_params.yaml。
+URDF 或规划模型变更后重跑本脚本，将输出的 feasibility 数值写回 sealien_ctrlpilot_manipulator_orion_mtc/config/sealien_ctrlpilot_manipulator_orion_mtc_params.yaml。
 """
 
 from __future__ import annotations
@@ -62,10 +62,10 @@ def compute_kinematic_ub_m(urdf_path: str, tip_link: str, arm_base_link: str) ->
 
 def main() -> int:
     """CLI：打印 kinematic_ub、×margin 的 hard 建议与 ×soft_ratio 的 soft 建议；verbose 打印各关节贡献。"""
-    ap = argparse.ArgumentParser(description="从 URDF 计算 max_reach 建议值（与 orion_mtc 预检一致）")
+    ap = argparse.ArgumentParser(description="从 URDF 计算 max_reach 建议值（与 sealien_ctrlpilot_manipulator_orion_mtc 预检一致）")
     ap.add_argument(
         "--urdf",
-        default="src/orion_description/urdf/orion.urdf",
+        default="src/sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf",
         help="URDF 路径（相对仓库根或绝对路径）",
     )
     ap.add_argument("--tip", default="gripper_tcp", help="末端 link 名")

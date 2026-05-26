@@ -1,8 +1,8 @@
 /* trajectory_executor：arm_controller / hand_controller 的 FollowJointTrajectory 异步发送与结果 */
 
-#include "orion_mtc/execution/trajectory_executor.hpp"
-#include "orion_mtc/scene/planning_scene_manager.hpp"
-#include "orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/execution/trajectory_executor.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/scene/planning_scene_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
 #include <control_msgs/action/follow_joint_trajectory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <algorithm>
@@ -12,10 +12,10 @@
 #include <string>
 #include <thread>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.execution");
 
 /*
  * async_get_result 等待时长：须覆盖桥接节点按轨迹时长插值执行的时间。
@@ -409,4 +409,4 @@ bool TrajectoryExecutor::executeSubTrajectory(
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

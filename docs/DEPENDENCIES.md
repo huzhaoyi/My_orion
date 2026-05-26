@@ -38,12 +38,12 @@ ROS_DISTRO=jazzy ./scripts/install_ros_dependencies.sh
 
 | 包名 | 用途 | 主要依赖（ROS / 工具） |
 |------|------|------------------------|
-| **orion_description** | URDF / 网格 | `ament_cmake`、`xacro`、`robot_state_publisher`、`joint_state_publisher_gui` |
-| **orion_moveit_config** | MoveIt 配置 | `moveit_ros_move_group`、`moveit_planners_ompl`、`pilz_industrial_motion_planner`、`moveit_ros_visualization`、`rviz2`、`moveit_simple_controller_manager` 等 |
-| **orion_mtc_msgs** | 接口消息 / Action | `rosidl_default_generators`、`action_msgs`、`geometry_msgs`、`std_msgs` 等 |
-| **orion_mtc** | MTC 抓取节点 | **MoveIt Task Constructor**：`moveit_task_constructor_core`、`moveit_task_constructor_msgs`；MoveIt：`moveit_ros_planning_interface`、`moveit_core`、`moveit_ros_planning`；常用消息与 TF：`control_msgs`、`trajectory_msgs`、`tf2*`、`Eigen3`；运行时：`rosbridge_server`、`rosapi`（Web 联调） |
-| **orion_holoocean_bridge** | HoloOcean 桥 | `rclpy`、`holoocean_interfaces`（**外部**）、`control_msgs`、`tf2_ros`、`orion_mtc_msgs` 等 |
-| **orion_joy_arm_bridge** | 手柄桥 | `rclpy`、`sensor_msgs`、`control_msgs`、`trajectory_msgs` 等 |
+| **sealien_ctrlpilot_manipulator_orion_description** | URDF / 网格 | `ament_cmake`、`xacro`、`robot_state_publisher`、`joint_state_publisher_gui` |
+| **sealien_ctrlpilot_manipulator_orion_moveit_config** | MoveIt 配置 | `moveit_ros_move_group`、`moveit_planners_ompl`、`pilz_industrial_motion_planner`、`moveit_ros_visualization`、`rviz2`、`moveit_simple_controller_manager` 等 |
+| **sealien_ctrlpilot_manipulator_orion_mtc_msgs** | 接口消息 / Action | `rosidl_default_generators`、`action_msgs`、`geometry_msgs`、`std_msgs` 等 |
+| **sealien_ctrlpilot_manipulator_orion_mtc** | MTC 抓取节点 | **MoveIt Task Constructor**：`moveit_task_constructor_core`、`moveit_task_constructor_msgs`；MoveIt：`moveit_ros_planning_interface`、`moveit_core`、`moveit_ros_planning`；常用消息与 TF：`control_msgs`、`trajectory_msgs`、`tf2*`、`Eigen3`；运行时：`rosbridge_server`、`rosapi`（Web 联调） |
+| **sealien_ctrlpilot_manipulator_orion_holoocean_bridge** | HoloOcean 桥 | `rclpy`、`holoocean_interfaces`（**外部**）、`control_msgs`、`tf2_ros`、`sealien_ctrlpilot_manipulator_orion_mtc_msgs` 等 |
+| **sealien_ctrlpilot_manipulator_orion_joy_arm_bridge** | 手柄桥 | `rclpy`、`sensor_msgs`、`control_msgs`、`trajectory_msgs` 等 |
 
 ---
 
@@ -53,8 +53,8 @@ ROS_DISTRO=jazzy ./scripts/install_ros_dependencies.sh
 
 | 依赖 | 用途 |
 |------|------|
-| **holoocean_interfaces** | `orion_holoocean_bridge`：ArmSensor / AgentCommand / CableSensor 等消息。来自 **holoocean-ros** 工作区；可通过环境变量 **`HOLOOCEAN_ROS_INSTALL`** 指向其 install，或先 source 该 overlay。 |
-| **sealien_ctrlpilot_msgmanagement** | `orion_mtc` 中 **`keypoint_to_arm_tf_node`**：`/keypoints` 类型与电缆检测等发布端一致。编译本仓库前需已可被 CMake/ament 找到（同一 `colcon` 工作空间或预先 overlay）。 |
+| **holoocean_interfaces** | `sealien_ctrlpilot_manipulator_orion_holoocean_bridge`：ArmSensor / AgentCommand / CableSensor 等消息。来自 **holoocean-ros** 工作区；可通过环境变量 **`HOLOOCEAN_ROS_INSTALL`** 指向其 install，或先 source 该 overlay。 |
+| **sealien_ctrlpilot_msgmanagement** | `sealien_ctrlpilot_manipulator_orion_mtc` 中 **`keypoint_to_arm_tf_node`**：`/keypoints` 类型与电缆检测等发布端一致。编译本仓库前需已可被 CMake/ament 找到（同一 `colcon` 工作空间或预先 overlay）。 |
 
 ---
 
@@ -70,7 +70,7 @@ ROS_DISTRO=jazzy ./scripts/install_ros_dependencies.sh
 
 静态页面 + Python 标准库 HTTP 服务，无 npm 依赖。需要系统自带 **Python 3**。
 
-联调 ROS 时需本机或局域网内可访问 **`rosbridge_server`**（已在 `orion_mtc` 的 `exec_depend` 中列出，可由安装脚本或 `rosdep` 安装）。默认 WebSocket 端口为 **9091**（`rosbridge_websocket_keepalive` / `pick_holoocean` 参数 `rosbridge_port`）；页面从本机打开时 Web 默认 `ws://127.0.0.1:9091`，从局域网 IP 打开时默认与页面同主机 `ws://<该IP>:9091`。**rosbridge 在其它机器**或端口不一致时用 `?ws=`；与同机 9090 并存时可统一改 `rosbridge_port`。
+联调 ROS 时需本机或局域网内可访问 **`rosbridge_server`**（已在 `sealien_ctrlpilot_manipulator_orion_mtc` 的 `exec_depend` 中列出，可由安装脚本或 `rosdep` 安装）。默认 WebSocket 端口为 **9091**（`rosbridge_websocket_keepalive` / `pick_holoocean` 参数 `rosbridge_port`）；页面从本机打开时 Web 默认 `ws://127.0.0.1:9091`，从局域网 IP 打开时默认与页面同主机 `ws://<该IP>:9091`。**rosbridge 在其它机器**或端口不一致时用 `?ws=`；与同机 9090 并存时可统一改 `rosbridge_port`。
 
 ---
 
@@ -84,7 +84,7 @@ source /opt/ros/humble/setup.bash   # 或你的发行版
 ros2 pkg list | grep -E 'moveit_task_constructor_core|pilz_industrial_motion_planner'
 ```
 
-若缺少 MTC 核心包，CMake 会在配置 `orion_mtc` 时报告找不到 `moveit_task_constructor_core` 的 `*Config.cmake`。
+若缺少 MTC 核心包，CMake 会在配置 `sealien_ctrlpilot_manipulator_orion_mtc` 时报告找不到 `moveit_task_constructor_core` 的 `*Config.cmake`。
 
 ---
 

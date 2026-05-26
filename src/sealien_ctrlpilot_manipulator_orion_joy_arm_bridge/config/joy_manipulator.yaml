@@ -1,5 +1,5 @@
 # =============================================================================
-# joy_manipulator_node 参数（orion_joy_arm_bridge）
+# joy_manipulator_node 参数（sealien_ctrlpilot_manipulator_orion_joy_arm_bridge）
 # 订阅双路 sensor_msgs/Joy + joint_states；自动模式走 pick_trigger / 夹爪服务；
 # 手动模式走 arm_controller、hand_controller 的 FollowJointTrajectory。
 # 下列关节限位、夹爪目标角、手动角速度均以「度」为单位；joint_states/轨迹仍为弧度，由节点换算。
@@ -8,7 +8,7 @@
 /**:
   ros__parameters:
     # ---------- 话题与机械臂 ROS 命名空间 ----------
-    # orion_mtc 默认在 /manipulator 下提供 pick_trigger、open_gripper 等
+    # sealien_ctrlpilot_manipulator_orion_mtc 默认在 /manipulator 下提供 pick_trigger、open_gripper 等
     manipulator_ns: "/manipulator"
     # 左手柄 Joy（模式档、油门轴、6 臂±键、手动夹爪键等）；自动开闭夹爪见右手
     topic_left_joy: "/left_joy"

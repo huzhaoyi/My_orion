@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>orion_holoocean_bridge</name>
+  <name>sealien_ctrlpilot_manipulator_orion_holoocean_bridge</name>
   <version>0.0.1</version>
   <description>Bridge HoloOcean ArmSensor to Orion joint_states for MTC (single right arm: 6DOF + gripper)</description>
   <maintainer email="user@example.com">Orion</maintainer>
@@ -14,7 +14,7 @@
   <depend>std_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>holoocean_interfaces</depend>
-  <depend>orion_mtc_msgs</depend>
+  <depend>sealien_ctrlpilot_manipulator_orion_mtc_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>builtin_interfaces</depend>
   <export>

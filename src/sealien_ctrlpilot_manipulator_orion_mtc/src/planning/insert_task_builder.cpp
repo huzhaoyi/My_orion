@@ -1,6 +1,6 @@
 /* InsertTaskBuilder：peg-in-hole 多段 LIN/Cartesian，可选倒角平面微动 */
 
-#include "orion_mtc/planning/insert_task_builder.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/insert_task_builder.hpp"
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
@@ -13,7 +13,7 @@
 
 namespace mtc = moveit::task_constructor;
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 namespace
@@ -746,4 +746,4 @@ bool InsertTaskBuilder::planPostReleaseMoveToPreInsertSubTrajectory(
   return false;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

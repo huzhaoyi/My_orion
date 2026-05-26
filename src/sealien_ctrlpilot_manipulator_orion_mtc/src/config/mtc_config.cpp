@@ -1,12 +1,12 @@
 /* mtc_config：自 ROS 参数声明加载抓取几何与工作空间审批阈值 */
 
-#include "orion_mtc/config/mtc_config.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/config/mtc_config.hpp"
 #include <cmath>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/exceptions.hpp>
 #include <string>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -1045,4 +1045,4 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   }
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

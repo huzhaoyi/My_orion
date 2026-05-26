@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(orion_mtc)
+project(sealien_ctrlpilot_manipulator_orion_mtc)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -19,7 +19,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(orion_mtc_msgs REQUIRED)
+find_package(sealien_ctrlpilot_manipulator_orion_mtc_msgs REQUIRED)
 find_package(sealien_ctrlpilot_msgmanagement REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
@@ -33,7 +33,7 @@ find_package(visualization_msgs REQUIRED)
 
 set(ORION_MTC_SOURCES
   src/main.cpp
-  src/app/orion_mtc_node.cpp
+  src/app/sealien_ctrlpilot_manipulator_orion_mtc_node.cpp
   src/interface/manipulator_ros_interface.cpp
   src/core/constants.cpp
   src/config/mtc_config.cpp
@@ -96,7 +96,7 @@ ament_target_dependencies(mtc_node
   std_msgs
   visualization_msgs
   std_srvs
-  orion_mtc_msgs
+  sealien_ctrlpilot_manipulator_orion_mtc_msgs
   sealien_ctrlpilot_msgmanagement
   tf2_ros
 )

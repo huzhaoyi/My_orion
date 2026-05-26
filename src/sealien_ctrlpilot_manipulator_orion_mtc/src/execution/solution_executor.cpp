@@ -1,9 +1,9 @@
 /* SolutionExecutor：解析 MTC Solution、分段改 scene、调 TrajectoryExecutor 与 gripped 等待 */
 
-#include "orion_mtc/execution/solution_executor.hpp"
-#include "orion_mtc/execution/trajectory_executor.hpp"
-#include "orion_mtc/scene/planning_scene_manager.hpp"
-#include "orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/execution/solution_executor.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/execution/trajectory_executor.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/scene/planning_scene_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
 #include <moveit/robot_state/robot_state.h>
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
 #include <geometry_msgs/msg/pose.hpp>
@@ -11,10 +11,10 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.execution");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.execution");
 
 namespace
 {
@@ -436,4 +436,4 @@ bool SolutionExecutor::executePickSolution(
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

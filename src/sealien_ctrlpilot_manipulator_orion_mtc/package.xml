@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>orion_mtc</name>
+  <name>sealien_ctrlpilot_manipulator_orion_mtc</name>
   <version>0.0.1</version>
   <description>MoveIt Task Constructor cable pick and manipulation for Orion robot</description>
   <maintainer email="user@example.com">Orion</maintainer>
@@ -28,12 +28,12 @@
   <depend>visualization_msgs</depend>
   <depend>std_srvs</depend>
   <depend>builtin_interfaces</depend>
-  <depend>orion_mtc_msgs</depend>
+  <depend>sealien_ctrlpilot_manipulator_orion_mtc_msgs</depend>
   <depend>sealien_ctrlpilot_msgmanagement</depend>
-  <exec_depend>orion_moveit_config</exec_depend>
-  <exec_depend>orion_description</exec_depend>
-  <exec_depend>orion_holoocean_bridge</exec_depend>
-  <exec_depend>orion_joy_arm_bridge</exec_depend>
+  <exec_depend>sealien_ctrlpilot_manipulator_orion_moveit_config</exec_depend>
+  <exec_depend>sealien_ctrlpilot_manipulator_orion_description</exec_depend>
+  <exec_depend>sealien_ctrlpilot_manipulator_orion_holoocean_bridge</exec_depend>
+  <exec_depend>sealien_ctrlpilot_manipulator_orion_joy_arm_bridge</exec_depend>
   <exec_depend>rosbridge_server</exec_depend>
   <exec_depend>rosapi</exec_depend>
   <export>

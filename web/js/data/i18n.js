@@ -71,7 +71,7 @@ const MESSAGES = {
     'right.ws_title': 'arm_base_link：gripper_tcp 粗采样∩feasibility 球/带 硬限后的示意 AABB（3D 线框同源），角点未必可达',
     'right.ws_note': '勿超出',
     'right.target_cable': '目标（缆绳）',
-    'right.target_cable_title': 'object_pose 缆绳中心在 arm_base_link；与 check_pick / 抓取前硬限一致（orion_mtc_params feasibility）',
+    'right.target_cable_title': 'object_pose 缆绳中心在 arm_base_link；与 check_pick / 抓取前硬限一致（sealien_ctrlpilot_manipulator_orion_mtc_params feasibility）',
     'right.debug_title': '调试工具',
     'right.sync_tracked': '同步场景（已跟踪）',
     'right.sync_untracked': '同步场景（未跟踪）',

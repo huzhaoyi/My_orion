@@ -1,7 +1,7 @@
 /* collision_object_utils：位姿链乘与目标/缆段 MoveIt CollisionObject 构建 */
 
-#include "orion_mtc/planning/collision_object_utils.hpp"
-#include "orion_mtc/decision/cylinder_side_grasp.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/collision_object_utils.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <shape_msgs/msg/mesh.hpp>
 #include <shape_msgs/msg/mesh_triangle.hpp>
@@ -14,7 +14,7 @@
 #include <limits>
 #include <string>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 namespace
@@ -183,7 +183,7 @@ std::string resolve_target_stl_path()
   std::string share;
   try
   {
-    share = ament_index_cpp::get_package_share_directory("orion_description");
+    share = ament_index_cpp::get_package_share_directory("sealien_ctrlpilot_manipulator_orion_description");
   }
   catch (const std::exception&)
   {
@@ -441,4 +441,4 @@ moveit_msgs::msg::CollisionObject makePanelBoxCollisionObject(const std::string&
   return object;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

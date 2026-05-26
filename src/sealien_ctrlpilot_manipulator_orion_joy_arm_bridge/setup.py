@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = "orion_joy_arm_bridge"
+package_name = "sealien_ctrlpilot_manipulator_orion_joy_arm_bridge"
 
 setup(
     name=package_name,
@@ -23,7 +23,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "joy_manipulator_node = orion_joy_arm_bridge.joy_manipulator_node:main",
+            "joy_manipulator_node = sealien_ctrlpilot_manipulator_orion_joy_arm_bridge.joy_manipulator_node:main",
         ],
     },
 )

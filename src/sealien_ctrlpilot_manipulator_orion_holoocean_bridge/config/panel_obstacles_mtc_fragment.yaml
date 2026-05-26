@@ -1,7 +1,7 @@
 # 孔位旁面板：与 holoocean_bridge_params.yaml 中 target_sensor_to_object_pose.targetsensor_slot_*
 # 同属 HoloOcean 侧几何（四角为 world/map 坐标，与孔位一致）；pick_holoocean 合并进 MTC 与 target_sensor 节点。
 # 注意：不得单独作为节点 --params-file（无 ros__parameters 根）；浮点须写 1.0 形式。
-# frame_id：四角为 HoloOcean world/map 坐标；orion_mtc 启动时变换到 arm_base_link 再写入 MoveIt。
+# frame_id：四角为 HoloOcean world/map 坐标；sealien_ctrlpilot_manipulator_orion_mtc 启动时变换到 arm_base_link 再写入 MoveIt。
 # pick_holoocean 在 /manipulator/tf 上发布 static map→world；与 location 同跑时 odom 角点走 /tf→sensor_left。
 # /manipulator/panel_obstacles_markers 由 target_sensor 与 target_insert_holes 同 stamp 发布。
 # publish_markers=false 时 MTC 不发布 Marker（由 target_sensor 发布）。

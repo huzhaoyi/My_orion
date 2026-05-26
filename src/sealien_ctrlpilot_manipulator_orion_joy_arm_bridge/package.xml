@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>orion_joy_arm_bridge</name>
+  <name>sealien_ctrlpilot_manipulator_orion_joy_arm_bridge</name>
   <version>0.0.1</version>
   <description>Dual Joy 手柄桥接：自动 pick_trigger / 夹爪服务；手动 6 轴速度 jog + 夹爪开合（FollowJointTrajectory）。</description>
   <maintainer email="user@example.com">Orion</maintainer>

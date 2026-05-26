@@ -24,8 +24,8 @@ def generate_launch_description():
     tf_under_manipulator = LaunchConfiguration("tf_under_manipulator", default="false")
     start_rviz = LaunchConfiguration("start_rviz", default="true")
     remappings_tf = [("tf", "/manipulator/tf"), ("tf_static", "/manipulator/tf_static")]
-    orion_desc_share = get_package_share_directory("orion_description")
-    orion_moveit_share = get_package_share_directory("orion_moveit_config")
+    orion_desc_share = get_package_share_directory("sealien_ctrlpilot_manipulator_orion_description")
+    orion_moveit_share = get_package_share_directory("sealien_ctrlpilot_manipulator_orion_moveit_config")
 
     urdf_path = os.path.join(orion_desc_share, "urdf", "orion.urdf")
     rviz_path = os.path.join(orion_moveit_share, "config", "moveit.rviz")
@@ -40,7 +40,7 @@ def generate_launch_description():
     with open(urdf_path, "r") as f:
         urdf_content = f.read()
     # 使用 package:// 便于 MoveIt resource_retriever 通过 ament 解析 mesh
-    urdf_content = urdf_content.replace("../meshes/", "package://orion_description/meshes/")
+    urdf_content = urdf_content.replace("../meshes/", "package://sealien_ctrlpilot_manipulator_orion_description/meshes/")
 
     with open(srdf_path, "r") as f:
         srdf_content = f.read()
@@ -78,7 +78,7 @@ def generate_launch_description():
         controllers_config = yaml.safe_load(f)
     move_group_params.update(controllers_config)
 
-    # capabilities 为单字符串：默认能力与 MTC 执行能力，供 orion_mtc 的 execute_task_solution 使用
+    # capabilities 为单字符串：默认能力与 MTC 执行能力，供 sealien_ctrlpilot_manipulator_orion_mtc 的 execute_task_solution 使用
     # 注：MoveGroupExecuteService 在 Humble 中无对应插件，已省略
     move_group_params["capabilities"] = (
         "move_group/MoveGroupCartesianPathService "

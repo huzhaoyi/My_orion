@@ -1,8 +1,8 @@
 /* target_selector：PerceptionSnapshot → 单帧抓取 PoseStamped（多目标优先） */
 
-#include "orion_mtc/decision/target_selector.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/target_selector.hpp"
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -18,4 +18,4 @@ std::optional<geometry_msgs::msg::PoseStamped> TargetSelector::selectPickTarget(
     return snap.object_pose;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

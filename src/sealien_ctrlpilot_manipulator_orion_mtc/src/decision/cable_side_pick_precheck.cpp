@@ -1,12 +1,12 @@
 /* cable_side_pick_precheck：正式规划前 IK/关节界/pregrasp 与缆段碰撞快速筛候选 */
 
-#include "orion_mtc/decision/cable_side_pick_precheck.hpp"
-#include "orion_mtc/core/constants.hpp"
-#include "orion_mtc/planning/collision_object_utils.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/cable_side_pick_precheck.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/collision_object_utils.hpp"
 #include <moveit/collision_detection/collision_common.h>
 #include <moveit/robot_state/robot_state.h>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -136,4 +136,4 @@ bool precheckCableSideGraspCandidate(
     return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

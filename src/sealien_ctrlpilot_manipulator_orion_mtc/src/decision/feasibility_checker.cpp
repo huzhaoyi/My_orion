@@ -1,7 +1,7 @@
 /* 审批模式：几何 + IK + 关节余量，不执行规划 */
 
-#include "orion_mtc/decision/feasibility_checker.hpp"
-#include "orion_mtc/config/mtc_config.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/feasibility_checker.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/config/mtc_config.hpp"
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/robot_model/robot_model.h>
@@ -21,10 +21,10 @@
 #include <memory>
 #include <mutex>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.decision");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.decision");
 
 /* 诊断 level：0=info 1=warning 2=error(硬拒绝) */
 static const int32_t LEVEL_INFO = 0;
@@ -217,12 +217,12 @@ void FeasibilityChecker::loadParams()
 }
 
 /* 组装一条 DiagnosticItem 追加到 items，供 check_pick 与 objectPoseWithinWorkspaceHardLimits 共用 */
-void FeasibilityChecker::addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items,
+void FeasibilityChecker::addItem(std::vector<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem>& items,
                                  const std::string& code, int32_t level, const std::string& message,
                                  const std::string& field, double value, double threshold,
                                  const std::string& suggestion)
 {
-  orion_mtc_msgs::msg::DiagnosticItem item;
+  sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem item;
   item.code = code;
   item.level = level;
   item.message = message;
@@ -238,7 +238,7 @@ void FeasibilityChecker::addItem(std::vector<orion_mtc_msgs::msg::DiagnosticItem
  * items 非空指针时写入对应 ERROR 级诊断项（与 TaskManager 预拒绝逻辑一致）。
  */
 bool FeasibilityChecker::workspaceHasHardLimitViolation(
-    double px, double py, double grasp_z, std::vector<orion_mtc_msgs::msg::DiagnosticItem>* items)
+    double px, double py, double grasp_z, std::vector<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem>* items)
 {
   loadParams();
   bool rejected = false;
@@ -292,7 +292,7 @@ bool FeasibilityChecker::objectPoseWithinWorkspaceHardLimits(const geometry_msgs
                                                             std::string& reject_reason)
 {
   reject_reason.clear();
-  std::vector<orion_mtc_msgs::msg::DiagnosticItem> items;
+  std::vector<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem> items;
   if (!workspaceHasHardLimitViolation(pose_base_link.position.x, pose_base_link.position.y,
                                      pose_base_link.position.z, &items))
   {
@@ -317,7 +317,7 @@ bool FeasibilityChecker::runIkAndJointMargin(const std::string& group_name,
                                              const std::string& link_name,
                                              double px, double py, double pz,
                                              double qx, double qy, double qz, double qw,
-                                             std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items)
+                                             std::vector<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem>& items)
 {
   if (!impl_->robot_model)
   {
@@ -462,8 +462,8 @@ bool FeasibilityChecker::runIkOnly(double px, double py, double pz,
  * 硬拒绝后在物体 xy/z 及绕 Z 小范围内枚举扰动，找到首个通过 runIkOnly 的位姿写入 res->best_candidate_pose。
  */
 void FeasibilityChecker::trySuggestCorrectionPick(
-    const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
-    orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res,
+    const sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
+    sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res,
     double obj_z, double grasp_z)
 {
   emitPickApprovalProgress("check_pick_suggest_search", "RUNNING", "");
@@ -547,8 +547,8 @@ void FeasibilityChecker::trySuggestCorrectionPick(
  * CheckPick 服务主体：硬限 → 软距告警 → 接近角 → IK+关节余量 →（可选）规划场景碰撞；
  * 最终 severity 与 approved、summary、items、best_candidate_pose 一并填充。
  */
-void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
-                                  orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res)
+void FeasibilityChecker::checkPick(const sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Request::SharedPtr req,
+                                  sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Response::SharedPtr res)
 {
   res->items.clear();
   res->approved = true;
@@ -682,7 +682,7 @@ void FeasibilityChecker::checkPick(const orion_mtc_msgs::srv::CheckPick::Request
  */
 bool FeasibilityChecker::checkTargetCollision(double px, double py, double pz,
                                               double qx, double qy, double qz, double qw,
-                                              std::vector<orion_mtc_msgs::msg::DiagnosticItem>& items)
+                                              std::vector<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::DiagnosticItem>& items)
 {
   std::string svc;
   if (!node_->has_parameter("feasibility.get_planning_scene_service"))
@@ -770,4 +770,4 @@ void FeasibilityChecker::onJointState(const void*)
   /* 已在订阅回调中更新 impl_->last_joint_state */
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

@@ -11,7 +11,7 @@ _repo_root="$(cd "${_script_dir}/.." && pwd)"
 _ws="${COLCON_WS:-}"
 if [ -z "${_ws}" ]
 then
-    _ws="$(cd "${_repo_root}/../.." && pwd)"
+    _ws="$(cd "${_repo_root}/../../.." && pwd)"
 fi
 
 if [ ! -d "${_ws}/install" ]

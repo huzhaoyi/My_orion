@@ -1,17 +1,17 @@
 /* planning_scene_manager：apply_planning_scene 封装，world 与 attach 增删 */
 
-#include "orion_mtc/scene/planning_scene_manager.hpp"
-#include "orion_mtc/planning/collision_object_utils.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/scene/planning_scene_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/collision_object_utils.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <moveit_msgs/msg/attached_collision_object.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
 #include <chrono>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.scene");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.scene");
 static constexpr int APPLY_PLANNING_SCENE_WAIT_SEC = 30;
 
 /*
@@ -383,4 +383,4 @@ bool PlanningSceneManager::applyAttachedTrackedObjectToScene(const Eigen::Isomet
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

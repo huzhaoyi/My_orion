@@ -61,7 +61,7 @@ target_sensor_to_object_pose:
     targetsensor_slot_2_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
     targetsensor_slot_3_position_world: [-162.649, 85.20445, -131.1388]
     targetsensor_slot_3_orientation_world: [0.0, 0.0, -0.70710678, 0.70710678]
-    # 孔位旁面板：与 panel_obstacles_mtc_fragment.yaml 同目录；pick_holoocean 会合并进本节点与 orion_mtc_node。
+    # 孔位旁面板：与 panel_obstacles_mtc_fragment.yaml 同目录；pick_holoocean 会合并进本节点与 sealien_ctrlpilot_manipulator_orion_mtc_node。
 
 # CableSensor（单缆绳：位置+轴向+欧拉角）→ object_pose + TF arm_base_link→cable
 # 话题 /holoocean/rov0/CableSensor；消息类型 holoocean_interfaces/msg/CableSensor；仅支持 num_cables=1

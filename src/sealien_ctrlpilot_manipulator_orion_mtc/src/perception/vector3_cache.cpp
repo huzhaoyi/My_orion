@@ -1,14 +1,14 @@
 /* vector3_cache：object_axis 等 Vector3Stamped 的缓存与等待 */
 
-#include "orion_mtc/perception/vector3_cache.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/vector3_cache.hpp"
 #include <rclcpp/rclcpp.hpp>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 namespace
 {
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.perception");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.perception");
 }
 
 /*
@@ -81,5 +81,5 @@ bool Vector3Cache::waitForData(std::chrono::milliseconds timeout, geometry_msgs:
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc
 

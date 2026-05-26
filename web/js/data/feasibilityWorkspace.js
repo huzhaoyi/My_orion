@@ -1,6 +1,6 @@
 /**
- * 与 src/orion_mtc/config/orion_mtc_params.yaml → feasibility 块一致（物体/缆绳中心在 arm_base_link）
- * URDF：orion_description/urdf/orion.urdf；变更 yaml 时请同步此处。
+ * 与 src/sealien_ctrlpilot_manipulator_orion_mtc/config/sealien_ctrlpilot_manipulator_orion_mtc_params.yaml → feasibility 块一致（物体/缆绳中心在 arm_base_link）
+ * URDF：sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf；变更 yaml 时请同步此处。
  */
 export const FEASIBILITY_WORKSPACE = {
   max_reach_hard_m: 1.8,

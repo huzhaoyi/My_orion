@@ -1,6 +1,6 @@
 # Orion 机械臂工作空间限值
 
-本文档用于**配置抓取目标与安全边界**时参考；**与执行端硬拒绝一致**的标量以 `src/orion_mtc/config/orion_mtc_params.yaml` 的 **`feasibility`** 为准。
+本文档用于**配置抓取目标与安全边界**时参考；**与执行端硬拒绝一致**的标量以 `src/sealien_ctrlpilot_manipulator_orion_mtc/config/sealien_ctrlpilot_manipulator_orion_mtc_params.yaml` 的 **`feasibility`** 为准。
 
 ## 与后端一致的硬限（arm_base_link，物体/缆绳中心）
 
@@ -17,7 +17,7 @@
 ## Web 与 3D 示意
 
 - **任务栏**（`RightPanel.js`）：**两行**——① **工作空间**：`gripper_tcp` 采样∩硬限后的 X/Y/Z 示意 AABB（与 3D 线框同源）；② **目标（缆绳）**：`object_pose` 用的 ‖p‖、Z、软 ‖p‖（与 `feasibilityWorkspace.js` / yaml 一致）。
-- **3D 线框**：`RobotScene` 使用同源 `getWorkspaceBoundsScene()`。`RobotModelLoader.sampleWorkspace()` 按 **各关节 URDF 标称限位** 粗采样（与 `orion_description/urdf/orion.urdf` 一致），再与 ‖p‖、Z 硬限求交。示意框角点未必全部可达；以 ‖p‖ 与 Z 硬限为准。
+- **3D 线框**：`RobotScene` 使用同源 `getWorkspaceBoundsScene()`。`RobotModelLoader.sampleWorkspace()` 按 **各关节 URDF 标称限位** 粗采样（与 `sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf` 一致），再与 ‖p‖、Z 硬限求交。示意框角点未必全部可达；以 ‖p‖ 与 Z 硬限为准。
 
 ## 配置提醒
 

@@ -1,13 +1,13 @@
 /* reach_kinematics：由 URDF 采样正运动学估计 TCP 距离包络，解析 feasibility 尺寸 */
 
-#include "orion_mtc/decision/reach_kinematics.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/reach_kinematics.hpp"
 #include <moveit/robot_model/link_model.h>
 #include <moveit/robot_model/robot_model.h>
 #include <rclcpp/parameter.hpp>
 #include <algorithm>
 #include <cmath>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 namespace
@@ -111,4 +111,4 @@ ResolvedReachLimits resolveFeasibilityReachLimits(
   return out;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

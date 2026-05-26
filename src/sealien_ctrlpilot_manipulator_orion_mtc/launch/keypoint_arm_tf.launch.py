@@ -20,7 +20,7 @@ Keypoints 经 TF 变换到左右臂基座相关坐标系并打印（keypoint_to_
 启动参数 use_mock_keypoints:=true 时不订阅 /perception/sonar/keypoints，按参数注入假数据。
 
 tf_under_manipulator:=true 时节点与 static_transform_publisher 将 tf/tf_static 重映射到
-/manipulator/tf、/manipulator/tf_static，与 orion_moveit_config demo.launch（MTC 联调）一致。
+/manipulator/tf、/manipulator/tf_static，与 sealien_ctrlpilot_manipulator_orion_moveit_config demo.launch（MTC 联调）一致。
 
 generate_launch_description 经 OpaqueFunction 按 use_platform_tf/use_mock_keypoints 组合 static 与 keypoint 节点参数。
 """
@@ -103,7 +103,7 @@ def _launch_setup(context, *_args, **_kwargs):
         }
 
     keypoint_node = Node(
-        package="orion_mtc",
+        package="sealien_ctrlpilot_manipulator_orion_mtc",
         executable="keypoint_to_arm_tf_node",
         name="keypoint_to_arm_tf",
         output="screen",

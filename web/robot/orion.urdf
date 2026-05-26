@@ -126,7 +126,7 @@
   <!-- 夹爪 TCP：用于规划/IK 的末端参考点（Link6 +Z 方向的接触点附近） -->
   <link name="gripper_tcp"/>
 
-  <!-- 插孔专用 IK 参考点（与 src/orion_description/urdf/orion.urdf 保持同步） -->
+  <!-- 插孔专用 IK 参考点（与 src/sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf 保持同步） -->
   <link name="peg_tip"/>
 
   <link name="Link7">

@@ -63,7 +63,7 @@ const FK_AXES = [
 ];
 const FK_FIXED_RPY = [0, -3.97248, 0];
 
-/* 与 orion_description/urdf/orion.urdf 标称一致：±120°、J4 ±180°、J6 continuous（包络采样取一周 [-π,π]） */
+/* 与 sealien_ctrlpilot_manipulator_orion_description/urdf/orion.urdf 标称一致：±120°、J4 ±180°、J6 continuous（包络采样取一周 [-π,π]） */
 const JOINT_SAMPLE_BOUNDS_RAD = [
   { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },
   { min: (-2.0 * Math.PI) / 3.0, max: (2.0 * Math.PI) / 3.0 },

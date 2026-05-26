@@ -1,24 +1,24 @@
 /* TaskManager：PICK 侧抓 MTC 构建/规划/执行、任务队列 Worker、持物与 planning scene 对齐 */
 
-#include "orion_mtc/orchestration/task_manager.hpp"
-#include "orion_mtc/orchestration/task_queue.hpp"
-#include "orion_mtc/orchestration/recovery_actions.hpp"
-#include "orion_mtc/planning/pick_task_builder.hpp"
-#include "orion_mtc/planning/insert_task_builder.hpp"
-#include "orion_mtc/scene/planning_scene_manager.hpp"
-#include "orion_mtc/execution/trajectory_executor.hpp"
-#include "orion_mtc/execution/solution_executor.hpp"
-#include "orion_mtc/core/job_result_code.hpp"
-#include "orion_mtc/core/runtime_status.hpp"
-#include "orion_mtc/core/constants.hpp"
-#include "orion_mtc/core/held_object.hpp"
-#include "orion_mtc/core/cable_pick_fail_reason.hpp"
-#include "orion_mtc/decision/cable_side_pick_precheck.hpp"
-#include "orion_mtc/decision/cylinder_side_grasp.hpp"
-#include "orion_mtc/decision/feasibility_checker.hpp"
-#include "orion_mtc/orchestration/job_deduplicator.hpp"
-#include "orion_mtc/planning/cable_side_grasp.hpp"
-#include "orion_mtc/planning/cable_segments.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/task_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/task_queue.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/recovery_actions.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/pick_task_builder.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/insert_task_builder.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/scene/planning_scene_manager.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/execution/trajectory_executor.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/execution/solution_executor.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/job_result_code.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/runtime_status.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/held_object.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/cable_pick_fail_reason.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/cable_side_pick_precheck.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/cylinder_side_grasp.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/feasibility_checker.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/orchestration/job_deduplicator.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/cable_side_grasp.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/cable_segments.hpp"
 #include <moveit/task_constructor/task.h>
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
@@ -48,10 +48,10 @@
 
 namespace mtc = moveit::task_constructor;
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.orchestration");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.orchestration");
 static constexpr char TARGET_INSERT_HOLES_TOPIC[] = "/manipulator/target_insert_holes_debug";
 static constexpr char TARGET_INSERT_HOLE_MARKERS_TOPIC[] = "/manipulator/target_insert_hole_markers";
 static constexpr double TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
@@ -1143,7 +1143,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
       const int hint_slot = config_.target_sensor_pick.insert_axis_hint_target_set_index;
       if (hint_slot >= 0 && get_latest_target_set_fn_)
       {
-        const std::optional<orion_mtc_msgs::msg::TargetSet> ts_latest = get_latest_target_set_fn_();
+        const std::optional<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet> ts_latest = get_latest_target_set_fn_();
         if (ts_latest.has_value() &&
             static_cast<std::size_t>(hint_slot) < ts_latest->targets.size())
         {
@@ -2274,7 +2274,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       {
         return false;
       }
-      const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+      const std::optional<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
       if (!latest.has_value())
       {
         return false;
@@ -2510,7 +2510,7 @@ bool TaskManager::handleTargetInsert(const geometry_msgs::msg::PoseStamped& targ
       {
         for (int i = 0; i < max_retry; ++i)
         {
-          const std::optional<orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
+          const std::optional<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet> latest = get_latest_target_set_fn_();
           if (!latest.has_value())
           {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2714,7 +2714,7 @@ void TaskManager::publishTargetInsertHoleDebug()
 }
 
 void TaskManager::setGetLatestTargetSetCallback(
-    std::function<std::optional<orion_mtc_msgs::msg::TargetSet>()> fn)
+    std::function<std::optional<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet>()> fn)
 {
   get_latest_target_set_fn_ = std::move(fn);
 }
@@ -3605,4 +3605,4 @@ bool TaskManager::tryGoToReady(std::string& out_message)
   return true;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="orion">
   <!-- ROV + 左臂模型（来自 rov_urdf/orion_left.urdf），mesh 路径相对本 urdf：../meshes/stl/ -->
-  <!-- 规划用碰撞体与 visual 一致；需在 orion_description/meshes/stl/ 下放置 arm_base_link_left.stl 与 Link1..Link8.stl -->
+  <!-- 规划用碰撞体与 visual 一致；需在 sealien_ctrlpilot_manipulator_orion_description/meshes/stl/ 下放置 arm_base_link_left.stl 与 Link1..Link8.stl -->
   <!-- KDL 要求根 link 无惯性，故增加虚拟根 world，arm_base_link 为其固定子 link -->
 
   <!-- ==================== LINKS ==================== -->

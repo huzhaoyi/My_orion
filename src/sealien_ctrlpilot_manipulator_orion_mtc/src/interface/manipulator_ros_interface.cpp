@@ -1,15 +1,15 @@
 /* ManipulatorRosInterface：注册 /manipulator 下订阅、服务、Action 与状态发布定时器 */
 
-#include "orion_mtc/interface/manipulator_ros_interface.hpp"
-#include "orion_mtc/interface/robotic_arm_cmd_types.hpp"
-#include "orion_mtc/core/constants.hpp"
-#include "orion_mtc/perception/perception_snapshot.hpp"
-#include "orion_mtc/core/manipulation_job.hpp"
-#include "orion_mtc/core/runtime_status.hpp"
-#include "orion_mtc/core/task_state.hpp"
-#include "orion_mtc/core/job_result_code.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/interface/manipulator_ros_interface.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/interface/robotic_arm_cmd_types.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/perception_snapshot.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/manipulation_job.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/runtime_status.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/task_state.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/job_result_code.hpp"
 #include <builtin_interfaces/msg/time.hpp>
-#include <orion_mtc_msgs/msg/job_execution_record.hpp>
+#include <sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/job_execution_record.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -30,27 +30,27 @@ constexpr char kRoboticArmCmdLogTag[] = "[机械臂任务]";
 
 const char* roboticArmRequestTypeName(uint8_t type)
 {
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP)
     {
         return "抓取(0)";
     }
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_INSERT)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_INSERT)
     {
         return "插孔(1)";
     }
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP_CABLE)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP_CABLE)
     {
         return "缆绳抓取(2)";
     }
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_OPEN_GRIPPER)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_OPEN_GRIPPER)
     {
         return "开爪(3)";
     }
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_CLOSE_GRIPPER)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_CLOSE_GRIPPER)
     {
         return "关爪(4)";
     }
-    if (type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GO_READY)
+    if (type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GO_READY)
     {
         return "回ready(5)";
     }
@@ -59,24 +59,24 @@ const char* roboticArmRequestTypeName(uint8_t type)
 
 bool roboticArmRequestNeedsOrientationCorrection(uint8_t type)
 {
-    return type == orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP_CABLE;
+    return type == sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::REQUEST_TYPE_GRASP_CABLE;
 }
 
 const char* roboticArmResultName(uint8_t result)
 {
     switch (result)
     {
-        case orion_mtc::robotic_arm_cmd::RESULT_SUCCESS:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_SUCCESS:
             return "成功(0)";
-        case orion_mtc::robotic_arm_cmd::RESULT_EXEC_FAILED:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_EXEC_FAILED:
             return "执行失败(1)";
-        case orion_mtc::robotic_arm_cmd::RESULT_REJECTED_STATE:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_REJECTED_STATE:
             return "状态拒绝(2)";
-        case orion_mtc::robotic_arm_cmd::RESULT_REJECTED_NO_HELD:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_REJECTED_NO_HELD:
             return "未持物(3)";
-        case orion_mtc::robotic_arm_cmd::RESULT_ESTOP:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_ESTOP:
             return "急停(4)";
-        case orion_mtc::robotic_arm_cmd::RESULT_INVALID:
+        case sealien_ctrlpilot_manipulator_orion_mtc::robotic_arm_cmd::RESULT_INVALID:
             return "参数无效(5)";
         default:
             return "未知结果";
@@ -89,15 +89,15 @@ bool roboticArmOrientationCorrectionIsIdentity(const Eigen::Quaterniond& q_corr)
            std::abs(q_corr.z()) <= 1e-6;
 }
 
-const char* graspSourceName(orion_mtc::GraspSource gs)
+const char* graspSourceName(sealien_ctrlpilot_manipulator_orion_mtc::GraspSource gs)
 {
     switch (gs)
     {
-        case orion_mtc::GraspSource::FUSED:
+        case sealien_ctrlpilot_manipulator_orion_mtc::GraspSource::FUSED:
             return "融合感知链";
-        case orion_mtc::GraspSource::TARGET_SENSOR:
+        case sealien_ctrlpilot_manipulator_orion_mtc::GraspSource::TARGET_SENSOR:
             return "目标传感器链";
-        case orion_mtc::GraspSource::LEGACY:
+        case sealien_ctrlpilot_manipulator_orion_mtc::GraspSource::LEGACY:
         default:
             return "缆绳侧抓链";
     }
@@ -117,19 +117,19 @@ void normalizeLegacyManipulatorPoseFrame(geometry_msgs::msg::PoseStamped& ps,
     }
 }
 
-const char* roboticArmModeNameChinese(orion_mtc::RobotTaskMode mode)
+const char* roboticArmModeNameChinese(sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode mode)
 {
     switch (mode)
     {
-        case orion_mtc::RobotTaskMode::PICKING:
+        case sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode::PICKING:
             return "抓取中";
-        case orion_mtc::RobotTaskMode::HOLDING_TRACKED:
+        case sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode::HOLDING_TRACKED:
             return "持物跟踪";
-        case orion_mtc::RobotTaskMode::HOLDING_UNTRACKED:
+        case sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode::HOLDING_UNTRACKED:
             return "持物未跟踪";
-        case orion_mtc::RobotTaskMode::ERROR:
+        case sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode::ERROR:
             return "错误";
-        case orion_mtc::RobotTaskMode::IDLE:
+        case sealien_ctrlpilot_manipulator_orion_mtc::RobotTaskMode::IDLE:
         default:
             return "空闲";
     }
@@ -183,7 +183,7 @@ bool tryParseTargetIndexFromObjectId(const std::string& object_id, std::size_t* 
 }
 }  // namespace
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /* 仅保存 ManipulatorInterfaceContext（缓存、TaskManager、logger 等），注册接口在 register* 中完成。 */
@@ -212,8 +212,8 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
         ns + "/object_pose_targetsensor", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
             targetsensor_pose_cache_.update(*msg);
         });
-    sub_target_set_ = ctx_.action_client_node->create_subscription<orion_mtc_msgs::msg::TargetSet>(
-        ns + "/target_set", 10, [this](const orion_mtc_msgs::msg::TargetSet::SharedPtr msg) {
+    sub_target_set_ = ctx_.action_client_node->create_subscription<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet>(
+        ns + "/target_set", 10, [this](const sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet::SharedPtr msg) {
             if (ctx_.target_cache)
             {
                 ctx_.target_cache->update(*msg);
@@ -263,16 +263,16 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
             }
         });
 
-    pick_action_server_ = rclcpp_action::create_server<orion_mtc_msgs::action::Pick>(
+    pick_action_server_ = rclcpp_action::create_server<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>(
         ctx_.action_client_node, ns + "/pick",
         [this](const rclcpp_action::GoalUUID& uuid,
-               std::shared_ptr<const orion_mtc_msgs::action::Pick::Goal> goal) {
+               std::shared_ptr<const sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick::Goal> goal) {
             return handlePickGoalRequest(uuid, goal);
         },
-        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& h) {
+        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>& h) {
             return handlePickGoalCancel(h);
         },
-        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& h) {
+        [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>& h) {
             handlePickGoalAccepted(h);
         });
     if (robotic_arm_cmd_enable_)
@@ -304,34 +304,34 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
                     primary_path.c_str(),
                     robotic_arm_cmd_action_name_.c_str());
     }
-    get_robot_state_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::GetRobotState>(
+    get_robot_state_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState>(
         ns + "/get_robot_state",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Response> res) {
             handleGetRobotState(req, res);
         });
-    get_queue_state_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::GetQueueState>(
+    get_queue_state_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState>(
         ns + "/get_queue_state",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Response> res) {
             handleGetQueueState(req, res);
         });
-    get_recent_jobs_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::GetRecentJobs>(
+    get_recent_jobs_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs>(
         ns + "/get_recent_jobs",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Response> res) {
             handleGetRecentJobs(req, res);
         });
-    submit_job_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::SubmitJob>(
+    submit_job_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob>(
         ns + "/submit_job",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Response> res) {
             handleSubmitJob(req, res);
         });
-    cancel_job_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::CancelJob>(
+    cancel_job_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob>(
         ns + "/cancel_job",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Response> res) {
             handleCancelJob(req, res);
         });
     open_gripper_srv_ = ctx_.action_client_node->create_service<std_srvs::srv::Trigger>(
@@ -365,22 +365,22 @@ void ManipulatorRosInterface::registerSubscriptionsAndServices()
             handleGoToReadyService(req, res);
         });
     reset_held_object_srv_ =
-        ctx_.action_client_node->create_service<orion_mtc_msgs::srv::ResetHeldObject>(
+        ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject>(
             ns + "/reset_held_object",
-            [this](const std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Request> req,
-                   std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Response> res) {
+            [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Request> req,
+                   std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Response> res) {
                 handleResetHeldObject(req, res);
             });
-    sync_held_object_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::SyncHeldObject>(
+    sync_held_object_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject>(
         ns + "/sync_held_object",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Response> res) {
             handleSyncHeldObject(req, res);
         });
-    check_pick_srv_ = ctx_.action_client_node->create_service<orion_mtc_msgs::srv::CheckPick>(
+    check_pick_srv_ = ctx_.action_client_node->create_service<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick>(
         ns + "/check_pick",
-        [this](const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
-               std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res) {
+        [this](const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Request> req,
+               std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Response> res) {
             handleCheckPick(req, res);
         });
 }
@@ -393,15 +393,15 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
 {
     const std::string ns(MANIPULATOR_NS);
     pub_runtime_status_ =
-        ctx_.action_client_node->create_publisher<orion_mtc_msgs::msg::RuntimeStatus>(ns + "/runtime_status", 10);
+        ctx_.action_client_node->create_publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RuntimeStatus>(ns + "/runtime_status", 10);
     pub_job_event_ =
-        ctx_.action_client_node->create_publisher<orion_mtc_msgs::msg::JobEvent>(ns + "/job_event", 10);
+        ctx_.action_client_node->create_publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::JobEvent>(ns + "/job_event", 10);
     pub_task_stage_ =
-        ctx_.action_client_node->create_publisher<orion_mtc_msgs::msg::TaskStage>(ns + "/task_stage", 10);
+        ctx_.action_client_node->create_publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TaskStage>(ns + "/task_stage", 10);
     pub_held_object_state_ =
-        ctx_.action_client_node->create_publisher<orion_mtc_msgs::msg::HeldObjectState>(ns + "/held_object_state", 10);
+        ctx_.action_client_node->create_publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::HeldObjectState>(ns + "/held_object_state", 10);
     pub_recovery_event_ =
-        ctx_.action_client_node->create_publisher<orion_mtc_msgs::msg::RecoveryEvent>(ns + "/recovery_event", 10);
+        ctx_.action_client_node->create_publisher<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RecoveryEvent>(ns + "/recovery_event", 10);
 
     runtime_status_timer_ = ctx_.action_client_node->create_wall_timer(
         std::chrono::milliseconds(500), [this]() { publishRuntimeStatus(); });
@@ -410,7 +410,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
         [this](const std::string& job_id, const std::string& job_type, const std::string& source,
                uint32_t priority, const std::string& event_type, bool success, const std::string& reason,
                int64_t created_at_ns, int64_t started_at_ns, int64_t finished_at_ns) {
-            orion_mtc_msgs::msg::JobEvent msg;
+            sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::JobEvent msg;
             msg.header.stamp = ctx_.action_client_node->now();
             msg.job_id = job_id;
             msg.job_type = job_type;
@@ -426,7 +426,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
         });
 
     ctx_.task_manager->setHeldObjectStateCallback([this](const HeldObjectContext& hctx) {
-        orion_mtc_msgs::msg::HeldObjectState msg;
+        sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::HeldObjectState msg;
         msg.header.stamp = ctx_.action_client_node->now();
         msg.valid = hctx.valid;
         msg.tracked = isTracked(hctx);
@@ -442,7 +442,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
     ctx_.task_manager->setRecoveryEventCallback(
         [this](const std::string& recovery_type, const std::string& trigger_reason, bool success,
                const std::string& detail) {
-            orion_mtc_msgs::msg::RecoveryEvent msg;
+            sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RecoveryEvent msg;
             msg.header.stamp = ctx_.action_client_node->now();
             msg.recovery_type = recovery_type;
             msg.trigger_reason = trigger_reason;
@@ -455,7 +455,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
         [this](const std::string& job_id, const std::string& task_type, std::size_t stage_index,
                const std::string& stage_name, const std::string& stage_state, const std::string& detail) {
             (void)stage_index;
-            orion_mtc_msgs::msg::TaskStage msg;
+            sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TaskStage msg;
             msg.header.stamp = ctx_.action_client_node->now();
             msg.job_id = job_id;
             msg.task_type = task_type;
@@ -469,7 +469,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
     {
         ctx_.feasibility_checker->setPickApprovalProgressFn(
             [this](const std::string& stage_name, const std::string& stage_state, const std::string& detail) {
-                orion_mtc_msgs::msg::TaskStage msg;
+                sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TaskStage msg;
                 msg.header.stamp = ctx_.action_client_node->now();
                 msg.header.frame_id = "";
                 msg.job_id = "";
@@ -485,7 +485,7 @@ void ManipulatorRosInterface::registerStatusPublishersAndCallbacks()
 /* 聚合 TaskManager 与 TaskQueue 状态填充 RuntimeStatus 并发布（供 Web/监控轮询）。 */
 void ManipulatorRosInterface::publishRuntimeStatus()
 {
-    orion_mtc_msgs::msg::RuntimeStatus msg;
+    sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::RuntimeStatus msg;
     msg.header.stamp = ctx_.action_client_node->now();
     msg.header.frame_id = "";
     msg.worker_status = toCString(ctx_.task_manager->getWorkerStatus());
@@ -699,7 +699,7 @@ bool ManipulatorRosInterface::isGripperLocked() const
 /* Pick Action _goal 校验：已持物、gripper locked、业务 busy 时 REJECT，否则 ACCEPT_AND_EXECUTE。 */
 rclcpp_action::GoalResponse ManipulatorRosInterface::handlePickGoalRequest(
     const rclcpp_action::GoalUUID&,
-    std::shared_ptr<const orion_mtc_msgs::action::Pick::Goal>)
+    std::shared_ptr<const sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick::Goal>)
 {
     RobotTaskMode mode = ctx_.task_manager->getMode();
     if (isHolding(mode))
@@ -728,7 +728,7 @@ rclcpp_action::GoalResponse ManipulatorRosInterface::handlePickGoalRequest(
 
 /* 当前实现不允许取消已在执行的 Pick Action（避免与 MTC 分段状态难对齐）。 */
 rclcpp_action::CancelResponse ManipulatorRosInterface::handlePickGoalCancel(
-    const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>&)
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>&)
 {
     return rclcpp_action::CancelResponse::REJECT;
 }
@@ -738,7 +738,7 @@ rclcpp_action::CancelResponse ManipulatorRosInterface::handlePickGoalCancel(
  * Result 中带 task_id、held_object_id、message/last_error。
  */
 void ManipulatorRosInterface::handlePickGoalAccepted(
-    const std::shared_ptr<rclcpp_action::ServerGoalHandle<orion_mtc_msgs::action::Pick>>& goal_handle)
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick>>& goal_handle)
 {
     std::thread([this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
@@ -753,7 +753,7 @@ void ManipulatorRosInterface::handlePickGoalAccepted(
         }
         bool ok = ctx_.task_manager->handlePick(goal->object_pose,
                                                 goal->object_id.empty() ? "object" : goal->object_id, gs);
-        auto result = std::make_shared<orion_mtc_msgs::action::Pick::Result>();
+        auto result = std::make_shared<sealien_ctrlpilot_manipulator_orion_mtc_msgs::action::Pick::Result>();
         result->success = ok;
         result->task_id = ctx_.task_manager->getTaskId();
         result->held_object_id = ok ? ctx_.task_manager->getHeldObject().object_id : "";
@@ -771,8 +771,8 @@ void ManipulatorRosInterface::handlePickGoalAccepted(
 
 /* GetRobotState：返回 mode、task_id、持物 id 标志、last_error（轻量查询）。 */
 void ManipulatorRosInterface::handleGetRobotState(
-    const std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Request>,
-    std::shared_ptr<orion_mtc_msgs::srv::GetRobotState::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Request>,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRobotState::Response> res)
 {
     res->mode = toStateString(ctx_.task_manager->getMode());
     res->task_id = ctx_.task_manager->getTaskId();
@@ -787,8 +787,8 @@ void ManipulatorRosInterface::handleGetRobotState(
  * next_* 来自 peekFront，不弹出。
  */
 void ManipulatorRosInterface::handleGetQueueState(
-    const std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Request>,
-    std::shared_ptr<orion_mtc_msgs::srv::GetQueueState::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Request>,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetQueueState::Response> res)
 {
     std::shared_ptr<TaskQueue> q = ctx_.task_manager->getQueue();
     res->queue_size = q ? static_cast<uint32_t>(q->size()) : 0u;
@@ -817,8 +817,8 @@ void ManipulatorRosInterface::handleGetQueueState(
 
 /* GetRecentJobs：将 TaskManager 环形执行记录转为消息列表，max_count 默认上限 50。 */
 void ManipulatorRosInterface::handleGetRecentJobs(
-    const std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Request> req,
-    std::shared_ptr<orion_mtc_msgs::srv::GetRecentJobs::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Request> req,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::GetRecentJobs::Response> res)
 {
     const std::uint32_t max_count = req->max_count > 0u ? req->max_count : 50u;
     std::vector<TaskManager::JobExecutionRecordEntry> entries = ctx_.task_manager->getRecentRecords(max_count);
@@ -826,7 +826,7 @@ void ManipulatorRosInterface::handleGetRecentJobs(
     res->records.reserve(entries.size());
     for (const auto& e : entries)
     {
-        orion_mtc_msgs::msg::JobExecutionRecord msg;
+        sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::JobExecutionRecord msg;
         msg.job_id = e.job_id;
         msg.job_type = e.job_type;
         msg.source = e.source;
@@ -844,8 +844,8 @@ void ManipulatorRosInterface::handleGetRecentJobs(
  * 成功返回 job_id，失败写 message。
  */
 void ManipulatorRosInterface::handleSubmitJob(
-    const std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Request> req,
-    std::shared_ptr<orion_mtc_msgs::srv::SubmitJob::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Request> req,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SubmitJob::Response> res)
 {
     if (req->job_type > 5u)
     {
@@ -901,7 +901,7 @@ void ManipulatorRosInterface::handleSubmitJob(
                 res->message = "target_cache unavailable for TARGET_SENSOR pick";
                 return;
             }
-            std::optional<orion_mtc_msgs::msg::TargetSet> latest_target_set = ctx_.target_cache->latest();
+            std::optional<sealien_ctrlpilot_manipulator_orion_mtc_msgs::msg::TargetSet> latest_target_set = ctx_.target_cache->latest();
             if (!latest_target_set.has_value())
             {
                 res->success = false;
@@ -949,8 +949,8 @@ void ManipulatorRosInterface::handleSubmitJob(
 
 /* CancelJob：代理 TaskManager::cancelJob；正在执行的 job 不可取消。 */
 void ManipulatorRosInterface::handleCancelJob(
-    const std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Request> req,
-    std::shared_ptr<orion_mtc_msgs::srv::CancelJob::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Request> req,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CancelJob::Response> res)
 {
     std::string message;
     bool ok = ctx_.task_manager->cancelJob(req->job_id, &message);
@@ -960,16 +960,16 @@ void ManipulatorRosInterface::handleCancelJob(
 
 /* ResetHeldObject：调用 handleResetHeldObject，success/message 回填。 */
 void ManipulatorRosInterface::handleResetHeldObject(
-    const std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Request>,
-    std::shared_ptr<orion_mtc_msgs::srv::ResetHeldObject::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Request>,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::ResetHeldObject::Response> res)
 {
     res->success = ctx_.task_manager->handleResetHeldObject(res->message);
 }
 
 /* SyncHeldObject：透传 set_holding、tracked、位姿到 TaskManager::handleSyncHeldObject。 */
 void ManipulatorRosInterface::handleSyncHeldObject(
-    const std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Request> req,
-    std::shared_ptr<orion_mtc_msgs::srv::SyncHeldObject::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Request> req,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::SyncHeldObject::Response> res)
 {
     res->success = ctx_.task_manager->handleSyncHeldObject(
         req->set_holding, req->tracked, req->object_id, req->object_pose, req->tcp_pose, res->message);
@@ -977,8 +977,8 @@ void ManipulatorRosInterface::handleSyncHeldObject(
 
 /* CheckPick：有 FeasibilityChecker 则委托 checkPick；否则拒绝并提示未就绪。 */
 void ManipulatorRosInterface::handleCheckPick(
-    const std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Request> req,
-    std::shared_ptr<orion_mtc_msgs::srv::CheckPick::Response> res)
+    const std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Request> req,
+    std::shared_ptr<sealien_ctrlpilot_manipulator_orion_mtc_msgs::srv::CheckPick::Response> res)
 {
     if (ctx_.feasibility_checker)
     {
@@ -1713,4 +1713,4 @@ void ManipulatorRosInterface::handleRoboticArmGoalAccepted(
     }).detach();
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

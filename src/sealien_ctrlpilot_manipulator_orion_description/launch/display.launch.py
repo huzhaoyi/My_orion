@@ -15,7 +15,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """返回仅含 RSP 与 joint_state_publisher_gui 的 LaunchDescription。"""
-    pkg_share = get_package_share_directory("orion_description")
+    pkg_share = get_package_share_directory("sealien_ctrlpilot_manipulator_orion_description")
     urdf_path = os.path.join(pkg_share, "urdf", "orion.urdf")
     meshes_abs = os.path.join(pkg_share, "meshes")
 

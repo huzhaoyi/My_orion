@@ -1,13 +1,13 @@
 /* pose_cache：object_pose 订阅侧校验 frame、最近帧与条件等待 */
 
-#include "orion_mtc/perception/pose_cache.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/perception/pose_cache.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <thread>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("orion_mtc.perception");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("sealien_ctrlpilot_manipulator_orion_mtc.perception");
 
 /*
  * expected_frame_id 非空时丢弃 frame 不一致的消息，减少错误系混用。
@@ -98,4 +98,4 @@ bool PoseCache::waitForNextUpdate(std::chrono::milliseconds timeout) const
   return update_count_ != count_at_start;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc

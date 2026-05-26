@@ -1,10 +1,10 @@
 /* cylinder_side_grasp：单位轴向 → SolidPrimitive 圆柱局部 Z 与轴对齐的 orientation（退化轴向用备用参考向量） */
 
-#include "orion_mtc/decision/cylinder_side_grasp.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/decision/cylinder_side_grasp.hpp"
 #include <Eigen/Geometry>
 #include <cmath>
 
-namespace orion_mtc
+namespace sealien_ctrlpilot_manipulator_orion_mtc
 {
 
 /*
@@ -63,5 +63,5 @@ geometry_msgs::msg::Quaternion buildCylinderCollisionOrientationFromAxis(
   return out;
 }
 
-}  // namespace orion_mtc
+}  // namespace sealien_ctrlpilot_manipulator_orion_mtc
 

@@ -1,6 +1,6 @@
 /**
- * WebSocket 客户端：连接 rosbridge，与 ROS2 orion_mtc 一一对应
- * 话题（与 orion_mtc_node 发布一致）：
+ * WebSocket 客户端：连接 rosbridge，与 ROS2 sealien_ctrlpilot_manipulator_orion_mtc 一一对应
+ * 话题（与 sealien_ctrlpilot_manipulator_orion_mtc_node 发布一致）：
  *   /manipulator/runtime_status   (RuntimeStatus)
  *   /manipulator/job_event        (JobEvent)   — 注意单数
  *   /manipulator/task_stage       (TaskStage)  — 注意单数
@@ -15,7 +15,7 @@
  *   /holoocean/rov0/ArmSensor (holoocean_interfaces/WorkingClassROVArmSensor；左臂 7 关节原生度，可用 ?arm_sensor_topic= 覆盖)
  *   /joy_manipulator/manual_mode   (std_msgs/Bool 手柄手动=true)
  *   /joy_manipulator/throttle_percent (std_msgs/Float32 臂油门 0～100，可选 ?joy_ui= 改前缀)
- * 服务（与 orion_mtc_node 一致）：
+ * 服务（与 sealien_ctrlpilot_manipulator_orion_mtc_node 一致）：
  *   /manipulator/get_robot_state, get_queue_state, get_recent_jobs, submit_job, cancel_job,
  *   open_gripper, close_gripper, emergency_stop, clear_estop, go_to_ready（std_srvs/Trigger）,
  *   reset_held_object, sync_held_object, check_pick
@@ -359,12 +359,12 @@ function unsubscribeTopics() {
 
 /** 按话题名片段推断 ROS 消息类型字符串（供 rosbridge subscribe）。 */
 function inferType(topic) {
-  if (topic.includes('runtime_status')) return 'orion_mtc_msgs/msg/RuntimeStatus';
-  if (topic.includes('job_event')) return 'orion_mtc_msgs/msg/JobEvent';
-  if (topic.includes('task_stage')) return 'orion_mtc_msgs/msg/TaskStage';
-  if (topic.includes('held_object_state')) return 'orion_mtc_msgs/msg/HeldObjectState';
-  if (topic.includes('perception_state')) return 'orion_mtc_msgs/msg/PerceptionState';
-  if (topic.endsWith('/target_set')) return 'orion_mtc_msgs/msg/TargetSet';
+  if (topic.includes('runtime_status')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/RuntimeStatus';
+  if (topic.includes('job_event')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/JobEvent';
+  if (topic.includes('task_stage')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/TaskStage';
+  if (topic.includes('held_object_state')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/HeldObjectState';
+  if (topic.includes('perception_state')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/PerceptionState';
+  if (topic.endsWith('/target_set')) return 'sealien_ctrlpilot_manipulator_orion_mtc_msgs/msg/TargetSet';
   if (topic.endsWith('/target_insert_holes')) return 'geometry_msgs/msg/PoseArray';
   if (topic.endsWith('/panel_obstacles_markers')) return 'visualization_msgs/msg/MarkerArray';
   if (topic.endsWith('/object_pose_fused')) return 'geometry_msgs/msg/PoseStamped';
