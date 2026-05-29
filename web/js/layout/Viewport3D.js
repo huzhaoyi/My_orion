@@ -13,6 +13,68 @@ let unsubscribeState = null;
 
 /* arm_base_link 为 Z-up（ROS），场景为 Y-up（Three.js），坐标变换：rotateX(-π/2) */
 const Z_UP_TO_Y_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+const TARGET_SET_MARKER_COLOR = 0xf97316;
+const TARGET_SET_MARKER_COLOR_SELECTED = 0xff6b00;
+
+function isMeaningfulRosPosition(pos) {
+  if (!pos) {
+    return false;
+  }
+  const x = pos.x != null ? Number(pos.x) : 0;
+  const y = pos.y != null ? Number(pos.y) : 0;
+  const z = pos.z != null ? Number(pos.z) : 0;
+  const eps = 1e-6;
+  return Math.abs(x) > eps || Math.abs(y) > eps || Math.abs(z) > eps;
+}
+
+function applyTargetPoseToSceneNode(node, position, orientation, applyBaseLinkToScene) {
+  if (!node) {
+    return;
+  }
+  const scenePos = applyBaseLinkToScene(position || { x: 0, y: 0, z: 0 });
+  node.position.copy(scenePos);
+  const q = rosToThreeQuaternion(orientation);
+  if (q) {
+    node.quaternion.copy(new THREE.Quaternion().copy(Z_UP_TO_Y_UP).multiply(q));
+  } else {
+    node.quaternion.identity();
+  }
+}
+
+function updateTargetSetSceneObjects(sceneApiRef, state, applyBaseLinkToScene, showTargetsLayer) {
+  const rows = Array.isArray(state.targetSetTargets) ? state.targetSetTargets : [];
+  const showTargetSet = showTargetsLayer && !!state.targetSetValid && rows.length > 0;
+  const selectedIdx = Number.isFinite(state.targetSensorSelectedIndex)
+    ? state.targetSensorSelectedIndex
+    : -1;
+  if (sceneApiRef.targetSetObjectNodes && sceneApiRef.targetSetObjectsGroup) {
+    for (let i = 0; i < sceneApiRef.targetSetObjectNodes.length; i += 1) {
+      const entry = sceneApiRef.targetSetObjectNodes[i];
+      const row = rows[i];
+      if (!entry || !row || !isMeaningfulRosPosition(row.position)) {
+        if (entry?.node) {
+          entry.node.visible = false;
+        }
+        continue;
+      }
+      const isSelected = selectedIdx >= 0 ? row.index === selectedIdx : false;
+      applyTargetPoseToSceneNode(entry.node, row.position, row.orientation, applyBaseLinkToScene);
+      entry.node.visible = showTargetSet;
+      if (entry.marker?.material) {
+        entry.marker.material.color.setHex(
+          isSelected ? TARGET_SET_MARKER_COLOR_SELECTED : TARGET_SET_MARKER_COLOR
+        );
+        entry.marker.material.opacity = isSelected ? 1.0 : 0.55;
+      }
+      if (entry.mesh?.material) {
+        entry.mesh.material.opacity = isSelected ? 1.0 : 0.45;
+        entry.mesh.material.transparent = !isSelected;
+      }
+    }
+    sceneApiRef.targetSetObjectsGroup.visible = showTargetSet;
+  }
+  return showTargetSet;
+}
 const layerToggles = {
   showTargets: true,
   showTrajectory: true,
@@ -108,13 +170,23 @@ function createLayerToggles(containerEl, sceneApiRef) {
         if (tInfo.key === 'showTargets') {
           const st = stateStore.getState();
           sceneApiRef.pickMarker.visible = cb.checked && !!st.objectPoseValid;
+          const showTargetSet = updateTargetSetSceneObjects(
+            sceneApiRef,
+            st,
+            (pos) => {
+              const v = new THREE.Vector3(pos.x, pos.y, pos.z);
+              v.applyQuaternion(Z_UP_TO_Y_UP);
+              return v;
+            },
+            cb.checked
+          );
           if (sceneApiRef.pickMarkerTargetSensor) {
             sceneApiRef.pickMarkerTargetSensor.visible =
-              cb.checked && !!st.targetSensorObjectPoseValid;
+              cb.checked && !!st.targetSensorObjectPoseValid && !showTargetSet;
           }
           if (sceneApiRef.targetSensorObjectComposed) {
             sceneApiRef.targetSensorObjectComposed.visible =
-              cb.checked && !!st.targetSensorObjectPoseValid;
+              cb.checked && !!st.targetSensorObjectPoseValid && !showTargetSet;
           }
           if (sceneApiRef.pickMarkerFused) {
             sceneApiRef.pickMarkerFused.visible = cb.checked;
@@ -457,6 +529,12 @@ function mount(containerId) {
 
     const tsPickPos = rosToThreePosition(s.targetSensorObjectPose?.position);
     const tsScene = applyBaseLinkToScene(tsPickPos);
+    const showTargetSet = updateTargetSetSceneObjects(
+      sceneApi,
+      s,
+      applyBaseLinkToScene,
+      layerToggles.showTargets
+    );
     if (sceneApi.pickMarkerTargetSensor) {
       sceneApi.pickMarkerTargetSensor.position.copy(tsScene);
       const tsOrient = s.targetSensorObjectPose?.orientation;
@@ -471,7 +549,7 @@ function mount(containerId) {
         sceneApi.pickMarkerTargetSensor.quaternion.identity();
       }
       sceneApi.pickMarkerTargetSensor.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !showTargetSet;
     }
     if (sceneApi.targetSensorObjectComposed) {
       sceneApi.targetSensorObjectComposed.position.copy(tsScene);
@@ -488,7 +566,7 @@ function mount(containerId) {
       }
       sceneApi.targetSensorObjectComposed.userData.valid = !!s.targetSensorObjectPoseValid;
       sceneApi.targetSensorObjectComposed.visible =
-        layerToggles.showTargets && !!s.targetSensorObjectPoseValid;
+        layerToggles.showTargets && !!s.targetSensorObjectPoseValid && !showTargetSet;
     }
     if (sceneApi.targetInsertHolesGroup) {
       const holePoses = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses : [];

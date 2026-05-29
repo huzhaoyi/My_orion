@@ -33,6 +33,9 @@ const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target_new.stl';
 const TARGET_SENSOR_AXIS_FLIP_RX = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RY = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RZ = Math.PI;
+const TARGET_SET_MAX = 7;
+const TARGET_SET_MARKER_COLOR = 0xf97316;
+const TARGET_SET_MARKER_COLOR_SELECTED = 0xff6b00;
 const TARGET_INSERT_HOLE_DIAMETER_M = 0.128;
 const TARGET_INSERT_HOLE_INNER_RADIUS = TARGET_INSERT_HOLE_DIAMETER_M * 0.5;
 const TARGET_INSERT_HOLE_RING_THICKNESS = 0.006;
@@ -122,6 +125,71 @@ function loadStlGeometry(url) {
     const loader = new STLLoader();
     loader.load(url, resolve, undefined, reject);
   });
+}
+
+function prepareTargetStlGeometry(geometry) {
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  if (geometry.boundingBox) {
+    const center = new THREE.Vector3();
+    geometry.boundingBox.getCenter(center);
+    geometry.translate(-center.x, -center.y, -center.z);
+  }
+  return geometry;
+}
+
+function addTargetStlMeshToGroup(parentGroup, geometry, material) {
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.quaternion.setFromEuler(
+    new THREE.Euler(
+      TARGET_SENSOR_AXIS_FLIP_RX,
+      TARGET_SENSOR_AXIS_FLIP_RY,
+      TARGET_SENSOR_AXIS_FLIP_RZ
+    )
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parentGroup.add(mesh);
+  return mesh;
+}
+
+function addTargetFallbackMeshToGroup(parentGroup, material) {
+  const fallbackMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, 0.32, 24),
+    material
+  );
+  fallbackMesh.quaternion.setFromEuler(
+    new THREE.Euler(
+      TARGET_SENSOR_AXIS_FLIP_RX,
+      TARGET_SENSOR_AXIS_FLIP_RY,
+      TARGET_SENSOR_AXIS_FLIP_RZ
+    )
+  );
+  parentGroup.add(fallbackMesh);
+  return fallbackMesh;
+}
+
+function createTargetSetObjectNode(displayIndex) {
+  const node = new THREE.Group();
+  node.name = `target_set_object_${displayIndex}`;
+  node.visible = false;
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(PICK_MARKER_RADIUS * 0.92, 16, 16),
+    new THREE.MeshBasicMaterial({
+      color: TARGET_SET_MARKER_COLOR,
+      transparent: true,
+      opacity: 0.85,
+    })
+  );
+  marker.name = 'target_set_marker';
+  node.add(marker);
+  const modelGroup = new THREE.Group();
+  modelGroup.name = 'target_set_model';
+  node.add(modelGroup);
+  const label = makeHoleIndexLabel(String(displayIndex));
+  label.position.set(0, 0.06, 0);
+  node.add(label);
+  return { node, marker, modelGroup, label, mesh: null };
 }
 
 /**
@@ -533,46 +601,55 @@ function createScene(containerEl) {
     metalness: 0.6,
     roughness: 0.35,
   });
-  loadStlGeometry(TARGET_SENSOR_STL_URL).then((geometry) => {
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    if (geometry.boundingBox) {
-      const center = new THREE.Vector3();
-      geometry.boundingBox.getCenter(center);
-      geometry.translate(-center.x, -center.y, -center.z);
+  targets.add(targetSensorObjectComposed);
+
+  /* TargetSensor 多目标：/target_set 全部显示；选中项高亮（与桥接 target_index 一致）。 */
+  const targetSetObjectNodes = [];
+  const targetSetObjectsGroup = new THREE.Group();
+  targetSetObjectsGroup.name = 'target_set_objects_group';
+  targetSetObjectsGroup.visible = false;
+  for (let i = 0; i < TARGET_SET_MAX; i += 1) {
+    const entry = createTargetSetObjectNode(i + 1);
+    targetSetObjectsGroup.add(entry.node);
+    targetSetObjectNodes.push(entry);
+  }
+  targets.add(targetSetObjectsGroup);
+
+  function populateTargetSetMeshes(geometry) {
+    for (let i = 0; i < targetSetObjectNodes.length; i += 1) {
+      const entry = targetSetObjectNodes[i];
+      if (!entry || entry.mesh) {
+        continue;
+      }
+      const mat = tsStlMaterial.clone();
+      mat.transparent = true;
+      mat.opacity = 0.45;
+      entry.mesh = addTargetStlMeshToGroup(entry.modelGroup, geometry.clone(), mat);
     }
-    const tsMesh = new THREE.Mesh(geometry, tsStlMaterial);
-    tsMesh.quaternion.setFromEuler(
-      new THREE.Euler(
-        TARGET_SENSOR_AXIS_FLIP_RX,
-        TARGET_SENSOR_AXIS_FLIP_RY,
-        TARGET_SENSOR_AXIS_FLIP_RZ
-      )
-    );
-    tsMesh.castShadow = true;
-    tsMesh.receiveShadow = true;
-    tsMesh.name = 'target_sensor_stl';
-    targetSensorObjectComposed.add(tsMesh);
+  }
+
+  function populateTargetSetFallbackMeshes() {
+    for (let i = 0; i < targetSetObjectNodes.length; i += 1) {
+      const entry = targetSetObjectNodes[i];
+      if (!entry || entry.mesh) {
+        continue;
+      }
+      const mat = tsStlMaterial.clone();
+      mat.transparent = true;
+      mat.opacity = 0.45;
+      entry.mesh = addTargetFallbackMeshToGroup(entry.modelGroup, mat);
+    }
+  }
+
+  loadStlGeometry(TARGET_SENSOR_STL_URL).then((geometry) => {
+    prepareTargetStlGeometry(geometry);
+    addTargetStlMeshToGroup(targetSensorObjectComposed, geometry, tsStlMaterial);
+    populateTargetSetMeshes(geometry);
   }).catch((err) => {
     console.warn('RobotScene: target_new.stl 加载失败，回退简化模型', err);
-    const fallbackMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.015, 0.015, 0.32, 24),
-      new THREE.MeshStandardMaterial({
-        color: 0xb87333,
-        metalness: 0.5,
-        roughness: 0.4,
-      })
-    );
-    fallbackMesh.quaternion.setFromEuler(
-      new THREE.Euler(
-        TARGET_SENSOR_AXIS_FLIP_RX,
-        TARGET_SENSOR_AXIS_FLIP_RY,
-        TARGET_SENSOR_AXIS_FLIP_RZ
-      )
-    );
-    targetSensorObjectComposed.add(fallbackMesh);
+    addTargetFallbackMeshToGroup(targetSensorObjectComposed, tsStlMaterial);
+    populateTargetSetFallbackMeshes();
   });
-  targets.add(targetSensorObjectComposed);
 
   /* 插孔调试可视化：环形孔位（arm_base_link->scene 变换后由 Viewport3D 更新位姿）。 */
   const targetInsertHolesGroup = new THREE.Group();
@@ -747,6 +824,8 @@ function createScene(containerEl) {
     pickMarkerFused,
     pickMarkerTargetSensor,
     targetSensorObjectComposed,
+    targetSetObjectsGroup,
+    targetSetObjectNodes,
     targetInsertHolesGroup,
     keypointsTraceGroup,
     kpTraceSpheres,
