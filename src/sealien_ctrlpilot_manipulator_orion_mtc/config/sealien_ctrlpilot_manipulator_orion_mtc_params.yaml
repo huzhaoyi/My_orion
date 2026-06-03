@@ -67,7 +67,7 @@ cable_side_grasp:
   # 相对 gripper_tcp 的姿态偏置 [deg]，顺序 roll/pitch/yaw，用于抓姿“夹爪补偿”微调。
   tcp_bias_rpy_deg: [0.0, 0.0, 0.0]
   # 抓取后撤回沿接近反方向的位移 [m]。
-  retreat_dist: 0.05
+  retreat_dist: 0.00
   # 沿缆轴平移 grasp 中心候选 [m]（与 grasp 点沿缆绳对中微调）。
   axial_shift_candidates: [-0.05, 0.0, 0.05]
   # 腕部绕接近轴滚转候选 [deg]（侧向姿态多解）。
