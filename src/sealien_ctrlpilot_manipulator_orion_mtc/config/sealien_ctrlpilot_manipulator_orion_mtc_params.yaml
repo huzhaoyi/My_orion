@@ -165,18 +165,10 @@ peg_insert:
   pre_offset_m: 0.04
   # true：插孔前先回 ready，减少抓取末态引起的绕行与换肘态。
   go_ready_before_insert: true
-  # true：先到孔前方更远处的前置点，再直线推进到 pre-insert，减少“绕到孔后再回来”。
-  enable_front_waypoint: true
-  # true：前置点按 arm_base_link X 轴生成（x = hole_x - front_waypoint_base_x_offset_m，y/z 与孔位一致）。
-  front_waypoint_use_base_x: true
-  # arm_base_link X 轴前置距离 [m]（front_waypoint_use_base_x=true 时生效）。
-  front_waypoint_base_x_offset_m: 0.55
   # true：pre-insert 先保持 arm_base_link X 安全距离，避免对准阶段直接贴孔。
   pre_insert_use_base_x: true
   # pre-insert 的 arm_base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
-  pre_insert_base_x_offset_m: 0.24
-  # 前置点相对 pre-insert 继续沿 -insert_axis 退让距离 [m]。
-  front_waypoint_offset_m: 0.10
+  pre_insert_base_x_offset_m: 0.44
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
   insert_depth_m: 0.18
   # 锁存仍占用时新一轮插孔前轴向拔出 [m]：填正数即撤回该米数；0 表示与 insert_depth_m 相同。
@@ -212,8 +204,8 @@ peg_insert:
   enable_chamfer_plane_search: false
   # 倒角平面微动步长 [m]（enable_chamfer_plane_search=true 时生效）。
   chamfer_plane_delta_m: 0.002
-  # 插入轴向分段数（>1 可降低“单段硬推进”导致的穿入风险）。
-  insert_axial_segments: 5
+  # 插入轴向分段数（现场标定 1；>1 可降低单段硬推进穿入风险）。
+  insert_axial_segments: 1
   # B：几何对准判据 + 限深（不依赖力反馈）。对不准（横向偏差>容差）时把推进钳到面板前表面，避免穿模。
   # 注意：横向偏差按“沿 insert_axis 从 pre-insert 推进的直线相对孔心”的距离计算；
   # pre_insert_use_base_x=true 的基座 X 退让若与 insert_axis 不共线，会产生固有横向偏差而被判为对不准。

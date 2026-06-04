@@ -367,8 +367,6 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   axis_pre_pose.pose.position.x -= axis_insert.x() * pre_offset;
   axis_pre_pose.pose.position.y -= axis_insert.y() * pre_offset;
   axis_pre_pose.pose.position.z -= axis_insert.z() * pre_offset;
-  const double front_waypoint_offset = std::max(0.0, pi.front_waypoint_offset_m);
-  const double front_waypoint_base_x_offset = std::max(0.0, pi.front_waypoint_base_x_offset_m);
   const double pre_insert_base_x_offset = std::max(0.0, pi.pre_insert_base_x_offset_m);
   geometry_msgs::msg::PoseStamped pre_pose = axis_pre_pose;
   if (pi.pre_insert_use_base_x)
@@ -376,22 +374,9 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     pre_pose = target_pose_adjusted;
     pre_pose.pose.position.x -= pre_insert_base_x_offset;
   }
-  geometry_msgs::msg::PoseStamped front_pose = pre_pose;
-  if (pi.front_waypoint_use_base_x)
-  {
-    front_pose = target_pose_adjusted;
-    front_pose.pose.position.x -= front_waypoint_base_x_offset;
-  }
-  else
-  {
-    front_pose.pose.position.x -= axis_insert.x() * front_waypoint_offset;
-    front_pose.pose.position.y -= axis_insert.y() * front_waypoint_offset;
-    front_pose.pose.position.z -= axis_insert.z() * front_waypoint_offset;
-  }
   const rclcpp::Time now = node_->now();
   pre_pose.header.stamp = now;
   axis_pre_pose.header.stamp = now;
-  front_pose.header.stamp = now;
 
   /*
    * B：几何对准判据 + 限深。沿 insert_axis 从 pre_pose 推进的直线相对孔心的横向偏差 e_lat 超过
@@ -445,53 +430,12 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   }
   const double axial_step_eff = insert_depth_eff / static_cast<double>(axial_segments);
 
-  const bool front_waypoint_enabled =
-      pi.enable_front_waypoint
-      && ((pi.front_waypoint_use_base_x && front_waypoint_base_x_offset > 1e-6)
-          || (!pi.front_waypoint_use_base_x && front_waypoint_offset > 1e-6));
-  if (front_waypoint_enabled)
-  {
-    auto move_front = std::make_unique<mtc::stages::MoveTo>("move to front-waypoint", ptp_planner);
-    move_front->setGroup(arm_group_name);
-    move_front->setGoal(front_pose);
-    move_front->setIKFrame(hand_frame);
-    task.add(std::move(move_front));
-    out.stage_names.push_back("move to front-waypoint");
-
-    if (pi.front_waypoint_use_base_x)
-    {
-      auto move_pre_align =
-          std::make_unique<mtc::stages::MoveTo>("front-waypoint to pre-insert (align)", ptp_planner);
-      move_pre_align->setGroup(arm_group_name);
-      move_pre_align->setGoal(pre_pose);
-      move_pre_align->setIKFrame(hand_frame);
-      task.add(std::move(move_pre_align));
-      out.stage_names.push_back("front-waypoint to pre-insert (align)");
-    }
-    else
-    {
-      geometry_msgs::msg::Vector3Stamped front_to_pre_axis;
-      append_vector3_stamped(now, plan_frame, axis_insert, front_to_pre_axis);
-      auto move_front_to_pre =
-          std::make_unique<mtc::stages::MoveRelative>("front-waypoint to pre-insert", lin_planner);
-      move_front_to_pre->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      move_front_to_pre->setIKFrame(hand_frame);
-      move_front_to_pre->setDirection(front_to_pre_axis);
-      move_front_to_pre->setMinMaxDistance(static_cast<float>(front_waypoint_offset),
-                                           static_cast<float>(front_waypoint_offset));
-      task.add(std::move(move_front_to_pre));
-      out.stage_names.push_back("front-waypoint to pre-insert");
-    }
-  }
-  else
-  {
-    auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
-    move_pre->setGroup(arm_group_name);
-    move_pre->setGoal(pre_pose);
-    move_pre->setIKFrame(hand_frame);
-    task.add(std::move(move_pre));
-    out.stage_names.push_back("move to pre-insert");
-  }
+  auto move_pre = std::make_unique<mtc::stages::MoveTo>("move to pre-insert", ptp_planner);
+  move_pre->setGroup(arm_group_name);
+  move_pre->setGoal(pre_pose);
+  move_pre->setIKFrame(hand_frame);
+  task.add(std::move(move_pre));
+  out.stage_names.push_back("move to pre-insert");
 
   geometry_msgs::msg::Vector3Stamped axis_msg;
   append_vector3_stamped(now, plan_frame, axis_insert, axis_msg);
@@ -596,17 +540,6 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   stage_post_release_pre->setIKFrame(hand_frame);
   task.add(std::move(stage_post_release_pre));
   out.stage_names.push_back("move to pre-insert (post release)");
-
-  if (front_waypoint_enabled)
-  {
-    auto stage_post_release_front =
-        std::make_unique<mtc::stages::MoveTo>("move to front-waypoint (post release)", ptp_planner);
-    stage_post_release_front->setGroup(arm_group_name);
-    stage_post_release_front->setGoal(front_pose);
-    stage_post_release_front->setIKFrame(hand_frame);
-    task.add(std::move(stage_post_release_front));
-    out.stage_names.push_back("move to front-waypoint (post release)");
-  }
 
   auto stage_ready_after_release = std::make_unique<mtc::stages::MoveTo>("move to ready (after release)", ptp_planner);
   stage_ready_after_release->setGroup(arm_group_name);

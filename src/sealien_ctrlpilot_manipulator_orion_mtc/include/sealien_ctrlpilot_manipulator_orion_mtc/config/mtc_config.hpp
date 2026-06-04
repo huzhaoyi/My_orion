@@ -147,26 +147,12 @@ struct PegInsertConfig
   /* true：插孔前先回 SRDF 命名状态 ready，减少当前姿态导致的绕行。 */
   bool go_ready_before_insert = false;
   /*
-   * true：在 move to pre-insert 前，先到孔前方更远处的前置点，再线性推进到 pre-insert，
-   * 用于减少从孔后方绕到前方的观感问题。
-   */
-  bool enable_front_waypoint = false;
-  /*
-   * true：前置点按 arm_base_link 的 X 轴构造（x = target.x - front_waypoint_base_x_offset_m，y/z 与 target 相同）。
-   * false：沿插入轴从 pre-insert 反向退 front_waypoint_offset_m。
-   */
-  bool front_waypoint_use_base_x = false;
-  /* 前置点在 arm_base_link X 方向相对孔位的退让距离 [m]（front_waypoint_use_base_x=true 时生效）。 */
-  double front_waypoint_base_x_offset_m = 0.10;
-  /*
    * true：pre-insert 按 arm_base_link X 轴保持安全距离（x = target.x - pre_insert_base_x_offset_m），
    * 让对准阶段不直接贴孔。
    */
   bool pre_insert_use_base_x = false;
   /* pre-insert 在 arm_base_link X 方向相对孔位的退让距离 [m]（pre_insert_use_base_x=true 时生效）。 */
   double pre_insert_base_x_offset_m = 0.20;
-  /* 孔前置点相对 pre-insert 继续沿 -insert_axis 退让的距离 [m]。 */
-  double front_waypoint_offset_m = 0.08;
   double insert_depth_m = 0.04;
   /*
    * 锁存仍占用时，新一轮 TARGET_INSERT 前「沿插入轴反向拔出」距离 [m]。

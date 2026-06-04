@@ -429,27 +429,6 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
-    node->declare_parameter<bool>("peg_insert.enable_front_waypoint", false);
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
-    node->declare_parameter<bool>("peg_insert.front_waypoint_use_base_x", false);
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
-    node->declare_parameter<double>("peg_insert.front_waypoint_base_x_offset_m", 0.10);
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
     node->declare_parameter<bool>("peg_insert.pre_insert_use_base_x", false);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -458,13 +437,6 @@ void declareParameters(rclcpp::Node* node)
   try
   {
     node->declare_parameter<double>("peg_insert.pre_insert_base_x_offset_m", 0.20);
-  }
-  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
-  {
-  }
-  try
-  {
-    node->declare_parameter<double>("peg_insert.front_waypoint_offset_m", 0.08);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
   {
@@ -991,24 +963,11 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   }
   node->get_parameter("peg_insert.pre_offset_m", config.peg_insert.pre_offset_m);
   node->get_parameter("peg_insert.go_ready_before_insert", config.peg_insert.go_ready_before_insert);
-  node->get_parameter("peg_insert.enable_front_waypoint", config.peg_insert.enable_front_waypoint);
-  node->get_parameter("peg_insert.front_waypoint_use_base_x", config.peg_insert.front_waypoint_use_base_x);
-  node->get_parameter("peg_insert.front_waypoint_base_x_offset_m",
-                      config.peg_insert.front_waypoint_base_x_offset_m);
-  if (config.peg_insert.front_waypoint_base_x_offset_m < 0.0)
-  {
-    config.peg_insert.front_waypoint_base_x_offset_m = 0.0;
-  }
   node->get_parameter("peg_insert.pre_insert_use_base_x", config.peg_insert.pre_insert_use_base_x);
   node->get_parameter("peg_insert.pre_insert_base_x_offset_m", config.peg_insert.pre_insert_base_x_offset_m);
   if (config.peg_insert.pre_insert_base_x_offset_m < 0.0)
   {
     config.peg_insert.pre_insert_base_x_offset_m = 0.0;
-  }
-  node->get_parameter("peg_insert.front_waypoint_offset_m", config.peg_insert.front_waypoint_offset_m);
-  if (config.peg_insert.front_waypoint_offset_m < 0.0)
-  {
-    config.peg_insert.front_waypoint_offset_m = 0.0;
   }
   node->get_parameter("peg_insert.insert_depth_m", config.peg_insert.insert_depth_m);
   node->get_parameter("peg_insert.latch_pre_extract_m", config.peg_insert.latch_pre_extract_m);
