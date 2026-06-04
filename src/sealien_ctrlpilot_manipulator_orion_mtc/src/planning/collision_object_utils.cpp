@@ -441,4 +441,152 @@ moveit_msgs::msg::CollisionObject makePanelBoxCollisionObject(const std::string&
   return object;
 }
 
+moveit_msgs::msg::CollisionObject makeHeldPegCollisionObject(const std::string& object_id,
+                                                             const std::string& frame_id,
+                                                             const std::vector<double>& rod_axis_link,
+                                                             double length_m,
+                                                             double radius_m,
+                                                             uint8_t operation)
+{
+  moveit_msgs::msg::CollisionObject object;
+  object.id = object_id;
+  object.header.frame_id = frame_id;
+  object.pose.orientation.w = 1.0;
+  object.operation = operation;
+
+  Eigen::Vector3d rod_axis(0.0, 1.0, 0.0);
+  if (rod_axis_link.size() == 3u)
+  {
+    rod_axis << rod_axis_link[0], rod_axis_link[1], rod_axis_link[2];
+  }
+  const double axis_n = rod_axis.norm();
+  if (!std::isfinite(axis_n) || axis_n < 1e-9)
+  {
+    rod_axis = Eigen::Vector3d(0.0, 1.0, 0.0);
+  }
+  else
+  {
+    rod_axis /= axis_n;
+  }
+
+  const double safe_len = (std::isfinite(length_m) && length_m > 1e-4) ? length_m : 0.16;
+  const double safe_r = (std::isfinite(radius_m) && radius_m > 1e-4) ? radius_m : 0.012;
+
+  shape_msgs::msg::SolidPrimitive cyl;
+  cyl.type = shape_msgs::msg::SolidPrimitive::CYLINDER;
+  cyl.dimensions = { safe_len, safe_r };
+
+  geometry_msgs::msg::Vector3 axis_msg;
+  axis_msg.x = rod_axis.x();
+  axis_msg.y = rod_axis.y();
+  axis_msg.z = rod_axis.z();
+
+  geometry_msgs::msg::Pose pose;
+  // 杆尖位于 attach link 原点，杆身朝 +rod_axis 延伸，故中心沿 +rod_axis 偏移半长。
+  pose.position.x = rod_axis.x() * (0.5 * safe_len);
+  pose.position.y = rod_axis.y() * (0.5 * safe_len);
+  pose.position.z = rod_axis.z() * (0.5 * safe_len);
+  pose.orientation = buildCylinderCollisionOrientationFromAxis(axis_msg);
+
+  object.primitives.push_back(cyl);
+  object.primitive_poses.push_back(pose);
+  return object;
+}
+
+moveit_msgs::msg::CollisionObject makePanelWithHoleCollisionObject(const std::string& object_id,
+                                                                   const std::string& frame_id,
+                                                                   const std::array<double, 3>& hole_center,
+                                                                   const std::array<double, 3>& insert_axis,
+                                                                   double gap_half_m,
+                                                                   double panel_half_size_m,
+                                                                   double thickness_m,
+                                                                   double plane_offset_m,
+                                                                   uint8_t operation)
+{
+  moveit_msgs::msg::CollisionObject object;
+  object.id = object_id;
+  object.header.frame_id = frame_id;
+  object.pose.orientation.w = 1.0;
+  object.operation = operation;
+
+  Eigen::Vector3d n(insert_axis[0], insert_axis[1], insert_axis[2]);
+  const double n_norm = n.norm();
+  if (!std::isfinite(n_norm) || n_norm < 1e-9)
+  {
+    n = Eigen::Vector3d::UnitX();
+  }
+  else
+  {
+    n /= n_norm;
+  }
+
+  // 平面内正交基 u/v（与 n 构成右手系）。
+  Eigen::Vector3d ref = Eigen::Vector3d::UnitZ();
+  if (std::abs(n.dot(ref)) > 0.9)
+  {
+    ref = Eigen::Vector3d::UnitY();
+  }
+  Eigen::Vector3d u = n.cross(ref).normalized();
+  Eigen::Vector3d v = n.cross(u).normalized();
+
+  const double half = (std::isfinite(panel_half_size_m) && panel_half_size_m > 1e-3) ? panel_half_size_m : 0.30;
+  const double t = (std::isfinite(thickness_m) && thickness_m > 1e-3) ? thickness_m : 0.02;
+  double gap = (std::isfinite(gap_half_m) && gap_half_m > 1e-3) ? gap_half_m : 0.03;
+  if (gap >= half)
+  {
+    gap = 0.5 * half;
+  }
+
+  Eigen::Vector3d center(hole_center[0], hole_center[1], hole_center[2]);
+  // 板面相对孔心沿 -insert_axis 前移 plane_offset（板在孔前方）。
+  center -= n * plane_offset_m;
+
+  Eigen::Matrix3d R;
+  R.col(0) = u;
+  R.col(1) = v;
+  R.col(2) = n;
+  const Eigen::Quaterniond q(R);
+
+  // 4 块 box 围出 2*gap 见方缺口：上/下跨全宽，左/右仅跨缺口高度。
+  struct frame_box_t
+  {
+    double cu;
+    double cv;
+    double su;
+    double sv;
+  };
+  const double bar = half - gap;
+  const frame_box_t boxes[4] = {
+    { 0.0, 0.5 * (gap + half), 2.0 * half, bar },   // top
+    { 0.0, -0.5 * (gap + half), 2.0 * half, bar },  // bottom
+    { -0.5 * (gap + half), 0.0, bar, 2.0 * gap },   // left
+    { 0.5 * (gap + half), 0.0, bar, 2.0 * gap },    // right
+  };
+
+  for (const auto& b : boxes)
+  {
+    if (b.su <= 1e-6 || b.sv <= 1e-6)
+    {
+      continue;
+    }
+    shape_msgs::msg::SolidPrimitive box;
+    box.type = shape_msgs::msg::SolidPrimitive::BOX;
+    box.dimensions = { b.su, b.sv, t };
+
+    const Eigen::Vector3d c = center + u * b.cu + v * b.cv;
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = c.x();
+    pose.position.y = c.y();
+    pose.position.z = c.z();
+    pose.orientation.w = q.w();
+    pose.orientation.x = q.x();
+    pose.orientation.y = q.y();
+    pose.orientation.z = q.z();
+
+    object.primitives.push_back(box);
+    object.primitive_poses.push_back(pose);
+  }
+  return object;
+}
+
 }  // namespace sealien_ctrlpilot_manipulator_orion_mtc

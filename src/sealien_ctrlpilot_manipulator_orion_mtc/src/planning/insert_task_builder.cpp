@@ -1,11 +1,15 @@
 /* InsertTaskBuilder：peg-in-hole 多段 LIN/Cartesian，可选倒角平面微动 */
 
 #include "sealien_ctrlpilot_manipulator_orion_mtc/planning/insert_task_builder.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/planning/collision_object_utils.hpp"
+#include "sealien_ctrlpilot_manipulator_orion_mtc/core/constants.hpp"
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
 #include <moveit/task_constructor/solvers.h>
 #include <moveit/task_constructor/stages.h>
 #include <moveit_task_constructor_msgs/msg/solution.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <array>
 #include <sstream>
 #include <Eigen/Geometry>
 #include <algorithm>
@@ -243,7 +247,6 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   const double insert_depth = pi.insert_depth_m;
   const double retreat_m = pi.retreat_m;
   const int axial_segments = std::max(1, pi.insert_axial_segments);
-  const double axial_step = insert_depth / static_cast<double>(axial_segments);
 
   mtc::Task& task = out.task;
   task.stages()->setName("target insert");
@@ -263,6 +266,64 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
 
   task.add(std::make_unique<mtc::stages::CurrentState>("current"));
   out.stage_names.push_back("current");
+
+  /*
+   * A：附着持物杆体 peg + 在孔心生成带孔门板，使 MoveIt 对 peg↔面板做几何避障。
+   * peg↔臂连杆、peg↔静态实心面板、门板↔臂连杆均放行；唯独不放行 peg↔门板，
+   * 故对准的 peg 从缺口穿过、对不准的 peg 撞门板停下（不穿模）。
+   */
+  if (pi.enable_hole_panel_collision)
+  {
+    Eigen::Vector3d axis_for_gate =
+        insert_axis_from_hole_pose(target_pose_adjusted.pose, pi.insert_axis_local_xyz);
+    {
+      double sign_for_gate = pi.insert_motion_axis_sign;
+      if (!std::isfinite(sign_for_gate) || std::abs(sign_for_gate) < 1e-9)
+      {
+        sign_for_gate = 1.0;
+      }
+      axis_for_gate *= sign_for_gate;
+      const double nn = axis_for_gate.norm();
+      if (nn > 1e-9)
+      {
+        axis_for_gate /= nn;
+      }
+    }
+
+    moveit_msgs::msg::CollisionObject peg_obj = makeHeldPegCollisionObject(
+        INSERT_HELD_PEG_COLLISION_ID, hand_frame, pi.peg_rod_axis_tcp_xyz,
+        pi.peg_collision_length_m, pi.peg_radius_m, moveit_msgs::msg::CollisionObject::ADD);
+    peg_obj.header.stamp = node_->now();
+
+    const std::array<double, 3> hole_center = { target_pose_adjusted.pose.position.x,
+                                                target_pose_adjusted.pose.position.y,
+                                                target_pose_adjusted.pose.position.z };
+    const std::array<double, 3> gate_axis = { axis_for_gate.x(), axis_for_gate.y(), axis_for_gate.z() };
+    moveit_msgs::msg::CollisionObject gate_obj = makePanelWithHoleCollisionObject(
+        INSERT_PEG_GATE_PANEL_ID, plan_frame, hole_center, gate_axis, pi.hole_radius_m,
+        pi.panel_gate_half_size_m, pi.panel_gate_thickness_m, pi.panel_front_offset_m,
+        moveit_msgs::msg::CollisionObject::ADD);
+    gate_obj.header.stamp = node_->now();
+
+    auto stage_attach = std::make_unique<mtc::stages::ModifyPlanningScene>("attach peg and add hole gate");
+    stage_attach->addObject(peg_obj);
+    stage_attach->attachObject(INSERT_HELD_PEG_COLLISION_ID, hand_frame);
+    stage_attach->addObject(gate_obj);
+    /* peg 与持物链路、静态实心面板放行，避免误报；门板与全臂连杆放行，使其仅拦截 peg。 */
+    stage_attach->allowCollisions(std::string(INSERT_HELD_PEG_COLLISION_ID),
+                                  TARGET_SENSOR_PEG_ALLOWED_LINKS, true);
+    stage_attach->allowCollisions(std::string(INSERT_PEG_GATE_PANEL_ID),
+                                  TARGET_SENSOR_PEG_ALLOWED_LINKS, true);
+    for (const auto& solid_panel : config_.panel_obstacles.panels)
+    {
+      if (!solid_panel.id.empty())
+      {
+        stage_attach->allowCollisions(std::string(INSERT_HELD_PEG_COLLISION_ID), solid_panel.id, true);
+      }
+    }
+    task.add(std::move(stage_attach));
+    out.stage_names.push_back("attach peg and add hole gate");
+  }
 
   auto ptp_planner = std::make_shared<mtc::solvers::PipelinePlanner>(node_, "pilz");
   ptp_planner->setPlannerId("PTP");
@@ -332,6 +393,58 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   axis_pre_pose.header.stamp = now;
   front_pose.header.stamp = now;
 
+  /*
+   * B：几何对准判据 + 限深。沿 insert_axis 从 pre_pose 推进的直线相对孔心的横向偏差 e_lat 超过
+   * 容差时，把「approach + descend」总推进钳到面板前表面（留 align_stop_margin_m），避免对不准时穿模。
+   * 对准良好（e_lat<=tol，如沿轴 pre-insert）时保持名义深度，peg 经门板缺口正常插入。
+   */
+  double pre_offset_eff = pre_offset;
+  double insert_depth_eff = insert_depth;
+  if (pi.enable_align_depth_guard)
+  {
+    const Eigen::Vector3d hole_center(target_pose_adjusted.pose.position.x,
+                                      target_pose_adjusted.pose.position.y,
+                                      target_pose_adjusted.pose.position.z);
+    const Eigen::Vector3d pre_pos(pre_pose.pose.position.x, pre_pose.pose.position.y,
+                                  pre_pose.pose.position.z);
+    const Eigen::Vector3d delta = pre_pos - hole_center;
+    const double along = delta.dot(axis_insert);
+    const double e_lat = (delta - along * axis_insert).norm();
+    double tol = pi.align_lateral_tol_m;
+    if (!(tol > 0.0))
+    {
+      tol = std::max(0.0, pi.hole_radius_m - pi.peg_radius_m);
+    }
+    if (e_lat > tol)
+    {
+      const double nominal_total = pre_offset + insert_depth;
+      const double dist_to_plane =
+          (hole_center - pre_pos).dot(axis_insert) - pi.panel_front_offset_m - pi.align_stop_margin_m;
+      double allowed_total = dist_to_plane;
+      if (allowed_total < 0.0)
+      {
+        allowed_total = 0.0;
+      }
+      if (allowed_total > nominal_total)
+      {
+        allowed_total = nominal_total;
+      }
+      pre_offset_eff = std::min(pre_offset, allowed_total);
+      insert_depth_eff = std::max(0.0, allowed_total - pre_offset_eff);
+      RCLCPP_WARN(node_->get_logger(),
+                  "insert_task_builder: align guard CLAMP e_lat=%.4f tol=%.4f -> pre_offset %.3f->%.3f "
+                  "insert_depth %.3f->%.3f (stop at panel front)",
+                  e_lat, tol, pre_offset, pre_offset_eff, insert_depth, insert_depth_eff);
+    }
+    else
+    {
+      RCLCPP_INFO(node_->get_logger(),
+                  "insert_task_builder: align guard OK e_lat=%.4f tol=%.4f (full insert_depth=%.3f)",
+                  e_lat, tol, insert_depth);
+    }
+  }
+  const double axial_step_eff = insert_depth_eff / static_cast<double>(axial_segments);
+
   const bool front_waypoint_enabled =
       pi.enable_front_waypoint
       && ((pi.front_waypoint_use_base_x && front_waypoint_base_x_offset > 1e-6)
@@ -382,13 +495,16 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
 
   geometry_msgs::msg::Vector3Stamped axis_msg;
   append_vector3_stamped(now, plan_frame, axis_insert, axis_msg);
-  auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", cartesian_planner);
-  descend_to_slot->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-  descend_to_slot->setIKFrame(hand_frame);
-  descend_to_slot->setDirection(axis_msg);
-  descend_to_slot->setMinMaxDistance(static_cast<float>(pre_offset), static_cast<float>(pre_offset));
-  task.add(std::move(descend_to_slot));
-  out.stage_names.push_back("insert approach");
+  if (pre_offset_eff > 1e-6)
+  {
+    auto descend_to_slot = std::make_unique<mtc::stages::MoveRelative>("insert approach", cartesian_planner);
+    descend_to_slot->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    descend_to_slot->setIKFrame(hand_frame);
+    descend_to_slot->setDirection(axis_msg);
+    descend_to_slot->setMinMaxDistance(static_cast<float>(pre_offset_eff), static_cast<float>(pre_offset_eff));
+    task.add(std::move(descend_to_slot));
+    out.stage_names.push_back("insert approach");
+  }
 
   if (pi.enable_chamfer_plane_search && pi.chamfer_plane_delta_m > 1e-6)
   {
@@ -419,17 +535,20 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
     }
   }
 
-  for (int s = 0; s < axial_segments; ++s)
+  if (axial_step_eff > 1e-6)
   {
-    const std::string seg_name =
-        (axial_segments > 1) ? ("insert descend segment " + std::to_string(s + 1)) : "insert descend";
-    auto insert_seg = std::make_unique<mtc::stages::MoveRelative>(seg_name, cartesian_planner);
-    insert_seg->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-    insert_seg->setIKFrame(hand_frame);
-    insert_seg->setDirection(axis_msg);
-    insert_seg->setMinMaxDistance(static_cast<float>(axial_step), static_cast<float>(axial_step));
-    task.add(std::move(insert_seg));
-    out.stage_names.push_back(seg_name);
+    for (int s = 0; s < axial_segments; ++s)
+    {
+      const std::string seg_name =
+          (axial_segments > 1) ? ("insert descend segment " + std::to_string(s + 1)) : "insert descend";
+      auto insert_seg = std::make_unique<mtc::stages::MoveRelative>(seg_name, cartesian_planner);
+      insert_seg->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+      insert_seg->setIKFrame(hand_frame);
+      insert_seg->setDirection(axis_msg);
+      insert_seg->setMinMaxDistance(static_cast<float>(axial_step_eff), static_cast<float>(axial_step_eff));
+      task.add(std::move(insert_seg));
+      out.stage_names.push_back(seg_name);
+    }
   }
 
   auto stage_open = std::make_unique<mtc::stages::MoveTo>("open hand", interpolation_planner);
@@ -494,6 +613,17 @@ InsertTaskBuildResult InsertTaskBuilder::buildTargetInsertTask(
   stage_ready_after_release->setGoal("ready");
   task.add(std::move(stage_ready_after_release));
   out.stage_names.push_back("move to ready (after release)");
+
+  /* A 收尾：脱离并移除持物 peg 与带孔门板，恢复规划场景，避免影响后续任务。 */
+  if (pi.enable_hole_panel_collision)
+  {
+    auto stage_detach = std::make_unique<mtc::stages::ModifyPlanningScene>("detach peg and remove hole gate");
+    stage_detach->detachObject(INSERT_HELD_PEG_COLLISION_ID, hand_frame);
+    stage_detach->removeObject(INSERT_HELD_PEG_COLLISION_ID);
+    stage_detach->removeObject(INSERT_PEG_GATE_PANEL_ID);
+    task.add(std::move(stage_detach));
+    out.stage_names.push_back("detach peg and remove hole gate");
+  }
 
   return out;
 }

@@ -209,6 +209,26 @@ struct PegInsertConfig
   bool enable_chamfer_plane_search = false;
   double chamfer_plane_delta_m = 0.002;
   int insert_axial_segments = 1;
+  /* B：几何对准判据 + 限深（不依赖力反馈）。对不准时把推进钳到面板前表面，避免穿模。 */
+  bool enable_align_depth_guard = true;
+  /* A：附着 peg + 带孔门板，让 MoveIt 对 peg↔面板做几何避障（对准从孔过、对不准被挡）。 */
+  bool enable_hole_panel_collision = true;
+  /* 孔开口半径 [m]：带孔门板缺口半宽，同时作为横向对准裕度参考。 */
+  double hole_radius_m = 0.03;
+  /* 持物杆体横截面半径 [m]：横向对准裕度 = hole_radius_m - peg_radius_m。 */
+  double peg_radius_m = 0.012;
+  /* 横向对准容差 [m]：<=0 时自动取 max(0, hole_radius_m - peg_radius_m)。 */
+  double align_lateral_tol_m = 0.0;
+  /* 对不准限深时，peg_tip 距面板前表面的安全留白 [m]。 */
+  double align_stop_margin_m = 0.005;
+  /* 面板前表面相对孔心沿 -insert_axis 的距离 [m]（孔心在板面上时为 0）。 */
+  double panel_front_offset_m = 0.0;
+  /* 附着 peg 圆柱长度 [m]（沿 peg_rod_axis_tcp_xyz，杆尖在 peg_tip）。 */
+  double peg_collision_length_m = 0.16;
+  /* 带孔门板平面内半宽 [m]（需大于 hole_radius_m）。 */
+  double panel_gate_half_size_m = 0.30;
+  /* 带孔门板厚度 [m]（沿 insert_axis）。 */
+  double panel_gate_thickness_m = 0.02;
 };
 
 /*

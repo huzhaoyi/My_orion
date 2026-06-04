@@ -214,6 +214,30 @@ peg_insert:
   chamfer_plane_delta_m: 0.002
   # 插入轴向分段数（>1 可降低“单段硬推进”导致的穿入风险）。
   insert_axial_segments: 5
+  # B：几何对准判据 + 限深（不依赖力反馈）。对不准（横向偏差>容差）时把推进钳到面板前表面，避免穿模。
+  # 注意：横向偏差按“沿 insert_axis 从 pre-insert 推进的直线相对孔心”的距离计算；
+  # pre_insert_use_base_x=true 的基座 X 退让若与 insert_axis 不共线，会产生固有横向偏差而被判为对不准。
+  # 若希望按真实轴向对准（偏差≈0、允许满深插入），可将 pre_insert_use_base_x 置 false。
+  enable_align_depth_guard: true
+  # A：附着持物杆体 peg + 在孔心生成带孔门板，让 MoveIt 对 peg↔面板做几何避障（对准从孔过、对不准被挡）。
+  # 会增加规划难度（近距离 IK 更紧张）；若插孔规划频繁失败可临时置 false，仅保留 B。
+  enable_hole_panel_collision: true
+  # 孔开口半径 [m]：带孔门板缺口半宽，同时作为横向对准裕度参考。需按实物孔径标定。
+  hole_radius_m: 0.03
+  # 持物杆体横截面半径 [m]：横向对准裕度 = hole_radius_m - peg_radius_m。需按实物 peg 标定。
+  peg_radius_m: 0.012
+  # 横向对准容差 [m]：<=0 时自动取 max(0, hole_radius_m - peg_radius_m)。
+  align_lateral_tol_m: 0.0
+  # 对不准限深时 peg_tip 距面板前表面的安全留白 [m]。
+  align_stop_margin_m: 0.005
+  # 面板前表面相对孔心沿 -insert_axis 的距离 [m]（孔心在板面上时为 0）。
+  panel_front_offset_m: 0.0
+  # 附着 peg 圆柱长度 [m]（沿 peg_rod_axis_tcp_xyz，杆尖在 peg_tip）。
+  peg_collision_length_m: 0.16
+  # 带孔门板平面内半宽 [m]（需大于 hole_radius_m）。
+  panel_gate_half_size_m: 0.30
+  # 带孔门板厚度 [m]（沿 insert_axis）。
+  panel_gate_thickness_m: 0.02
 
 # ---------- 夹爪反馈判定（waitForGripped）----------
 gripper_feedback:

@@ -601,6 +601,76 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<bool>("peg_insert.enable_align_depth_guard", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<bool>("peg_insert.enable_hole_panel_collision", true);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.hole_radius_m", 0.03);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.peg_radius_m", 0.012);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.align_lateral_tol_m", 0.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.align_stop_margin_m", 0.005);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.panel_front_offset_m", 0.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.peg_collision_length_m", 0.16);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.panel_gate_half_size_m", 0.30);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
+    node->declare_parameter<double>("peg_insert.panel_gate_thickness_m", 0.02);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<bool>("panel_obstacles.enable", false);
   }
   catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
@@ -987,6 +1057,48 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   if (config.peg_insert.insert_axial_segments < 1)
   {
     config.peg_insert.insert_axial_segments = 1;
+  }
+  node->get_parameter("peg_insert.enable_align_depth_guard", config.peg_insert.enable_align_depth_guard);
+  node->get_parameter("peg_insert.enable_hole_panel_collision", config.peg_insert.enable_hole_panel_collision);
+  node->get_parameter("peg_insert.hole_radius_m", config.peg_insert.hole_radius_m);
+  if (!std::isfinite(config.peg_insert.hole_radius_m) || config.peg_insert.hole_radius_m <= 0.0)
+  {
+    config.peg_insert.hole_radius_m = 0.03;
+  }
+  node->get_parameter("peg_insert.peg_radius_m", config.peg_insert.peg_radius_m);
+  if (!std::isfinite(config.peg_insert.peg_radius_m) || config.peg_insert.peg_radius_m < 0.0)
+  {
+    config.peg_insert.peg_radius_m = 0.012;
+  }
+  node->get_parameter("peg_insert.align_lateral_tol_m", config.peg_insert.align_lateral_tol_m);
+  if (!std::isfinite(config.peg_insert.align_lateral_tol_m) || config.peg_insert.align_lateral_tol_m < 0.0)
+  {
+    config.peg_insert.align_lateral_tol_m = 0.0;
+  }
+  node->get_parameter("peg_insert.align_stop_margin_m", config.peg_insert.align_stop_margin_m);
+  if (!std::isfinite(config.peg_insert.align_stop_margin_m) || config.peg_insert.align_stop_margin_m < 0.0)
+  {
+    config.peg_insert.align_stop_margin_m = 0.0;
+  }
+  node->get_parameter("peg_insert.panel_front_offset_m", config.peg_insert.panel_front_offset_m);
+  if (!std::isfinite(config.peg_insert.panel_front_offset_m))
+  {
+    config.peg_insert.panel_front_offset_m = 0.0;
+  }
+  node->get_parameter("peg_insert.peg_collision_length_m", config.peg_insert.peg_collision_length_m);
+  if (!std::isfinite(config.peg_insert.peg_collision_length_m) || config.peg_insert.peg_collision_length_m <= 1e-4)
+  {
+    config.peg_insert.peg_collision_length_m = 0.16;
+  }
+  node->get_parameter("peg_insert.panel_gate_half_size_m", config.peg_insert.panel_gate_half_size_m);
+  if (!std::isfinite(config.peg_insert.panel_gate_half_size_m) || config.peg_insert.panel_gate_half_size_m <= 1e-3)
+  {
+    config.peg_insert.panel_gate_half_size_m = 0.30;
+  }
+  node->get_parameter("peg_insert.panel_gate_thickness_m", config.peg_insert.panel_gate_thickness_m);
+  if (!std::isfinite(config.peg_insert.panel_gate_thickness_m) || config.peg_insert.panel_gate_thickness_m <= 1e-3)
+  {
+    config.peg_insert.panel_gate_thickness_m = 0.02;
   }
   node->get_parameter("panel_obstacles.enable", config.panel_obstacles.enable);
   node->get_parameter("panel_obstacles.publish_markers", config.panel_obstacles.publish_markers);

@@ -17,6 +17,12 @@ constexpr const char PANEL_OBSTACLES_MARKERS_TOPIC[] = "/manipulator/panel_obsta
 /* TargetSensor 规划场景中的 peg 网格 id（与缆绳 object 区分） */
 constexpr const char TARGET_SENSOR_PEG_COLLISION_ID[] = "targetsensor_peg";
 
+/* 插孔时附着到末端的持物杆体碰撞 id（用于 peg↔面板几何避障） */
+constexpr const char INSERT_HELD_PEG_COLLISION_ID[] = "insert_held_peg";
+
+/* 插孔时围绕目标孔心生成的「带孔门板」碰撞 id（仅对 peg 生效，对准从孔过、对不准被挡） */
+constexpr const char INSERT_PEG_GATE_PANEL_ID[] = "insert_peg_gate_panel";
+
 extern const std::vector<std::string> OBJECT_GRASP_ALLOWED_LINKS;
 extern const std::vector<std::string> PREGRASP_OBJECT_ALLOWED_LINKS;
 extern const std::vector<std::string> CABLE_LOCAL_PREGRASP_ALLOWED_LINKS;

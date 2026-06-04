@@ -6,6 +6,7 @@
 #include "sealien_ctrlpilot_manipulator_orion_mtc/planning/cable_segments.hpp"
 #include <geometry_msgs/msg/pose.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -46,6 +47,33 @@ moveit_msgs::msg::CollisionObject makePanelBoxCollisionObject(const std::string&
                                                                double wall_thickness_m,
                                                                double aabb_margin_m,
                                                                uint8_t operation);
+
+/*
+ * 持物杆体（peg）附着碰撞体：沿 rod_axis_link（attach link 局部系单位向量）的圆柱，
+ * 杆尖位于 attach link 原点（peg_tip），杆身朝 +rod_axis 方向延伸 length；用于插孔时 MoveIt
+ * 对 peg↔面板做几何避障。frame_id 应为附着 link 名（如 "peg_tip"）。
+ */
+moveit_msgs::msg::CollisionObject makeHeldPegCollisionObject(const std::string& object_id,
+                                                             const std::string& frame_id,
+                                                             const std::vector<double>& rod_axis_link,
+                                                             double length_m,
+                                                             double radius_m,
+                                                             uint8_t operation);
+
+/*
+ * 「带孔门板」碰撞体：在过孔心、法向为 insert_axis 的平面上，由 4 个 box 围出 2*gap_half 见方的缺口。
+ * 对准的 peg 从缺口穿过（无碰撞），对不准的 peg 撞到板框（碰撞）。所有 box 以世界系（frame_id）primitive_poses 表达。
+ * hole_center/insert_axis 均为 frame_id 下坐标；plane_offset 沿 -insert_axis 把板面前移（板在孔心前方的距离）。
+ */
+moveit_msgs::msg::CollisionObject makePanelWithHoleCollisionObject(const std::string& object_id,
+                                                                   const std::string& frame_id,
+                                                                   const std::array<double, 3>& hole_center,
+                                                                   const std::array<double, 3>& insert_axis,
+                                                                   double gap_half_m,
+                                                                   double panel_half_size_m,
+                                                                   double thickness_m,
+                                                                   double plane_offset_m,
+                                                                   uint8_t operation);
 
 }  // namespace sealien_ctrlpilot_manipulator_orion_mtc
 
