@@ -14,8 +14,8 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/target_new.stl")
-  install(FILES target_new.stl DESTINATION share/${PROJECT_NAME}/meshes/stl)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/target_square.stl")
+  install(FILES target_square.stl DESTINATION share/${PROJECT_NAME}/meshes/stl)
 endif()
 
 ament_package()

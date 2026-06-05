@@ -28,7 +28,7 @@ const OUTLINE_COLOR = 0x64748b;
 const AXIS_COLOR_X = 0xe53935;
 const AXIS_COLOR_Y = 0x43a047;
 const AXIS_COLOR_Z = 0x1e88e5;
-const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target_new.stl';
+const TARGET_SENSOR_STL_URL = '/robot/meshes/stl/target_square.stl';
 /* TargetSensor 模型本体局部轴向修正：独立 XYZ 角，便于在线调参。 */
 const TARGET_SENSOR_AXIS_FLIP_RX = Math.PI;
 const TARGET_SENSOR_AXIS_FLIP_RY = Math.PI;
@@ -47,7 +47,7 @@ const TARGET_INSERT_HOLE_AXIS_FLIP_RY = 0.0;
 const TARGET_INSERT_HOLE_AXIS_FLIP_RZ = 0.0;
 
 /**
- * 将 target_new.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
+ * 将 target_square.stl 几何长轴对齐到网格局部 +Y（Three 场景 Y-up）。
  * 约定：细圆柱类 peg 在 CAD 里常见沿 X 或 Z；只要 X 向包络不小于 Y，按「主轴沿 X」绕 Z 转 90° 对齐到 +Y。
  */
 function getTargetSensorAlignQuaternionByGeometry(geometry) {
@@ -589,7 +589,7 @@ function createScene(containerEl) {
   targets.add(pickMarkerTargetSensor);
 
   /*
-   * TargetSensor 目标物模型：直接加载 sealien_ctrlpilot_manipulator_orion_description/target_new.stl（由 sync/start 脚本同步到 web）。
+   * TargetSensor 目标物模型：直接加载 sealien_ctrlpilot_manipulator_orion_description/target_square.stl（由 sync/start 脚本同步到 web）。
    * 位姿直接使用 perception_state.target_sensor_object_pose，避免前端临时建模导致的轴向偏差。
    */
   const targetSensorObjectComposed = new THREE.Group();
@@ -646,7 +646,7 @@ function createScene(containerEl) {
     addTargetStlMeshToGroup(targetSensorObjectComposed, geometry, tsStlMaterial);
     populateTargetSetMeshes(geometry);
   }).catch((err) => {
-    console.warn('RobotScene: target_new.stl 加载失败，回退简化模型', err);
+    console.warn('RobotScene: target_square.stl 加载失败，回退简化模型', err);
     addTargetFallbackMeshToGroup(targetSensorObjectComposed, tsStlMaterial);
     populateTargetSetFallbackMeshes();
   });

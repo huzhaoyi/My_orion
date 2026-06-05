@@ -23,7 +23,7 @@ moveit_msgs::msg::CollisionObject makeTargetCollisionObject(const std::string& o
                                                              uint8_t operation);
 
 /*
- * TargetSensor peg：package://sealien_ctrlpilot_manipulator_orion_description/meshes/stl/target_new.stl，mesh 局部旋转与前端 RobotScene.js
+ * TargetSensor peg：package://sealien_ctrlpilot_manipulator_orion_description/meshes/stl/target_square.stl，mesh 局部旋转与前端 RobotScene.js
  *（bbox 对齐长轴到 +Y + 绕局部 X 躺平）一致；object_pose 为感知物体位姿（arm_base_link）。
  */
 moveit_msgs::msg::CollisionObject makeTargetSensorPegCollisionObject(const std::string& object_id,

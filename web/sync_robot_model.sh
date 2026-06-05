@@ -6,6 +6,6 @@ SRC="$REPO_ROOT/src/sealien_ctrlpilot_manipulator_orion_description"
 DST="$REPO_ROOT/web/robot"
 mkdir -p "$DST/meshes/stl"
 cp -u "$SRC/meshes/stl/"*.stl "$DST/meshes/stl/" 2>/dev/null || true
-cp -u "$SRC/target_new.stl" "$DST/meshes/stl/target_new.stl" 2>/dev/null || true
+cp -u "$SRC/target_square.stl" "$DST/meshes/stl/target_square.stl" 2>/dev/null || true
 sed 's|../meshes/stl/|meshes/stl/|g' "$SRC/urdf/orion.urdf" > "$DST/orion.urdf"
 echo "已同步 sealien_ctrlpilot_manipulator_orion_description -> web/robot/"
