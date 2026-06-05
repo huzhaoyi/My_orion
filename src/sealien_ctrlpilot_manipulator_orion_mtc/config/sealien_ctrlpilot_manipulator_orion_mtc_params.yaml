@@ -96,8 +96,9 @@ target_sensor_pick:
   approach_axis_local_candidates: [2, 0, 1]
   # 杆体轴向（物体局部轴）：用于“禁止平行杆轴接近”硬过滤。当前现场观测杆轴与局部 Z 对齐。
   rod_axis_local: 2
-  # 硬禁用接近轴候选。为彻底避免“侧向/平行感”抓姿，先禁用 Y/Z，仅保留 X 轴接近。
-  hard_forbid_approach_axes_local: [1, 2]
+  # 硬禁用接近轴候选。仅禁杆轴(Z=2，与 rod_axis_local 一致)，保留 X(0)/Y(1) 两条径向接近，
+  # 使任意目标姿态/距离都有正交的备选接近方向供 IK 求解（勿用空列表 []，launch_ros 会报错）。
+  hard_forbid_approach_axes_local: [2]
   # 是否按目标距离动态切换接近轴优先级。
   dynamic_axis_priority_enable: true
   # 近距离上限 [m]：<=near_max 用 near 顺序；>near_max 且 <=mid_max 用 mid；>mid_max 用 far。
@@ -143,6 +144,8 @@ target_sensor_pick:
   # 180° 使夹爪绕接近轴翻转，等效于把 joint4 的 π 消化进工具旋转，可令 joint4 回到 ≈0°。
   # 以 180° 开头优先尝试；若物理上无法夹取（倒置夹爪碰目标），则自动退回 0°。
   tool_roll_candidates_deg: [180.0, 0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]
+  # 顶抓朝下门槛：approach_dir·(-arm_base_link Z) 须 >= 此值；0 滤掉夹爪朝上（自下而上）候选；-1 关闭。
+  min_down_priority_score: 0.0
   # 抓取完成后退让距离 [m]。
   retreat_distance_m: 0.12
   # ---------- 抓取候选 vs 后续插孔几何（根本避免「沿孔轴端顶入 / 把柄朝孔」）----------

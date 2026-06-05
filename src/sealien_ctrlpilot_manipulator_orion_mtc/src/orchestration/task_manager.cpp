@@ -935,6 +935,8 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
     std::size_t filtered_forbidden_axis_candidate_count = 0;
     std::size_t filtered_axis_parallel_candidate_count = 0;
     std::size_t filtered_parallel_candidate_count = 0;
+    std::size_t filtered_non_downward_candidate_count = 0;
+    const double min_down_score = config_.target_sensor_pick.min_down_priority_score;
     for (std::size_t axis_rank = 0; axis_rank < axis_candidates.size(); ++axis_rank)
     {
       const int axis_local = axis_candidates[axis_rank];
@@ -1021,6 +1023,11 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
             }
             const Eigen::Vector3d down_axis = -Eigen::Vector3d::UnitZ();
             candidate.down_priority_score = approach_dir.normalized().dot(down_axis);
+            if (candidate.down_priority_score < min_down_score)
+            {
+              ++filtered_non_downward_candidate_count;
+              continue;
+            }
             if (low_z_mode_enabled)
             {
               const bool is_short_pregrasp = pre_i < low_z_short_pre_count;
@@ -1083,7 +1090,15 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           "handlePick: filtered %zu parallel-to-rod candidates (abs_dot>0.85)",
           filtered_parallel_candidate_count);
     }
-    // 优先尝试“更接近竖直下压(-Z)”的候选；同分时保持原配置顺序。
+    if (filtered_non_downward_candidate_count > 0)
+    {
+      RCLCPP_INFO(
+          LOGGER,
+          "handlePick: filtered %zu non-downward candidates (down_score < %.3f, gripper must approach -Z)",
+          filtered_non_downward_candidate_count,
+          min_down_score);
+    }
+    // 优先尝试“更接近竖直下压(-Z)”的候选；朝下得分在轴/预抓距之前排序，避免自下而上误选。
     std::stable_sort(
         candidates.begin(),
         candidates.end(),
@@ -1091,6 +1106,10 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           if (lhs.low_z_hard_priority_tier != rhs.low_z_hard_priority_tier)
           {
             return lhs.low_z_hard_priority_tier < rhs.low_z_hard_priority_tier;
+          }
+          if (std::abs(lhs.down_priority_score - rhs.down_priority_score) > 1e-6)
+          {
+            return lhs.down_priority_score > rhs.down_priority_score;
           }
           if (lhs.axis_priority_rank != rhs.axis_priority_rank)
           {
@@ -1104,11 +1123,7 @@ bool TaskManager::handlePick(const geometry_msgs::msg::PoseStamped& object_pose,
           {
             return lhs.roll_priority_rank < rhs.roll_priority_rank;
           }
-          if (lhs.sign_priority_rank != rhs.sign_priority_rank)
-          {
-            return lhs.sign_priority_rank < rhs.sign_priority_rank;
-          }
-          return lhs.down_priority_score > rhs.down_priority_score;
+          return lhs.sign_priority_rank < rhs.sign_priority_rank;
         });
     if (low_z_mode_enabled)
     {

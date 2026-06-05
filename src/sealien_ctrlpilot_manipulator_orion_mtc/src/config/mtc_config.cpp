@@ -369,6 +369,13 @@ void declareParameters(rclcpp::Node* node)
   }
   try
   {
+    node->declare_parameter<double>("target_sensor_pick.min_down_priority_score", 0.0);
+  }
+  catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&)
+  {
+  }
+  try
+  {
     node->declare_parameter<std::vector<double>>(
         "target_sensor_pick.insert_axis_hint_base_xyz",
         std::vector<double>{ 0.0, 0.0, 0.0 });
@@ -909,6 +916,20 @@ void loadFromNode(rclcpp::Node* node, MTCConfig& config)
   node->get_parameter("target_sensor_pick.tool_roll_candidates_deg",
                       config.target_sensor_pick.tool_roll_candidates_deg);
   node->get_parameter("target_sensor_pick.retreat_distance_m", config.target_sensor_pick.retreat_distance_m);
+  node->get_parameter("target_sensor_pick.min_down_priority_score",
+                      config.target_sensor_pick.min_down_priority_score);
+  if (!std::isfinite(config.target_sensor_pick.min_down_priority_score))
+  {
+    config.target_sensor_pick.min_down_priority_score = 0.0;
+  }
+  if (config.target_sensor_pick.min_down_priority_score > 1.0)
+  {
+    config.target_sensor_pick.min_down_priority_score = 1.0;
+  }
+  if (config.target_sensor_pick.min_down_priority_score < -1.0)
+  {
+    config.target_sensor_pick.min_down_priority_score = -1.0;
+  }
   if (config.target_sensor_pick.pregrasp_distances_m.empty())
   {
     config.target_sensor_pick.pregrasp_distances_m = { 0.10 };

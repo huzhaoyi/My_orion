@@ -95,6 +95,11 @@ struct TargetSensorPickConfig
   double preferred_sign_for_positive_y = -1.0;
   /** TargetSensor 顶抓姿态绕接近轴滚转候选 [deg]。 */
   std::vector<double> tool_roll_candidates_deg{ 0.0, 45.0, -45.0, 90.0, -90.0 };
+  /*
+   * 顶抓朝下硬门槛：approach_dir·(-arm_base_link Z) 须 >= 此值；<0 会滤掉“夹爪朝上、自下而上”的候选。
+   * 设为 -1.0 可关闭过滤（保留全部接近方向）。
+   */
+  double min_down_priority_score = 0.0;
   double retreat_distance_m = 0.12;
   /*
    * 插孔轴向提示（arm_base_link）：与 peg_insert 任务一致时，抓取阶段可筛掉「沿孔轴端面顶入」类姿态，减少把柄先对孔。
