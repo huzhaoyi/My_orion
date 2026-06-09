@@ -173,7 +173,7 @@ peg_insert:
   # pre-insert 的 arm_base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
   pre_insert_base_x_offset_m: 0.44
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
-  insert_depth_m: 0.23
+  insert_depth_m: 0.28
   # 锁存仍占用时新一轮插孔前轴向拔出 [m]：填正数即撤回该米数；0 表示与 insert_depth_m 相同。
   latch_pre_extract_m: 0.25
   # 插入完成后沿 arm_base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
