@@ -98,7 +98,7 @@ target_sensor_pick:
   rod_axis_local: 2
   # 硬禁用接近轴候选。仅禁杆轴(Z=2，与 rod_axis_local 一致)，保留 X(0)/Y(1) 两条径向接近，
   # 使任意目标姿态/距离都有正交的备选接近方向供 IK 求解（勿用空列表 []，launch_ros 会报错）。
-  hard_forbid_approach_axes_local: [2]
+  hard_forbid_approach_axes_local: [1,2]
   # 是否按目标距离动态切换接近轴优先级。
   dynamic_axis_priority_enable: true
   # 近距离上限 [m]：<=near_max 用 near 顺序；>near_max 且 <=mid_max 用 mid；>mid_max 用 far。
@@ -173,7 +173,7 @@ peg_insert:
   # pre-insert 的 arm_base_link X 退让距离 [m]（pre_insert_use_base_x=true 时生效）。
   pre_insert_base_x_offset_m: 0.44
   # 插入总深度 [m]（建议结合 latch 结果与实物孔深标定）。
-  insert_depth_m: 0.18
+  insert_depth_m: 0.23
   # 锁存仍占用时新一轮插孔前轴向拔出 [m]：填正数即撤回该米数；0 表示与 insert_depth_m 相同。
   latch_pre_extract_m: 0.25
   # 插入完成后沿 arm_base_link +Z 线性抬离总距离 [m]（用于脱离孔口后再回 ready）。
@@ -182,13 +182,13 @@ peg_insert:
   insert_axis_local_xyz: [0.0, -1.0, 0.0]
   # 世界系插入运动方向符号：乘在由孔姿态推出的单位插入轴上。swap_tip_handle_180 等姿态修正后，
   # 常出现「对准对、但 Cartesian 插入像在往外拔、release 后抬离也反」——此时改为 -1.0；与把 insert_axis_local_xyz 整列取反等价二选一。
-  insert_motion_axis_sign: -1.0
+  insert_motion_axis_sign: 1.0
   # gripper_tcp 内杆体指向：与 URDF peg_tip 沿 TCP Y 的约定一致时优先 [0,1,0]；若日志里 axis_tcp 与 rod 几乎平行再试 [0,0,1]。
   peg_rod_axis_tcp_xyz: [0.0, 1.0, 0.0]
   # true：杆在世界插入轴上投影为负时自动追加 180°（与 swap_tip_handle_180 一般二选一，避免重复旋转）。
   auto_flip_rod_to_insert: false
   # true：在 gripper_tcp 内绕垂直于 peg_rod_axis_tcp_xyz 的轴转 180°，交换杆尖与把柄端（把柄先进孔且 align_dot>=0 时用）。
-  swap_tip_handle_180: true
+  swap_tip_handle_180: false
   # 仅绕插入轴旋转末端姿态 [deg]（不改变插入方向）。
   tool_roll_about_insert_axis_deg: 0.0
   # 相对 gripper_tcp 的局部姿态偏置 [deg]（roll/pitch/yaw）；用于“像转 link5 一样”微调朝向。
