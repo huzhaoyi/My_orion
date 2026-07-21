@@ -28,6 +28,7 @@ setup(
             "trajectory_to_agent_bridge = sealien_ctrlpilot_manipulator_orion_holoocean_bridge.trajectory_to_agent_bridge_node:main",
             "target_sensor_to_object_pose = sealien_ctrlpilot_manipulator_orion_holoocean_bridge.target_sensor_to_object_pose_node:main",
             "cable_sensor_to_object_pose = sealien_ctrlpilot_manipulator_orion_holoocean_bridge.cable_sensor_to_object_pose_node:main",
+            "insert_relative_state = sealien_ctrlpilot_manipulator_orion_holoocean_bridge.insert_relative_state_node:main",
         ],
     },
 )

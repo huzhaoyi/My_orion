@@ -22,6 +22,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TaskStage.msg"
   "msg/HeldObjectState.msg"
   "msg/RecoveryEvent.msg"
+  "msg/InsertRelativeState.msg"
   "msg/DiagnosticItem.msg"
   "action/Pick.action"
   "srv/GetRobotState.srv"

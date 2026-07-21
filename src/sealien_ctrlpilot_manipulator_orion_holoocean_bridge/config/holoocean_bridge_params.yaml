@@ -94,3 +94,19 @@ cable_sensor_to_object_pose:
     cable_direction_frame: "world"
     cable_euler_frame: "world"
     use_pose_sensor_stamp_for_rov_tf: false
+
+# 插孔段插头相对孔位姿（world model s_t；几何与 peg_insert 一致）
+insert_relative_state:
+  ros__parameters:
+    output_topic: "/manipulator/insert_rel_state"
+    target_insert_holes_topic: "/manipulator/target_insert_holes"
+    target_set_topic: "/manipulator/target_set"
+    task_stage_topic: "/manipulator/task_stage"
+    base_frame: "arm_base_link"
+    peg_frame: "peg_tip"
+    hole_index: 0
+    publish_rate_hz: 50.0
+    start_stage_name: "move to pre-insert"
+    end_stage_name: "open hand"
+    insert_axis_local_xyz: [0.0, -1.0, 0.0]
+    peg_rod_axis_tcp_xyz: [0.0, 1.0, 0.0]

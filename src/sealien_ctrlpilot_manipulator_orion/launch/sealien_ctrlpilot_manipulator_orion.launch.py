@@ -263,6 +263,20 @@ def generate_launch_description():
         additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
         **shutdown_timeouts,
     )
+    insert_relative_state_node = Node(
+        package="sealien_ctrlpilot_manipulator_orion_holoocean_bridge",
+        executable="insert_relative_state",
+        name="insert_relative_state",
+        output="screen",
+        parameters=[bridge_params] if os.path.isfile(bridge_params) else [],
+        remappings=[
+            ("tf", "/manipulator/tf"),
+            ("tf_static", "/manipulator/tf_static"),
+        ],
+        additional_env={"PYTHONPATH": _holoocean_interfaces_pythonpath()},
+        condition=IfCondition(LaunchConfiguration("enable_insert_rel_state")),
+        **shutdown_timeouts,
+    )
     # prefix 使用 stdbuf 无缓冲(0)，确保 MTC 任务树与 Failing stage(s) 等全部实时输出
     mtc_node = Node(
         package="sealien_ctrlpilot_manipulator_orion_mtc",
@@ -305,6 +319,11 @@ def generate_launch_description():
         "tf_under_manipulator",
         default_value="true",
         description="与 MoveIt demo 一致；true 时 TF 在 /manipulator/tf，keypoint 同步重映射",
+    )
+    arg_enable_insert_rel_state = DeclareLaunchArgument(
+        "enable_insert_rel_state",
+        default_value="true",
+        description="true：启动 insert_relative_state，发布 /manipulator/insert_rel_state（插孔段 s_t 真值）",
     )
     arg_start_keypoint = DeclareLaunchArgument(
         "start_keypoint_to_arm_tf",
@@ -392,6 +411,7 @@ def generate_launch_description():
         arg_use_joy,
         arg_start_rviz,
         arg_tf_under,
+        arg_enable_insert_rel_state,
         arg_start_keypoint,
         arg_keypoint_mock,
         arg_keypoint_platform,
@@ -417,6 +437,7 @@ def generate_launch_description():
         web_joint_state_relay_node,
         cable_sensor_to_pose_node,
         target_sensor_to_pose_node,
+        insert_relative_state_node,
         joy_node,
         mtc_node,
         keypoint_include,

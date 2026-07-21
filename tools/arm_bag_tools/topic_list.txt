@@ -1,0 +1,57 @@
+# arm_bag_tools job 档默认录制话题（ARM_BAG_PROFILE=job）
+# Episode 切分：同一 bag 内按 /manipulator/job_event 的 job_id + STARTED/终态时间戳切 PICK 与 TARGET_INSERT。
+# 推荐任务链：Target 抓取（robotic_arm_cmd type=0）→ 插孔（type=1）；勿混缆绳 type=2。
+# 单位：关节 bag 内 joint_states 为 rad；AgentCommand / ArmSensor 关节为 deg。
+
+## A 任务与状态
+/manipulator/job_event                          sealien_ctrlpilot_manipulator_orion_mtc_msgs/JobEvent          ~事件驱动    job 生命周期 SUBMITTED/STARTED/SUCCEEDED/FAILED
+/manipulator/task_stage                         sealien_ctrlpilot_manipulator_orion_mtc_msgs/TaskStage         ~阶段切换    MTC 阶段 ENTER/RUNNING/DONE/FAILED
+/manipulator/runtime_status                     sealien_ctrlpilot_manipulator_orion_mtc_msgs/RuntimeStatus     ~2 Hz        队列与 task_mode 快照
+/manipulator/held_object_state                  sealien_ctrlpilot_manipulator_orion_mtc_msgs/HeldObjectState   ~事件/变化   持物上下文
+
+## A 机械臂状态与动作
+/joint_states                                   sensor_msgs/JointState                                         ~ArmSensor   rad, frame arm_base_link；velocity 当前多为 0
+/holoocean/rov0/ArmSensor                       holoocean_interfaces/WorkingClassROVArmSensor                  ~仿真 tick   关节 deg + left_arm_gripped
+/manipulator/left_arm_gripped                   std_msgs/Float32                                               ~ArmSensor   抓取真值：>=0.5 为抓稳（见 gripper_feedback.lock_threshold）
+/holoocean/command/agent/arm                    holoocean_interfaces/AgentCommand                              ~50 Hz       实际控制输入，14 维 deg
+/arm_controller/follow_joint_trajectory/_action/feedback   control_msgs/action/FollowJointTrajectory_FeedbackMessage  ~规划执行   规划侧轨迹反馈
+/arm_controller/follow_joint_trajectory/_action/status     action_msgs/msg/GoalStatusArray                            ~规划执行
+/hand_controller/follow_joint_trajectory/_action/feedback   control_msgs/action/FollowJointTrajectory_FeedbackMessage
+/hand_controller/follow_joint_trajectory/_action/status      action_msgs/msg/GoalStatusArray
+
+## A 操作对象与任务目标
+/holoocean/rov0/TargetSensor                    holoocean_interfaces/TargetSensor                              ~仿真       positions/directions/latches + linear/angular_velocities
+/manipulator/target_set                         sealien_ctrlpilot_manipulator_orion_mtc_msgs/TargetSet         ~TargetSensor 多孔位姿 + latches[]；插孔锁存真值 latch>0.5
+/manipulator/object_pose                        geometry_msgs/PoseStamped                                      ~感知桥接   当前选中目标，frame 多为 arm_base_link
+/manipulator/object_axis                        geometry_msgs/Vector3Stamped                                   ~感知桥接   接近/插入轴方向
+/manipulator/perception_state                   sealien_ctrlpilot_manipulator_orion_mtc_msgs/PerceptionState ~TargetSensor 融合快照 + ROV 位姿
+/manipulator/target_insert_holes                  geometry_msgs/PoseArray                                      ~配置/桥接  固定孔位
+/manipulator/insert_rel_state                     sealien_ctrlpilot_manipulator_orion_mtc_msgs/InsertRelativeState  ~50 Hz  插孔段相对位姿；active 自 move to pre-insert ENTER 至 open hand ENTER 前
+
+## A 载体与 TF
+/holoocean/rov0/PoseSensor                      geometry_msgs/PoseWithCovarianceStamped                        ~仿真       ROV 位姿，frame 见 header
+/holoocean/rov0/VelocitySensor                  geometry_msgs/TwistWithCovarianceStamped                       ~仿真       线速度（angular 字段可能为空）
+/holoocean/rov0/IMUSensor                       sensor_msgs/Imu                                                ~60 Hz       角速度/线加速度
+/holoocean/rov0/DepthSensor                     holoocean_interfaces/DepthSensor                               ~30 Hz       深度
+/holoocean/rov0/DVLSensorVelocity               geometry_msgs/TwistWithCovarianceStamped                       ~30 Hz       DVL 速度
+/manipulator/tf                                 tf2_msgs/TFMessage                                             ~变化        含 gripper_tcp、arm_base_link 等
+/manipulator/tf_static                          tf2_msgs/TFMessage                                             静态
+
+## 本仓库当前不提供（data_final B 类）
+# 关节/末端连续力力矩、仿真接触力、碰撞事件真值 — 无对应话题
+
+## 抓取/插孔离散真值（仿真）
+# 抓取：left_arm_gripped >= 0.5（config: gripper_feedback.lock_threshold）
+# 插孔：target_set.latches[i] > 0.5（HoloOcean TargetSensor；job 终态可能与 latch 不一致，见 MTC 日志）
+
+## 插孔 world model 对齐（InsertRelativeState + AgentCommand）
+# 窗口：TARGET_INSERT 的 move to pre-insert ENTER 起，至 open hand ENTER 前（insert_rel_state.active=true）
+# s_t：/manipulator/insert_rel_state（relative_pose 或 lateral/axial/angle_error）
+# a_t：/holoocean/command/agent/arm（~50 Hz，关节 deg）
+# s_{t+1}：下一帧 insert_rel_state；离线用 extract_insert_trajectories.sh 自动对齐 AgentCommand
+
+## 离线抽取工具
+# 脚本: tools/arm_bag_tools/extract_insert_trajectories.sh
+# 输入: bags/<episode_id>/  (job 档，含 insert_rel_state + AgentCommand)
+# 输出: analysis/insert_extract/<episode_id>/transitions.npz  (s, a, s_next)
+# 文档: RECORDING.md §13
