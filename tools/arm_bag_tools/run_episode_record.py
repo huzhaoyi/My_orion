@@ -419,7 +419,7 @@ class EpisodeRecordNode(Node):
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
         self._last_side_grasp_y: Optional[Any] = None
 
-        self._tf_buffer = Buffer(self.get_clock())
+        self._tf_buffer = Buffer(cache_time=rclpy.duration.Duration(seconds=10.0))
         self._tf_listener = TransformListener(self._tf_buffer, self)
 
         self.create_subscription(
