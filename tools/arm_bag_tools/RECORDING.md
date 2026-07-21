@@ -154,7 +154,7 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 
 脚本顺序：
 
-1. 等待抓取位姿（`/manipulator/object_pose_targetsensor`，回退 `/manipulator/object_pose`）
+1. 等待抓取位姿（`/manipulator/target_set` 的 `targets[grasp-index]`，默认 index=0，与 submit_job 一致）
 2. 等待插孔位姿（`/manipulator/target_insert_holes`，默认 index=0）
 3. **开录** → `bags/ep_target_001/`
 4. 缓冲 2 s（`--pre-buffer-sec`）
@@ -189,6 +189,8 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 | `--count` | 1 | 连续 episode 数 |
 | `--prefix` | `ep_target` | 批量 ID 前缀 |
 | `--insert-index` | 0 | 插哪个孔（`target_insert_holes` 下标） |
+| `--grasp-index` | 0 | 抓哪个 Target（`target_set.targets` 下标，与 Web target_0 一致） |
+| `--max-grasp-reach-m` | 1.9 | 抓取位姿 workspace 校验 [m] |
 | `--wait-pose-sec` | 60 | 等待感知超时 [s] |
 | `--pre-buffer-sec` | 2 | 开录后缓冲 [s] |
 | `--post-buffer-sec` | 2 | 停录前缓冲 [s] |

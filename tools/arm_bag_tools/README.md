@@ -95,7 +95,7 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 
 **行为说明**：
 
-- 抓取 keypoint：`/manipulator/object_pose_targetsensor`（回退 `/manipulator/object_pose`）
+- 抓取 keypoint：`/manipulator/target_set` 的 **`targets[--grasp-index]`**（默认 0，与 Web submit_job 一致）
 - 插孔 keypoint：`/manipulator/target_insert_holes` 指定 `--insert-index`（默认 0）
 - 业务走 **`/manipulator/robotic_arm_cmd` Action**（同步）；`jobs.jsonl` 用 Action 结果与时间戳（`robotic_arm_cmd` 路径不一定产生 `job_event`）
 - 录包话题与 `record_arm_chain.sh` job 档一致（含 `/manipulator/insert_rel_state`）

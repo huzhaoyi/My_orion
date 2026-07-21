@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import signal
 import subprocess
 import sys
@@ -34,6 +35,7 @@ from rclpy.qos import qos_profile_sensor_data
 
 try:
     from geometry_msgs.msg import Pose, PoseArray, PoseStamped
+    from sealien_ctrlpilot_manipulator_orion_mtc_msgs.msg import TargetSet
     from sealien_ctrlpilot_manipulator_orion_mtc_msgs.srv import GetRobotState, ResetHeldObject
     from sealien_ctrlpilot_msgmanagement.action import RoboticArmCmd
     from sealien_ctrlpilot_msgmanagement.msg import RoboticArmRequest
@@ -54,6 +56,10 @@ RESULT_SUCCESS = 0
 RESULT_EXEC_FAILED = 1
 RESULT_REJECTED_STATE = 2
 RESULT_REJECTED_NO_HELD = 3
+
+# 与 MTC workspace 硬上限一致（sealien_ctrlpilot_manipulator_orion_mtc_params / handlePick）
+DEFAULT_MAX_GRASP_REACH_M = 1.9
+DEFAULT_GRASP_FRAME = "arm_base_link"
 
 # 与 record_arm_chain.sh JOB_TOPICS 保持一致
 JOB_BAG_TOPICS: List[str] = [
@@ -88,6 +94,30 @@ JOB_BAG_TOPICS: List[str] = [
 
 def iso_now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat()
+
+
+def pose_reach_m(pose: Pose) -> float:
+    x = float(pose.position.x)
+    y = float(pose.position.y)
+    z = float(pose.position.z)
+    return math.sqrt(x * x + y * y + z * z)
+
+
+def normalize_frame_id(frame_id: str) -> str:
+    frame = (frame_id or "").strip()
+    if frame.startswith("/"):
+        frame = frame[1:]
+    return frame or DEFAULT_GRASP_FRAME
+
+
+def is_valid_grasp_pose(stamped: PoseStamped, max_reach_m: float) -> bool:
+    frame = normalize_frame_id(stamped.header.frame_id)
+    if frame != DEFAULT_GRASP_FRAME:
+        return False
+    reach = pose_reach_m(stamped.pose)
+    if not math.isfinite(reach):
+        return False
+    return reach <= max_reach_m
 
 
 def pose_to_dict(pose: Pose, frame: str) -> Dict[str, Any]:
@@ -167,32 +197,36 @@ class JobRecord:
 
 
 class EpisodeRecordNode(Node):
-    """订阅感知位姿、调用 robotic_arm_cmd、复位 episode 间状态。"""
+    """订阅 target_set / 插孔位姿，调用 robotic_arm_cmd、复位 episode 间状态。"""
 
     def __init__(
         self,
-        grasp_topic: str,
+        target_set_topic: str,
+        grasp_index: int,
+        max_grasp_reach_m: float,
         grasp_fallback_topic: str,
         insert_holes_topic: str,
         action_name: str,
         insert_index: int,
     ) -> None:
         super().__init__("episode_record_runner")
-        self._grasp_topic = grasp_topic
+        self._target_set_topic = target_set_topic
+        self._grasp_index = grasp_index
+        self._max_grasp_reach_m = max_grasp_reach_m
         self._grasp_fallback_topic = grasp_fallback_topic
         self._insert_holes_topic = insert_holes_topic
         self._insert_index = insert_index
-        self._latest_grasp_primary: Optional[PoseStamped] = None
+        self._latest_target_set: Optional[TargetSet] = None
         self._latest_grasp_fallback: Optional[PoseStamped] = None
         self._latest_holes: Optional[PoseArray] = None
 
         self.create_subscription(
-            PoseStamped,
-            grasp_topic,
-            self._on_grasp_primary,
+            TargetSet,
+            target_set_topic,
+            self._on_target_set,
             qos_profile_sensor_data,
         )
-        if grasp_fallback_topic and grasp_fallback_topic != grasp_topic:
+        if grasp_fallback_topic:
             self.create_subscription(
                 PoseStamped,
                 grasp_fallback_topic,
@@ -212,15 +246,36 @@ class EpisodeRecordNode(Node):
         self._reset_held_cli = self.create_client(ResetHeldObject, "/manipulator/reset_held_object")
         self._go_ready_cli = self.create_client(Trigger, "/manipulator/go_to_ready")
 
-    def _on_grasp_primary(self, msg: PoseStamped) -> None:
-        self._latest_grasp_primary = msg
+    def _on_target_set(self, msg: TargetSet) -> None:
+        self._latest_target_set = msg
 
     def _on_grasp_fallback(self, msg: PoseStamped) -> None:
         self._latest_grasp_fallback = msg
 
-    def _current_grasp_pose(self) -> Optional[PoseStamped]:
-        if self._latest_grasp_primary is not None:
-            return self._latest_grasp_primary
+    def _grasp_from_target_set(self) -> Optional[Tuple[PoseStamped, str]]:
+        ts = self._latest_target_set
+        if ts is None or len(ts.targets) <= self._grasp_index:
+            return None
+        candidate = ts.targets[self._grasp_index]
+        stamped = PoseStamped()
+        stamped.header = candidate.header
+        if not stamped.header.frame_id:
+            stamped.header.frame_id = ts.header.frame_id or DEFAULT_GRASP_FRAME
+        if not stamped.header.stamp.sec and not stamped.header.stamp.nanosec:
+            stamped.header.stamp = ts.header.stamp
+        stamped.pose = candidate.pose
+        if not is_valid_grasp_pose(stamped, self._max_grasp_reach_m):
+            return None
+        object_id = "target_%d" % self._grasp_index
+        if len(ts.object_ids) > self._grasp_index and ts.object_ids[self._grasp_index]:
+            object_id = str(ts.object_ids[self._grasp_index])
+        return stamped, object_id
+
+    def _grasp_from_fallback(self) -> Optional[PoseStamped]:
+        if self._latest_grasp_fallback is None:
+            return None
+        if not is_valid_grasp_pose(self._latest_grasp_fallback, self._max_grasp_reach_m):
+            return None
         return self._latest_grasp_fallback
 
     def _on_insert_holes(self, msg: PoseArray) -> None:
@@ -229,17 +284,31 @@ class EpisodeRecordNode(Node):
     def wait_for_server(self, timeout_sec: float) -> bool:
         return self._action_client.wait_for_server(timeout_sec=timeout_sec)
 
-    def wait_for_grasp_pose(self, timeout_sec: float) -> PoseStamped:
+    def wait_for_grasp_pose(self, timeout_sec: float) -> Tuple[PoseStamped, str]:
         deadline = time.monotonic() + timeout_sec
+        last_invalid_reach: Optional[float] = None
         while rclpy.ok() and time.monotonic() < deadline:
-            current = self._current_grasp_pose()
-            if current is not None:
-                return current
+            grasp = self._grasp_from_target_set()
+            if grasp is not None:
+                return grasp
+            ts = self._latest_target_set
+            if ts is not None and len(ts.targets) > self._grasp_index:
+                last_invalid_reach = pose_reach_m(ts.targets[self._grasp_index].pose)
+            fallback = self._grasp_from_fallback()
+            if fallback is not None:
+                object_id = "fallback"
+                return fallback, object_id
             rclpy.spin_once(self, timeout_sec=0.2)
-        topics = self._grasp_topic
+        detail = "topic=%s index=%d max_reach=%.3fm" % (
+            self._target_set_topic,
+            self._grasp_index,
+            self._max_grasp_reach_m,
+        )
+        if last_invalid_reach is not None:
+            detail += " last_reach=%.3fm" % last_invalid_reach
         if self._grasp_fallback_topic:
-            topics = "%s / %s" % (self._grasp_topic, self._grasp_fallback_topic)
-        raise TimeoutError("等待抓取位姿超时: %s" % topics)
+            detail += " fallback=%s" % self._grasp_fallback_topic
+        raise TimeoutError("等待有效抓取位姿超时: %s" % detail)
 
     def wait_for_insert_hole(self, timeout_sec: float) -> Tuple[Pose, str]:
         deadline = time.monotonic() + timeout_sec
@@ -356,10 +425,21 @@ def run_single_episode(
 ) -> str:
     """执行一条 episode，返回 episode_outcome 字符串。"""
     node.get_logger().info("episode %s: 等待感知..." % episode_id)
-    grasp_stamped = node.wait_for_grasp_pose(args.wait_pose_sec)
-    grasp_frame = grasp_stamped.header.frame_id or "arm_base_link"
+    grasp_stamped, grasp_object_id = node.wait_for_grasp_pose(args.wait_pose_sec)
+    grasp_frame = grasp_stamped.header.frame_id or DEFAULT_GRASP_FRAME
+    node.get_logger().info(
+        "episode %s: 抓取目标 %s reach=%.3fm pos=(%.3f, %.3f, %.3f)"
+        % (
+            episode_id,
+            grasp_object_id,
+            pose_reach_m(grasp_stamped.pose),
+            grasp_stamped.pose.position.x,
+            grasp_stamped.pose.position.y,
+            grasp_stamped.pose.position.z,
+        )
+    )
     insert_pose: Optional[Pose] = None
-    insert_frame = "arm_base_link"
+    insert_frame = DEFAULT_GRASP_FRAME
     if not args.pick_only:
         insert_pose, insert_frame = node.wait_for_insert_hole(args.wait_pose_sec)
 
@@ -370,6 +450,9 @@ def run_single_episode(
     node.get_logger().info("episode %s: 开始录包 -> %s" % (episode_id, bag_dir))
     recorder.start()
     time.sleep(args.pre_buffer_sec)
+
+    grasp_stamped, grasp_object_id = node.wait_for_grasp_pose(min(args.wait_pose_sec, 10.0))
+    grasp_frame = grasp_stamped.header.frame_id or DEFAULT_GRASP_FRAME
 
     pick_started = iso_now()
     pick_task_id = node.get_task_id()
@@ -396,6 +479,9 @@ def run_single_episode(
             termination_reason=result_code_to_reason(pick_code, "PICK"),
             action_result_code=pick_code,
             extra={
+                "target_id": grasp_object_id,
+                "grasp_target_index": args.grasp_index,
+                "grasp_pose_source": args.target_set_topic,
                 "object_initial_pose": pose_to_dict(grasp_stamped.pose, grasp_frame),
                 "grasp_success_gt": {
                     "signal": "/manipulator/left_arm_gripped",
@@ -492,14 +578,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="追加写入的元数据文件",
     )
     parser.add_argument(
-        "--grasp-topic",
-        default="/manipulator/object_pose_targetsensor",
-        help="Target 抓取 keypoint 来源",
+        "--target-set-topic",
+        default="/manipulator/target_set",
+        help="Target 抓取 keypoint 来源（与 submit_job 一致，取 targets[grasp-index]）",
+    )
+    parser.add_argument(
+        "--grasp-index",
+        type=int,
+        default=0,
+        help="抓取 target_set.targets 下标（默认 0，与 Web submit_job target_0 一致）",
+    )
+    parser.add_argument(
+        "--max-grasp-reach-m",
+        type=float,
+        default=DEFAULT_MAX_GRASP_REACH_M,
+        help="抓取位姿相对 arm_base_link 最大允许距离 [m]（须 <= MTC workspace 硬上限）",
     )
     parser.add_argument(
         "--grasp-topic-fallback",
-        default="/manipulator/object_pose",
-        help="抓取位姿回退话题",
+        default="",
+        help="可选回退 PoseStamped 话题；默认禁用（避免 object_pose 误用）",
     )
     parser.add_argument(
         "--insert-holes-topic",
@@ -567,7 +665,9 @@ def main() -> int:
 
     rclpy.init()
     node = EpisodeRecordNode(
-        grasp_topic=args.grasp_topic,
+        target_set_topic=args.target_set_topic,
+        grasp_index=args.grasp_index,
+        max_grasp_reach_m=args.max_grasp_reach_m,
         grasp_fallback_topic=args.grasp_topic_fallback,
         insert_holes_topic=args.insert_holes_topic,
         action_name=args.action_name,
@@ -581,8 +681,15 @@ def main() -> int:
             rclpy.shutdown()
             return 1
         try:
-            node.wait_for_grasp_pose(min(args.wait_pose_sec, 15.0))
-            node.get_logger().info("抓取位姿 OK")
+            grasp_stamped, grasp_object_id = node.wait_for_grasp_pose(min(args.wait_pose_sec, 15.0))
+            node.get_logger().info(
+                "抓取位姿 OK: %s reach=%.3fm frame=%s"
+                % (
+                    grasp_object_id,
+                    pose_reach_m(grasp_stamped.pose),
+                    grasp_stamped.header.frame_id,
+                )
+            )
         except TimeoutError as exc:
             node.get_logger().error(str(exc))
             rclpy.shutdown()
