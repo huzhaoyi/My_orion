@@ -9,7 +9,9 @@ Target 抓取（robotic_arm_cmd type=0）+ 插孔（type=1）episode 自动执�
 用法:
   ./run_episode_record.sh --episode-id ep_target_001
   ./run_episode_record.sh --count 5 --prefix ep_target
-  ./run_episode_record.sh --pick-only --episode-id ep_target_pick_fail_001
+  ./run_episode_record.sh --sample-type pick_fail --episode-id ep_target_pick_fail_001
+  ./run_episode_record.sh --sample-type insert_fail --episode-id ep_target_insert_fail_001
+  ./run_episode_record.sh --failure-set --prefix ep_target
 
 全栈 launch 须已运行；HoloOcean + MTC 就绪且感知话题有数据。
 """
@@ -23,10 +25,11 @@ import signal
 import subprocess
 import sys
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import rclpy
 from rclpy.node import Node
@@ -60,6 +63,14 @@ RESULT_REJECTED_NO_HELD = 3
 # 与 MTC workspace 硬上限一致（sealien_ctrlpilot_manipulator_orion_mtc_params / handlePick）
 DEFAULT_MAX_GRASP_REACH_M = 1.9
 DEFAULT_GRASP_FRAME = "arm_base_link"
+
+SAMPLE_TYPE_SUCCESS = "success"
+SAMPLE_TYPE_PICK_FAIL = "pick_fail"
+SAMPLE_TYPE_INSERT_FAIL = "insert_fail"
+
+# arm_base_link 下故意偏置，用于合成失败样例（可按现场调大/调小）
+DEFAULT_PICK_FAIL_OFFSET_XYZ = [0.12, 0.12, 0.05]
+DEFAULT_INSERT_FAIL_OFFSET_XYZ = [0.10, 0.0, 0.0]
 
 # 与 record_arm_chain.sh JOB_TOPICS 保持一致
 JOB_BAG_TOPICS: List[str] = [
@@ -118,6 +129,73 @@ def is_valid_grasp_pose(stamped: PoseStamped, max_reach_m: float) -> bool:
     if not math.isfinite(reach):
         return False
     return reach <= max_reach_m
+
+
+def copy_pose(pose: Pose) -> Pose:
+    out = Pose()
+    out.position.x = float(pose.position.x)
+    out.position.y = float(pose.position.y)
+    out.position.z = float(pose.position.z)
+    out.orientation.x = float(pose.orientation.x)
+    out.orientation.y = float(pose.orientation.y)
+    out.orientation.z = float(pose.orientation.z)
+    out.orientation.w = float(pose.orientation.w)
+    return out
+
+
+def apply_position_offset(pose: Pose, offset_xyz: Sequence[float]) -> Pose:
+    out = copy_pose(pose)
+    out.position.x += float(offset_xyz[0])
+    out.position.y += float(offset_xyz[1])
+    out.position.z += float(offset_xyz[2])
+    return out
+
+
+def resolve_grasp_offset(args: argparse.Namespace) -> Optional[List[float]]:
+    if args.grasp_offset_xyz is not None:
+        return [float(x) for x in args.grasp_offset_xyz]
+    if args.sample_type == SAMPLE_TYPE_PICK_FAIL:
+        return DEFAULT_PICK_FAIL_OFFSET_XYZ.copy()
+    return None
+
+
+def resolve_insert_offset(args: argparse.Namespace) -> Optional[List[float]]:
+    if args.insert_offset_xyz is not None:
+        return [float(x) for x in args.insert_offset_xyz]
+    if args.sample_type == SAMPLE_TYPE_INSERT_FAIL:
+        return DEFAULT_INSERT_FAIL_OFFSET_XYZ.copy()
+    return None
+
+
+def effective_pick_only(args: argparse.Namespace) -> bool:
+    if args.pick_only:
+        return True
+    return args.sample_type == SAMPLE_TYPE_PICK_FAIL
+
+
+def build_failure_injection_meta(
+    args: argparse.Namespace,
+    grasp_offset: Optional[List[float]],
+    insert_offset: Optional[List[float]],
+    nominal_grasp: Optional[Pose],
+    nominal_insert: Optional[Pose],
+    sent_grasp: Pose,
+    sent_insert: Optional[Pose],
+    grasp_frame: str,
+    insert_frame: str,
+) -> Dict[str, Any]:
+    meta: Dict[str, Any] = {"sample_type": args.sample_type}
+    if grasp_offset is not None:
+        meta["grasp_offset_xyz"] = grasp_offset
+        if nominal_grasp is not None:
+            meta["grasp_pose_nominal"] = pose_to_dict(nominal_grasp, grasp_frame)
+        meta["grasp_pose_sent"] = pose_to_dict(sent_grasp, grasp_frame)
+    if insert_offset is not None and sent_insert is not None:
+        meta["insert_offset_xyz"] = insert_offset
+        if nominal_insert is not None:
+            meta["insert_pose_nominal"] = pose_to_dict(nominal_insert, insert_frame)
+        meta["insert_pose_sent"] = pose_to_dict(sent_insert, insert_frame)
+    return meta
 
 
 def pose_to_dict(pose: Pose, frame: str) -> Dict[str, Any]:
@@ -440,25 +518,75 @@ def run_single_episode(
     )
     insert_pose: Optional[Pose] = None
     insert_frame = DEFAULT_GRASP_FRAME
-    if not args.pick_only:
+    pick_only = effective_pick_only(args)
+    if not pick_only:
         insert_pose, insert_frame = node.wait_for_insert_hole(args.wait_pose_sec)
+
+    grasp_offset = resolve_grasp_offset(args)
+    insert_offset = resolve_insert_offset(args) if not pick_only else None
+    if args.sample_type != SAMPLE_TYPE_SUCCESS and grasp_offset is None and insert_offset is None:
+        node.get_logger().warn("episode %s: sample_type=%s 但未配置偏置" % (episode_id, args.sample_type))
 
     bag_rel = "bags/%s" % bag_dir.name
     records: List[JobRecord] = []
 
     recorder = BagRecorder(bag_dir)
-    node.get_logger().info("episode %s: 开始录包 -> %s" % (episode_id, bag_dir))
+    node.get_logger().info("episode %s: 开始录包 -> %s (sample=%s)" % (episode_id, bag_dir, args.sample_type))
     recorder.start()
     time.sleep(args.pre_buffer_sec)
 
     grasp_stamped, grasp_object_id = node.wait_for_grasp_pose(min(args.wait_pose_sec, 10.0))
     grasp_frame = grasp_stamped.header.frame_id or DEFAULT_GRASP_FRAME
+    nominal_grasp_pose = copy_pose(grasp_stamped.pose)
+    pick_keypoint = copy_pose(grasp_stamped.pose)
+    if grasp_offset is not None:
+        pick_keypoint = apply_position_offset(pick_keypoint, grasp_offset)
+        node.get_logger().info(
+            "episode %s: 抓取偏置 %s -> sent=(%.3f, %.3f, %.3f)"
+            % (
+                episode_id,
+                grasp_offset,
+                pick_keypoint.position.x,
+                pick_keypoint.position.y,
+                pick_keypoint.position.z,
+            )
+        )
+
+    nominal_insert_pose: Optional[Pose] = None
+    insert_keypoint: Optional[Pose] = None
+    if insert_pose is not None:
+        nominal_insert_pose = copy_pose(insert_pose)
+        insert_keypoint = copy_pose(insert_pose)
+        if insert_offset is not None:
+            insert_keypoint = apply_position_offset(insert_keypoint, insert_offset)
+            node.get_logger().info(
+                "episode %s: 插孔偏置 %s -> sent=(%.3f, %.3f, %.3f)"
+                % (
+                    episode_id,
+                    insert_offset,
+                    insert_keypoint.position.x,
+                    insert_keypoint.position.y,
+                    insert_keypoint.position.z,
+                )
+            )
+
+    failure_meta = build_failure_injection_meta(
+        args,
+        grasp_offset,
+        insert_offset,
+        nominal_grasp_pose,
+        nominal_insert_pose,
+        pick_keypoint,
+        insert_keypoint,
+        grasp_frame,
+        insert_frame,
+    )
 
     pick_started = iso_now()
     pick_task_id = node.get_task_id()
     pick_ok, pick_code = node.send_robotic_arm_cmd(
         REQUEST_TYPE_GRASP,
-        grasp_stamped.pose,
+        pick_keypoint,
         grasp_frame,
         args.action_timeout_sec,
     )
@@ -482,7 +610,9 @@ def run_single_episode(
                 "target_id": grasp_object_id,
                 "grasp_target_index": args.grasp_index,
                 "grasp_pose_source": args.target_set_topic,
-                "object_initial_pose": pose_to_dict(grasp_stamped.pose, grasp_frame),
+                "object_initial_pose": pose_to_dict(nominal_grasp_pose, grasp_frame),
+                "grasp_keypoint_sent": pose_to_dict(pick_keypoint, grasp_frame),
+                "failure_injection": failure_meta,
                 "grasp_success_gt": {
                     "signal": "/manipulator/left_arm_gripped",
                     "threshold": 0.5,
@@ -493,20 +623,30 @@ def run_single_episode(
     node.get_logger().info(
         "episode %s: PICK %s (code=%d)" % (episode_id, pick_outcome, pick_code)
     )
+    if args.sample_type == SAMPLE_TYPE_PICK_FAIL and pick_ok:
+        node.get_logger().warn(
+            "episode %s: pick_fail 样例但 PICK 成功，请增大 --grasp-offset-xyz 或换偏置方向"
+            % episode_id
+        )
 
     insert_ok = False
     insert_code = RESULT_EXEC_FAILED
-    if args.pick_only or (not pick_ok and args.skip_insert_on_pick_fail):
-        episode_outcome = "PICK_FAILED" if not pick_ok else "PICK_ONLY"
+    if pick_only or (not pick_ok and args.skip_insert_on_pick_fail):
+        if args.sample_type == SAMPLE_TYPE_PICK_FAIL:
+            episode_outcome = "PICK_FAILED" if not pick_ok else "PICK_FAILED_INJECTION_MISSED"
+        elif not pick_ok:
+            episode_outcome = "PICK_FAILED"
+        else:
+            episode_outcome = "PICK_ONLY"
     else:
-        if insert_pose is None:
+        if insert_keypoint is None:
             raise RuntimeError("插孔位姿未就绪")
         time.sleep(args.between_jobs_sec)
         insert_started = iso_now()
         insert_task_id = node.get_task_id()
         insert_ok, insert_code = node.send_robotic_arm_cmd(
             REQUEST_TYPE_INSERT,
-            insert_pose,
+            insert_keypoint,
             insert_frame,
             args.action_timeout_sec,
         )
@@ -529,7 +669,12 @@ def run_single_episode(
                 action_result_code=insert_code,
                 extra={
                     "target_id": "hole_slot_%d" % args.insert_index,
-                    "target_pose": pose_to_dict(insert_pose, insert_frame),
+                    "target_pose": pose_to_dict(
+                        nominal_insert_pose if nominal_insert_pose is not None else insert_keypoint,
+                        insert_frame,
+                    ),
+                    "insert_keypoint_sent": pose_to_dict(insert_keypoint, insert_frame),
+                    "failure_injection": failure_meta,
                     "insert_latch_gt": {
                         "signal": "/manipulator/target_set.latches",
                         "target_index": args.insert_index,
@@ -542,6 +687,11 @@ def run_single_episode(
         node.get_logger().info(
             "episode %s: INSERT %s (code=%d)" % (episode_id, insert_outcome, insert_code)
         )
+        if args.sample_type == SAMPLE_TYPE_INSERT_FAIL and insert_ok:
+            node.get_logger().warn(
+                "episode %s: insert_fail 样例但 INSERT 成功，请增大 --insert-offset-xyz"
+                % episode_id
+            )
         if pick_ok and insert_ok:
             episode_outcome = "SUCCEEDED"
         elif pick_ok and not insert_ok:
@@ -621,9 +771,38 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="单次 Action 最长等待 [s]",
     )
     parser.add_argument(
+        "--sample-type",
+        choices=[SAMPLE_TYPE_SUCCESS, SAMPLE_TYPE_PICK_FAIL, SAMPLE_TYPE_INSERT_FAIL],
+        default=SAMPLE_TYPE_SUCCESS,
+        help="样例类型：success / pick_fail（抓取偏置+仅 PICK）/ insert_fail（插孔偏置）",
+    )
+    parser.add_argument(
+        "--failure-set",
+        action="store_true",
+        help="连续录 3 条：{prefix}_ok_001、{prefix}_pick_fail_001、{prefix}_insert_fail_001",
+    )
+    parser.add_argument(
+        "--grasp-offset-xyz",
+        nargs=3,
+        type=float,
+        default=None,
+        metavar=("X", "Y", "Z"),
+        help="抓取 keypoint 额外偏置 [m]；pick_fail 未指定时用默认 %s"
+        % DEFAULT_PICK_FAIL_OFFSET_XYZ,
+    )
+    parser.add_argument(
+        "--insert-offset-xyz",
+        nargs=3,
+        type=float,
+        default=None,
+        metavar=("X", "Y", "Z"),
+        help="插孔 keypoint 额外偏置 [m]；insert_fail 未指定时用默认 %s"
+        % DEFAULT_INSERT_FAIL_OFFSET_XYZ,
+    )
+    parser.add_argument(
         "--pick-only",
         action="store_true",
-        help="仅抓取（用于抓失败/抓单独样例）",
+        help="仅抓取停录（pick_fail 样例会自动开启）",
     )
     parser.add_argument(
         "--skip-insert-on-pick-fail",
@@ -655,6 +834,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="只检查话题与 Action，不录包",
     )
     return parser
+
+
+def configure_episode_args(base: argparse.Namespace, sample_type: str) -> argparse.Namespace:
+    ep_args = deepcopy(base)
+    ep_args.sample_type = sample_type
+    if sample_type == SAMPLE_TYPE_PICK_FAIL:
+        ep_args.pick_only = True
+    elif sample_type == SAMPLE_TYPE_INSERT_FAIL:
+        ep_args.pick_only = False
+    return ep_args
+
+
+def build_episode_runs(args: argparse.Namespace) -> List[Tuple[argparse.Namespace, str]]:
+    if args.failure_set:
+        plan = [
+            (SAMPLE_TYPE_SUCCESS, "%s_ok_001" % args.prefix),
+            (SAMPLE_TYPE_PICK_FAIL, "%s_pick_fail_001" % args.prefix),
+            (SAMPLE_TYPE_INSERT_FAIL, "%s_insert_fail_001" % args.prefix),
+        ]
+        return [(configure_episode_args(args, st), eid) for st, eid in plan]
+    runs: List[Tuple[argparse.Namespace, str]] = []
+    for i in range(args.count):
+        if args.episode_id and args.count == 1:
+            ep_id = args.episode_id
+        else:
+            ep_id = "%s_%03d" % (args.prefix, i + 1)
+        runs.append((args, ep_id))
+    return runs
 
 
 def main() -> int:
@@ -694,7 +901,7 @@ def main() -> int:
             node.get_logger().error(str(exc))
             rclpy.shutdown()
             return 1
-        if not args.pick_only:
+        if not effective_pick_only(args):
             try:
                 node.wait_for_insert_hole(min(args.wait_pose_sec, 15.0))
                 node.get_logger().info("插孔位姿 OK")
@@ -702,34 +909,36 @@ def main() -> int:
                 node.get_logger().error(str(exc))
                 rclpy.shutdown()
                 return 1
+        if args.failure_set:
+            node.get_logger().info(
+                "failure-set 将录制: %s_ok_001, %s_pick_fail_001, %s_insert_fail_001"
+                % (args.prefix, args.prefix, args.prefix)
+            )
         node.get_logger().info("dry-run 通过")
         rclpy.shutdown()
         return 0
 
     exit_code = 0
     try:
-        for i in range(args.count):
-            if args.episode_id and args.count == 1:
-                ep_id = args.episode_id
-            else:
-                ep_id = "%s_%03d" % (args.prefix, i + 1)
+        episode_runs = build_episode_runs(args)
+        for run_idx, (ep_args, ep_id) in enumerate(episode_runs):
             bag_dir = bags_root / ep_id
 
-            if args.reset_between:
+            if ep_args.reset_between:
                 node.get_logger().info("episode %s: 复位..." % ep_id)
                 node.reset_between_episodes()
                 time.sleep(2.0)
 
             try:
-                node.wait_for_grasp_pose(args.wait_pose_sec)
+                node.wait_for_grasp_pose(ep_args.wait_pose_sec)
             except TimeoutError as exc:
                 node.get_logger().error(str(exc))
                 raise
 
-            outcome = run_single_episode(node, ep_id, bag_dir, jobs_path, args)
+            outcome = run_single_episode(node, ep_id, bag_dir, jobs_path, ep_args)
             node.get_logger().info("完成 %s -> %s" % (ep_id, outcome))
-            if args.count > 1 and i + 1 < args.count:
-                time.sleep(args.between_jobs_sec)
+            if run_idx + 1 < len(episode_runs):
+                time.sleep(ep_args.between_jobs_sec)
     except Exception as exc:
         node.get_logger().error("episode 失败: %s" % exc)
         exit_code = 1

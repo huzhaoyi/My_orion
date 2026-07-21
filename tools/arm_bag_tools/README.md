@@ -89,15 +89,24 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 # 连续 5 条（每条前 reset_held + go_ready）
 ./run_episode_record.sh --count 5 --prefix ep_target
 
-# 仅抓取（抓失败样例等）
-./run_episode_record.sh --pick-only --episode-id ep_target_pick_fail_001
+# 抓失败样例（keypoint 偏置 + 仅 PICK）
+./run_episode_record.sh --sample-type pick_fail --episode-id ep_target_pick_fail_001
+
+# 插孔失败样例（抓成功 + 插孔 keypoint 偏置）
+./run_episode_record.sh --sample-type insert_fail --episode-id ep_target_insert_fail_001
+
+# 一键：成功 + 抓失败 + 插失败
+./run_episode_record.sh --failure-set --prefix ep_target
 ```
 
 **行为说明**：
 
 - 抓取 keypoint：`/manipulator/target_set` 的 **`targets[--grasp-index]`**（默认 0，与 Web submit_job 一致）
 - 插孔 keypoint：`/manipulator/target_insert_holes` 指定 `--insert-index`（默认 0）
-- 业务走 **`/manipulator/robotic_arm_cmd` Action**（同步）；`jobs.jsonl` 用 Action 结果与时间戳（`robotic_arm_cmd` 路径不一定产生 `job_event`）
+- **`--sample-type pick_fail`**：对抓取 keypoint 加偏置（默认 12 cm XY + 5 cm Z），只发 type=0
+- **`--sample-type insert_fail`**：抓取正常，对插孔 keypoint 加偏置（默认 X +10 cm）
+- **`--failure-set`**：按 `{prefix}_ok_001` / `{prefix}_pick_fail_001` / `{prefix}_insert_fail_001` 连续录 3 条
+- 业务走 **`/manipulator/robotic_arm_cmd` Action**（同步）；`jobs.jsonl` 含 `failure_injection`（偏置与名义/下发位姿）
 - 录包话题与 `record_arm_chain.sh` job 档一致（含 `/manipulator/insert_rel_state`）
 
 **插孔 world model 对齐**（全栈 launch 默认启动 `insert_relative_state` 节点）：
@@ -110,7 +119,7 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 
 离线抽取用 **`./extract_insert_trajectories.sh`**（见 [`RECORDING.md`](RECORDING.md) §13），输出 `analysis/insert_extract/<episode_id>/transitions.npz`。
 
-**失败样例**：脚本不会自动制造失败；需现场扰动（偏目标/偏孔位）或 `--pick-only` 录抓失败 episode。
+**失败样例**：优先用 `--sample-type pick_fail` / `insert_fail` 或 `--failure-set`；`jobs.jsonl` 会记录 `failure_injection`。偏置不足时看日志 WARN 并调 `--grasp-offset-xyz` / `--insert-offset-xyz`。
 
 ## 手动录 episode（备选）
 
@@ -134,9 +143,10 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 
 **建议 episode  mix**：
 
-- 抓+插都成功（`ep_target_001`）
-- 仅抓失败（`ep_target_002`，通常 1 个 job 后停录）
-- 抓成功 + 插失败（`ep_target_003`）
+- 抓+插都成功（`ep_target_001` 或 `{prefix}_ok_001`）
+- 抓失败（`--sample-type pick_fail`）
+- 抓成功 + 插失败（`--sample-type insert_fail`）
+- 或 `./run_episode_record.sh --failure-set --prefix ep_target` 一次录齐
 
 **仿真真值**：
 
