@@ -97,7 +97,6 @@ try:
         compute_grasp_reach_arm_base_link_m,
         get_insert_keypoint_odom,
         load_keypoints_catalog,
-        transform_pose_arm_base_link_to_odom,
     )
 except ImportError as exc:
     print(
@@ -469,45 +468,46 @@ class EpisodeRecordNode(Node):
         self._rov_orientation_xyzw = (float(o.x), float(o.y), float(o.z), float(o.w))
 
     def _transform_pose_to_odom(self, pose: Pose, source_frame: str) -> Optional[PoseStamped]:
+        """
+        arm_base_link / sensor_left_roboticarm → odom，仅走 /tf（与 MTC robotic_arm_cmd 逆变换一致）。
+        禁止 ROV 手算 fallback：与网页 target_set 姿态不一致时会导致抓取/插孔「反了」。
+        """
         frame = normalize_frame_id(source_frame) or PLANNING_FRAME_ID
         stamped = PoseStamped()
         stamped.header.stamp = self.get_clock().now().to_msg()
-        stamped.header.frame_id = frame
         stamped.pose = copy_pose(pose)
-        lookup_frames = [frame, PLANNING_FRAME_ID, TF_TARGET_FRAME]
-        seen: set[str] = set()
-        for src in lookup_frames:
-            if src in seen:
-                continue
-            seen.add(src)
+        src_frames: List[str] = []
+        for candidate in (frame, PLANNING_FRAME_ID, TF_TARGET_FRAME):
+            if candidate and candidate not in src_frames:
+                src_frames.append(candidate)
+        last_err = ""
+        for src in src_frames:
             stamped.header.frame_id = src
             try:
-                transform = self._tf_buffer.lookup_transform(
+                if not self._tf_buffer.can_transform(
                     DEFAULT_KEYPOINT_FRAME_ID,
                     src,
                     rclpy.time.Time(),
                     timeout=rclpy.duration.Duration(seconds=0.5),
+                ):
+                    continue
+                transform = self._tf_buffer.lookup_transform(
+                    DEFAULT_KEYPOINT_FRAME_ID,
+                    src,
+                    rclpy.time.Time(),
+                    timeout=rclpy.duration.Duration(seconds=2.0),
                 )
                 out = do_transform_pose(stamped, transform)
                 out.header.frame_id = DEFAULT_KEYPOINT_FRAME_ID
                 return out
-            except Exception:
+            except Exception as exc:
+                last_err = str(exc)
                 continue
-        if self._rov_position is None or self._rov_orientation_xyzw is None:
-            return None
-        if frame not in (PLANNING_FRAME_ID, TF_TARGET_FRAME, "base_link"):
-            return None
-        out_pose = transform_pose_arm_base_link_to_odom(
-            pose,
-            self._rov_position,
-            self._rov_orientation_xyzw,
-            self._t_arm_in_rov,
+        self.get_logger().warn(
+            "TF %s -> %s 不可用（已跳过 ROV 手算，避免姿态反）: %s"
+            % (src_frames, DEFAULT_KEYPOINT_FRAME_ID, last_err)
         )
-        out = PoseStamped()
-        out.header.stamp = stamped.header.stamp
-        out.header.frame_id = DEFAULT_KEYPOINT_FRAME_ID
-        out.pose = out_pose
-        return out
+        return None
 
     def _grasp_from_target_set(self) -> Optional[Tuple[PoseStamped, str, float]]:
         ts = self._latest_target_set
@@ -577,14 +577,8 @@ class EpisodeRecordNode(Node):
         return stamped, object_id, reach
 
     def _try_grasp_keypoint(self) -> Optional[Tuple[PoseStamped, str, float]]:
-        if self._grasp_keypoint_source == GRASP_KEYPOINT_SOURCE_TARGET_SET:
-            grasp = self._grasp_from_target_set()
-            if grasp is not None:
-                return grasp
+        if self._grasp_keypoint_source == GRASP_KEYPOINT_SOURCE_TARGET_SENSOR:
             return self._grasp_from_target_sensor()
-        grasp = self._grasp_from_target_sensor()
-        if grasp is not None:
-            return grasp
         return self._grasp_from_target_set()
 
     def wait_for_server(self, timeout_sec: float) -> bool:
@@ -761,11 +755,14 @@ def run_single_episode(
     args: argparse.Namespace,
 ) -> str:
     """执行一条 episode，返回 episode_outcome 字符串。"""
-    node.get_logger().info("episode %s: 等待 TargetSensor odom keypoint..." % episode_id)
+    node.get_logger().info("episode %s: 等待 target_set -> odom (TF) 抓取 keypoint..." % episode_id)
     grasp_stamped, grasp_object_id = node.wait_for_grasp_pose(args.wait_pose_sec)
     grasp_frame = grasp_stamped.header.frame_id or DEFAULT_KEYPOINT_FRAME_ID
     grasp_reach_m = 0.0
-    if node._latest_target_sensor and node._rov_position and node._rov_orientation_xyzw:
+    ts = node._latest_target_set
+    if ts is not None and len(ts.targets) > args.grasp_index:
+        grasp_reach_m = pose_reach_m(ts.targets[args.grasp_index].pose)
+    elif node._latest_target_sensor and node._rov_position and node._rov_orientation_xyzw:
         grasp_reach_m = compute_grasp_reach_arm_base_link_m(
             int(node._latest_target_sensor.num_targets),
             list(node._latest_target_sensor.positions),

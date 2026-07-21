@@ -15,7 +15,6 @@ import wsClient from './data/wsClient.js';
 import stateStore from './data/stateStore.js';
 import toast from './ui/toast.js';
 import { initI18n, t } from './data/i18n.js';
-import { computeGraspKeypointOdom, getInsertKeypointOdom } from './data/taskKeypointsOdom.js';
 
 /** 创建各面板 DOM 挂载点、建立 rosbridge 连接并注册全局快捷键与服务封装事件。 */
 function init() {
@@ -164,43 +163,36 @@ function registerGlobalHandlers() {
       const humanIndex = Number.isFinite(humanIndexRaw) ? Math.max(1, Math.floor(humanIndexRaw)) : 1;
       const targetIndex = humanIndex - 1;
       const s = stateStore.getState();
-      if (!s.targetSensorRawValid || !s.targetSensorRaw) {
-        stateStore.pushSystemLog(
-          'warn',
-          'TargetSensor 抓取失败：无 /holoocean/rov0/TargetSensor 数据（odom keypoint 需原始世界系）'
+      const targets = Array.isArray(s.targetSetTargets) ? s.targetSetTargets : [];
+      if (targets.length > 0) {
+        if (targetIndex >= targets.length) {
+          const msg = `TargetSensor 抓取失败：目标索引 ${humanIndex} 越界（当前仅 ${targets.length} 个目标）`;
+          stateStore.pushSystemLog('warn', msg);
+          toast.warn(msg);
+          return;
+        }
+        const target = targets[targetIndex];
+        const object_pose = wsClient.buildPoseStamped(
+          target.position,
+          target.orientation,
+          'arm_base_link'
         );
-        toast.warn('请等待 TargetSensor 数据后再抓取');
-        return;
-      }
-      const rovPose = s.rovPoseInWorld && s.rovPoseInWorld.position && s.rovPoseInWorld.orientation
-        ? s.rovPoseInWorld
-        : null;
-      if (!rovPose) {
-        stateStore.pushSystemLog('warn', 'TargetSensor 抓取失败：无 ROV 位姿（需 /holoocean/rov0/PoseSensor 或 perception_state）');
-        toast.warn('请等待 ROV 位姿后再抓取');
-        return;
-      }
-      const keypoint = computeGraspKeypointOdom(s.targetSensorRaw, targetIndex, rovPose);
-      if (!keypoint) {
-        const msg = `TargetSensor 抓取失败：目标索引 ${humanIndex} 无法生成 odom keypoint`;
-        stateStore.pushSystemLog('warn', msg);
-        toast.warn(msg);
-        return;
-      }
-      wsClient.sendRoboticArmCmd(
-        wsClient.ROBOTIC_ARM_CMD_TYPE.GRASP,
-        { position: keypoint.position, orientation: keypoint.orientation },
-        keypoint.frame_id,
-        (res) => {
-          const wrapped = res && res.result != null ? res.result : res;
-          const resultCode = wrapped && wrapped.result != null ? Number(wrapped.result) : null;
-          const ok = resultCode === 0;
-          const msg = ok
-            ? `${t('toast.pick_target_sensor_ok')} odom (${Number(keypoint.position.x).toFixed(3)}, ${Number(keypoint.position.y).toFixed(3)}, ${Number(keypoint.position.z).toFixed(3)})`.trim()
-            : t('toast.pick_submit_fail');
+        wsClient.submitJob({
+          job_type: wsClient.JOB_TYPE.PICK,
+          grasp_source: wsClient.GRASP_SOURCE.TARGET_SENSOR,
+          object_pose,
+          object_id: `target_${targetIndex}`,
+        }, (res) => {
+          const v = res && res.values ? res.values : res;
+          const ok = v && (v.success === true || v.success === undefined);
+          const jid = (v && v.job_id) || '';
+          const backendMessage = localizeServiceMessage(v && v.message);
+          const msg =
+            backendMessage ||
+            (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
           stateStore.pushSystemLog(
             ok ? 'info' : 'error',
-            `TargetSensor 抓取(目标 ${humanIndex}) robotic_arm_cmd type=0 frame=${keypoint.frame_id}: ${msg}`
+            `TargetSensor 抓取(目标 ${humanIndex}/${targets.length}): ${msg}`
           );
           if (ok) {
             toast.success(msg);
@@ -208,8 +200,44 @@ function registerGlobalHandlers() {
           } else {
             toast.error(msg);
           }
-        }
+        });
+        return;
+      }
+
+      if (!s.targetSensorObjectPose || !s.targetSensorObjectPoseValid) {
+        stateStore.pushSystemLog('warn', 'TargetSensor 抓取失败：当前无可用 target_set 或 target_sensor_object_pose');
+        toast.warn('当前无可用目标位姿，请等待 TargetSensor 数据');
+        return;
+      }
+      const fallbackPose = wsClient.buildPoseStamped(
+        s.targetSensorObjectPose.position,
+        s.targetSensorObjectPose.orientation,
+        'arm_base_link'
       );
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.PICK,
+        grasp_source: wsClient.GRASP_SOURCE.TARGET_SENSOR,
+        object_pose: fallbackPose,
+        object_id: `target_${targetIndex}`,
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const jid = (v && v.job_id) || '';
+        const backendMessage = localizeServiceMessage(v && v.message);
+        const msg =
+          backendMessage ||
+          (ok ? `${t('toast.pick_target_sensor_ok')} ${jid}`.trim() : t('toast.pick_submit_fail'));
+        stateStore.pushSystemLog(
+          ok ? 'warn' : 'error',
+          `TargetSensor 抓取(目标 ${humanIndex}) 使用回退位姿: ${msg}`
+        );
+        if (ok) {
+          toast.success(msg);
+          wsClient.getQueueState(applyQueueStateToStore);
+        } else {
+          toast.error(msg);
+        }
+      });
     },
     'orion:pick:fused': () => {
       if (!wsClient.isConnected()) {
@@ -266,36 +294,76 @@ function registerGlobalHandlers() {
         );
         toast.warn('前端未确认持物，已继续提交插孔（由后端最终判定）');
       }
-      const keypoint = getInsertKeypointOdom(slot);
-      if (!keypoint) {
-        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少 catalog odom 孔位`);
-        toast.warn(`孔位 ${String(slot)} 暂无 odom catalog 目标`);
+      const slotPoseFromHoles = Array.isArray(s.targetInsertHolePoses) ? s.targetInsertHolePoses[slot - 1] : null;
+      if (!slotPoseFromHoles || !slotPoseFromHoles.position) {
+        stateStore.pushSystemLog('warn', `TargetSensor insert: slot=${slot} 缺少固定3孔 arm_base_link 孔位`);
+        toast.warn(`孔位 ${String(slot)} 暂无 arm_base_link 目标（请确认 /manipulator/target_insert_holes）`);
         return;
       }
-      wsClient.sendRoboticArmCmd(
-        wsClient.ROBOTIC_ARM_CMD_TYPE.INSERT,
-        { position: keypoint.position, orientation: keypoint.orientation },
-        keypoint.frame_id,
-        (res) => {
-          const wrapped = res && res.result != null ? res.result : res;
-          const resultCode = wrapped && wrapped.result != null ? Number(wrapped.result) : null;
-          const ok = resultCode === 0;
-          const msg =
-            ok
-              ? `${t('toast.target_insert_ok')} ${keypoint.slot_id}`.trim()
-              : t('toast.target_insert_fail');
-          stateStore.pushSystemLog(
-            ok ? 'info' : 'error',
-            `TargetSensor insert slot=${slot} odom=(${Number(keypoint.position.x).toFixed(3)}, ${Number(keypoint.position.y).toFixed(3)}, ${Number(keypoint.position.z).toFixed(3)}): ${msg}`
-          );
-          if (ok) {
-            toast.success(msg);
-            wsClient.getQueueState(applyQueueStateToStore);
-          } else {
-            toast.error(msg);
-          }
+      const normalizeQuaternion = (q) => {
+        if (!q) {
+          return null;
         }
+        const x = Number(q.x);
+        const y = Number(q.y);
+        const z = Number(q.z);
+        const w = Number(q.w);
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || !Number.isFinite(w)) {
+          return null;
+        }
+        const n = Math.sqrt(x * x + y * y + z * z + w * w);
+        if (!Number.isFinite(n) || n < 1e-8) {
+          return null;
+        }
+        return {
+          x: x / n,
+          y: y / n,
+          z: z / n,
+          w: w / n,
+        };
+      };
+      const orientationFromSlot = normalizeQuaternion(slotPoseFromHoles?.orientation);
+      const orientationFromTarget = normalizeQuaternion(s.targetSensorObjectPose?.orientation);
+      const orientationFromLegacy = normalizeQuaternion(s.objectPose?.orientation);
+      const targetOrientation = orientationFromSlot
+        || orientationFromTarget
+        || orientationFromLegacy
+        || { x: 0, y: 0, z: 0, w: 1 };
+      const orientationSource = orientationFromSlot
+        ? '固定孔位'
+        : (orientationFromTarget ? 'TargetSensor物体位姿' : (orientationFromLegacy ? 'object_pose' : '单位四元数'));
+      const target_pose = wsClient.buildPoseStamped(
+        {
+          x: Number(slotPoseFromHoles.position.x),
+          y: Number(slotPoseFromHoles.position.y),
+          z: Number(slotPoseFromHoles.position.z),
+        },
+        targetOrientation,
+        'arm_base_link'
       );
+      wsClient.submitJob({
+        job_type: wsClient.JOB_TYPE.TARGET_INSERT,
+        target_pose,
+        object_id: `targetsensor_slot_${slot}`,
+      }, (res) => {
+        const v = res && res.values ? res.values : res;
+        const ok = v && (v.success === true || v.success === undefined);
+        const jid = (v && v.job_id) || '';
+        const backendMessage = localizeServiceMessage(v && v.message);
+        const msg =
+          backendMessage ||
+          (ok ? `${t('toast.target_insert_ok')} ${jid}`.trim() : t('toast.target_insert_fail'));
+        stateStore.pushSystemLog(
+          ok ? 'info' : 'error',
+          `TargetSensor insert slot=${slot} arm_base_link=(${Number(target_pose.pose.position.x).toFixed(3)}, ${Number(target_pose.pose.position.y).toFixed(3)}, ${Number(target_pose.pose.position.z).toFixed(3)}), ori=${orientationSource}: ${msg}`
+        );
+        if (ok) {
+          toast.success(msg);
+          wsClient.getQueueState(applyQueueStateToStore);
+        } else {
+          toast.error(msg);
+        }
+      });
     },
     'orion:sync-held': (e) => {
       const tracked = e.detail?.tracked ?? true;

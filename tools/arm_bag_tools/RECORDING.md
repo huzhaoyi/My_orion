@@ -178,8 +178,10 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 
 脚本顺序：
 
-1. 等待 **odom 抓取 keypoint**（默认订阅 `/manipulator/target_set`，与网页 `submit_job` 同源：MTC 已在 **arm_base_link** 算好姿态，脚本经 TF/ROV 变到 **odom** 后下发 `robotic_arm_cmd`）
-2. 等待 **odom 插孔 keypoint**（默认订阅 `/manipulator/target_insert_holes`；catalog 仅作 fallback 或 `--insert-keypoint-source catalog`）
+1. 等待 **odom 抓取 keypoint**（默认 `/manipulator/target_set` → **仅 TF** 变 odom → `robotic_arm_cmd`；与网页 `submit_job` 同源姿态，禁止 ROV 手算）
+2. 等待 **odom 插孔 keypoint**（默认 `/manipulator/target_insert_holes` → TF → type=1）
+
+**网页联调**仍用 `submit_job` + `arm_base_link`（已恢复）；录包走同事 `robotic_arm_cmd` + odom，需全栈 `/tf` 中 odom↔arm 链就绪。
 
 catalog 查找顺序：`--keypoints-catalog` → 自脚本向上搜索 `config/manipulator_task_keypoints_odom.yaml` → `tools/arm_bag_tools/config/` 内置副本。
 3. **开录** → `bags/ep_target_001/`
