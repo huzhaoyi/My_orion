@@ -34,6 +34,9 @@ tools/arm_bag_tools/jobs.jsonl
 tools/arm_bag_tools/analysis/*
 !tools/arm_bag_tools/analysis/.gitkeep
 
+# arm_bag_tools 交付打包产物
+tools/arm_bag_tools/delivery/
+
 # 系统与临时
 .DS_Store
 *.log

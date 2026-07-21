@@ -15,6 +15,7 @@
 | `record_arm_chain.sh`                    | 手动开/停录                                   |
 | `run_episode_record.sh` / `.py`          | 自动执行业务 + 录包 + 写 `jobs.jsonl`             |
 | `extract_insert_trajectories.sh` / `.py` | 从 bag 抽取 `(s_t, a_t, s_{t+1})` → npz/csv |
+| `pack_delivery.sh` / `.py`               | 一键打包 `bags/` + 过滤后 `jobs.jsonl` + `insert_extract` → `delivery/` |
 | `jobs.jsonl.example`                     | 元数据字段模板                                  |
 | `topic_list.txt`                         | 话题类型、频率、单位                               |
 | `README.md`                              | 目录结构与调试分析工具                              |
@@ -399,26 +400,43 @@ python3 -m json.tool <<< "$(tail -1 jobs.jsonl)"
 
 ## 9. 交付清单
 
-交给同事时建议包含：
+推荐一键打包（扫 `bags/*`，过滤与 bag 时间窗匹配的 `jobs.jsonl` 行，复制 `insert_extract`）：
+
+```bash
+./pack_delivery.sh
+# 产出 delivery/arm_bag_delivery_YYYYMMDD_HHMMSS/ 与同名 .tar.gz
+# 仅目录、不打压缩包: ./pack_delivery.sh --no-tar
+```
+
+交付目录结构：
+
+```
+delivery/arm_bag_delivery_YYYYMMDD_HHMMSS/
+├── README_DELIVERY.md
+├── manifest.json
+├── topic_list.txt
+├── jobs.jsonl                             # 全部 episode 过滤后合集
+├── ep_target_001/
+│   ├── bag/                               # rosbag2 原始数据
+│   ├── jobs.jsonl                         # 该 episode 过滤后元数据
+│   └── insert_extract/                    # 若已抽取则含 transitions.npz 等
+└── ...
+```
+
+手工交付时亦可包含：
 
 ```
 tools/arm_bag_tools/
-├── bags/ep_target_001/                    # rosbag2 原始数据
-├── jobs.jsonl                             # episode / job 元数据
-├── topic_list.txt                         # 话题说明（推荐）
-└── analysis/insert_extract/               # 离线抽取结果（推荐）
-    ├── manifest.json                      # 批量处理汇总
-    ├── all_insert_full10.npz              # 可选：合并数据集
-    └── ep_target_001/
-        ├── transitions.npz                # (s, a, s_next) 训练用
-        ├── transitions.csv
-        ├── states.csv
-        └── metadata.json
+├── bags/ep_target_001/
+├── jobs.jsonl
+├── topic_list.txt
+└── analysis/insert_extract/
 ```
 
 说明：
 
 - 一条 bag 内 PICK 与 TARGET_INSERT **按时间连续**；切分用 `jobs.jsonl` 时间戳或 `/manipulator/job_event` / `task_stage`。
+- 同一 `episode_id` 多轮录制时，`pack_delivery` 优先保留与 **当前 bag 时间窗重叠** 的 jobs 行；无重叠则回退最后一次记录并写 WARNING。
 - 插孔训练段由 `extract_insert_trajectories` 从 `insert_rel_state.active=true`（或 TF 重算窗口）自动切片。
 - B 类连续力/接触真值本仿真栈 **不提供**（见 `topic_list.txt` 注释）。
 
@@ -481,9 +499,13 @@ tail -2 jobs.jsonl
 # 离线抽取 (s_t, a_t, s_{t+1})
 ./extract_insert_trajectories.sh bags/ep_target_001 --plot
 ls analysis/insert_extract/ep_target_001/
+
+# 一键打包交付
+./pack_delivery.sh
+ls delivery/
 ```
 
-批量录 + 批量抽：
+批量录 + 批量抽 + 打包：
 
 ```bash
 ./run_episode_record.sh --count 5 --prefix ep_target
@@ -491,6 +513,7 @@ ls analysis/insert_extract/ep_target_001/
   --jobs-jsonl jobs.jsonl \
   --merge-out analysis/insert_extract/all_insert_full10.npz \
   --plot
+./pack_delivery.sh
 ```
 
 ---

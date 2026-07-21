@@ -30,6 +30,7 @@
 | `analyze_arm_bag.sh` | 一键调用 `plot_arm_bag.py`：默认选 `bags/` 下**最近修改**的 bag，结果写入 `analysis/`。 |
 | `plot_arm_bag.py` | 读 bag 目录，画 cmd / sensor / joint_states 对比图；导出 CSV/PNG。 |
 | `extract_insert_trajectories.sh` / `.py` | **从 bag 抽取插孔 (s_t, a_t, s_{t+1})** → npz/csv；详见 [`RECORDING.md`](RECORDING.md) §13 |
+| `pack_delivery.sh` / `.py` | **一键打包交付**：扫 `bags/*` → `delivery/arm_bag_delivery_*/`（含 bag、过滤后 jobs、insert_extract、可选 tar.gz） |
 | `requirements.txt` | 分析脚本依赖：`numpy`、`matplotlib`（与 ROS 环境分离安装时可用 `pip install -r requirements.txt`）。 |
 
 ## 端到端流程（世界模型交付）
@@ -52,6 +53,10 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 # 3. 查看结果
 ls analysis/insert_extract/ep_target_001/
 python3 -c "import numpy as np; d=np.load('analysis/insert_extract/ep_target_001/transitions.npz',allow_pickle=True); print(d['s'].shape, d['state_names'])"
+
+# 4. 一键打包交付（扫 bags/*，过滤 jobs，可选 tar.gz）
+./pack_delivery.sh
+ls delivery/
 ```
 
 批量：
@@ -60,6 +65,7 @@ python3 -c "import numpy as np; d=np.load('analysis/insert_extract/ep_target_001
 ./run_episode_record.sh --count 5 --prefix ep_target
 ./extract_insert_trajectories.sh --jobs-jsonl jobs.jsonl \
   --merge-out analysis/insert_extract/all_insert_full10.npz --plot
+./pack_delivery.sh
 ```
 
 ## 典型流程（联调 / 臂链分析）
