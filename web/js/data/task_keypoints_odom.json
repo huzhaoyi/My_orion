@@ -1,0 +1,23 @@
+{
+  "keypoint_frame": "odom",
+  "grasp": {
+    "offset_along_direction_m": 0.122671
+  },
+  "insert_slots": [
+    {
+      "id": "slot_1",
+      "position_xyz": [-162.649, 85.66733, -131.1388],
+      "orientation_xyzw": [0.0, 0.0, -0.70710678, 0.70710678]
+    },
+    {
+      "id": "slot_2",
+      "position_xyz": [-162.649, 85.43484, -131.1388],
+      "orientation_xyzw": [0.0, 0.0, -0.70710678, 0.70710678]
+    },
+    {
+      "id": "slot_3",
+      "position_xyz": [-162.649, 85.20445, -131.1388],
+      "orientation_xyzw": [0.0, 0.0, -0.70710678, 0.70710678]
+    }
+  ]
+}

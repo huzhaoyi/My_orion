@@ -178,8 +178,8 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 
 脚本顺序：
 
-1. 等待抓取位姿（`/manipulator/target_set` 的 `targets[grasp-index]`，默认 index=0，与 submit_job 一致）
-2. 等待插孔位姿（`/manipulator/target_insert_holes`，默认 index=0）
+1. 等待 **odom 抓取 keypoint**（`/holoocean/rov0/TargetSensor` 世界系 + `config/manipulator_task_keypoints_odom.yaml` 中 `grasp.offset_along_direction_m`，`frame_id=odom`，与同事 `robotic_arm_cmd` 一致）
+2. 从 **catalog** 读取插孔 keypoint（`insert_slots[insert-index]`，`frame_id=odom`；不再依赖 `/manipulator/target_insert_holes` 作为控制输入）
 3. **开录** → `bags/ep_target_001/`
 4. 缓冲 2 s（`--pre-buffer-sec`）
 5. 发 **type=0** Target 抓取
@@ -222,7 +222,7 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 # 生成 bags/ep_target_ok_001、ep_target_pick_fail_001、ep_target_insert_fail_001
 ```
 
-自定义偏置（单位 m，arm_base_link 下）：
+自定义偏置（单位 m，**odom** 下，沿世界轴平移）：
 
 ```bash
 ./run_episode_record.sh --sample-type pick_fail --grasp-offset-xyz 0.15 0.0 0.0 --episode-id ep_custom_pick_fail
@@ -247,8 +247,11 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 | `--episode-id`         | 自动生成        | bag 子目录名                                              |
 | `--count`              | 1           | 连续 episode 数                                          |
 | `--prefix`             | `ep_target` | 批量 ID 前缀                                              |
-| `--insert-index`       | 0           | 插哪个孔（`target_insert_holes` 下标）                        |
-| `--grasp-index`        | 0           | 抓哪个 Target（`target_set.targets` 下标，与 Web target_0 一致） |
+| `--keypoints-catalog`  | `config/manipulator_task_keypoints_odom.yaml` | odom 插孔 catalog；抓取 offset 同源 |
+| `--target-sensor-topic`| `/holoocean/rov0/TargetSensor` | 抓取 keypoint 感知来源（世界系） |
+| `--rov-pose-topic`     | `/holoocean/rov0/PoseSensor` | reach 校验用 ROV 位姿 |
+| `--insert-index`       | 0           | catalog `insert_slots` 下标（slot_1 = 0） |
+| `--grasp-index`        | 0           | TargetSensor 目标下标（与 Web target_0 一致） |
 | `--max-grasp-reach-m`  | 1.9         | 抓取位姿 workspace 校验 [m]                                 |
 | `--wait-pose-sec`      | 60          | 等待感知超时 [s]                                            |
 | `--pre-buffer-sec`     | 2           | 开录后缓冲 [s]                                             |

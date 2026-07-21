@@ -52,6 +52,9 @@ const initialState = {
   targetSensorObjectPoseValid: false,
   targetSensorObjectPose: null,   // perception_state.target_sensor_object_pose（TargetSensor）
   targetSensorSelectedIndex: -1, // perception_state.target_sensor_selected_index；-1 无
+  targetSensorRawValid: false,
+  targetSensorRaw: null,         // /holoocean/rov0/TargetSensor 原始消息（世界系）
+  targetSensorRawUpdatedAt: null,
   targetSetTargets: [],          // /target_set 解析：{ index, objectId, position, orientation }[]
   targetSetValid: false,
   targetSetUpdatedAt: null,
@@ -645,6 +648,29 @@ function setHolooceanArmSensor(msg, topicForRx) {
   }
 }
 
+/** @param {object} msg holoocean_interfaces/TargetSensor */
+function setTargetSensorRaw(msg, topicForRx) {
+  if (!msg || typeof msg !== 'object') {
+    return;
+  }
+  const numTargets = Number(msg.num_targets ?? 0);
+  if (!Number.isFinite(numTargets) || numTargets <= 0) {
+    return;
+  }
+  const patch = {
+    targetSensorRaw: msg,
+    targetSensorRawValid: true,
+    targetSensorRawUpdatedAt: Date.now(),
+  };
+  if (topicForRx) {
+    const key = normalizeRosTopicKey(topicForRx);
+    if (key) {
+      patch.rosTopicLastRxAt = { ...(state.rosTopicLastRxAt || {}), [key]: Date.now() };
+    }
+  }
+  setState(patch);
+}
+
 function setRovPoseInBaseLink(poseStampedOrNull) {
   if (!poseStampedOrNull) {
     setState({ rovPoseInBaseLink: null });
@@ -925,6 +951,7 @@ export default {
   setKeypointsTrace,
   setJointState,
   setHolooceanArmSensor,
+  setTargetSensorRaw,
   setTrajectoryPoints,
   setRovPoseInBaseLink,
   setPerceptionState,

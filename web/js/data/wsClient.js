@@ -189,6 +189,19 @@ function getArmSensorTopic() {
   return '/holoocean/rov0/ArmSensor';
 }
 
+/** HoloOcean TargetSensor 订阅话题；默认 /holoocean/rov0/TargetSensor，可用 ?target_sensor_topic= 覆盖。 */
+function getTargetSensorTopic() {
+  const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+  const custom = params.get('target_sensor_topic');
+  if (custom) {
+    const t = String(custom).trim();
+    if (t.length > 0) {
+      return t.startsWith('/') ? t.replace(/\/+$/, '') : '/' + t.replace(/\/+$/, '');
+    }
+  }
+  return '/holoocean/rov0/TargetSensor';
+}
+
 /** Web 侧 JointState 订阅话题；默认 /manipulator/web/joint_states，可用 ?joint_states_topic= 覆盖。 */
 function getWebJointStatesTopic() {
   const params = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
@@ -300,6 +313,7 @@ function getSubscribedTopicsFlat() {
   const kp = getKeypointsSubscribeTopic();
   const webJointStates = getWebJointStatesTopic();
   const armSensorTopic = getArmSensorTopic();
+  const targetSensorTopic = getTargetSensorTopic();
   const topics = [
     prefix + '/runtime_status',
     prefix + '/job_event',
@@ -314,6 +328,7 @@ function getSubscribedTopicsFlat() {
     prefix + '/target_insert_holes',
     webJointStates,
     armSensorTopic,
+    targetSensorTopic,
     joyUi + '/manual_mode',
     joyUi + '/throttle_percent',
   ];
@@ -375,6 +390,7 @@ function inferType(topic) {
   if (topic.includes('object_pose')) return 'geometry_msgs/msg/PoseStamped';
   if (topic.includes('joint_states')) return 'sensor_msgs/msg/JointState';
   if (topic.includes('ArmSensor')) return 'holoocean_interfaces/msg/WorkingClassROVArmSensor';
+  if (topic.includes('TargetSensor')) return 'holoocean_interfaces/msg/TargetSensor';
   if (topic.endsWith('/manual_mode')) return 'std_msgs/msg/Bool';
   if (topic.endsWith('/throttle_percent')) return 'std_msgs/msg/Float32';
   return 'std_msgs/msg/String';
@@ -468,6 +484,10 @@ function handleMessage(data) {
   }
   if (data.topic && data.topic.includes('ArmSensor') && data.msg) {
     stateStore.setHolooceanArmSensor(data.msg, data.topic);
+    return;
+  }
+  if (data.topic && data.topic.includes('TargetSensor') && data.msg) {
+    stateStore.setTargetSensorRaw(data.msg, data.topic);
     return;
   }
   if (data.topic && data.topic.endsWith('/perception_state') && data.msg) {
@@ -611,6 +631,16 @@ const GRASP_SOURCE = {
   TARGET_SENSOR: 2,
 };
 
+/** 与 sealien_ctrlpilot_msgmanagement/RoboticArmRequest.type 一致（同事 Action 路径）。 */
+const ROBOTIC_ARM_CMD_TYPE = {
+  GRASP: 0,
+  INSERT: 1,
+  GRASP_CABLE: 2,
+  OPEN_GRIPPER: 3,
+  CLOSE_GRIPPER: 4,
+  GO_READY: 5,
+};
+
 /** 旧版曾用 base_link 表示臂根；与 location 的 ROV base_link 同名，提交前统一为 arm_base_link。 */
 const LEGACY_MANIPULATOR_FRAME_ALIASES = new Set(['base_link']);
 
@@ -670,6 +700,90 @@ function submitJob(options, callback) {
   }
   if (tcp_pose) args.tcp_pose = tcp_pose.pose || tcp_pose;
   callService(getTopicPrefix() + '/submit_job', args, callback);
+}
+
+/**
+ * 调用 /manipulator/robotic_arm_cmd Action（与同事控制链一致，keypoint frame 通常为 odom）。
+ * @param {number} requestType RoboticArmRequest.type
+ * @param {{ position: object, orientation: object }} keypoint geometry_msgs/Pose
+ * @param {string} frameId 如 odom
+ * @param {(result: object|null) => void} callback
+ * @param {{ timeout_ms?: number }} options
+ */
+function sendRoboticArmCmd(requestType, keypoint, frameId, callback, options = {}) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    if (callback) {
+      callback(null);
+    }
+    return;
+  }
+  const action = getTopicPrefix() + '/robotic_arm_cmd';
+  const actionType = 'sealien_ctrlpilot_msgmanagement/action/RoboticArmCmd';
+  const id = `rac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const timeoutMs = Number(options.timeout_ms) > 0 ? Number(options.timeout_ms) : 900000;
+  let settled = false;
+
+  const finish = (result) => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer);
+    }
+    try {
+      ws.removeEventListener('message', handler);
+    } catch (_) {
+      /* ignore */
+    }
+    if (callback) {
+      callback(result);
+    }
+  };
+
+  const handler = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      if (!data || data.id !== id) {
+        return;
+      }
+      if (data.op === 'action_result') {
+        finish(data.values || data.result || data);
+      } else if (data.op === 'status' && data.level === 'error') {
+        finish(null);
+      }
+    } catch (_) {
+      /* ignore malformed chunks */
+    }
+  };
+
+  const timeoutTimer = setTimeout(() => {
+    stateStore.pushSystemLog('warn', `Action 调用超时: ${action} (${timeoutMs}ms)`);
+    finish(null);
+  }, timeoutMs);
+
+  ws.addEventListener('message', handler);
+  send({
+    op: 'send_action_goal',
+    id,
+    action,
+    action_type: actionType,
+    args: {
+      order: {
+        type: Number(requestType),
+        header: {
+          frame_id: String(frameId || 'odom'),
+          stamp: { sec: 0, nanosec: 0 },
+        },
+        keypoint: {
+          position: keypoint?.position || { x: 0, y: 0, z: 0 },
+          orientation: keypoint?.orientation || { x: 0, y: 0, z: 0, w: 1 },
+        },
+      },
+    },
+    feedback: false,
+    result: true,
+  });
 }
 
 /** get_queue_state 服务，回调队列与 next job 摘要（带服务未就绪重试，与 pick_holoocean 启动时序配合）。 */
@@ -738,8 +852,10 @@ export default {
   isConnected: () => ws && ws.readyState === WebSocket.OPEN,
   JOB_TYPE,
   GRASP_SOURCE,
+  ROBOTIC_ARM_CMD_TYPE,
   buildPoseStamped,
   submitJob,
+  sendRoboticArmCmd,
   getQueueState,
   getRecentJobs,
   checkPick,

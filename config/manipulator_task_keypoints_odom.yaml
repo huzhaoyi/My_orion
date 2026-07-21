@@ -1,0 +1,20 @@
+# 机械臂任务关键点 canonical catalog（odom 系，与同事 robotic_arm_cmd 控制链一致）
+# 数值与 holoocean_bridge_params.yaml 中 targetsensor_slot_*_position/orientation_world 同源
+keypoint_frame: odom
+
+grasp:
+  # 沿 TargetSensor direction 轴向偏移 [m]（关键点到把柄中点）
+  offset_along_direction_m: 0.122671
+
+insert_slots:
+  - id: slot_1
+    position_xyz: [-162.649, 85.66733, -131.1388]
+    orientation_xyzw: [0.0, 0.0, -0.70710678, 0.70710678]
+  - id: slot_2
+    position_xyz: [-162.649, 85.43484, -131.1388]
+    orientation_xyzw: [0.0, 0.0, -0.70710678, 0.70710678]
+  - id: slot_3
+    position_xyz: [-162.649, 85.20445, -131.1388]
+    orientation_xyzw: [0.0, 0.0, -0.70710678, 0.70710678]
+
+source_note: "holoocean_bridge target_sensor_to_object_pose targetsensor_slot_*_world"

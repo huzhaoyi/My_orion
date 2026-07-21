@@ -101,7 +101,8 @@ cp jobs.jsonl.example jobs.jsonl   # 首次
 
 **行为说明**：
 
-- 抓取 keypoint：`/manipulator/target_set` 的 **`targets[--grasp-index]`**（默认 0，与 Web submit_job 一致）
+- 抓取 keypoint：`/holoocean/rov0/TargetSensor` 世界系 → **`robotic_arm_cmd` + `frame_id=odom`**（catalog：`config/manipulator_task_keypoints_odom.yaml`）
+- 插孔 keypoint：catalog **`insert_slots[--insert-index]`**（odom，与同事路径一致；`/manipulator/target_insert_holes` 仍录包作感知 s_t）
 - 插孔 keypoint：`/manipulator/target_insert_holes` 指定 `--insert-index`（默认 0）
 - **`--sample-type pick_fail`**：对抓取 keypoint 加偏置（默认 12 cm XY + 5 cm Z），只发 type=0
 - **`--sample-type insert_fail`**：抓取正常，对插孔 keypoint 加偏置（默认 X +10 cm）
