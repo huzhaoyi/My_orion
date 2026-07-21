@@ -175,18 +175,11 @@ def get_insert_keypoint_odom(catalog: Dict[str, Any], insert_index: int) -> Tupl
     return pose, catalog["keypoint_frame"], str(slot["id"])
 
 
-def compute_grasp_keypoint_odom_from_target_sensor(
-    num_targets: int,
+def _target_sensor_vectors_at_index(
     positions: Sequence[float],
     directions: Sequence[float],
     grasp_index: int,
-    grasp_offset_along_direction_m: float,
-    last_side_grasp_y: Optional[np.ndarray] = None,
-) -> Tuple[Pose, str, np.ndarray]:
-    if num_targets <= 0:
-        raise ValueError("TargetSensor num_targets<=0")
-    if grasp_index < 0 or grasp_index >= num_targets:
-        raise IndexError("grasp_index=%d 越界（num_targets=%d）" % (grasp_index, num_targets))
+) -> Tuple[np.ndarray, np.ndarray]:
     i = grasp_index * 3
     if len(positions) < i + 3 or len(directions) < i + 3:
         raise ValueError("TargetSensor positions/directions 长度不足")
@@ -197,19 +190,161 @@ def compute_grasp_keypoint_odom_from_target_sensor(
         d_world = np.array([0.0, 0.0, 1.0], dtype=float)
     else:
         d_world = d_world / dn
-    p_grasp = p_world + d_world * float(grasp_offset_along_direction_m)
-    R_grasp = _rotation_matrix_side_grasp_from_direction(d_world, last_side_grasp_y)
-    y_out = np.array(R_grasp[:, 1], dtype=float)
-    qx, qy, qz, qw = _quat_from_rotation_matrix(R_grasp)
+    return p_world, d_world
+
+
+def compute_grasp_keypoint_arm_base_link_from_target_sensor(
+    num_targets: int,
+    positions: Sequence[float],
+    directions: Sequence[float],
+    grasp_index: int,
+    grasp_offset_along_direction_m: float,
+    rov_position_xyz: Sequence[float],
+    rov_orientation_xyzw: Sequence[float],
+    t_arm_in_rov: Sequence[float],
+    position_offset_xyz: Sequence[float] = (0.0, 0.0, 0.0),
+    last_side_grasp_y: Optional[np.ndarray] = None,
+) -> Tuple[Pose, np.ndarray]:
+    """
+    与 holoocean target_sensor_to_object_pose 一致：侧向抓取系在 arm_base_link 下构造。
+    """
+    if num_targets <= 0:
+        raise ValueError("TargetSensor num_targets<=0")
+    if grasp_index < 0 or grasp_index >= num_targets:
+        raise IndexError("grasp_index=%d 越界（num_targets=%d）" % (grasp_index, num_targets))
+    p_world, d_world = _target_sensor_vectors_at_index(positions, directions, grasp_index)
+    R_rov = _quat_to_rotation_matrix(
+        float(rov_orientation_xyzw[0]),
+        float(rov_orientation_xyzw[1]),
+        float(rov_orientation_xyzw[2]),
+        float(rov_orientation_xyzw[3]),
+    )
+    t_rov = np.array(rov_position_xyz, dtype=float)
+    t_arm = np.array(t_arm_in_rov, dtype=float)
+    offset = np.array(position_offset_xyz, dtype=float)
+    p_rov = R_rov.T @ (p_world - t_rov)
+    p_base = p_rov - t_arm + offset
+    d_base = R_rov.T @ d_world
+    d_base = d_base / max(np.linalg.norm(d_base), 1.0e-9)
+    p_grasp_base = p_base + d_base * float(grasp_offset_along_direction_m)
+    R_grasp_base = _rotation_matrix_side_grasp_from_direction(d_base, last_side_grasp_y)
+    y_out = np.array(R_grasp_base[:, 1], dtype=float)
+    qx, qy, qz, qw = _quat_from_rotation_matrix(R_grasp_base)
     pose = Pose()
-    pose.position.x = float(p_grasp[0])
-    pose.position.y = float(p_grasp[1])
-    pose.position.z = float(p_grasp[2])
+    pose.position.x = float(p_grasp_base[0])
+    pose.position.y = float(p_grasp_base[1])
+    pose.position.z = float(p_grasp_base[2])
+    pose.orientation.x = qx
+    pose.orientation.y = qy
+    pose.orientation.z = qz
+    pose.orientation.w = qw
+    return pose, y_out
+
+
+def compute_grasp_keypoint_odom_from_target_sensor(
+    num_targets: int,
+    positions: Sequence[float],
+    directions: Sequence[float],
+    grasp_index: int,
+    grasp_offset_along_direction_m: float,
+    rov_position_xyz: Sequence[float],
+    rov_orientation_xyzw: Sequence[float],
+    t_arm_in_rov: Sequence[float],
+    position_offset_xyz: Sequence[float] = (0.0, 0.0, 0.0),
+    last_side_grasp_y: Optional[np.ndarray] = None,
+) -> Tuple[Pose, str, np.ndarray]:
+    """
+    先在 arm_base_link 构造侧向抓取系，再经 ROV 位姿变到 odom/world（与 MTC odom→arm TF 互逆）。
+    """
+    pose_base, y_out = compute_grasp_keypoint_arm_base_link_from_target_sensor(
+        num_targets,
+        positions,
+        directions,
+        grasp_index,
+        grasp_offset_along_direction_m,
+        rov_position_xyz,
+        rov_orientation_xyzw,
+        t_arm_in_rov,
+        position_offset_xyz,
+        last_side_grasp_y,
+    )
+    R_rov = _quat_to_rotation_matrix(
+        float(rov_orientation_xyzw[0]),
+        float(rov_orientation_xyzw[1]),
+        float(rov_orientation_xyzw[2]),
+        float(rov_orientation_xyzw[3]),
+    )
+    t_rov = np.array(rov_position_xyz, dtype=float)
+    t_arm = np.array(t_arm_in_rov, dtype=float)
+    R_grasp_base = _quat_to_rotation_matrix(
+        float(pose_base.orientation.x),
+        float(pose_base.orientation.y),
+        float(pose_base.orientation.z),
+        float(pose_base.orientation.w),
+    )
+    p_rov = np.array(
+        [
+            float(pose_base.position.x) + t_arm[0],
+            float(pose_base.position.y) + t_arm[1],
+            float(pose_base.position.z) + t_arm[2],
+        ],
+        dtype=float,
+    )
+    p_odom = R_rov @ p_rov + t_rov
+    R_odom = R_rov @ R_grasp_base
+    qx, qy, qz, qw = _quat_from_rotation_matrix(R_odom)
+    pose = Pose()
+    pose.position.x = float(p_odom[0])
+    pose.position.y = float(p_odom[1])
+    pose.position.z = float(p_odom[2])
     pose.orientation.x = qx
     pose.orientation.y = qy
     pose.orientation.z = qz
     pose.orientation.w = qw
     return pose, DEFAULT_KEYPOINT_FRAME, y_out
+
+
+def transform_pose_arm_base_link_to_odom(
+    pose_base: Pose,
+    rov_position_xyz: Sequence[float],
+    rov_orientation_xyzw: Sequence[float],
+    t_arm_in_rov: Sequence[float],
+) -> Pose:
+    """arm_base_link 位姿经 ROV 链变到 odom/world（与 MTC odom→arm TF 互逆）。"""
+    R_rov = _quat_to_rotation_matrix(
+        float(rov_orientation_xyzw[0]),
+        float(rov_orientation_xyzw[1]),
+        float(rov_orientation_xyzw[2]),
+        float(rov_orientation_xyzw[3]),
+    )
+    t_rov = np.array(rov_position_xyz, dtype=float)
+    t_arm = np.array(t_arm_in_rov, dtype=float)
+    R_base = _quat_to_rotation_matrix(
+        float(pose_base.orientation.x),
+        float(pose_base.orientation.y),
+        float(pose_base.orientation.z),
+        float(pose_base.orientation.w),
+    )
+    p_rov = np.array(
+        [
+            float(pose_base.position.x) + t_arm[0],
+            float(pose_base.position.y) + t_arm[1],
+            float(pose_base.position.z) + t_arm[2],
+        ],
+        dtype=float,
+    )
+    p_odom = R_rov @ p_rov + t_rov
+    R_odom = R_rov @ R_base
+    qx, qy, qz, qw = _quat_from_rotation_matrix(R_odom)
+    out = Pose()
+    out.position.x = float(p_odom[0])
+    out.position.y = float(p_odom[1])
+    out.position.z = float(p_odom[2])
+    out.orientation.x = qx
+    out.orientation.y = qy
+    out.orientation.z = qz
+    out.orientation.w = qw
+    return out
 
 
 def compute_grasp_reach_arm_base_link_m(

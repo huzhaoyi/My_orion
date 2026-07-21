@@ -28,6 +28,57 @@ export const KEYPOINT_FRAME = catalog.keypoint_frame || 'odom';
 export const GRASP_OFFSET_ALONG_DIRECTION_M = Number(
   catalog.grasp?.offset_along_direction_m ?? 0.122671
 );
+const LEFT_ARM_BASE_IN_ROV = [1.55, 0.5653, -0.283628];
+
+function quatToRotationMatrix(q) {
+  const x = Number(q.x);
+  const y = Number(q.y);
+  const z = Number(q.z);
+  const w = Number(q.w);
+  return [
+    [
+      1.0 - 2.0 * (y * y + z * z),
+      2.0 * (x * y - z * w),
+      2.0 * (x * z + y * w),
+    ],
+    [
+      2.0 * (x * y + z * w),
+      1.0 - 2.0 * (x * x + z * z),
+      2.0 * (y * z - x * w),
+    ],
+    [
+      2.0 * (x * z - y * w),
+      2.0 * (y * z + x * w),
+      1.0 - 2.0 * (x * x + y * y),
+    ],
+  ];
+}
+
+function matMul3(a, b) {
+  const out = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let r = 0; r < 3; r += 1) {
+    for (let c = 0; c < 3; c += 1) {
+      out[r][c] = a[r][0] * b[0][c] + a[r][1] * b[1][c] + a[r][2] * b[2][c];
+    }
+  }
+  return out;
+}
+
+function matVec3(m, v) {
+  return [
+    m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+    m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+    m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+  ];
+}
+
+function matTranspose3(m) {
+  return [
+    [m[0][0], m[1][0], m[2][0]],
+    [m[0][1], m[1][1], m[2][1]],
+    [m[0][2], m[1][2], m[2][2]],
+  ];
+}
 
 const sideGraspYHintByIndex = {};
 
@@ -165,13 +216,17 @@ function rotationMatrixSideGraspFromDirection(direction, yAxisHint) {
 /**
  * @param {{ num_targets?: number, positions?: number[], directions?: number[] }} targetSensor
  * @param {number} graspIndex 0-based
+ * @param {{ position?: object, orientation?: object }} rovPoseWorld /holoocean/rov0/PoseSensor 或 perception_state.rov_pose_in_world
  */
-export function computeGraspKeypointOdom(targetSensor, graspIndex) {
+export function computeGraspKeypointOdom(targetSensor, graspIndex, rovPoseWorld) {
   const numTargets = Number(targetSensor?.num_targets ?? 0);
   if (!Number.isFinite(numTargets) || numTargets <= 0) {
     return null;
   }
   if (graspIndex < 0 || graspIndex >= numTargets) {
+    return null;
+  }
+  if (!rovPoseWorld || !rovPoseWorld.position || !rovPoseWorld.orientation) {
     return null;
   }
   const positions = targetSensor.positions || [];
@@ -180,32 +235,68 @@ export function computeGraspKeypointOdom(targetSensor, graspIndex) {
   if (positions.length < i + 3 || directions.length < i + 3) {
     return null;
   }
-  let dx = Number(directions[i]);
-  let dy = Number(directions[i + 1]);
-  let dz = Number(directions[i + 2]);
-  let dn = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const pxw = Number(positions[i]);
+  const pyw = Number(positions[i + 1]);
+  const pzw = Number(positions[i + 2]);
+  let dxw = Number(directions[i]);
+  let dyw = Number(directions[i + 1]);
+  let dzw = Number(directions[i + 2]);
+  let dn = Math.sqrt(dxw * dxw + dyw * dyw + dzw * dzw);
   if (!Number.isFinite(dn) || dn < 1.0e-9) {
-    dx = 0.0;
-    dy = 0.0;
-    dz = 1.0;
+    dxw = 0.0;
+    dyw = 0.0;
+    dzw = 1.0;
   } else {
-    dx /= dn;
-    dy /= dn;
-    dz /= dn;
+    dxw /= dn;
+    dyw /= dn;
+    dzw /= dn;
   }
-  const px = Number(positions[i]) + dx * GRASP_OFFSET_ALONG_DIRECTION_M;
-  const py = Number(positions[i + 1]) + dy * GRASP_OFFSET_ALONG_DIRECTION_M;
-  const pz = Number(positions[i + 2]) + dz * GRASP_OFFSET_ALONG_DIRECTION_M;
+  const R_rov = quatToRotationMatrix(rovPoseWorld.orientation);
+  const R_rov_t = matTranspose3(R_rov);
+  const t_rov = [
+    Number(rovPoseWorld.position.x),
+    Number(rovPoseWorld.position.y),
+    Number(rovPoseWorld.position.z),
+  ];
+  const p_world = [pxw, pyw, pzw];
+  const d_world = [dxw, dyw, dzw];
+  const p_rel = [p_world[0] - t_rov[0], p_world[1] - t_rov[1], p_world[2] - t_rov[2]];
+  const p_rov = matVec3(R_rov_t, p_rel);
+  const p_base = [
+    p_rov[0] - LEFT_ARM_BASE_IN_ROV[0],
+    p_rov[1] - LEFT_ARM_BASE_IN_ROV[1],
+    p_rov[2] - LEFT_ARM_BASE_IN_ROV[2],
+  ];
+  const d_base = matVec3(R_rov_t, d_world);
+  const d_base_n = Math.sqrt(d_base[0] * d_base[0] + d_base[1] * d_base[1] + d_base[2] * d_base[2]);
+  const d_base_u = d_base_n > 1.0e-9
+    ? [d_base[0] / d_base_n, d_base[1] / d_base_n, d_base[2] / d_base_n]
+    : [0.0, 0.0, 1.0];
+  const p_grasp_base = [
+    p_base[0] + d_base_u[0] * GRASP_OFFSET_ALONG_DIRECTION_M,
+    p_base[1] + d_base_u[1] * GRASP_OFFSET_ALONG_DIRECTION_M,
+    p_base[2] + d_base_u[2] * GRASP_OFFSET_ALONG_DIRECTION_M,
+  ];
   const yHint = sideGraspYHintByIndex[graspIndex];
-  const rot = rotationMatrixSideGraspFromDirection([dx, dy, dz], yHint);
-  if (!rot) {
+  const rotBase = rotationMatrixSideGraspFromDirection(d_base_u, yHint);
+  if (!rotBase) {
     return null;
   }
-  sideGraspYHintByIndex[graspIndex] = [rot[0][1], rot[1][1], rot[2][1]];
-  const orientation = quatFromRotationMatrix(rot);
+  sideGraspYHintByIndex[graspIndex] = [rotBase[0][1], rotBase[1][1], rotBase[2][1]];
+  const p_rov_grasp = [
+    p_grasp_base[0] + LEFT_ARM_BASE_IN_ROV[0],
+    p_grasp_base[1] + LEFT_ARM_BASE_IN_ROV[1],
+    p_grasp_base[2] + LEFT_ARM_BASE_IN_ROV[2],
+  ];
+  const p_odom = matVec3(R_rov, p_rov_grasp);
+  p_odom[0] += t_rov[0];
+  p_odom[1] += t_rov[1];
+  p_odom[2] += t_rov[2];
+  const rotOdom = matMul3(R_rov, rotBase);
+  const orientation = quatFromRotationMatrix(rotOdom);
   return {
     frame_id: KEYPOINT_FRAME,
-    position: { x: px, y: py, z: pz },
+    position: { x: p_odom[0], y: p_odom[1], z: p_odom[2] },
     orientation,
     object_id: `target_${graspIndex}`,
   };

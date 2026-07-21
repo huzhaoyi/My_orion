@@ -172,7 +172,15 @@ function registerGlobalHandlers() {
         toast.warn('请等待 TargetSensor 数据后再抓取');
         return;
       }
-      const keypoint = computeGraspKeypointOdom(s.targetSensorRaw, targetIndex);
+      const rovPose = s.rovPoseInWorld && s.rovPoseInWorld.position && s.rovPoseInWorld.orientation
+        ? s.rovPoseInWorld
+        : null;
+      if (!rovPose) {
+        stateStore.pushSystemLog('warn', 'TargetSensor 抓取失败：无 ROV 位姿（需 /holoocean/rov0/PoseSensor 或 perception_state）');
+        toast.warn('请等待 ROV 位姿后再抓取');
+        return;
+      }
+      const keypoint = computeGraspKeypointOdom(s.targetSensorRaw, targetIndex, rovPose);
       if (!keypoint) {
         const msg = `TargetSensor 抓取失败：目标索引 ${humanIndex} 无法生成 odom keypoint`;
         stateStore.pushSystemLog('warn', msg);

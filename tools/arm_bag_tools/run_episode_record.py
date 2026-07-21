@@ -82,18 +82,22 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 try:
-    from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovarianceStamped
+    from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovarianceStamped
     from holoocean_interfaces.msg import TargetSensor
+    from sealien_ctrlpilot_manipulator_orion_mtc_msgs.msg import TargetSet
     from sealien_ctrlpilot_manipulator_orion_mtc_msgs.srv import GetRobotState, ResetHeldObject
     from sealien_ctrlpilot_msgmanagement.action import RoboticArmCmd
     from sealien_ctrlpilot_msgmanagement.msg import RoboticArmRequest
     from std_srvs.srv import Trigger
+    from tf2_geometry_msgs import do_transform_pose
+    from tf2_ros import Buffer, TransformListener
     from manipulator_keypoints_odom import (
         DEFAULT_KEYPOINT_FRAME,
         compute_grasp_keypoint_odom_from_target_sensor,
         compute_grasp_reach_arm_base_link_m,
         get_insert_keypoint_odom,
         load_keypoints_catalog,
+        transform_pose_arm_base_link_to_odom,
     )
 except ImportError as exc:
     print(
@@ -118,6 +122,14 @@ DEFAULT_KEYPOINT_FRAME_ID = DEFAULT_KEYPOINT_FRAME
 DEFAULT_TARGET_SENSOR_TOPIC = "/holoocean/rov0/TargetSensor"
 DEFAULT_ROV_POSE_TOPIC = "/holoocean/rov0/PoseSensor"
 DEFAULT_LEFT_ARM_BASE_IN_ROV = (1.55, 0.5653, -0.283628)
+DEFAULT_TARGET_SET_TOPIC = "/manipulator/target_set"
+DEFAULT_INSERT_HOLES_TOPIC = "/manipulator/target_insert_holes"
+GRASP_KEYPOINT_SOURCE_TARGET_SET = "target_set"
+GRASP_KEYPOINT_SOURCE_TARGET_SENSOR = "target_sensor"
+INSERT_KEYPOINT_SOURCE_HOLES = "insert_holes"
+INSERT_KEYPOINT_SOURCE_CATALOG = "catalog"
+PLANNING_FRAME_ID = "arm_base_link"
+TF_TARGET_FRAME = "sensor_left_roboticarm"
 
 SAMPLE_TYPE_SUCCESS = "success"
 SAMPLE_TYPE_PICK_FAIL = "pick_fail"
@@ -174,6 +186,13 @@ def normalize_frame_id(frame_id: str) -> str:
     if frame.startswith("/"):
         frame = frame[1:]
     return frame or DEFAULT_KEYPOINT_FRAME_ID
+
+
+def is_valid_grasp_pose_arm_base_link(pose: Pose, max_reach_m: float) -> bool:
+    reach = pose_reach_m(pose)
+    if not math.isfinite(reach):
+        return False
+    return reach <= max_reach_m
 
 
 def is_valid_grasp_keypoint_odom(
@@ -359,38 +378,66 @@ class JobRecord:
 
 
 class EpisodeRecordNode(Node):
-    """订阅 TargetSensor，从 catalog 取插孔 odom keypoint，调用 robotic_arm_cmd。"""
+    """
+    默认与网页 submit_job 同源：target_set / target_insert_holes（arm_base_link）
+    经 TF/ROV 链变到 odom 后下发 robotic_arm_cmd。
+    """
 
     def __init__(
         self,
         catalog: Dict[str, Any],
+        target_set_topic: str,
         target_sensor_topic: str,
         rov_pose_topic: str,
+        insert_holes_topic: str,
         grasp_index: int,
         max_grasp_reach_m: float,
         insert_index: int,
         action_name: str,
+        grasp_keypoint_source: str,
+        insert_keypoint_source: str,
         t_arm_in_rov: Sequence[float] = DEFAULT_LEFT_ARM_BASE_IN_ROV,
     ) -> None:
         super().__init__("episode_record_runner")
         self._catalog = catalog
         self._keypoint_frame = str(catalog.get("keypoint_frame", DEFAULT_KEYPOINT_FRAME_ID))
         self._grasp_offset_m = float(catalog.get("grasp_offset_along_direction_m", 0.122671))
+        self._target_set_topic = target_set_topic
         self._target_sensor_topic = target_sensor_topic
         self._rov_pose_topic = rov_pose_topic
+        self._insert_holes_topic = insert_holes_topic
+        self._grasp_keypoint_source = grasp_keypoint_source
+        self._insert_keypoint_source = insert_keypoint_source
         self._grasp_index = grasp_index
         self._max_grasp_reach_m = max_grasp_reach_m
         self._insert_index = insert_index
         self._t_arm_in_rov = tuple(float(x) for x in t_arm_in_rov)
+        self._latest_target_set: Optional[TargetSet] = None
         self._latest_target_sensor: Optional[TargetSensor] = None
+        self._latest_holes: Optional[PoseArray] = None
         self._rov_position: Optional[Tuple[float, float, float]] = None
         self._rov_orientation_xyzw: Optional[Tuple[float, float, float, float]] = None
         self._last_side_grasp_y: Optional[Any] = None
 
+        self._tf_buffer = Buffer(self.get_clock())
+        self._tf_listener = TransformListener(self._tf_buffer, self)
+
+        self.create_subscription(
+            TargetSet,
+            target_set_topic,
+            self._on_target_set,
+            qos_profile_sensor_data,
+        )
         self.create_subscription(
             TargetSensor,
             target_sensor_topic,
             self._on_target_sensor,
+            qos_profile_sensor_data,
+        )
+        self.create_subscription(
+            PoseArray,
+            insert_holes_topic,
+            self._on_insert_holes,
             qos_profile_sensor_data,
         )
         self.create_subscription(
@@ -406,14 +453,79 @@ class EpisodeRecordNode(Node):
         self._reset_held_cli = self.create_client(ResetHeldObject, "/manipulator/reset_held_object")
         self._go_ready_cli = self.create_client(Trigger, "/manipulator/go_to_ready")
 
+    def _on_target_set(self, msg: TargetSet) -> None:
+        self._latest_target_set = msg
+
     def _on_target_sensor(self, msg: TargetSensor) -> None:
         self._latest_target_sensor = msg
+
+    def _on_insert_holes(self, msg: PoseArray) -> None:
+        self._latest_holes = msg
 
     def _on_rov_pose(self, msg: PoseWithCovarianceStamped) -> None:
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
         self._rov_position = (float(p.x), float(p.y), float(p.z))
         self._rov_orientation_xyzw = (float(o.x), float(o.y), float(o.z), float(o.w))
+
+    def _transform_pose_to_odom(self, pose: Pose, source_frame: str) -> Optional[PoseStamped]:
+        frame = normalize_frame_id(source_frame) or PLANNING_FRAME_ID
+        stamped = PoseStamped()
+        stamped.header.stamp = self.get_clock().now().to_msg()
+        stamped.header.frame_id = frame
+        stamped.pose = copy_pose(pose)
+        lookup_frames = [frame, PLANNING_FRAME_ID, TF_TARGET_FRAME]
+        seen: set[str] = set()
+        for src in lookup_frames:
+            if src in seen:
+                continue
+            seen.add(src)
+            stamped.header.frame_id = src
+            try:
+                transform = self._tf_buffer.lookup_transform(
+                    DEFAULT_KEYPOINT_FRAME_ID,
+                    src,
+                    rclpy.time.Time(),
+                    timeout=rclpy.duration.Duration(seconds=0.5),
+                )
+                out = do_transform_pose(stamped, transform)
+                out.header.frame_id = DEFAULT_KEYPOINT_FRAME_ID
+                return out
+            except Exception:
+                continue
+        if self._rov_position is None or self._rov_orientation_xyzw is None:
+            return None
+        if frame not in (PLANNING_FRAME_ID, TF_TARGET_FRAME, "base_link"):
+            return None
+        out_pose = transform_pose_arm_base_link_to_odom(
+            pose,
+            self._rov_position,
+            self._rov_orientation_xyzw,
+            self._t_arm_in_rov,
+        )
+        out = PoseStamped()
+        out.header.stamp = stamped.header.stamp
+        out.header.frame_id = DEFAULT_KEYPOINT_FRAME_ID
+        out.pose = out_pose
+        return out
+
+    def _grasp_from_target_set(self) -> Optional[Tuple[PoseStamped, str, float]]:
+        ts = self._latest_target_set
+        if ts is None or len(ts.targets) <= self._grasp_index:
+            return None
+        candidate = ts.targets[self._grasp_index]
+        pose_base = copy_pose(candidate.pose)
+        if not is_valid_grasp_pose_arm_base_link(pose_base, self._max_grasp_reach_m):
+            return None
+        source_frame = normalize_frame_id(candidate.header.frame_id) or normalize_frame_id(ts.header.frame_id)
+        odom_stamped = self._transform_pose_to_odom(pose_base, source_frame)
+        if odom_stamped is None:
+            return None
+        object_id = "target_%d" % self._grasp_index
+        if len(ts.object_ids) > self._grasp_index and ts.object_ids[self._grasp_index]:
+            object_id = str(ts.object_ids[self._grasp_index])
+        reach = pose_reach_m(pose_base)
+        return odom_stamped, object_id, reach
 
     def _grasp_from_target_sensor(self) -> Optional[Tuple[PoseStamped, str, float]]:
         ts = self._latest_target_sensor
@@ -428,7 +540,10 @@ class EpisodeRecordNode(Node):
                 list(ts.directions),
                 self._grasp_index,
                 self._grasp_offset_m,
-                self._last_side_grasp_y,
+                self._rov_position,
+                self._rov_orientation_xyzw,
+                self._t_arm_in_rov,
+                last_side_grasp_y=self._last_side_grasp_y,
             )
         except (IndexError, ValueError):
             return None
@@ -461,6 +576,17 @@ class EpisodeRecordNode(Node):
         )
         return stamped, object_id, reach
 
+    def _try_grasp_keypoint(self) -> Optional[Tuple[PoseStamped, str, float]]:
+        if self._grasp_keypoint_source == GRASP_KEYPOINT_SOURCE_TARGET_SET:
+            grasp = self._grasp_from_target_set()
+            if grasp is not None:
+                return grasp
+            return self._grasp_from_target_sensor()
+        grasp = self._grasp_from_target_sensor()
+        if grasp is not None:
+            return grasp
+        return self._grasp_from_target_set()
+
     def wait_for_server(self, timeout_sec: float) -> bool:
         return self._action_client.wait_for_server(timeout_sec=timeout_sec)
 
@@ -468,36 +594,22 @@ class EpisodeRecordNode(Node):
         deadline = time.monotonic() + timeout_sec
         last_invalid_reach: Optional[float] = None
         while rclpy.ok() and time.monotonic() < deadline:
-            grasp = self._grasp_from_target_sensor()
+            grasp = self._try_grasp_keypoint()
             if grasp is not None:
                 stamped, object_id, reach = grasp
                 return stamped, object_id
-            ts = self._latest_target_sensor
-            if (
-                ts is not None
-                and self._rov_position is not None
-                and self._rov_orientation_xyzw is not None
-                and ts.num_targets > self._grasp_index
-            ):
-                last_invalid_reach = compute_grasp_reach_arm_base_link_m(
-                    int(ts.num_targets),
-                    list(ts.positions),
-                    list(ts.directions),
-                    self._grasp_index,
-                    self._grasp_offset_m,
-                    self._rov_position,
-                    self._rov_orientation_xyzw,
-                    self._t_arm_in_rov,
-                )
+            ts = self._latest_target_set
+            if ts is not None and len(ts.targets) > self._grasp_index:
+                last_invalid_reach = pose_reach_m(ts.targets[self._grasp_index].pose)
             rclpy.spin_once(self, timeout_sec=0.2)
         detail = (
-            "topic=%s index=%d max_reach=%.3fm frame=%s catalog=%s"
+            "grasp_source=%s topic_set=%s topic_sensor=%s index=%d max_reach=%.3fm"
             % (
+                self._grasp_keypoint_source,
+                self._target_set_topic,
                 self._target_sensor_topic,
                 self._grasp_index,
                 self._max_grasp_reach_m,
-                self._keypoint_frame,
-                self._catalog.get("path", ""),
             )
         )
         if last_invalid_reach is not None:
@@ -506,9 +618,46 @@ class EpisodeRecordNode(Node):
             detail += " rov_pose=missing(%s)" % self._rov_pose_topic
         raise TimeoutError("等待有效 odom 抓取 keypoint 超时: %s" % detail)
 
-    def get_insert_keypoint(self) -> Tuple[Pose, str, str]:
+    def get_insert_keypoint_catalog(self) -> Tuple[Pose, str, str]:
         pose, frame, slot_id = get_insert_keypoint_odom(self._catalog, self._insert_index)
         return pose, frame, slot_id
+
+    def _insert_from_holes(self) -> Optional[Tuple[Pose, str, str]]:
+        holes = self._latest_holes
+        if holes is None or len(holes.poses) <= self._insert_index:
+            return None
+        pose_base = copy_pose(holes.poses[self._insert_index])
+        source_frame = normalize_frame_id(holes.header.frame_id) or PLANNING_FRAME_ID
+        odom_stamped = self._transform_pose_to_odom(pose_base, source_frame)
+        if odom_stamped is None:
+            return None
+        slot_id = "hole_slot_%d" % self._insert_index
+        slots = self._catalog.get("insert_slots") or []
+        if self._insert_index < len(slots):
+            slot_id = str(slots[self._insert_index].get("id", slot_id))
+        return odom_stamped.pose, DEFAULT_KEYPOINT_FRAME_ID, slot_id
+
+    def wait_for_insert_keypoint(self, timeout_sec: float) -> Tuple[Pose, str, str]:
+        if self._insert_keypoint_source == INSERT_KEYPOINT_SOURCE_CATALOG:
+            return self.get_insert_keypoint_catalog()
+        deadline = time.monotonic() + timeout_sec
+        while rclpy.ok() and time.monotonic() < deadline:
+            insert = self._insert_from_holes()
+            if insert is not None:
+                return insert
+            rclpy.spin_once(self, timeout_sec=0.2)
+        raise TimeoutError(
+            "等待插孔 keypoint 超时: source=%s topic=%s index=%d"
+            % (self._insert_keypoint_source, self._insert_holes_topic, self._insert_index)
+        )
+
+    def get_insert_keypoint(self) -> Tuple[Pose, str, str]:
+        if self._insert_keypoint_source == INSERT_KEYPOINT_SOURCE_CATALOG:
+            return self.get_insert_keypoint_catalog()
+        insert = self._insert_from_holes()
+        if insert is not None:
+            return insert
+        return self.get_insert_keypoint_catalog()
 
     def get_task_id(self) -> str:
         if not self._get_state_cli.wait_for_service(timeout_sec=5.0):
@@ -644,7 +793,7 @@ def run_single_episode(
     insert_slot_id = "hole_slot_%d" % args.insert_index
     pick_only = effective_pick_only(args)
     if not pick_only:
-        insert_pose, insert_frame, insert_slot_id = node.get_insert_keypoint()
+        insert_pose, insert_frame, insert_slot_id = node.wait_for_insert_keypoint(args.wait_pose_sec)
 
     grasp_offset = resolve_grasp_offset(args)
     insert_offset = resolve_insert_offset(args) if not pick_only else None
@@ -734,7 +883,9 @@ def run_single_episode(
                 "keypoint_frame": grasp_frame,
                 "target_id": grasp_object_id,
                 "grasp_target_index": args.grasp_index,
-                "grasp_pose_source": "%s -> %s" % (args.target_sensor_topic, grasp_frame),
+                "grasp_pose_source": "%s -> %s (source=%s)"
+                % (args.target_set_topic, grasp_frame, args.grasp_keypoint_source),
+                "insert_keypoint_source": args.insert_keypoint_source,
                 "keypoints_catalog": args.keypoints_catalog,
                 "object_initial_pose": pose_to_dict(nominal_grasp_pose, grasp_frame),
                 "grasp_keypoint_sent": pose_to_dict(pick_keypoint, grasp_frame),
@@ -861,9 +1012,31 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="odom 插孔 catalog YAML（默认自包根或 tools/arm_bag_tools/config/ 自动查找）",
     )
     parser.add_argument(
+        "--target-set-topic",
+        default=DEFAULT_TARGET_SET_TOPIC,
+        help="target_set 话题（默认抓取 keypoint 来源，与网页 submit_job 一致）",
+    )
+    parser.add_argument(
+        "--insert-holes-topic",
+        default=DEFAULT_INSERT_HOLES_TOPIC,
+        help="target_insert_holes 话题（默认插孔 keypoint 来源）",
+    )
+    parser.add_argument(
+        "--grasp-keypoint-source",
+        choices=[GRASP_KEYPOINT_SOURCE_TARGET_SET, GRASP_KEYPOINT_SOURCE_TARGET_SENSOR],
+        default=GRASP_KEYPOINT_SOURCE_TARGET_SET,
+        help="抓取 keypoint：target_set（默认，与网页一致）或 target_sensor 自算",
+    )
+    parser.add_argument(
+        "--insert-keypoint-source",
+        choices=[INSERT_KEYPOINT_SOURCE_HOLES, INSERT_KEYPOINT_SOURCE_CATALOG],
+        default=INSERT_KEYPOINT_SOURCE_HOLES,
+        help="插孔 keypoint：insert_holes（默认，与网页一致）或 catalog 静态 odom",
+    )
+    parser.add_argument(
         "--target-sensor-topic",
         default=DEFAULT_TARGET_SENSOR_TOPIC,
-        help="TargetSensor 话题（世界系 positions/directions → odom 抓取 keypoint）",
+        help="TargetSensor 话题（grasp-keypoint-source=target_sensor 时使用）",
     )
     parser.add_argument(
         "--rov-pose-topic",
@@ -1020,12 +1193,16 @@ def main() -> int:
     rclpy.init()
     node = EpisodeRecordNode(
         catalog=catalog,
+        target_set_topic=args.target_set_topic,
         target_sensor_topic=args.target_sensor_topic,
         rov_pose_topic=args.rov_pose_topic,
+        insert_holes_topic=args.insert_holes_topic,
         grasp_index=args.grasp_index,
         max_grasp_reach_m=args.max_grasp_reach_m,
         insert_index=args.insert_index,
         action_name=args.action_name,
+        grasp_keypoint_source=args.grasp_keypoint_source,
+        insert_keypoint_source=args.insert_keypoint_source,
     )
 
     if args.dry_run:
@@ -1062,7 +1239,9 @@ def main() -> int:
             return 1
         if not effective_pick_only(args):
             try:
-                insert_pose, insert_frame, slot_id = node.get_insert_keypoint()
+                insert_pose, insert_frame, slot_id = node.wait_for_insert_keypoint(
+                    min(args.wait_pose_sec, 15.0)
+                )
                 node.get_logger().info(
                     "插孔 keypoint OK: %s frame=%s pos=(%.3f, %.3f, %.3f)"
                     % (
