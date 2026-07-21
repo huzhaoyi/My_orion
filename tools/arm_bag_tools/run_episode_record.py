@@ -37,8 +37,47 @@ from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[2]
-DEFAULT_KEYPOINTS_CATALOG = REPO_ROOT / "config" / "manipulator_task_keypoints_odom.yaml"
+CATALOG_FILENAME = "manipulator_task_keypoints_odom.yaml"
+CATALOG_REL_PATH = Path("config") / CATALOG_FILENAME
+
+
+def resolve_keypoints_catalog_path(explicit: Optional[str] = None) -> Optional[Path]:
+    """
+    定位 odom keypoints catalog：
+    1) --keypoints-catalog 显式路径
+    2) 自脚本目录向上搜索 config/manipulator_task_keypoints_odom.yaml
+    3) tools/arm_bag_tools/config/ 内置副本
+    """
+    candidates: List[Path] = []
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    for parent in SCRIPT_DIR.parents:
+        candidates.append(parent / CATALOG_REL_PATH)
+    candidates.append(SCRIPT_DIR / CATALOG_REL_PATH)
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if path.is_file():
+            return path
+    return None
+
+
+def default_keypoints_catalog_path() -> Path:
+    found = resolve_keypoints_catalog_path(None)
+    if found is not None:
+        return found
+    if len(SCRIPT_DIR.parents) >= 3:
+        return SCRIPT_DIR.parents[2] / CATALOG_REL_PATH
+    return SCRIPT_DIR / CATALOG_REL_PATH
+
+
+DEFAULT_KEYPOINTS_CATALOG = default_keypoints_catalog_path()
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
@@ -818,8 +857,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--keypoints-catalog",
-        default=str(DEFAULT_KEYPOINTS_CATALOG),
-        help="odom 插孔 catalog YAML（默认 config/manipulator_task_keypoints_odom.yaml）",
+        default=str(default_keypoints_catalog_path()),
+        help="odom 插孔 catalog YAML（默认自包根或 tools/arm_bag_tools/config/ 自动查找）",
     )
     parser.add_argument(
         "--target-sensor-topic",
@@ -958,9 +997,18 @@ def main() -> int:
     args = parser.parse_args()
     bags_root = Path(args.bags_root)
     jobs_path = Path(args.jobs_jsonl)
-    catalog_path = Path(args.keypoints_catalog)
-    if not catalog_path.is_file():
-        print("catalog 不存在: %s" % catalog_path, file=sys.stderr)
+    catalog_path = resolve_keypoints_catalog_path(args.keypoints_catalog)
+    if catalog_path is None:
+        tried = [str(default_keypoints_catalog_path())]
+        for parent in list(SCRIPT_DIR.parents)[:6]:
+            tried.append(str(parent / CATALOG_REL_PATH))
+        tried.append(str(SCRIPT_DIR / CATALOG_REL_PATH))
+        print(
+            "catalog 不存在。请确认已同步 config/manipulator_task_keypoints_odom.yaml，"
+            "或通过 --keypoints-catalog 指定。\n已尝试:\n  - "
+            + "\n  - ".join(tried),
+            file=sys.stderr,
+        )
         return 1
     try:
         catalog = load_keypoints_catalog(catalog_path)

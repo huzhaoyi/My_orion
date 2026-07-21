@@ -178,8 +178,10 @@ cp jobs.jsonl.example jobs.jsonl   # 仅首次；后续脚本会追加写入
 
 脚本顺序：
 
-1. 等待 **odom 抓取 keypoint**（`/holoocean/rov0/TargetSensor` 世界系 + `config/manipulator_task_keypoints_odom.yaml` 中 `grasp.offset_along_direction_m`，`frame_id=odom`，与同事 `robotic_arm_cmd` 一致）
-2. 从 **catalog** 读取插孔 keypoint（`insert_slots[insert-index]`，`frame_id=odom`；不再依赖 `/manipulator/target_insert_holes` 作为控制输入）
+1. 等待 **odom 抓取 keypoint**（`/holoocean/rov0/TargetSensor` 世界系 + catalog 中 `grasp.offset_along_direction_m`，`frame_id=odom`，与同事 `robotic_arm_cmd` 一致）
+2. 从 **catalog** 读取插孔 keypoint（`insert_slots[insert-index]`，`frame_id=odom`）
+
+catalog 查找顺序：`--keypoints-catalog` → 自脚本向上搜索 `config/manipulator_task_keypoints_odom.yaml` → `tools/arm_bag_tools/config/` 内置副本。
 3. **开录** → `bags/ep_target_001/`
 4. 缓冲 2 s（`--pre-buffer-sec`）
 5. 发 **type=0** Target 抓取
