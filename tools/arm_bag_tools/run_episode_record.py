@@ -89,7 +89,7 @@ try:
     from sealien_ctrlpilot_msgmanagement.action import RoboticArmCmd
     from sealien_ctrlpilot_msgmanagement.msg import RoboticArmRequest
     from std_srvs.srv import Trigger
-    from tf2_geometry_msgs import do_transform_pose
+    from tf2_geometry_msgs.tf2_geometry_msgs import do_transform_pose_stamped
     from tf2_ros import Buffer, TransformListener
     from manipulator_keypoints_odom import (
         DEFAULT_KEYPOINT_FRAME,
@@ -497,7 +497,7 @@ class EpisodeRecordNode(Node):
                     rclpy.time.Time(),
                     timeout=rclpy.duration.Duration(seconds=2.0),
                 )
-                out = do_transform_pose(stamped, transform)
+                out = do_transform_pose_stamped(stamped, transform)
                 out.header.frame_id = DEFAULT_KEYPOINT_FRAME_ID
                 return out
             except Exception as exc:
